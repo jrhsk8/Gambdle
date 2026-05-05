@@ -233,8 +233,8 @@ function rankPoker(cs){
 
 function card(r,s){return{r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]||s};}
 
-//const DEV_OVERRIDE = null; 
-
+const DEV_OVERRIDE = null; 
+/*
 const DEV_OVERRIDE = {
   bjShoe: [
     // Hand 1 — player: A-A  dealer: K-5
@@ -246,6 +246,7 @@ const DEV_OVERRIDE = {
   ],
   rSpin: 17,   // 0–36; omit this line to use the daily spin
 }; 
+*/
 
 // ─── GAME DATA ───────────────────────────────────────
 function genGame(){
