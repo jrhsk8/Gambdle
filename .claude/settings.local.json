@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "PowerShell(head -100)"
+    ]
+  }
+}
