@@ -9,7 +9,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --felt:#0d3a2a;--felt2:#114836;--felt3:#0a2e22;--felt-edge:#07211a;
+  --felt:#16855e;--felt2:#114836;--felt3:#0a2e22;--felt-edge:#0a3127;
   --panel:#14241d;--panel2:#1a2e25;
   --gold:#e6b54a;--gold2:#f5cf6e;--gold-deep:#b3862a;--gold-leaf:#fae092;
   --cream:#f4ead0;
@@ -963,7 +963,7 @@ function doShare(){
   const bjEm=S.bjHistory.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const pkEm=S.pkHistory.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const rEm=rNet>0?'🎰':rNet===0?'🟡':'💸';
-  const t=`🎲 Gambdle #${S.day}\n\n🃏 Blackjack:    ${bjEm}  ${sign(bjNet)}\n♠  Video Poker: ${pkEm}  ${sign(pkNet)}\n🎡 Roulette:    ${rEm}  ${sign(rNet)}\n\n🏆 ${fmt(S.chips)} chips\ngambdle.com`;
+  const t=`🎲 Gambdle #${S.day}\n\n🃏 Blackjack:    ${bjEm}  ${sign(bjNet)}\n♠  Video Poker: ${pkEm}  ${sign(pkNet)}\n🎡 Roulette:    ${rEm}  ${sign(rNet)}\n\n🏆 ${fmt(S.chips)} chips\nhttps://jrhsk8.github.io/Gambdle/`;
   navigator.clipboard.writeText(t).then(()=>toast('Copied! 🎲'));
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
