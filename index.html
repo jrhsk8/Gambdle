@@ -28,8 +28,6 @@ body::before{content:'';position:fixed;inset:0;background-image:repeating-linear
 .logo-sm{font-family:var(--serif);font-size:1.7rem;font-weight:400;background:linear-gradient(180deg,var(--gold-leaf) 0%,var(--gold) 50%,var(--gold-deep) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
 .logo-sub{font-size:.7rem;color:var(--dim);letter-spacing:.22em;text-transform:uppercase;margin-top:5px;font-weight:600}
 .chip-badge{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(180deg,rgba(230,181,74,.12),rgba(230,181,74,.02));border:1.5px solid var(--gold);border-radius:10px;padding:9px 16px;font-family:var(--serif);font-size:1.25rem;font-weight:400;color:var(--gold);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 4px 12px rgba(0,0,0,.3)}
-.chip-badge::before{content:'';width:18px;height:18px;border-radius:50%;flex-shrink:0;background:conic-gradient(from -22.5deg,#a72836 0 45deg,#1a1a1a 45deg 90deg,#a72836 90deg 135deg,#1a1a1a 135deg 180deg,#a72836 180deg 225deg,#1a1a1a 225deg 270deg,#a72836 270deg 315deg,#1a1a1a 315deg 360deg);box-shadow:inset 0 0 0 4px #a72836,0 1px 0 rgba(0,0,0,.3);position:relative}
-.hdr-div{height:1px;background:linear-gradient(90deg,transparent,rgba(230,181,74,.35),transparent);margin-bottom:18px}
 .panel{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid rgba(230,181,74,.1);border-radius:18px;padding:26px 22px;position:relative;overflow:hidden;animation:fadein .3s ease both;box-shadow:inset 0 1px 0 rgba(255,220,140,.06),0 30px 60px -20px rgba(0,0,0,.6),0 8px 16px -8px rgba(0,0,0,.5)}
 .panel::after{content:'';position:absolute;inset:8px;border:1px dashed rgba(230,181,74,.18);border-radius:12px;pointer-events:none}
 .panel::before{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(230,181,74,.06),transparent 70%);pointer-events:none}
@@ -512,7 +510,7 @@ function screenIntro(){
       <div style="font-size:.88rem;color:var(--dim);margin-top:4px">Your final chip count is your leaderboard score</div>
     </div>
     <div class="divider"></div>
-    ${[['🃏','Blackjack','3 hands · Hit, Stand, Double Down, or Split'],['♠','Video Poker','3 hands · Jacks or Better'],['🎡','Roulette','1 spin · Bet anything on the full table']].map(([ic,t,d])=>`
+    ${[['🃏','Blackjack','3 hands · Hit, Stand, Double Down, or Split'],['♠','Video Poker','3 hands · Jacks or Better'],['🎡','Roulette','1 spin · Anything is possible']].map(([ic,t,d])=>`
     <div class="rnd-row"><span class="rnd-ic">${ic}</span><div><div class="rnd-nm">${t}</div><div class="rnd-dc">${d}</div></div></div>`).join('')}
     <div class="divider"></div>
     <button class="btn-gold" onclick="startGame()">Start with ${fmt(START)} chips →</button>
@@ -646,7 +644,7 @@ function screenPoker(){
       <button id="db" class="btn-gold" style="margin-top:12px" onclick="pkDeal()" ${S.pkBet===0?'disabled':''}>Deal →</button>
       <div class="divider"></div>
       <div class="sec">Paytable</div>
-      <div class="ptable">${[['Royal Flush','800×'],['Straight Flush','50×'],['Four of a Kind','25×'],['Full House','9×'],['Flush','6×'],['Straight','4×'],['Three of a Kind','3×'],['Two Pair','2×'],['Jacks or Better','1×']].map(([n,p])=>`<span class="pname">${n}</span><span class="ppay">${p}</span>`).join('')}</div>
+      <div class="ptable">${[['Royal Flush','800x'],['Straight Flush','50x'],['Four of a Kind','25x'],['Full House','9x'],['Flush','6x'],['Straight','4x'],['Three of a Kind','3x'],['Two Pair','2x'],['Jacks or Better','1x']].map(([n,p])=>`<span class="pname">${n}</span><span class="ppay">${p}</span>`).join('')}</div>
     </div>`;
   }
   if(ph==='hold'){
@@ -848,7 +846,7 @@ function bjSplit(){
     S.bjSplitAnimFrom=[0,0];
   }
   S.bjDealerAnimFrom=99;
-  sndDeal();bjCheckSplitHand();
+  bjCheckSplitHand();
 }
 function bjCheckSplitHand(){
   if(hVal(S.bjSplitHands[S.bjSplitActive])>=21){_bjResolving=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},700);}else render();
@@ -902,14 +900,12 @@ function bjNext(){
 // Poker
 function pkDeal(){
   if(!S.pkBet)return;
-  sndDeal();
   S.chips-=S.pkBet;
   S.pkCards=G.pokerDecks[S.pkHand].slice(0,5);
   S.pkHeld=new Set();S.pkPhase='hold';render();
 }
 function toggleHold(i){S.pkHeld.has(i)?S.pkHeld.delete(i):S.pkHeld.add(i);render();}
 function pkDraw(){
-  sndDeal();
   const draw=G.pokerDecks[S.pkHand].slice(5);let di=0;
   S.pkFinal=S.pkCards.map((c,i)=>S.pkHeld.has(i)?c:draw[di++]);
   const res=rankPoker(S.pkFinal);
