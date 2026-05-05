@@ -149,7 +149,7 @@ function mkRng(seed) {
   };
 }
 const getDailySeed = () => { const d=new Date(); return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); };
-const getDayNum = () => { const s=Date.UTC(2026,5,4),n=new Date(); n.setUTCHours(0,0,0,0); return Math.floor((n-s)/86400000)+1; };
+const getDayNum = () => { const s=Date.UTC(2026,5,5),n=new Date(); n.setUTCHours(0,0,0,0); return Math.floor((n-s)/86400000)+1; };
 
 // ─── CARDS ───────────────────────────────────────────
 const SUITS=['♠','♥','♦','♣'], RANKS=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
@@ -342,7 +342,7 @@ function pkDots(){
 function hdr(sub){
   return`<div class="hdr">
     <div><div class="logo-sm">GAMBDLE</div><div class="logo-sub">${sub}</div></div>
-    <div class="chip-badge">${fmt(S.chips)}</div>
+    <div class="chip-badge">💵 ${fmt(S.chips)}</div>
   </div><div class="hdr-div"></div>`;
 }
 
@@ -735,8 +735,8 @@ function screenResults(){
   const bjEm=S.bjHistory.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const pkEm=S.pkHistory.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const rEm=rNet>0?'🎰':rNet===0?'🟡':'💸';
-  const shareText=`🎲 Gambdle #${S.day}\n\n🃏 Blackjack:    ${bjEm}  ${sign(bjNet)}\n♠  Video Poker: ${pkEm}  ${sign(pkNet)}\n🎡 Roulette:    ${rEm}  ${sign(rNet)}\n\n🏆 ${fmt(S.chips)} chips\ngambdle.com`;
-  const msg=S.chips>=3000?'🎰 High Roller!':S.chips>=1500?'📈 Nice run!':S.chips>=1000?'👍 Broke even':S.chips>0?'📉 Tough session':'💀 Busted!';
+  const shareText=`🎰 Gambdle #${S.day}\n\n🃏 Blackjack:    ${bjEm}  ${sign(bjNet)}\n♠  Video Poker: ${pkEm}  ${sign(pkNet)}\n🎡 Roulette:    ${rEm}  ${sign(rNet)}\n\n🏆 ${fmt(S.chips)} chips\ngambdle.com`;
+  const msg=S.chips>=3000?'🎰 High Roller!':S.chips>=1250?'📈 Nice run!':S.chips>=1000?'👍 Not bad!':S.chips>0?'📉 Tough session':'💀 Busted!';
   return`<div class="hdr" style="justify-content:center;flex-direction:column;gap:4px;padding:16px 0 12px"><div class="logo">GAMBDLE</div><div class="logo-sub">Day #${S.day} · Final Score</div></div><div class="hdr-div"></div>
   <div class="panel" style="text-align:center">
     <div style="font-size:2.4rem;margin-bottom:6px">🏆</div>
@@ -963,7 +963,7 @@ function doShare(){
   const bjEm=S.bjHistory.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const pkEm=S.pkHistory.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const rEm=rNet>0?'🎰':rNet===0?'🟡':'💸';
-  const t=`🎲 Gambdle #${S.day}\n\n🃏 Blackjack:    ${bjEm}  ${sign(bjNet)}\n♠  Video Poker: ${pkEm}  ${sign(pkNet)}\n🎡 Roulette:    ${rEm}  ${sign(rNet)}\n\n🏆 ${fmt(S.chips)} chips\nhttps://jrhsk8.github.io/Gambdle/`;
+  const t=`🎰 Gambdle #${S.day}\n\n🃏 Blackjack:    ${bjEm}  ${sign(bjNet)}\n♠  Video Poker: ${pkEm}  ${sign(pkNet)}\n🎡 Roulette:    ${rEm}  ${sign(rNet)}\n\n🏆 ${fmt(S.chips)} chips\nhttps://jrhsk8.github.io/Gambdle/`;
   navigator.clipboard.writeText(t).then(()=>toast('Copied! 🎲'));
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
