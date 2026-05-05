@@ -544,26 +544,36 @@ function screenBJ(){
       const isInitial=activeHand.length===2;
       const can2=S.chips>=S.bjSplitBets[ai]&&isInitial;
       const canResplit=isInitial&&activeHand[0].r===activeHand[1].r&&S.chips>=S.bjSplitBets[ai];
-      return`${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3 · Split')}
+      const af=S.bjSplitAnimFrom[ai]??0;
+      return`${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
       <div class="panel">
         <div style="text-align:center;margin-bottom:12px">
-          <div class="sec">Dealer Shows</div>
-          <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${cardHTML('back','lg')}</div>
+          ${S.bjDealerReveal
+            ?`<div class="sec">Dealer${hVal(S.bjDealer)>21?' · BUST':''}</div>
+              <div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjDealerAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
+              <div class="hand-val ${hVal(S.bjDealer)>21?'bust':''}">${hVal(S.bjDealer)}${hVal(S.bjDealer)>21?' BUST':''}</div>`
+            :`<div class="sec">Dealer Shows</div>
+              <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${cardHTML('back','lg')}</div>`}
         </div>
         <div class="divider"></div>
-        <div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:8px;padding-bottom:2px">
-          ${S.bjSplitHands.map((hand,i)=>{const hv=hVal(hand);const isDone=S.bjSplitDone[i];const isAct=i===ai;const af=S.bjSplitAnimFrom[i]??0;return`<div style="flex:0 0 auto;text-align:center;min-width:72px;opacity:${isAct?1:isDone?0.32:0.5};transition:opacity .2s">
-            <div class="sec" style="font-size:.62rem">${isAct?'▶ H'+(i+1):isDone?'H'+(i+1)+' ✓':'H'+(i+1)}</div>
-            <div class="hand" style="justify-content:center">${hand.map((c,ci)=>{const n=ci>=af;return cardHTML(c,'sm','',n?(ci-af)*0.25+0.05:0,n);}).join('')}</div>
-            <div style="font-size:.95rem;font-weight:700;color:${hv>21?'var(--lose)':'var(--gold2)'};margin-top:3px">${hv}${hv>21?' B':''}</div>
+        ${S.bjSplitHands.length>1?`<div style="display:flex;gap:12px;justify-content:center;margin-bottom:10px">
+          ${S.bjSplitHands.map((hand,i)=>{if(i===ai)return'';const hv=hVal(hand);const isDone=S.bjSplitDone[i];return`<div style="text-align:center;opacity:${isDone?0.35:0.5}">
+            <div class="sec" style="font-size:.6rem">${isDone?'H'+(i+1)+' ✓':'H'+(i+1)}</div>
+            <div class="hand" style="justify-content:center">${hand.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
+            <div style="font-size:.82rem;font-weight:700;color:${hv>21?'var(--lose)':'var(--dim)'};margin-top:2px">${hv}${hv>21?' B':''}</div>
           </div>`;}).join('')}
+        </div><div class="divider"></div>`:''}
+        <div style="text-align:center">
+          <div class="sec">Hand ${ai+1} of ${S.bjSplitHands.length}</div>
+          <div class="hand">${activeHand.map((c,i)=>{const n=i>=af;return cardHTML(c,'lg','',n?(i-af)*0.4+0.1:0,n);}).join('')}</div>
+          <div class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>
         </div>
         <div class="divider"></div>
         <div class="act-btns">
-          <button class="act-btn" onclick="bjHit()" ${bust||done21?'disabled':''}>Hit</button>
-          <button class="act-btn" onclick="bjStand()" ${done21?'disabled':''}>Stand</button>
-          <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21?'disabled':''}>Double</button>
-          <button class="act-btn" onclick="bjSplit()" ${!canResplit||done21?'disabled':''}>Split</button>
+          <button class="act-btn" onclick="bjHit()" ${bust||done21||S.bjDealerReveal?'disabled':''}>Hit</button>
+          <button class="act-btn" onclick="bjStand()" ${done21||S.bjDealerReveal?'disabled':''}>Stand</button>
+          <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21||S.bjDealerReveal?'disabled':''}>Double</button>
+          <button class="act-btn" onclick="bjSplit()" ${!canResplit||done21||S.bjDealerReveal?'disabled':''}>Split</button>
         </div>
         <div class="irow" style="margin-top:10px"><span class="ik">Hand ${ai+1} Bet</span><span class="iv">${fmt(S.bjSplitBets[ai])} chips</span></div>
       </div>`;
@@ -801,7 +811,7 @@ function render(){
 // ─── ACTIONS ─────────────────────────────────────────
 function goTo(s){S.screen=s;render();}
 function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('mediumbet.mp3');else playMp3('smallbet.mp3');}
-function advanceTo(s){sndAdvance();goTo(s);}
+function advanceTo(s){sndAdvance();if(s!=='results'&&S.chips<10)s='results';goTo(s);}
 function startGame(){sndChip('allin');S.screen='bj';S.bjPhase='bet';render();}
 
 // BJ
@@ -830,7 +840,8 @@ function bjHit(){
     S.bjSplitAnimFrom[ai]=hand.length;
     S.bjDealerAnimFrom=99;
     hand.push(G.bjShoe[S.bjIdx++]);
-    if(hVal(hand)>=21){_bjResolving=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},700);}else render();
+    sndCard(100);
+    if(hVal(hand)>=21){_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},700);}else{_noAnim=true;render();}
   }else{
     S.bjAnimFrom=S.bjPlayer.length;
     S.bjDealerAnimFrom=99;
@@ -853,7 +864,8 @@ function bjDouble(){
     S.bjSplitAnimFrom[i]=S.bjSplitHands[i].length;
     S.chips-=S.bjSplitBets[i];S.bjSplitBets[i]*=2;
     S.bjSplitHands[i].push(G.bjShoe[S.bjIdx++]);
-    _bjResolving=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},700);
+    sndCard(100);
+    _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},700);
   }else{
     if(S.chips<S.bjBet)return;
     S.bjAnimFrom=S.bjPlayer.length;
@@ -886,16 +898,17 @@ function bjSplit(){
     S.bjSplitAnimFrom=[0,0];
   }
   S.bjDealerAnimFrom=99;
+  sndCard(100);sndCard(500);
   bjCheckSplitHand();
 }
 function bjCheckSplitHand(){
-  if(hVal(S.bjSplitHands[S.bjSplitActive])>=21){_bjResolving=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},700);}else render();
+  if(hVal(S.bjSplitHands[S.bjSplitActive])>=21){_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},700);}else{_noAnim=true;render();}
 }
 function bjAdvanceSplit(){
   S.bjSplitDone[S.bjSplitActive]=true;
   const next=S.bjSplitDone.indexOf(false);
-  if(next!==-1){S.bjSplitActive=next;bjCheckSplitHand();}
-  else bjResolve();
+  if(next!==-1){S.bjSplitActive=next;sndCard(100);sndCard(500);bjCheckSplitHand();}
+  else bjRevealDealer();
 }
 function bjRevealDealer(){
   S.bjDealerReveal=true;
@@ -953,7 +966,8 @@ function bjNext(){
   S.bjSplit=false;S.bjSplitHands=[];S.bjSplitActive=0;S.bjSplitBets=[];S.bjSplitResults=[];S.bjSplitDone=[];
   S.bjAnimFrom=0;S.bjDealerAnimFrom=0;S.bjSplitAnimFrom=[];S.bjResultAnimPlayer=false;S.bjDealerReveal=false;
   _bjResolving=false;
-  sndAdvance();render();
+  sndAdvance();
+  if(S.chips<10){S.screen='results';render();}else render();
 }
 
 // Poker
@@ -992,7 +1006,7 @@ function pkDraw(){
   }
   setTimeout(revealNext,300);
 }
-function pkNext(){sndAdvance();S.pkBet=0;S.pkPhase='bet';render();}
+function pkNext(){sndAdvance();S.pkBet=0;S.pkPhase='bet';if(S.chips<10){S.screen='results';render();}else render();}
 
 // Roulette
 function pickBet(i){S.rPick=i;render();}
