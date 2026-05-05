@@ -36,7 +36,7 @@ UTH deck deals 9 cards per hand at offset `hand * 9`: [0-1] player hole, [2-3] d
 
 ## Chips & scoring
 Start: `const START = 1000`. All state lives in global `S`; chip count at `S.chips`.
-UTH ante selector capped at `floor(chips/2)` since blind always matches ante.
+`S.uthAnte` stores the **total** bet (ante + blind combined); each equals `uthAnte/2`. Chip selector uses even-only denoms `[10,50,100,500,1000]` to keep halves as integers. Raise amounts are `(uthAnte/2) * mult`.
 
 ## Audio
 Custom mp3s provided for relevant sounds.
@@ -63,3 +63,6 @@ Deployed via github pages: `https://jrhsk8.github.io/Gambdle/` — push to `main
 `curBetRef()` returns `'uthAnte'` on the poker screen when `GAME2==='uth'`.
 
 ## Future ideas / backlog
+blackjack window should not flash / re render when the player is done taking actions. only after going to results
+final player card is incorrectly animated when dealing dealer blackjack cards
+uth should not let you bet an amount that would prevent you from covering the total cost of the hand. ie you should never be in a force fold situation because you don't have the chips to cover

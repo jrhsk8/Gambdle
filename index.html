@@ -370,8 +370,8 @@ function cardHTML(c,sz='md',ex='',dl=0,anim=true){
   </div>`;
 }
 
-function chipSel(maxC,curBet){
-  const ds=[10,25,50,100,500,1000].filter(d=>d<=Math.max(maxC,1));
+function chipSel(maxC,curBet,denoms){
+  const ds=(denoms||[10,25,50,100,500,1000]).filter(d=>d<=Math.max(maxC,1));
   const btns=ds.map(d=>`<button class="chbtn ch-${d}" data-v="${d}" onclick="addChip(${d})" ${curBet+d>maxC?'disabled':''}><span>${d}</span></button>`).join('');
   return`<div class="chip-row">${btns}</div>
   <div class="bet-row">
@@ -806,15 +806,15 @@ function screenUTH(){
   const CAT_NAMES=['High Card','One Pair','Two Pair','Three of a Kind','Straight','Flush','Full House','Four of a Kind','Straight Flush','Royal Flush'];
 
   if(ph==='bet'){
-    const maxAnte=Math.floor(S.chips/2);
+    const maxAnte=S.chips;
     return`${hdr("Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${uthDots()}
       <div class="divider"></div>
-      <div class="sec">Place Ante (Blind matches automatically)</div>
-      ${chipSel(maxAnte,S.uthAnte)}
-      <div style="text-align:center;margin:10px 0;font-size:.85rem;color:var(--dim)">
-        Ante <b style="color:var(--gold)">${fmt(S.uthAnte)}</b> + Blind <b style="color:var(--gold)">${fmt(S.uthAnte)}</b> = <b style="color:var(--cream)">${fmt(S.uthAnte*2)}</b> chips total
+      <div class="sec">Place Bet (Ante + Blind, split evenly)</div>
+      ${chipSel(maxAnte,S.uthAnte,[10,50,100,500,1000])}
+      <div id="uth-summary" style="text-align:center;margin:10px 0;font-size:.85rem;color:var(--dim)">
+        Ante <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> + Blind <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> = <b style="color:var(--cream)">${fmt(S.uthAnte)}</b> chips total
       </div>
       <button id="db" class="btn-gold" style="margin-top:4px" onclick="uthDeal()" ${S.uthAnte===0?'disabled':''}>Deal →</button>
       <div class="divider"></div>
@@ -847,7 +847,7 @@ function screenUTH(){
   </div>`;
 
   const betChips=()=>{
-    const rows=[['Ante',S.uthAnte],['Blind',S.uthAnte]];
+    const rows=[['Ante',S.uthAnte/2],['Blind',S.uthAnte/2]];
     if(S.uthPlay>0)rows.push(['Play ('+S.uthPlayMult+'×)',S.uthPlay]);
     return`<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0">
       ${rows.map(([lbl,amt])=>`<div style="text-align:center;padding:7px 12px;background:rgba(0,0,0,.28);border-radius:8px;border:1px solid rgba(230,181,74,.12)">
@@ -858,7 +858,7 @@ function screenUTH(){
   };
 
   if(ph==='preflop'){
-    const canR4=S.chips>=S.uthAnte*4;
+    const canR4=S.chips>=S.uthAnte*2;
     return`${hdr("Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${dealerRow(false)}
@@ -868,7 +868,7 @@ function screenUTH(){
       ${playerRow(true)}
       ${betChips()}
       <div class="act-btns">
-        <button class="act-btn" onclick="uthRaise(4)" ${canR4?'':'disabled'}>Raise 4× (${fmt(S.uthAnte*4)})</button>
+        <button class="act-btn" onclick="uthRaise(4)" ${canR4?'':'disabled'}>Raise 4× (${fmt(S.uthAnte*2)})</button>
         <button class="act-btn" onclick="uthCheck()">Check</button>
       </div>
       ${uthDots()}
@@ -876,7 +876,7 @@ function screenUTH(){
   }
 
   if(ph==='flop'){
-    const canR2=S.chips>=S.uthAnte*2;
+    const canR2=S.chips>=S.uthAnte;
     return`${hdr("Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${dealerRow(false)}
@@ -888,7 +888,7 @@ function screenUTH(){
       ${S.uthRaised
         ?`<button class="btn-gold" onclick="uthNextStreet()">See Turn &amp; River →</button>`
         :`<div class="act-btns">
-          <button class="act-btn" onclick="uthRaise(2)" ${canR2?'':'disabled'}>Raise 2× (${fmt(S.uthAnte*2)})</button>
+          <button class="act-btn" onclick="uthRaise(2)" ${canR2?'':'disabled'}>Raise 2× (${fmt(S.uthAnte)})</button>
           <button class="act-btn" onclick="uthCheck()">Check</button>
         </div>`}
       ${uthDots()}
@@ -896,7 +896,7 @@ function screenUTH(){
   }
 
   if(ph==='turn'){
-    const canR1=S.chips>=S.uthAnte;
+    const canR1=S.chips>=S.uthAnte/2;
     return`${hdr("Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${dealerRow(false)}
@@ -908,7 +908,7 @@ function screenUTH(){
       ${S.uthRaised
         ?`<button class="btn-gold" onclick="uthNextStreet()">→ Showdown</button>`
         :`<div class="act-btns">
-          <button class="act-btn" onclick="uthRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${fmt(S.uthAnte)})</button>
+          <button class="act-btn" onclick="uthRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${fmt(S.uthAnte/2)})</button>
           <button class="act-btn" style="color:var(--lose);border-color:rgba(239,35,60,.4)" onclick="uthFold()">Fold</button>
         </div>`}
       ${uthDots()}
@@ -1099,7 +1099,7 @@ function bjHit(){
     S.bjDealerAnimFrom=99;
     S.bjPlayer.push(G.bjShoe[S.bjIdx++]);
     sndCard(100);
-    if(hVal(S.bjPlayer)>=21){_bjResolving=true;render();setTimeout(()=>{_bjResolving=false;bjRevealDealer();},700);}else render();
+    if(hVal(S.bjPlayer)>=21){_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjRevealDealer();},700);}else{_noAnim=true;render();}
   }
 }
 function bjStand(){
@@ -1123,7 +1123,7 @@ function bjDouble(){
     S.bjAnimFrom=S.bjPlayer.length;
     S.chips-=S.bjBet;S.bjBet*=2;
     S.bjPlayer.push(G.bjShoe[S.bjIdx++]);
-    _bjResolving=true;render();setTimeout(()=>{_bjResolving=false;bjRevealDealer();},700);
+    _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjRevealDealer();},700);
   }
 }
 function bjSplit(){
@@ -1181,6 +1181,7 @@ function bjAdvanceSplit(){
 function bjRevealDealer(){
   S.bjDealerReveal=true;
   S.bjDealerAnimFrom=1;
+  S.bjAnimFrom=99;S.bjSplitAnimFrom=S.bjSplitAnimFrom.map(()=>99);
   _noAnim=true;render();
   sndCard(100);
   function step(){
@@ -1279,7 +1280,7 @@ function pkNext(){sndAdvance();S.pkBet=0;S.pkPhase='bet';if(S.chips<10){S.screen
 // UTH
 function uthDeal(){
   if(!S.uthAnte)return;
-  S.chips-=S.uthAnte*2;
+  S.chips-=S.uthAnte;
   const dk=G.uthDeck,off=S.uthHand*9;
   S.uthHole=[dk[off],dk[off+1]];
   S.uthDealer=[dk[off+2],dk[off+3]];
@@ -1293,7 +1294,7 @@ function uthDeal(){
   });
 }
 function uthRaise(mult){
-  const bet=S.uthAnte*mult;
+  const bet=(S.uthAnte/2)*mult;
   if(S.chips<bet)return;
   S.chips-=bet;S.uthPlay=bet;S.uthPlayMult=mult;S.uthRaised=true;
   sndChip();
@@ -1321,12 +1322,12 @@ function uthNextStreet(){
 }
 function uthFold(){
   S.uthFolded=true;
-  const ante=S.uthAnte;
+  const ante=S.uthAnte/2;
   S.uthHistory.push({ante,blind:ante,play:0,playMult:0,result:'fold',delta:-(ante*2),anteDelta:-ante,blindDelta:-ante,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false});
   S.uthHand++;S.uthPhase='result';render();
 }
 function uthResolve(){
-  const ante=S.uthAnte,play=S.uthPlay;
+  const ante=S.uthAnte/2,play=S.uthPlay;
   const pb=bestOf7([...S.uthHole,...S.uthComm]);
   const db2=bestOf7([...S.uthDealer,...S.uthComm]);
   const dealerQualifies=db2.cat>=1;
@@ -1380,7 +1381,7 @@ function rFinish(){S.rPhase='result';render();}
 
 // Chips
 function curBetRef(){return S.screen==='bj'?'bjBet':S.screen==='roulette'?'rBet':GAME2==='uth'?'uthAnte':'pkBet';}
-function maxBet(){return(S.screen==='poker'&&GAME2==='uth')?Math.floor(S.chips/2):S.chips;}
+function maxBet(){return(S.screen==='poker'&&GAME2==='uth')?Math.floor(S.chips*2/3):S.chips;}
 function patchBetUI(){
   const k=curBetRef(),bet=S[k],max=maxBet();
   const bv=document.getElementById('bv');
@@ -1391,6 +1392,8 @@ function patchBetUI(){
   if(db)db.disabled=k==='rBet'?(S.rPick===null||bet===0):(bet===0);
   const ai=document.getElementById('ai');
   if(ai)ai.disabled=max===0;
+  const us=document.getElementById('uth-summary');
+  if(us)us.innerHTML=`Ante <b style="color:var(--gold)">${fmt(bet/2)}</b> + Blind <b style="color:var(--gold)">${fmt(bet/2)}</b> = <b style="color:var(--cream)">${fmt(bet)}</b> chips total`;
 }
 function addChip(d){const k=curBetRef();S[k]=Math.min(S[k]+d,maxBet());sndChip();patchBetUI();}
 function clearBet(){S[curBetRef()]=0;patchBetUI();}
