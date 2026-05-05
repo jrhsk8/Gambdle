@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gambdle 🎲</title>
+<title>Gambdle 🎰</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -122,7 +122,7 @@ function mkRng(seed) {
   };
 }
 const getDailySeed = () => { const d=new Date(); return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); };
-const getDayNum = () => { const s=Date.UTC(2025,0,1),n=new Date(); n.setUTCHours(0,0,0,0); return Math.floor((n-s)/86400000)+1; };
+const getDayNum = () => { const s=Date.UTC(2026,5,4),n=new Date(); n.setUTCHours(0,0,0,0); return Math.floor((n-s)/86400000)+1; };
 
 // ─── CARDS ───────────────────────────────────────────
 const SUITS=['♠','♥','♦','♣'], RANKS=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
@@ -208,6 +208,8 @@ function rankPoker(cs){
 
 function card(r,s){return{r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]||s};}
 
+const DEV_OVERRIDE = null;
+/* 
 
 const DEV_OVERRIDE = {
   bjShoe: [
@@ -219,7 +221,9 @@ const DEV_OVERRIDE = {
     card('10','s'), card('10','h'), card('Q','d'), card('2','c'),
   ],
   rSpin: 17,   // 0–36; omit this line to use the daily spin
-};
+}; 
+
+*/
 
 // ─── GAME DATA ───────────────────────────────────────
 function genGame(){
@@ -312,7 +316,7 @@ function pkDots(){
 function hdr(sub){
   return`<div class="hdr">
     <div><div class="logo-sm">GAMBDLE</div><div class="logo-sub">${sub}</div></div>
-    <div class="chip-badge">💰 ${fmt(S.chips)}</div>
+    <div class="chip-badge">💵 ${fmt(S.chips)}</div>
   </div><div class="hdr-div"></div>`;
 }
 
