@@ -204,16 +204,16 @@ body::before {
 .hold-tag { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.08em; height: 14px; color: var(--gold); }
 
 /* --- Roulette Specifics --- */
-.rboard, .rboard-sub { display: grid; grid-template-columns: 28px repeat(12, 1fr) 34px; gap: 3px; margin-bottom: 4px; }
-.rboard { grid-template-rows: 38px 38px 38px; }
-.rboard-sub { grid-auto-rows: 32px; }
-.rn { border: none; border-radius: 4px; cursor: pointer; font-family: var(--f); font-size: 0.85rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; transition: transform 0.1s, box-shadow 0.1s; padding: 0; position: relative; z-index: 1; }
+.rboard, .rboard-sub { display: grid; grid-template-columns: 22px repeat(12, 1fr) 28px; gap: 2px; margin-bottom: 4px; }
+.rboard { grid-template-rows: 32px 32px 32px; }
+.rboard-sub { grid-auto-rows: 26px; }
+.rn { border: none; border-radius: 4px; cursor: pointer; font-family: var(--f); font-size: 0.72rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; transition: transform 0.1s, box-shadow 0.1s; padding: 0; position: relative; z-index: 1; }
 .rn:hover { transform: scale(1.08); z-index: 2; }
 .rn.r-sel { box-shadow: 0 0 0 2px var(--gold), 0 0 10px rgba(249,199,79,0.55); transform: scale(1.08); z-index: 3; }
 .rn-red { background: #b91c1c; } .rn-blk { background: #1a1a1a; } .rn-grn { background: #15803d; }
 .r2to1 { background: rgba(0,0,0,0.4); border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 700; color: var(--dim); display: flex; align-items: center; justify-content: center; transition: all 0.1s; padding: 0; }
 .r2to1:hover { background: rgba(0,0,0,0.55); color: var(--text); } .r2to1.r-sel { background: var(--gold); color: #1a0e00; }
-.rout { padding: 5px 2px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.32); color: var(--text); cursor: pointer; font-size: 0.82rem; font-weight: 600; font-family: var(--f); text-align: center; transition: all 0.12s; display: flex; align-items: center; justify-content: center; }
+.rout { padding: 3px 1px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.32); color: var(--text); cursor: pointer; font-size: 0.68rem; font-weight: 600; font-family: var(--f); text-align: center; transition: all 0.12s; display: flex; align-items: center; justify-content: center; }
 .rout:hover { background: rgba(0,0,0,0.52); border-color: rgba(255,255,255,0.22); } .rout.r-sel { background: var(--gold); color: #1a0e00; border-color: var(--gold); font-weight: 700; }
 .rout-r { border-left: 3px solid #b91c1c; } .rout-b { border-left: 3px solid #444; }
 
@@ -312,7 +312,12 @@ function mkRng(seed) {
   };
 }
 const getDailySeed = () => { const d=new Date(); return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); };
-const getDayNum = () => { const s=Date.UTC(2026,4,5),n=new Date(); n.setUTCHours(0,0,0,0); return Math.floor((n-s)/86400000)+1; };
+
+/** Start of the daily Gambdle run (May 5th, 2026) used for consistent day numbering. */
+const START_DATE_UTC = Date.UTC(2026, 4, 5);
+
+/** Calculates the current Gambdle day count. */
+const getDayNum = () => { const n=new Date(); n.setUTCHours(0,0,0,0); return Math.floor((n - START_DATE_UTC) / 86400000) + 1; };
 
 /** 
  * ─── GAME CONFIG & SEEDING ───────────────────────────────────────────
@@ -1344,7 +1349,7 @@ function screenRouletteBet(){
   <div class="panel">
     <div class="sec">The Table - tap to place your bet</div>
     <div style="overflow-x: auto; margin: 0 -10px; padding: 0 10px 12px; scrollbar-width: thin; -webkit-overflow-scrolling: touch;">
-      <div style="min-width: 480px;">${rBoard()}</div>
+      <div style="min-width: 380px;">${rBoard()}</div>
     </div>
     <div class="divider"></div>
     <div id="r-bet-info">${pb?`<div class="irow"><span class="ik">Bet on: <b style="color:var(--text)">${pb.type==='num'?'Number '+pb.lbl:pb.lbl}</b></span><span class="iv">${pb.pay}:1 payout</span></div>`:`<div style="font-size:.88rem;color:var(--dim);text-align:center;margin-bottom:10px">Select a number or outside bet above</div>`}</div>
@@ -1386,7 +1391,14 @@ function screenResults(){
   const chartHtml = historySorted.length > 0 ? `
     <div class="sec" style="margin-top:20px;margin-bottom:0">Past Performance</div>
     <div class="chart-wrap">
-      ${historySorted.map(([seed, score]) => `<div class="chart-bar" style="height:${Math.max((score/maxScore)*100, 5)}%" data-v="${fmt(score)}"><span class="chart-day">${seed.toString().slice(-2)}</span></div>`).join('')}
+      ${historySorted.map(([seed, score]) => {
+        const s = parseInt(seed);
+        const y = Math.floor(s / 10000), m = Math.floor((s % 10000) / 100), d = s % 100;
+        const dayNum = Math.floor((Date.UTC(y, m - 1, d) - START_DATE_UTC) / 86400000) + 1;
+        return `<div class="chart-bar" style="height:${Math.max((score/maxScore)*100, 5)}%" data-v="${fmt(score)}">
+          <span class="chart-day">#${dayNum}</span>
+        </div>`;
+      }).join('')}
     </div>` : '';
 
   const high = parseInt(localStorage.getItem('gambdle_highscore') || '0');
