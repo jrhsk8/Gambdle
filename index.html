@@ -67,8 +67,14 @@ body::before {
   box-shadow: 0 10px 25px -5px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.2); text-shadow: 0 2px 4px rgba(0,0,0,0.4); letter-spacing: 0.02em;
 }
 .panel {
-  background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid rgba(230,181,74,0.1); border-radius: 18px;
-  padding: 26px 22px; position: relative; overflow: hidden; animation: fadein .3s ease both; min-height: 560px;
+  background: linear-gradient(180deg, var(--panel2), var(--panel)); 
+  border: 1px solid rgba(230,181,74,0.1); 
+  border-radius: 18px;
+  padding: 26px 22px; 
+  position: relative; 
+  overflow: hidden; 
+  animation: fadein .3s ease both; 
+  min-height: 560px;
   box-shadow: inset 0 1px 0 rgba(255,220,140,0.06), 0 30px 60px -20px rgba(0,0,0,0.6), 0 8px 16px -8px rgba(0,0,0,0.5);
 }
 .panel::after { content: ''; position: absolute; inset: 8px; border: 1px dashed rgba(230,181,74,0.18); border-radius: 12px; pointer-events: none; }
@@ -97,8 +103,27 @@ body::before {
   from { box-shadow: 0 0 10px rgba(230, 181, 74, 0.3); border-color: var(--gold); }
   to { box-shadow: 0 0 20px rgba(230, 181, 74, 0.7); border-color: var(--gold-leaf); }
 }
-.act-btns { display: flex; gap: 10px; margin-top: 16px; }
-.act-btn { flex: 1; padding: 13px 8px; border-radius: 11px; border: 1.5px solid rgba(230,181,74,0.28); background: rgba(255,220,140,0.04); color: var(--gold); cursor: pointer; font-family: var(--f); font-size: 0.95rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; transition: all 0.15s; text-align: center; }
+.act-btns { 
+  display: flex; 
+  gap: 10px; 
+  margin-top: 16px; 
+}
+.act-btn { 
+  flex: 1; 
+  padding: 13px 8px; 
+  border-radius: 11px; 
+  border: 1.5px solid rgba(230,181,74,0.28); 
+  background: rgba(255,220,140,0.04); 
+  color: var(--gold); 
+  cursor: pointer; 
+  font-family: var(--f); 
+  font-size: 0.95rem; 
+  font-weight: 700; 
+  letter-spacing: 0.04em; 
+  text-transform: uppercase; 
+  transition: all 0.15s; 
+  text-align: center; 
+}
 .act-btn:hover { background: rgba(230,181,74,0.1); border-color: var(--gold); }
 .act-btn:disabled { opacity: .28; cursor: not-allowed; }
 
@@ -199,8 +224,37 @@ body::before {
 
 /* --- Results & Sharing --- */
 .score-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 15px; background: rgba(0,0,0,0.22); border-radius: 10px; margin-bottom: 8px; border: 1px solid rgba(255,220,140,0.06); }
-.share-box { background: rgba(0,0,0,0.4); border: 1px solid rgba(230,181,74,0.2); border-radius: 12px; padding: 18px; font-size: 0.9rem; color: var(--text); line-height: 1.9; text-align: center; margin: 16px 0; white-space: pre-line; font-family: var(--mono); letter-spacing: 0.02em; box-shadow: inset 0 2px 8px rgba(0,0,0,0.4); }
-#toast { position: fixed; top: 18px; left: 50%; transform: translateX(-50%) translateY(-70px); background: linear-gradient(180deg, var(--gold2), var(--gold)); color: #2a1f08; padding: 11px 26px; border-radius: 10px; font-weight: 700; font-size: 1rem; font-family: var(--f); z-index: 200; transition: transform 0.3s cubic-bezier(.34,1.56,.64,1); box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 2px 0 var(--gold-deep), 0 8px 24px rgba(0,0,0,0.4); }
+.share-box { 
+  background: rgba(0,0,0,0.4); 
+  border: 1px solid rgba(230,181,74,0.2); 
+  border-radius: 12px; 
+  padding: 18px; 
+  font-size: 0.9rem; 
+  color: var(--text); 
+  line-height: 1.9; 
+  text-align: center; 
+  margin: 16px 0; 
+  white-space: pre-line; 
+  font-family: var(--mono); 
+  letter-spacing: 0.02em; 
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.4); 
+}
+#toast { 
+  position: fixed; 
+  top: 18px; 
+  left: 50%; 
+  transform: translateX(-50%) translateY(-70px); 
+  background: linear-gradient(180deg, var(--gold2), var(--gold)); 
+  color: #2a1f08; 
+  padding: 11px 26px; 
+  border-radius: 10px; 
+  font-weight: 700; 
+  font-size: 1rem; 
+  font-family: var(--f); 
+  z-index: 200; 
+  transition: transform 0.3s cubic-bezier(.34,1.56,.64,1); 
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 2px 0 var(--gold-deep), 0 8px 24px rgba(0,0,0,0.4); 
+}
 #toast.show { transform: translateX(-50%) translateY(0); }
 
 /* --- Animations --- */
@@ -246,7 +300,8 @@ body::before {
 
 /** 
  * ─── RNG & DETERMINISM ─────────────────────────────────────────────
- * Standard deterministic PRNG based on a daily seed (YYYYMMDD).
+ * SplitMix32-style deterministic PRNG based on a daily seed (YYYYMMDD).
+ * This ensures every player sees the same hands on the same day.
  */
 function mkRng(seed) {
   let s = (seed ^ 0x6d2b79f5) >>> 0;
@@ -339,7 +394,10 @@ function evalBet(idx,result){
 
 /** 
  * ─── VIDEO POKER HAND EVALUATION ─────────────────────────────────────
- * 5-card evaluation using "Jacks or Better" minimum threshold.
+ * Evaluates a 5-card hand for Video Poker.
+ * Standard Poker rankings are used, but the payout threshold
+ * starts at "Jacks or Better".
+ * @returns {object} {n: Name, p: Payout Multiplier}
  */
 function rankPoker(cs){
   const rs=cs.map(c=>c.r),ss=cs.map(c=>c.s),vs=cs.map(c=>cVal(c.r));
@@ -361,11 +419,16 @@ function rankPoker(cs){
 
 /** 
  * ─── ULTIMATE TEXAS HOLD'EM EVALUATION ─────────────────────────────
- * Complex hand evaluation using a scoring system where categories are weighted
- * by 1e12 and individual card ranks acts as tie-breakers.
+ * Logic for identifying the best 5-card hand out of 7.
  */
 function cardNum(r){return({'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14})[r];}
+
 function handScore(cs){
+  /**
+   * Scoring calculates a primary category (0-9) and appends rank-based
+   * tie-breakers using base-100 logic.
+   * Weight: cat * 1e12 + rank1 * 1e8 + rank2 * 1e6 ...
+   */
   const ns=cs.map(c=>cardNum(c.r)),ss=cs.map(c=>c.s);
   const rc={};for(const n of ns)rc[n]=(rc[n]||0)+1;
   const grp=Object.entries(rc).map(([n,c])=>[+n,c]).sort((a,b)=>b[1]-a[1]||b[0]-a[0]);
@@ -401,7 +464,7 @@ function handScore(cs){
   return{cat,score};
 }
 
-/** Finds the best 5-card combination from 7 available cards. */
+/** Brute-force checks all 21 possible 5-card combinations from a set of 7. */
 function bestOf7(cards){
   let best=null,bs=-1,bc=0;
   for(let i=0;i<7;i++)for(let j=i+1;j<7;j++){
@@ -412,7 +475,7 @@ function bestOf7(cards){
   return{cards:best,score:bs,cat:bc,rank:rankPoker(best)};
 }
 
-/** Calculates the Blind payout based on the winning hand category. */
+/** UTH Blind Payout Table: only pays on wins with Straight or better. */
 function uthBlindDelta(cat,blind){
   if(cat===9)return blind*500;
   if(cat===8)return blind*50;
@@ -566,6 +629,10 @@ function chipSel(maxC,curBet,denoms){
   </div>`;
 }
 
+/**
+ * Shared progress indicator for all games.
+ * won = green, lost = red, current = gold pulse, pending = dim.
+ */
 function gameDots(history, hand, phase){
   return`<div class="dots-row">${Array.from({length:3},(_,i)=>{
     const h=history[i];
@@ -778,11 +845,29 @@ function screenIntro(){
       <div style="font-size:.88rem;color:var(--dim);margin-top:4px">Your final chip count is your leaderboard score</div>
     </div>
     <div class="divider"></div>
-    ${[['🃏','Blackjack','3 hands · Hit, Stand, Double Down, or Split'],GAME2==='uth'?['♠',"Texas Hold'em",'3 hands · Ante, Blind & Play bets']:['♠','5 Card Poker','3 hands · Jacks or Better'],['🎡','Roulette','1 spin · Anything is possible']].map(([ic,t,d])=>`
-    <div class="rnd-row"><span class="rnd-ic">${ic}</span><div><div class="rnd-nm">${t}</div><div class="rnd-dc">${d}</div></div></div>`).join('')}
+    ${renderIntroGameRows()}
     <div class="divider"></div>
     <button class="btn-gold" onclick="startGame()">Start with ${fmt(START)} chips →</button>
   </div>`;
+}
+
+function renderIntroGameRows() {
+  const games = [
+    ['🃏', 'Blackjack', '3 hands · Hit, Stand, Double Down, or Split'],
+    GAME2 === 'uth' 
+      ? ['♠', "Ultimate Texas Hold'em", '3 hands · Ante, Blind & Play bets']
+      : ['♠', '5 Card Poker', '3 hands · Jacks or Better'],
+    ['🎡', 'Roulette', '1 spin · Anything is possible']
+  ];
+  
+  return games.map(([ic, t, d]) => `
+    <div class="rnd-row">
+      <span class="rnd-ic">${ic}</span>
+      <div>
+        <div class="rnd-nm">${t}</div>
+        <div class="rnd-dc">${d}</div>
+      </div>
+    </div>`).join('');
 }
 
 function bjDealerHTML(){
@@ -916,22 +1001,36 @@ function screenBJ(){
     <div style="font-family:'Space Grotesk',sans-serif;font-size:1.75rem;font-weight:700;color:${col(res.delta)};margin-bottom:2px">${res.result === 'blackjack' && bjMult === 2 ? 'Mega Blackjack! 💎' : RES_LBL[res.result]}</div>
     <div style="font-family:'Space Grotesk',sans-serif;font-size:1.4rem;color:${col(res.delta)};margin-bottom:14px">${sign(res.delta)} chips</div>
     <div style="display:flex;flex-direction:column;gap:16px;align-items:center;margin-bottom:14px">
-      <div style="text-align:center">
-        <div class="sec">Dealer</div>
-        <div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'sm','',n?dOff+(i-S.bjDealerAnimFrom)*0.75+0.05:0,n);}).join('')}</div>
-        <div class="hand-val ${dv>21?'bust':''}" style="font-size:1.6rem">${dv}${dv>21?' BUST':''}</div>
-      </div>
+      ${renderBJResultDealer(dv, dOff)}
       <div style="width:60%;height:1px;background:rgba(230,181,74,0.1)"></div>
-      <div style="text-align:center">
-        <div class="sec">You</div>
-        <div class="hand">${S.bjPlayer.map((c,i)=>{const n=S.bjResultAnimPlayer;return cardHTML(c,'sm','',n?i*0.4+0.1:0,n);}).join('')}</div>
-        <div class="hand-val ${pv>21?'bust':res.result==='blackjack'?'bj':''}" style="font-size:1.6rem">${pv}${pv>21?' BUST':res.result==='blackjack'?' BJ!':''}</div>
-      </div>
+      ${renderBJResultPlayer(pv, res.result)}
     </div>
-    ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
+    ${gameDots(S.bjHistory, S.bjHand, S.bjPhase)}
     <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
     <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
   </div>`;
+}
+
+function renderBJResultDealer(dv, dOff) {
+  return `<div style="text-align:center">
+        <div class="sec">Dealer</div>
+        <div class="hand">${S.bjDealer.map((c, i) => {
+          const n = i >= S.bjDealerAnimFrom;
+          return cardHTML(c, 'sm', '', n ? dOff + (i - S.bjDealerAnimFrom) * 0.75 + 0.05 : 0, n);
+        }).join('')}</div>
+        <div class="hand-val ${dv > 21 ? 'bust' : ''}" style="font-size:1.6rem">${dv}${dv > 21 ? ' BUST' : ''}</div>
+      </div>`;
+}
+
+function renderBJResultPlayer(pv, result) {
+  return `<div style="text-align:center">
+        <div class="sec">You</div>
+        <div class="hand">${S.bjPlayer.map((c, i) => {
+          const n = S.bjResultAnimPlayer;
+          return cardHTML(c, 'sm', '', n ? i * 0.4 + 0.1 : 0, n);
+        }).join('')}</div>
+        <div class="hand-val ${pv > 21 ? 'bust' : result === 'blackjack' ? 'bj' : ''}" style="font-size:1.6rem">${pv}${pv > 21 ? ' BUST' : result === 'blackjack' ? ' BJ!' : ''}</div>
+      </div>`;
 }
 
 function screenPoker(){
@@ -1011,7 +1110,7 @@ function screenUTH(){
 
   if(ph==='bet'){
     const maxAnte=S.chips;
-    return`${hdr("Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
+    return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
       <div class="divider"></div>
@@ -1063,7 +1162,7 @@ function screenUTH(){
 
   if(ph==='preflop'){
     const canR4=S.chips>=S.uthAnte*2;
-    return`${hdr("Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
+    return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${dealerRow(false)}
       <div class="divider"></div>
@@ -1083,7 +1182,7 @@ function screenUTH(){
 
   if(ph==='flop'){
     const canR2=S.chips>=S.uthAnte;
-    return`${hdr("Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
+    return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${dealerRow(false)}
       <div class="divider"></div>
@@ -1104,7 +1203,7 @@ function screenUTH(){
 
   if(ph==='turn'){
     const canR1=S.chips>=S.uthAnte/2;
-    return`${hdr("Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
+    return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${dealerRow(false)}
       <div class="divider"></div>
@@ -1124,7 +1223,7 @@ function screenUTH(){
   }
 
   if(ph==='reveal'){
-    return`${hdr("Texas Hold'em · Dealer Reveals")}
+    return`${hdr("Ultimate Texas Hold'em · Dealer Reveals")}
     <div class="panel">
       <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px">
         <div>
@@ -1154,7 +1253,7 @@ function screenUTH(){
 
   if(hist.result==='fold'){
     const dealerBest=bestOf7([...S.uthDealer,...S.uthComm]);
-    return`${hdr("Texas Hold'em · Folded")}
+    return`${hdr("Ultimate Texas Hold'em · Folded")}
     <div class="panel" style="text-align:center">
       <div style="font-size:1.65rem;font-weight:700;color:var(--lose);margin-bottom:2px">You Folded</div>
       <div style="font-size:1.3rem;color:var(--lose);margin-bottom:14px">${sign(hist.delta)} chips</div>
@@ -1185,7 +1284,7 @@ function screenUTH(){
   const hlStyle=hist.result==='win'?'box-shadow:0 0 0 2px var(--gold),0 0 14px 4px rgba(230,181,74,0.55)':'box-shadow:0 0 0 2px var(--lose),0 0 14px 4px rgba(239,35,60,0.5)';
   const hl=c=>hlCards.has(c)?hlStyle:'';
 
-  return`${hdr("Texas Hold'em · Showdown")}
+  return`${hdr("Ultimate Texas Hold'em · Showdown")}
   <div class="panel">
     <div style="text-align:center;margin-bottom:10px">
       <div style="font-size:1.4rem;font-weight:700;color:${col(hist.delta)}">${resLabel}</div>
@@ -1278,7 +1377,7 @@ function screenResults(){
   const bjEm=S.bjHistory.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const g2Em=g2Hist.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const rEm=rNet>0?'🎰':rNet===0?'🟡':'💸';
-  const g2Label=GAME2==='uth'?"♠ Texas Hold'em":'♠ 5 Card Poker';
+  const g2Label=GAME2==='uth'?"♠ Ultimate Texas Hold'em":'♠ 5 Card Poker';
   const shareText=buildShareText();
   
   const histData = JSON.parse(localStorage.getItem('gambdle_history') || '{}');
@@ -1385,14 +1484,15 @@ function updateUthCommunityCards() {
   // Update header subtitle surgically
   const hdrSub = document.getElementById('hdr-sub');
   if (hdrSub) {
-    if (S.uthPhase === 'reveal') hdrSub.textContent = "Texas Hold'em · Dealer Reveals";
-    else if (S.uthPhase === 'result') hdrSub.textContent = "Texas Hold'em · Showdown";
+    if (S.uthPhase === 'reveal') hdrSub.textContent = "Ultimate Texas Hold'em · Dealer Reveals";
+    else if (S.uthPhase === 'result') hdrSub.textContent = "Ultimate Texas Hold'em · Showdown";
   }
 
   const actionUi = document.getElementById('uth-actions-ui');
   if (actionUi) {
     actionUi.style.pointerEvents = 'none';
     actionUi.querySelectorAll('button').forEach(b => {
+      // Disable buttons and hide text during reveal animation to prevent layout shifts
       b.disabled = true;
       b.style.color = 'transparent';
     });
@@ -1488,8 +1588,12 @@ function bjHit(){
   else{
     const handEl=document.getElementById(isSplit?'bj-active-hand':'bj-player-hand');
     const valEl=document.getElementById(isSplit?'bj-active-val':'bj-player-val');
-    if(handEl&&valEl){handEl.insertAdjacentHTML('beforeend',cardHTML(hand[hand.length-1],'lg','',0.1,true));valEl.textContent=String(pv);saveState();}
-    else{_noAnim=true;render();}
+    if(handEl&&valEl){
+      // Surgical DOM update for Blackjack hit to avoid full screen flash
+      handEl.insertAdjacentHTML('beforeend', cardHTML(hand[hand.length-1], 'lg', '', 0.1, true));
+      valEl.textContent = String(pv);
+      saveState();
+    }
   }
 }
 /** Player finishes their turn. */
@@ -1827,21 +1931,37 @@ const BET_REF={bj:'bjBet',roulette:'rBet'};
 function curBetRef(){return BET_REF[S.screen]??(GAME2==='uth'?'uthAnte':'pkBet');}
 function maxBet(){return(S.screen==='poker'&&GAME2==='uth')?Math.floor(S.chips*2/3):S.chips;}
 
-function patchBetUI(){
-  const k=curBetRef(),bet=S[k],max=maxBet();
+function patchBetUI() {
+  /**
+   * This function performs surgical updates on the betting screen
+   * to keep the experience responsive and flash-free.
+   */
+  const k = curBetRef();
+  const bet = S[k];
+  const max = maxBet();
   const minChipsMod = getMod('min_chips') || 0;
   const isBetValid = bet >= minChipsMod;
+  
   const bv=document.getElementById('bv');
-  if(!bv){render();return;}
-  bv.textContent=fmt(bet);
-  document.querySelectorAll('.chbtn').forEach(b=>{b.disabled=bet+(+b.dataset.v)>max;});
+  if(!bv){ render(); return; }
+  
+  bv.textContent = fmt(bet);
+  
+  document.querySelectorAll('.chbtn').forEach(b => {
+    b.disabled = bet + (+b.dataset.v) > max;
+  });
+  
   const db=document.getElementById('db');
   if(db)db.disabled=(k==='rBet'?(S.rPick===null||!isBetValid):(bet===0||!isBetValid));
   const ai=document.getElementById('ai');
   if(ai)ai.disabled=max===0 || max < minChipsMod;
+  
   const us=document.getElementById('uth-summary');
-  if(us)us.innerHTML=`Ante <b style="color:var(--gold)">${fmt(bet/2)}</b> + Blind <b style="color:var(--gold)">${fmt(bet/2)}</b> = <b style="color:var(--cream)">${fmt(bet)}</b> chips total`;
+  if(us) {
+    us.innerHTML = `Ante <b style="color:var(--gold)">${fmt(bet/2)}</b> + Blind <b style="color:var(--gold)">${fmt(bet/2)}</b> = <b style="color:var(--cream)">${fmt(bet)}</b> chips total`;
+  }
 }
+
 function addChip(d){const k=curBetRef();S[k]=Math.min(S[k]+d,maxBet());sndChip();patchBetUI();}
 function clearBet(){S[curBetRef()]=0;patchBetUI();}
 function allIn(){S[curBetRef()]=maxBet();sndChip();patchBetUI();}
@@ -1858,7 +1978,7 @@ function buildShareText(){
   const bjEm=S.bjHistory.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const g2Em=g2Hist.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const rEm=rNet>0?'🎰':rNet===0?'🟡':'💸';
-  const g2Name=GAME2==='uth'?"Texas Hold'em":'5 Card Poker';
+  const g2Name=GAME2==='uth'?"Ultimate Texas Hold'em":'5 Card Poker';
   const trophy=getTier(S.chips).emoji;
   return [
     `🎰 Gambdle #${S.day}`,
