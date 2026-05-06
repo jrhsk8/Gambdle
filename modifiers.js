@@ -23,10 +23,10 @@ const PRESET_MODIFIERS = {
 const DAILY_MODIFIERS = {
   // --- MAY 2026 ---
   20260505: {}, // Day 1
-  20260506: "double_pay",
+  20260506: {},
   20260507: {},
   20260508: {},
-  20260509: {},
+  20260509: "double_pay",
   20260510: "high_stakes",
   20260511: {},
   20260512: {},
