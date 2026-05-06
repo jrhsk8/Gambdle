@@ -68,7 +68,7 @@ body::before {
 }
 .panel {
   background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid rgba(230,181,74,0.1); border-radius: 18px;
-  padding: 26px 22px; position: relative; overflow: hidden; animation: fadein .3s ease both; min-height: 560px; min-width: 584px;
+  padding: 26px 22px; position: relative; overflow: hidden; animation: fadein .3s ease both; min-height: 560px;
   box-shadow: inset 0 1px 0 rgba(255,220,140,0.06), 0 30px 60px -20px rgba(0,0,0,0.6), 0 8px 16px -8px rgba(0,0,0,0.5);
 }
 .panel::after { content: ''; position: absolute; inset: 8px; border: 1px dashed rgba(230,181,74,0.18); border-radius: 12px; pointer-events: none; }
@@ -782,6 +782,24 @@ function screenIntro(){
   </div>`;
 }
 
+function bjDealerHTML(){
+  const dv=hVal(S.bjDealer);
+  return S.bjDealerReveal
+    ?`<div class="sec">Dealer${dv>21?' · BUST':''}</div>
+      <div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjDealerAnimFrom)*0.65+0.1:0,n);}).join('')}</div>
+      <div class="hand-val ${dv>21?'bust':''}">${dv}${dv>21?' BUST':''}</div>`
+    :`<div class="sec">Dealer Shows</div>
+      <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${cardHTML('back','lg')}</div>`;
+}
+function bjActionBtns(bust,done21,can2,canSplit){
+  return`<div class="divider"></div>
+  <div class="act-btns">
+    <button class="act-btn" onclick="bjHit()" ${bust||done21||S.bjDealerReveal?'disabled':''}>Hit</button>
+    <button class="act-btn" onclick="bjStand()" ${done21||S.bjDealerReveal?'disabled':''}>Stand</button>
+    <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21||S.bjDealerReveal?'disabled':''}>Double</button>
+    <button class="act-btn" onclick="bjSplit()" ${!canSplit||done21||S.bjDealerReveal?'disabled':''}>Split</button>
+  </div>`;
+}
 function screenBJ(){
   const ph=S.bjPhase;
   if(ph==='bet'){
@@ -805,14 +823,7 @@ function screenBJ(){
       const af=S.bjSplitAnimFrom[ai]??0;
       return`${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
       <div class="panel">
-        <div style="text-align:center;margin-bottom:12px">
-          ${S.bjDealerReveal
-            ?`<div class="sec">Dealer${hVal(S.bjDealer)>21?' · BUST':''}</div>
-              <div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjDealerAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
-              <div class="hand-val ${hVal(S.bjDealer)>21?'bust':''}">${hVal(S.bjDealer)}${hVal(S.bjDealer)>21?' BUST':''}</div>`
-            :`<div class="sec">Dealer Shows</div>
-              <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${cardHTML('back','lg')}</div>`}
-        </div>
+        <div style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
         <div class="divider"></div>
         ${S.bjSplitHands.length>1?`<div style="display:flex;gap:12px;justify-content:center;margin-bottom:10px">
           ${S.bjSplitHands.map((hand,i)=>{if(i===ai)return'';const hv=hVal(hand);const isDone=S.bjSplitDone[i];return`<div style="text-align:center;opacity:${isDone?0.35:0.5}">
@@ -824,19 +835,11 @@ function screenBJ(){
         <div style="text-align:center">
           <div class="sec">Hand ${ai+1} of ${S.bjSplitHands.length}</div>
           <div class="hand">${activeHand.map((c,i)=>{const n=i>=af;return cardHTML(c,'lg','',n?(i-af)*0.4+0.1:0,n);}).join('')}</div>
-          ${S.bjCelebrating || done21
-      ? `<div style="${S.bjDealerReveal ? '' : 'animation:fadein .4s .6s ease both'}">
-                <div style="font-family:var(--serif);font-size:2.8rem;color:var(--gold2);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(230,181,74,.55)">Blackjack!</div>
-              </div>`
+          ${S.bjCelebrating||done21
+            ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div style="font-family:var(--serif);font-size:2.8rem;color:var(--gold2);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(230,181,74,.55)">Blackjack!</div></div>`
             :`<div class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
         </div>
-        ${(S.bjCelebrating || done21)?'':`<div class="divider"></div>
-        <div class="act-btns">
-          <button class="act-btn" onclick="bjHit()" ${bust||done21||S.bjDealerReveal?'disabled':''}>Hit</button>
-          <button class="act-btn" onclick="bjStand()" ${done21||S.bjDealerReveal?'disabled':''}>Stand</button>
-          <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21||S.bjDealerReveal?'disabled':''}>Double</button>
-          <button class="act-btn" onclick="bjSplit()" ${!canResplit||done21||S.bjDealerReveal?'disabled':''}>Split</button>
-        </div>`}
+        ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canResplit)}
         <div class="irow" style="margin-top:10px"><span class="ik">Hand ${ai+1} Bet</span><span class="iv">${fmt(S.bjSplitBets[ai])} chips</span></div>
       </div>`;
     }
@@ -844,36 +847,21 @@ function screenBJ(){
     const isInitial=S.bjPlayer.length===2;
     const can2=S.chips>=S.bjBet&&isInitial;
     const canSplit=isInitial&&S.bjPlayer[0].r===S.bjPlayer[1].r&&S.chips>0;
-    return `${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
+    return`${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
 <div class="panel">
-  <div style="text-align:center;margin-bottom:12px">
-    ${S.bjDealerReveal
-      ? `<div class="sec">Dealer${hVal(S.bjDealer)>21?' · BUST':''}</div>
-        <div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjDealerAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
-        <div class="hand-val ${hVal(S.bjDealer)>21?'bust':''}">${hVal(S.bjDealer)}${hVal(S.bjDealer)>21?' BUST':''}</div>`
-      : `<div class="sec">Dealer Shows</div>
-        <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${cardHTML('back','lg')}</div>`}
-  </div>
+  <div style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
   <div class="divider"></div>
   <div style="text-align:center">
     <div class="sec">Your Hand</div>
     <div class="hand">${S.bjPlayer.map((c,i)=>{const n=i>=S.bjAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
-    ${(S.bjCelebrating || done21)
-      ? `<div style="${S.bjDealerReveal ? '' : 'animation:fadein .4s .6s ease both'}">
+    ${(S.bjCelebrating||done21)
+      ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}">
           <div style="font-family:var(--serif);font-size:2.8rem;color:var(--gold2);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(230,181,74,.55)">Blackjack!</div>
-          ${isBJ(S.bjPlayer) ? `<div style="font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.22em;margin-top:6px">Pays 3 · 2</div>` : ''}
+          ${isBJ(S.bjPlayer)?`<div style="font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.22em;margin-top:6px">Pays 3 · 2</div>`:''}
         </div>`
-      : `<div class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
+      :`<div class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
   </div>
-  ${(S.bjCelebrating || done21) ? '' : `
-    <div class="divider"></div>
-    <div class="act-btns">
-      <button class="act-btn" onclick="bjHit()" ${bust||done21||S.bjDealerReveal?'disabled':''}>Hit</button>
-      <button class="act-btn" onclick="bjStand()" ${done21||S.bjDealerReveal?'disabled':''}>Stand</button>
-      <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21||S.bjDealerReveal?'disabled':''}>Double</button>
-      <button class="act-btn" onclick="bjSplit()" ${!canSplit||done21||S.bjDealerReveal?'disabled':''}>Split</button>
-    </div>
-  `}
+  ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canSplit)}
   <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${fmt(S.bjBet)} chips</span></div>
 </div>`;
   }
@@ -885,20 +873,24 @@ function screenBJ(){
 
   if(S.bjSplit){
     const dv=hVal(S.bjDealer);
-    const RES_LBL2={win:'Win!',push:'Push',bust:'Bust',lose:'Dealer Wins'};
+    const RES_LBL2={win:'Win!',push:'Push',bust:'Bust',lose:'Lose'};
+    const splitNet=S.bjSplitResults.reduce((a,r)=>a+r.delta,0);
     return`${hdr('Blackjack · Split Result')}
     <div class="panel" style="text-align:center">
+      <div style="font-family:'Space Grotesk',sans-serif;font-size:1.75rem;font-weight:700;color:${col(splitNet)};margin-bottom:2px">${splitNet>0?'You Win!':splitNet<0?'You Lose!':'Push'}</div>
+      <div style="font-family:'Space Grotesk',sans-serif;font-size:1.4rem;color:${col(splitNet)};margin-bottom:14px">${sign(splitNet)} chips</div>
       <div style="margin-bottom:20px">
-        <div class="sec">Dealer (${dv})</div>
-        <div class="hand" style="justify-content:center">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'sm','',n?(i-S.bjDealerAnimFrom)*0.25+0.15:0,n);}).join('')}</div>
+        <div class="sec">Dealer</div>
+        <div class="hand" style="justify-content:center">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'sm','',n?(i-S.bjDealerAnimFrom)*0.55+0.15:0,n);}).join('')}</div>
+        <div class="hand-val ${dv>21?'bust':''}" style="font-size:1.6rem">${dv}${dv>21?' BUST':''}</div>
       </div>
       <div class="divider"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:flex-start;margin-bottom:14px">
-        ${S.bjSplitHands.map((hand,i)=>{const r=S.bjSplitResults[i];const hv=hVal(hand);return`<div style="flex:0 0 auto;min-width:68px;text-align:center">
+      <div style="display:flex;gap:0;flex-wrap:wrap;justify-content:center;align-items:flex-start;margin-bottom:14px">
+        ${S.bjSplitHands.map((hand,i)=>{const r=S.bjSplitResults[i];const hv=hVal(hand);return`<div style="flex:0 0 auto;min-width:68px;text-align:center;${i>0?'border-left:1px solid rgba(230,181,74,0.18);padding-left:20px;margin-left:20px':''}">
           <div class="sec" style="font-size:.62rem">H${i+1}: <span style="color:${col(r.delta)}">${RES_LBL2[r.result]||r.result}</span></div>
           <div style="font-size:.78rem;color:${col(r.delta)};margin-bottom:4px">${sign(r.delta)}</div>
           <div class="hand" style="justify-content:center">${hand.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
-          <div style="font-size:.9rem;font-weight:700;color:${hv>21?'var(--lose)':'var(--gold2)'};margin-top:3px">${hv}${hv>21?' BUST':''}</div>
+          <div class="hand-val ${hv>21?'bust':''}" style="font-size:1.4rem">${hv}${hv>21?' BUST':''}</div>
         </div>`;}).join('')}
       </div>
       ${bjDots()}
@@ -908,7 +900,7 @@ function screenBJ(){
   }
   const dv=hVal(S.bjDealer), pv=hVal(S.bjPlayer);
   const bjMult = getMod('bj_payout') || 1.5;
-  const RES_LBL={win:'Win!',blackjack:'Blackjack! 🂡',push:'Push',bust:'Bust',lose:'Dealer Wins'};
+  const RES_LBL={win:'You Win!',blackjack:'Blackjack! 🂡',push:'Push',bust:'You Bust!',lose:'You Lose!'};
   // If player cards animate (BJ skip), stagger them first; dealer reveal waits for them to finish
   const pAnimN=S.bjResultAnimPlayer?S.bjPlayer.length:0;
   const dOff=pAnimN>0?(pAnimN-1)*0.4+0.75:0;
@@ -917,9 +909,17 @@ function screenBJ(){
     <div style="font-family:'Space Grotesk',sans-serif;font-size:1.75rem;font-weight:700;color:${col(res.delta)};margin-bottom:2px">${res.result === 'blackjack' && bjMult === 2 ? 'Mega Blackjack! 💎' : RES_LBL[res.result]}</div>
     <div style="font-family:'Space Grotesk',sans-serif;font-size:1.4rem;color:${col(res.delta)};margin-bottom:14px">${sign(res.delta)} chips</div>
     <div style="display:flex;flex-direction:column;gap:16px;align-items:center;margin-bottom:14px">
-      <div style="text-align:center"><div class="sec">Dealer (${dv})</div><div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'sm','',n?dOff+(i-S.bjDealerAnimFrom)*0.25+0.05:0,n);}).join('')}</div></div>
+      <div style="text-align:center">
+        <div class="sec">Dealer</div>
+        <div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'sm','',n?dOff+(i-S.bjDealerAnimFrom)*0.55+0.05:0,n);}).join('')}</div>
+        <div class="hand-val ${dv>21?'bust':''}" style="font-size:1.6rem">${dv}${dv>21?' BUST':''}</div>
+      </div>
       <div style="width:60%;height:1px;background:rgba(230,181,74,0.1)"></div>
-      <div style="text-align:center"><div class="sec">You (${pv})</div><div class="hand">${S.bjPlayer.map((c,i)=>{const n=S.bjResultAnimPlayer;return cardHTML(c,'sm','',n?i*0.4+0.1:0,n);}).join('')}</div></div>
+      <div style="text-align:center">
+        <div class="sec">You</div>
+        <div class="hand">${S.bjPlayer.map((c,i)=>{const n=S.bjResultAnimPlayer;return cardHTML(c,'sm','',n?i*0.4+0.1:0,n);}).join('')}</div>
+        <div class="hand-val ${pv>21?'bust':res.result==='blackjack'?'bj':''}" style="font-size:1.6rem">${pv}${pv>21?' BUST':res.result==='blackjack'?' BJ!':''}</div>
+      </div>
     </div>
     ${bjDots()}
     <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
@@ -985,7 +985,8 @@ function screenPoker(){
 
   return`${hdr('5 Card Poker · Result')}
   <div class="panel" style="text-align:center">
-    <div style="font-family:'Space Grotesk',sans-serif;font-size:1.65rem;font-weight:700;color:var(--gold)">${res.n}</div>
+    <div style="font-family:'Space Grotesk',sans-serif;font-size:1.75rem;font-weight:700;color:${col(h.delta)};margin-bottom:2px">${h.delta>0?'You Win!':h.delta<0?'You Lose!':'Push'}</div>
+    <div style="font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold);margin-bottom:2px">${res.n}</div>
     <div style="font-family:'Space Grotesk',sans-serif;font-size:1.4rem;color:${col(h.delta)};margin-bottom:14px">${sign(h.delta)} chips</div>
     <div class="sec">Your Hand</div>
     <div class="hand" style="margin-bottom:12px">
@@ -1120,11 +1121,29 @@ function screenUTH(){
   const btnAction=isBusted?"advanceTo('results')":(isLast?"advanceTo('roulette')":'uthNext()');
 
   if(hist.result==='fold'){
-    return`${hdr("Texas Hold'em · Result")}
+    const dealerBest=bestOf7([...S.uthDealer,...S.uthComm]);
+    return`${hdr("Texas Hold'em · Folded")}
     <div class="panel" style="text-align:center">
-      <div style="font-size:1.65rem;font-weight:700;color:var(--lose)">Folded</div>
-      <div style="font-size:1.3rem;color:var(--lose);margin-bottom:8px">${sign(hist.delta)} chips</div>
-      <div style="font-size:.85rem;color:var(--dim);margin-bottom:14px">Ante + Blind forfeited</div>
+      <div style="font-size:1.65rem;font-weight:700;color:var(--lose);margin-bottom:2px">You Folded</div>
+      <div style="font-size:1.3rem;color:var(--lose);margin-bottom:14px">${sign(hist.delta)} chips</div>
+      <div class="divider"></div>
+      <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin:12px 0">
+        <div>
+          <div class="sec" style="font-size:.62rem">Dealer's Hand</div>
+          <div class="hand" style="justify-content:center">${S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.65+0.1)).join('')}</div>
+          <div style="font-size:.78rem;color:var(--gold2);margin-top:3px">${CAT_NAMES[dealerBest.cat]}</div>
+        </div>
+        <div>
+          <div class="sec" style="font-size:.62rem">Community</div>
+          <div class="hand" style="justify-content:center">${S.uthComm.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
+        </div>
+        <div style="width:60%;height:1px;background:rgba(230,181,74,0.1)"></div>
+        <div>
+          <div class="sec" style="font-size:.62rem">Your Hand</div>
+          <div class="hand" style="justify-content:center">${S.uthHole.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
+        </div>
+      </div>
+      <div class="divider"></div>
       ${uthDots()}
       <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
       <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
@@ -1132,7 +1151,10 @@ function screenUTH(){
   }
 
   const pb=hist.playerBest,db2=hist.dealerBest;
-  const resLabel=hist.result==='win'?'You Win!':hist.result==='push'?'Push':'Dealer Wins';
+  const resLabel=hist.result==='win'?'You Win!':hist.result==='push'?'Push':'You Lose!';
+  const hlCards=hist.result==='win'?new Set(pb?.cards):hist.result==='lose'?new Set(db2?.cards):new Set();
+  const hlStyle=hist.result==='win'?'box-shadow:0 0 0 2px var(--gold),0 0 14px 4px rgba(230,181,74,0.55)':'box-shadow:0 0 0 2px var(--lose),0 0 14px 4px rgba(239,35,60,0.5)';
+  const hl=c=>hlCards.has(c)?hlStyle:'';
 
   return`${hdr("Texas Hold'em · Showdown")}
   <div class="panel">
@@ -1141,22 +1163,22 @@ function screenUTH(){
       <div style="font-size:1.1rem;font-weight:700;color:${col(hist.delta)}">${sign(hist.delta)} chips</div>
     </div>
     <div class="divider"></div>
-    <div style="display:flex;flex-direction:column;gap:16px;align-items:center;margin-bottom:12px;margin-top:12px">
+    <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px;margin-top:12px">
         <div style="text-align:center">
           <div class="sec" style="font-size:.62rem">Dealer${hist.dealerQualifies?' (Qualifies)':' (No Qualify)'}</div>
-          <div class="hand" style="justify-content:center">${S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.15+0.05)).join('')}</div>
+          <div class="hand" style="justify-content:center">${S.uthDealer.map((c,i)=>cardHTML(c,'md',hl(c),i*0.55+0.1)).join('')}</div>
           <div style="font-size:.78rem;color:${hist.result!=='win'?'var(--gold2)':'var(--dim)'};margin-top:3px">${CAT_NAMES[db2.cat]}</div>
+        </div>
+        <div style="text-align:center">
+          <div class="sec" style="font-size:.62rem">Community</div>
+          <div class="hand" style="justify-content:center">${S.uthComm.map((c,i)=>cardHTML(c,'sm',hl(c),i*0.08+0.05)).join('')}</div>
         </div>
         <div style="width:60%;height:1px;background:rgba(230,181,74,0.1)"></div>
         <div style="text-align:center">
           <div class="sec" style="font-size:.62rem">You</div>
-          <div class="hand" style="justify-content:center">${S.uthHole.map((c,i)=>cardHTML(c,'md','',i*0.15+0.05)).join('')}</div>
+          <div class="hand" style="justify-content:center">${S.uthHole.map((c,i)=>cardHTML(c,'md',hl(c),i*0.15+0.05)).join('')}</div>
           <div style="font-size:.78rem;color:${hist.result==='win'?'var(--gold2)':'var(--dim)'};margin-top:3px">${CAT_NAMES[pb.cat]}</div>
         </div>
-    </div>
-    <div style="text-align:center;margin-bottom:8px">
-      <div class="sec">Community</div>
-      <div class="hand">${S.uthComm.map((c,i)=>cardHTML(c,'sm','',i*0.08+0.05)).join('')}</div>
     </div>
     <div class="divider"></div>
     <div style="display:grid;grid-template-columns:1fr auto;gap:3px 14px;margin-bottom:10px">
@@ -1211,7 +1233,7 @@ function screenRouletteResult(){
     <div style="display:flex;justify-content:center;margin-bottom:14px">
       <div class="r-res-num ${rCls(n)}">${n}</div>
     </div>
-    <div style="font-size:1.75rem;font-weight:700;color:${col(res.delta)}">${res.won?'Winner! 🎉':'No luck 💸'}</div>
+    <div style="font-size:1.75rem;font-weight:700;color:${col(res.delta)}">${res.won?'You Win! 🎉':'You Lose! 💸'}</div>
     <div style="font-size:.9rem;color:var(--dim);margin:6px 0 12px">Ball on <b style="color:var(--text)">${n}</b> (${rName(n)}) · Bet: <b style="color:var(--text)">${b.type==='num'?'#'+b.lbl:b.lbl}</b></div>
     <div style="font-size:1.5rem;font-weight:700;color:${col(res.delta)};margin-bottom:16px">${sign(res.delta)} chips</div>
     <div class="irow"><span class="ik">Final chip count</span><span class="iv">${fmt(S.chips)} chips</span></div>
