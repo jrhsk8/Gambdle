@@ -48,7 +48,7 @@ body::before {
 }
 
 .app { width: 100%; max-width: 620px; padding: 0 18px 60px; position: relative; z-index: 1; }
-.hdr { display: flex; justify-content: space-between; align-items: center; padding: 20px 0 12px; }
+.hdr { display: flex; justify-content: space-between; align-items: center; padding: 20px 0 12px; gap: 8px; }
 .logo {
   font-family: var(--serif); font-size: 3.6rem; font-weight: 400; letter-spacing: .01em; line-height: .95;
   background: linear-gradient(180deg, var(--gold-leaf) 0%, var(--gold) 45%, var(--gold-deep) 100%);
@@ -56,14 +56,14 @@ body::before {
   filter: drop-shadow(0 2px 0 rgba(0,0,0,.4)) drop-shadow(0 0 24px rgba(230,181,74,.18));
 }
 .logo-sm {
-  font-family: var(--serif); font-size: 1.7rem; font-weight: 400; line-height: 1;
+  font-family: var(--serif); font-size: 1.4rem; font-weight: 400; line-height: 1;
   background: linear-gradient(180deg, var(--gold-leaf) 0%, var(--gold) 50%, var(--gold-deep) 100%);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
-.logo-sub { font-size: .7rem; color: var(--dim); letter-spacing: .22em; text-transform: uppercase; margin-top: 5px; font-weight: 600; }
+.logo-sub { font-size: .62rem; color: var(--dim); letter-spacing: .12em; text-transform: uppercase; margin-top: 3px; font-weight: 600; line-height: 1.2; }
 .chip-badge {
-  display: inline-flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.55); border: 2px solid var(--gold); border-radius: 50px;
-  padding: 10px 24px; font-family: var(--serif); font-size: 1.6rem; font-weight: 400; color: var(--gold-leaf);
+  display: inline-flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.55); border: 2px solid var(--gold); border-radius: 50px;
+  padding: 8px 18px; font-family: var(--serif); font-size: 1.2rem; font-weight: 400; color: var(--gold-leaf);
   box-shadow: 0 10px 25px -5px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.2); text-shadow: 0 2px 4px rgba(0,0,0,0.4); letter-spacing: 0.02em;
 }
 .panel {
