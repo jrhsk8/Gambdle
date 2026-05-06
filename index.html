@@ -179,16 +179,16 @@ body::before {
 .hold-tag { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.08em; height: 14px; color: var(--gold); }
 
 /* --- Roulette Specifics --- */
-.rboard, .rboard-sub { display: grid; grid-template-columns: 36px repeat(12, 1fr) 42px; gap: 4px; margin-bottom: 4px; }
-.rboard { grid-template-rows: 44px 44px 44px; }
-.rboard-sub { grid-auto-rows: 36px; }
-.rn { border: none; border-radius: 4px; cursor: pointer; font-family: var(--f); font-size: 0.95rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; transition: transform 0.1s, box-shadow 0.1s; padding: 0; position: relative; z-index: 1; }
+.rboard, .rboard-sub { display: grid; grid-template-columns: 28px repeat(12, 1fr) 34px; gap: 3px; margin-bottom: 4px; }
+.rboard { grid-template-rows: 38px 38px 38px; }
+.rboard-sub { grid-auto-rows: 32px; }
+.rn { border: none; border-radius: 4px; cursor: pointer; font-family: var(--f); font-size: 0.85rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; transition: transform 0.1s, box-shadow 0.1s; padding: 0; position: relative; z-index: 1; }
 .rn:hover { transform: scale(1.08); z-index: 2; }
 .rn.r-sel { box-shadow: 0 0 0 2px var(--gold), 0 0 10px rgba(249,199,79,0.55); transform: scale(1.08); z-index: 3; }
 .rn-red { background: #b91c1c; } .rn-blk { background: #1a1a1a; } .rn-grn { background: #15803d; }
 .r2to1 { background: rgba(0,0,0,0.4); border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 700; color: var(--dim); display: flex; align-items: center; justify-content: center; transition: all 0.1s; padding: 0; }
 .r2to1:hover { background: rgba(0,0,0,0.55); color: var(--text); } .r2to1.r-sel { background: var(--gold); color: #1a0e00; }
-.rout { padding: 5px 2px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.32); color: var(--text); cursor: pointer; font-size: 0.88rem; font-weight: 600; font-family: var(--f); text-align: center; transition: all 0.12s; display: flex; align-items: center; justify-content: center; }
+.rout { padding: 5px 2px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.32); color: var(--text); cursor: pointer; font-size: 0.82rem; font-weight: 600; font-family: var(--f); text-align: center; transition: all 0.12s; display: flex; align-items: center; justify-content: center; }
 .rout:hover { background: rgba(0,0,0,0.52); border-color: rgba(255,255,255,0.22); } .rout.r-sel { background: var(--gold); color: #1a0e00; border-color: var(--gold); font-weight: 700; }
 .rout-r { border-left: 3px solid #b91c1c; } .rout-b { border-left: 3px solid #444; }
 
@@ -237,6 +237,7 @@ body::before {
   .logo { font-size: 4.2rem; }
 }
 </style>
+<style>#uth-actions-ui { min-height: 72px; }</style>
 </head>
 <body>
 <div id="app"></div>
@@ -582,7 +583,7 @@ function hdr(sub){
   return`<div class="hdr">
     <div>
       <div class="logo-sm">GAMBDLE</div>
-      <div class="logo-sub">${sub}</div>
+      <div id="hdr-sub" class="logo-sub">${sub}</div>
       ${title ? `<div style="margin-top:8px"><span class="mod-badge" title="${desc || ''}">✨ ${title}</span></div>` : ''}
     </div>
     <div id="chip-badge" class="chip-badge">💵 ${fmt(S.chips)}</div>
@@ -823,8 +824,8 @@ function screenBJ(){
       const can2=S.chips>=S.bjSplitBets[ai]&&isInitial;
       const canResplit=isInitial&&activeHand[0].r===activeHand[1].r&&S.chips>=S.bjSplitBets[ai];
       const af=S.bjSplitAnimFrom[ai]??0;
-      return`${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
-      <div class="panel" style="display:flex;flex-direction:column">
+      return `${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
+<div class="panel" style="display:flex;flex-direction:column">
         <div style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
         <div class="divider"></div>
         ${S.bjSplitHands.length>1?`<div style="display:flex;gap:12px;justify-content:center;margin-bottom:10px">
@@ -834,18 +835,18 @@ function screenBJ(){
             <div style="font-size:.82rem;font-weight:700;color:${hv>21?'var(--lose)':'var(--dim)'};margin-top:2px">${hv}${hv>21?' B':''}</div>
           </div>`;}).join('')}
         </div><div class="divider"></div>`:''}
-        <div style="text-align:center;flex:1">
+        <div style="text-align:center;flex:1;">
           <div class="sec">Hand ${ai+1} of ${S.bjSplitHands.length}</div>
           <div id="bj-active-hand" class="hand">${activeHand.map((c,i)=>{const n=i>=af;return cardHTML(c,'lg','',n?(i-af)*0.4+0.1:0,n);}).join('')}</div>
           ${S.bjCelebrating||done21
             ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div style="font-family:var(--serif);font-size:2.8rem;color:var(--gold2);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(230,181,74,.55)">Blackjack!</div></div>`
             :`<div id="bj-active-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
         </div>
-        <div style="margin-top:auto">
+        <div style="margin-top:auto;">
           ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canResplit)}
           <div class="irow" style="margin-top:10px"><span class="ik">Hand ${ai+1} Bet</span><span class="iv">${fmt(S.bjSplitBets[ai])} chips</span></div>
         </div>
-      </div>`;
+</div>`;
     }
     const pv=hVal(S.bjPlayer),bust=pv>21,done21=pv===21;
     const isInitial=S.bjPlayer.length===2;
@@ -855,7 +856,7 @@ function screenBJ(){
 <div class="panel" style="display:flex;flex-direction:column">
   <div style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
   <div class="divider"></div>
-  <div style="text-align:center;flex:1">
+  <div style="text-align:center;flex:1;">
     <div class="sec">Your Hand</div>
     <div id="bj-player-hand" class="hand">${S.bjPlayer.map((c,i)=>{const n=i>=S.bjAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
     ${(S.bjCelebrating||done21)
@@ -865,7 +866,7 @@ function screenBJ(){
         </div>`
       :`<div id="bj-player-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
   </div>
-  <div style="margin-top:auto">
+  <div style="margin-top:auto;">
     ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canSplit)}
     <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${fmt(S.bjBet)} chips</span></div>
   </div>
@@ -1026,9 +1027,9 @@ function screenUTH(){
     </div>`;
   }
 
-  const commRow=()=>`<div style="text-align:center;margin-bottom:8px">
+  const commRow=()=>`<div id="uth-community-container" style="text-align:center;margin-bottom:8px">
     <div class="sec">Community Cards</div>
-    <div class="hand">${[0,1,2,3,4].map(i=>{
+    <div id="uth-community-hand" class="hand">${[0,1,2,3,4].map(i=>{
       if(i<S.uthRevealComm){
         const isNew=i>=S.uthPrevRevealComm;
         return cardHTML(S.uthComm[i],'sm','',isNew?0.05+(i-S.uthPrevRevealComm)*0.12:0,isNew);
@@ -1042,10 +1043,10 @@ function screenUTH(){
     <div class="hand">${S.uthHole.map((c,i)=>cardHTML(c,'md','',anim?0.05+i*0.2:0,anim)).join('')}</div>
   </div>`;
 
-  const dealerRow=(reveal=false)=>`<div style="text-align:center;margin-bottom:8px">
-    <div class="sec">${reveal?'Dealer':'Dealer (Face Down)'}</div>
-    <div class="hand">${reveal
-      ?S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.18+0.05)).join('')
+  const dealerRow=(reveal=false)=>`<div id="uth-dealer-container" style="text-align:center;margin-bottom:8px">
+    <div id="uth-dealer-sec" class="sec">${reveal?'Dealer':'Dealer (Face Down)'}</div>
+    <div id="uth-dealer-hand" class="hand">${reveal
+      ?S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.9+0.1)).join('')
       :[0,1].map(()=>cardHTML('back','md')).join('')}</div>
   </div>`;
 
@@ -1070,11 +1071,13 @@ function screenUTH(){
       <div class="divider"></div>
       ${playerRow(true)}
       ${betChips()}
-      <div class="act-btns">
-        <button class="act-btn" onclick="uthRaise(4)" ${canR4?'':'disabled'}>Raise 4× (${fmt(S.uthAnte*2)})</button>
-        <button class="act-btn" onclick="uthCheck()">Check</button>
+      <div id="uth-actions-ui">
+        <div id="uth-action-btns" class="act-btns">
+          <button class="act-btn" onclick="uthRaise(4)" ${canR4?'':'disabled'}>Raise 4× (${fmt(S.uthAnte*2)})</button>
+          <button class="act-btn" onclick="uthCheck()">Check</button>
+        </div>
       </div>
-      ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
+      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
 
@@ -1088,13 +1091,14 @@ function screenUTH(){
       <div class="divider"></div>
       ${playerRow(false)}
       ${betChips()}
-      ${S.uthRaised
-        ?`<button class="btn-gold" onclick="uthNextStreet()">See Turn &amp; River →</button>`
-        :`<div class="act-btns">
-          <button class="act-btn" onclick="uthRaise(2)" ${canR2?'':'disabled'}>Raise 2× (${fmt(S.uthAnte)})</button>
-          <button class="act-btn" onclick="uthCheck()">Check</button>
-        </div>`}
-      ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
+      <div id="uth-actions-ui">
+        ${S.uthRaised ? `<button class="btn-gold" onclick="uthNextStreet()">See Turn &amp; River →</button>` : `
+          <div id="uth-action-btns" class="act-btns">
+            <button class="act-btn" onclick="uthRaise(2)" ${canR2?'':'disabled'}>Raise 2× (${fmt(S.uthAnte)})</button>
+            <button class="act-btn" onclick="uthCheck()">Check</button>
+          </div>`}
+      </div>
+      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
 
@@ -1108,34 +1112,35 @@ function screenUTH(){
       <div class="divider"></div>
       ${playerRow(false)}
       ${betChips()}
-      ${S.uthRaised
-        ?`<button class="btn-gold" onclick="uthNextStreet()">→ Showdown</button>`
-        :`<div class="act-btns">
-          <button class="act-btn" onclick="uthRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${fmt(S.uthAnte/2)})</button>
-          <button class="act-btn" style="color:var(--lose);border-color:rgba(239,35,60,.4)" onclick="uthFold()">Fold</button>
-        </div>`}
-      ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
+      <div id="uth-actions-ui">
+        ${S.uthRaised ? `<button class="btn-gold" onclick="uthNextStreet()">→ Showdown</button>` : `
+          <div id="uth-action-btns" class="act-btns">
+            <button class="act-btn" onclick="uthRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${fmt(S.uthAnte/2)})</button>
+            <button class="act-btn" style="color:var(--lose);border-color:rgba(239,35,60,.4)" onclick="uthFold()">Fold</button>
+          </div>`}
+      </div>
+      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
 
   if(ph==='reveal'){
     return`${hdr("Texas Hold'em · Dealer Reveals")}
-    <div class="panel" style="text-align:center">
-      <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin:16px 0">
+    <div class="panel">
+      <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px">
         <div>
           <div class="sec" style="font-size:.62rem">Dealer</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.9+0.1)).join('')}</div>
         </div>
-        <div>
-          <div class="sec" style="font-size:.62rem">Community</div>
-          <div class="hand" style="justify-content:center">${S.uthComm.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
-        </div>
+        ${commRow()}
         <div style="width:60%;height:1px;background:rgba(230,181,74,0.1)"></div>
         <div>
           <div class="sec" style="font-size:.62rem">Your Hand</div>
           <div class="hand" style="justify-content:center">${S.uthHole.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
         </div>
       </div>
+      ${betChips()}
+      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
+      <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
     </div>`;
   }
 
@@ -1160,10 +1165,7 @@ function screenUTH(){
           <div class="hand" style="justify-content:center">${S.uthDealer.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
           <div style="font-size:.78rem;color:var(--gold2);margin-top:3px">${CAT_NAMES[dealerBest.cat]}</div>
         </div>
-        <div>
-          <div class="sec" style="font-size:.62rem">Community</div>
-          <div class="hand" style="justify-content:center">${S.uthComm.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
-        </div>
+        ${commRow()}
         <div style="width:60%;height:1px;background:rgba(230,181,74,0.1)"></div>
         <div>
           <div class="sec" style="font-size:.62rem">Your Hand</div>
@@ -1243,7 +1245,7 @@ function screenRouletteBet(){
   <div class="panel">
     <div class="sec">The Table - tap to place your bet</div>
     <div style="overflow-x: auto; margin: 0 -10px; padding: 0 10px 12px; scrollbar-width: thin; -webkit-overflow-scrolling: touch;">
-      <div style="min-width: 580px;">${rBoard()}</div>
+      <div style="min-width: 480px;">${rBoard()}</div>
     </div>
     <div class="divider"></div>
     ${pb?`<div class="irow"><span class="ik">Bet on: <b style="color:var(--text)">${pb.type==='num'?'Number '+pb.lbl:pb.lbl}</b></span><span class="iv">${pb.pay}:1 payout</span></div>`:`<div style="font-size:.88rem;color:var(--dim);text-align:center;margin-bottom:10px">Select a number or outside bet above</div>`}
@@ -1374,6 +1376,74 @@ function goTo(s){S.screen=s;render();}
 function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('mediumbet.mp3');else playMp3('smallbet.mp3');}
 function advanceTo(s){sndAdvance();if(s!=='results'&&S.chips<10)s='results';goTo(s);}
 function startGame(){sndChip('allin');S.screen='bj';S.bjPhase='bet';render();}
+
+function updateUthCommunityCards() {
+  const commHand = document.getElementById('uth-community-hand');
+  const dealerHand = document.getElementById('uth-dealer-hand');
+  if (!commHand || !dealerHand) { _noAnim=true; render(); return; }
+
+  // Update header subtitle surgically
+  const hdrSub = document.getElementById('hdr-sub');
+  if (hdrSub) {
+    if (S.uthPhase === 'reveal') hdrSub.textContent = "Texas Hold'em · Dealer Reveals";
+    else if (S.uthPhase === 'result') hdrSub.textContent = "Texas Hold'em · Showdown";
+  }
+
+  const actionUi = document.getElementById('uth-actions-ui');
+  if (actionUi) {
+    actionUi.style.pointerEvents = 'none';
+    actionUi.querySelectorAll('button').forEach(b => {
+      b.disabled = true;
+      b.style.color = 'transparent';
+    });
+  }
+
+  const startDelay = 300; // Slight delay after button press
+  const interval = 400;   // Delay between community cards
+  let revealedCount = 0;
+
+  // Reveal community cards sequentially
+  for (let i = S.uthPrevRevealComm; i < S.uthRevealComm; i++) {
+    const cardIdx = i;
+    const offset = revealedCount;
+    setTimeout(() => {
+      const cardHtml = cardHTML(S.uthComm[cardIdx], 'sm', '', 0, true);
+      if (commHand.children[cardIdx]) {
+        commHand.children[cardIdx].outerHTML = cardHtml;
+        sndCard();
+      }
+    }, startDelay + offset * interval);
+    revealedCount++;
+  }
+
+  // Update dealer reveal sounds to match HTML delays (0.1s and 1.0s)
+  if (S.uthPhase === 'reveal') {
+    const dSec = document.getElementById('uth-dealer-sec');
+    if (dSec) dSec.textContent = 'Dealer';
+    setTimeout(() => sndCard(), startDelay + 100);
+    setTimeout(() => sndCard(), startDelay + 1000);
+    dealerHand.innerHTML = S.uthDealer.map((c, i) => cardHTML(c, 'md', '', i * 0.9 + 0.1)).join('');
+  }
+
+  const finishDelay = startDelay + (revealedCount * interval);
+  S.uthPrevRevealComm = S.uthRevealComm;
+
+  const dotsContainer = document.getElementById('uth-dots-container');
+  setTimeout(() => {
+    if (dotsContainer) dotsContainer.innerHTML = gameDots(S.uthHistory, S.uthHand, S.uthPhase);
+    if (actionUi && S.uthPhase !== 'reveal' && S.uthPhase !== 'result') {
+      actionUi.style.pointerEvents = '';
+      if (S.uthRaised) {
+        actionUi.innerHTML = `<button class="btn-gold" onclick="uthNextStreet()">${S.uthPhase==='flop'?'See Turn & River →':'→ Showdown'}</button>`;
+      } else {
+        if (S.uthPhase === 'flop') actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(2)" ${S.chips < S.uthAnte ? 'disabled' : ''}>Raise 2× (${fmt(S.uthAnte)})</button><button class="act-btn" onclick="uthCheck()">Check</button></div>`;
+        else if (S.uthPhase === 'turn') actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(1)" ${S.chips < S.uthAnte / 2 ? 'disabled' : ''}>Raise 1× (${fmt(S.uthAnte / 2)})</button><button class="act-btn" style="color:var(--lose);border-color:rgba(239,35,60,.4)" onclick="uthFold()">Fold</button></div>`;
+      }
+    }
+  }, finishDelay);
+
+  saveState();
+}
 
 /** 
  * --- BLACKJACK LOGIC --- 
@@ -1655,23 +1725,23 @@ function uthRaise(mult){
   S.chips-=bet;S.uthPlay=bet;S.uthPlayMult=mult;S.uthRaised=true;
   sndChip();
   if(S.uthPhase==='preflop'){
-    S.uthPrevRevealComm=0;S.uthRevealComm=3;S.uthPhase='flop';_noAnim=true;render();updateChipDisplay();sndCard(50);sndCard(150);sndCard(250);
+    S.uthPrevRevealComm=0;S.uthRevealComm=3;S.uthPhase='flop';updateUthCommunityCards();updateChipDisplay();sndCard(50);sndCard(150);sndCard(250);
   }else if(S.uthPhase==='flop'){
-    S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';_noAnim=true;render();updateChipDisplay();sndCard(50);sndCard(200);
+    S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';updateUthCommunityCards();updateChipDisplay();sndCard(50);sndCard(200);
   }else if(S.uthPhase==='turn'){
     uthResolve();
   }
 }
 function uthCheck(){
   if(S.uthPhase==='preflop'){
-    S.uthPrevRevealComm=0;S.uthRevealComm=3;S.uthPhase='flop';_noAnim=true;render();sndCard(50);sndCard(150);sndCard(250);
+    S.uthPrevRevealComm=0;S.uthRevealComm=3;S.uthPhase='flop';updateUthCommunityCards();sndCard(50);sndCard(150);sndCard(250);
   }else if(S.uthPhase==='flop'){
-    S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';_noAnim=true;render();sndCard(50);sndCard(200);
+    S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';updateUthCommunityCards();sndCard(50);sndCard(200);
   }
 }
 function uthNextStreet(){
-  if(S.uthPhase==='flop'){
-    S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';_noAnim=true;render();sndCard(50);sndCard(200);
+  if(S.uthPhase==='flop') {
+    S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';updateUthCommunityCards();sndCard(50);sndCard(200);
   }else if(S.uthPhase==='turn'){
     uthResolve();
   }
@@ -1681,8 +1751,7 @@ function uthFold(){
   const ante=S.uthAnte/2;
   S.uthHistory.push({ante,blind:ante,play:0,playMult:0,result:'fold',delta:-(ante*2),anteDelta:-ante,blindDelta:-ante,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false});
   S.uthHand++;S.uthPhase='reveal';
-  sndCard(100);sndCard(1000);
-  render();
+  updateUthCommunityCards();
   setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();},2300);
 }
 /**
@@ -1714,8 +1783,7 @@ function uthResolve(){
   S.uthHistory.push({ante,blind:ante,play,playMult:S.uthPlayMult,result:cmp>0?'win':cmp===0?'push':'lose',delta,anteDelta,blindDelta,playDelta,playerBest:pb,dealerBest:db2,dealerQualifies});
   S.uthHand++;S.uthPhase='reveal';
   S.uthRevealComm=5;
-  sndCard(100);sndCard(1000);
-  render();
+  updateUthCommunityCards();
   setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();if(delta>0)setTimeout(sndBigWin,400);},2300);
 }
 function uthNext(){
