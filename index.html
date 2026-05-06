@@ -222,6 +222,7 @@ body::before {
 @media (min-width: 1024px) {
   :root { font-size: 18px; }
   body { overflow: hidden; }
+  body.dev-mode { overflow-y: auto; }
   .app { max-width: 800px; }
   .panel { padding: 32px 28px; min-height: 680px; min-width: 764px; }
   .card.lg { width: 96px; height: 137px; }
@@ -269,6 +270,7 @@ const STORAGE_KEY = 'gambdle_state_';
 /** DEV_OVERRIDE enabled via ?dev=true in URL */
 const urlParams = new URLSearchParams(window.location.search);
 let DEV_OVERRIDE = urlParams.get('dev') === 'true' ? {} : null; // Set to {} if ?dev=true is in URL
+if(DEV_OVERRIDE) document.body.classList.add('dev-mode');
 
 /** Manual overrides for deck seeding (independent of ?dev=true flag) */
 const ENABLE_CARD_SEEDING = false; // Set to true to enable the overrides below
@@ -558,28 +560,19 @@ function chipSel(maxC,curBet,denoms){
   </div>`;
 }
 
-function bjDots(){
+function gameDots(history, hand, phase){
   return`<div class="dots-row">${Array.from({length:3},(_,i)=>{
-    const h=S.bjHistory[i];
-    if(h){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${sign(d)}</div>`;}
-    return`<div class="hdot ${i===S.bjHand&&S.bjPhase!=='bet'?'cur':i<S.bjHand?'push':'pend'}">${i===S.bjHand&&S.bjPhase!=='bet'?(S.bjPhase==='result'?'Next':'Playing'):'Hand '+(i+1)}</div>`;
+    const h=history[i];
+    if(h){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">Hand ${i+1} ${sign(d)}</div>`;}
+    const isCur=i===hand;
+    const cls=isCur?'cur':i<hand?'push':'pend';
+    const txt=isCur&&phase==='result'?`Hand ${i+1} · Next`:isCur&&phase!=='bet'?`Hand ${i+1} · Playing`:`Hand ${i+1}`;
+    return`<div class="hdot ${cls}">${txt}</div>`;
   }).join('')}</div>`;
 }
-/** ─── SECONDARY GAME DOTS (UTH / POKER) ─── */
-function pkDots(){
-  return`<div class="dots-row">${Array.from({length:3},(_,i)=>{
-    const h=S.pkHistory[i];
-    if(h){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${sign(d)}</div>`;}
-    return`<div class="hdot ${i===S.pkHand&&S.pkPhase!=='bet'?'cur':i<S.pkHand?'push':'pend'}">${i===S.pkHand&&S.pkPhase!=='bet'?(S.pkPhase==='result'?'Next':'Playing'):'Hand '+(i+1)}</div>`;
-  }).join('')}</div>`;
-}
-function uthDots(){
-  return`<div class="dots-row">${Array.from({length:3},(_,i)=>{
-    const h=S.uthHistory[i];
-    if(h){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${sign(d)}</div>`;}
-    return`<div class="hdot ${i===S.uthHand&&S.uthPhase!=='bet'?'cur':i<S.uthHand?'push':'pend'}">${i===S.uthHand&&S.uthPhase!=='bet'?(S.uthPhase==='result'?'Next':'Playing'):'Hand '+(i+1)}</div>`;
-  }).join('')}</div>`;
-}
+function bjDots(){return gameDots(S.bjHistory,S.bjHand,S.bjPhase);}
+function pkDots(){return gameDots(S.pkHistory,S.pkHand,S.pkPhase);}
+function uthDots(){return gameDots(S.uthHistory,S.uthHand,S.uthPhase);}
 
 function hdr(sub){
   const title = getMod('title');
@@ -773,7 +766,7 @@ function screenIntro(){
   return`<div class="hdr" style="justify-content:center;flex-direction:column;gap:4px;padding:20px 0 16px">
     <div class="logo">GAMBDLE</div>
     <div class="logo-sub">Daily Casino · #${S.day}</div>
-    ${activeRule ? `<div style="margin-top:12px"><span class="mod-badge">✨ Daily Rule: ${activeRule}</span></div>` : ''}
+    ${activeRule ? `<div style="margin-top:12px"><span class="mod-badge">✨ Daily Modifier: ${activeRule}</span></div>` : ''}
   </div><div class="hdr-div"></div>
   <div class="panel">
     <div style="text-align:center;padding:8px 0 14px">
@@ -1143,7 +1136,12 @@ function screenUTH(){
 
   return`${hdr("Texas Hold'em · Showdown")}
   <div class="panel">
-    <div style="display:flex;flex-direction:column;gap:16px;align-items:center;margin-bottom:12px">
+    <div style="text-align:center;margin-bottom:10px">
+      <div style="font-size:1.4rem;font-weight:700;color:${col(hist.delta)}">${resLabel}</div>
+      <div style="font-size:1.1rem;font-weight:700;color:${col(hist.delta)}">${sign(hist.delta)} chips</div>
+    </div>
+    <div class="divider"></div>
+    <div style="display:flex;flex-direction:column;gap:16px;align-items:center;margin-bottom:12px;margin-top:12px">
         <div style="text-align:center">
           <div class="sec" style="font-size:.62rem">Dealer${hist.dealerQualifies?' (Qualifies)':' (No Qualify)'}</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.15+0.05)).join('')}</div>
@@ -1161,10 +1159,6 @@ function screenUTH(){
       <div class="hand">${S.uthComm.map((c,i)=>cardHTML(c,'sm','',i*0.08+0.05)).join('')}</div>
     </div>
     <div class="divider"></div>
-    <div style="text-align:center;margin-bottom:8px">
-      <div style="font-size:1.4rem;font-weight:700;color:${col(hist.delta)}">${resLabel}</div>
-      <div style="font-size:1.1rem;font-weight:700;color:${col(hist.delta)}">${sign(hist.delta)} chips</div>
-    </div>
     <div style="display:grid;grid-template-columns:1fr auto;gap:3px 14px;margin-bottom:10px">
       ${[['Ante',hist.anteDelta],['Blind',hist.blindDelta],...(hist.play>0?[['Play ('+hist.playMult+'×)',hist.playDelta]]:[])].map(([lbl,d])=>`<span class="pname">${lbl}</span><span class="ppay" style="color:${col(d)}">${sign(d)}</span>`).join('')}
     </div>
@@ -1234,7 +1228,7 @@ function screenResults(){
   const g2Em=g2Hist.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const rEm=rNet>0?'🎰':rNet===0?'🟡':'💸';
   const g2Label=GAME2==='uth'?"♠ Texas Hold'em":'♠ 5 Card Poker';
-  const shareText=`🎰 Gambdle #${S.day}\n\n🃏 Blackjack:      ${bjEm}  ${sign(bjNet)}\n♠  ${GAME2==='uth'?"Texas Hold'em":'5 Card Poker'}: ${g2Em}  ${sign(g2Net)}\n🎡 Roulette:      ${rEm}  ${sign(rNet)}\n\n🏆 ${fmt(S.chips)} chips\ngambdle.com`;
+  const shareText=buildShareText();
   
   const histData = JSON.parse(localStorage.getItem('gambdle_history') || '{}');
   const historySorted = Object.entries(histData).sort((a,b) => parseInt(a[0]) - parseInt(b[0])).slice(-7);
@@ -1246,7 +1240,7 @@ function screenResults(){
     </div>` : '';
 
   const high = parseInt(localStorage.getItem('gambdle_highscore') || '0');
-  const tier = S.chips >= 2500 ? '🐋 Whale' : S.chips >= 1500 ? '💎 High Roller' : S.chips >= 1000 ? '📜 Apprentice' : S.chips > 0 ? '🕯️ Survivor' : '🤡 Bozo';
+  const tier = S.chips >= 2500 ? '🐋 Whale' : S.chips >= 1500 ? '💎 High Roller' : S.chips >= 1000 ? '📜 Apprentice' : S.chips > 0 ? '😢 Survivor' : '🤡 Bozo';
   const msg = S.chips >= 1000 ? '📈 Excellent run!' : S.chips > 0 ? '📉 Tough session' : 'Better luck tomorrow';
 
   return`<div class="hdr" style="justify-content:center;flex-direction:column;gap:4px;padding:16px 0 12px"><div class="logo">GAMBDLE</div><div class="logo-sub">Day #${S.day} · Final Score</div></div><div class="hdr-div"></div>
@@ -1720,7 +1714,7 @@ function allIn(){S[curBetRef()]=maxBet();sndChip();patchBetUI();}
  * --- SHARING & UTILS --- 
  */
 
-function doShare(){
+function buildShareText(){
   const bjNet=S.bjHistory.reduce((a,h)=>a+h.delta,0);
   const g2Hist=GAME2==='uth'?S.uthHistory:S.pkHistory;
   const g2Net=g2Hist.reduce((a,h)=>a+h.delta,0);
@@ -1728,8 +1722,21 @@ function doShare(){
   const bjEm=S.bjHistory.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const g2Em=g2Hist.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
   const rEm=rNet>0?'🎰':rNet===0?'🟡':'💸';
-  const t=`🎰 Gambdle #${S.day}\n\n🃏 Blackjack:      ${bjEm}  ${sign(bjNet)}\n♠  ${GAME2==='uth'?"Texas Hold'em":'5 Card Poker'}: ${g2Em}  ${sign(g2Net)}\n🎡 Roulette:      ${rEm}  ${sign(rNet)}\n\n🏆 ${fmt(S.chips)} chips\nhttps://jrhsk8.github.io/Gambdle/`;
-  navigator.clipboard.writeText(t).then(()=>toast('Copied! 🎲'));
+  const g2Name=GAME2==='uth'?"Texas Hold'em":'5 Card Poker';
+  const trophy=S.chips>=2500?'🐋':S.chips>=1500?'💎':S.chips>=1000?'🏆':S.chips>0?'😢':'🤡';
+  return [
+    `🎰 Gambdle #${S.day}`,
+    ``,
+    `🃏 Blackjack     ${bjEm}  (${sign(bjNet)})`,
+    `♠️  ${g2Name.padEnd(14)} ${g2Em}  (${sign(g2Net)})`,
+    `🎡 Roulette      ${rEm}  (${sign(rNet)})`,
+    ``,
+    `${trophy} Finished with ${fmt(S.chips)} chips`,
+    `https://jrhsk8.github.io/Gambdle/`
+  ].join('\n');
+}
+function doShare(){
+  navigator.clipboard.writeText(buildShareText()).then(()=>toast('Copied! 🎲'));
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 

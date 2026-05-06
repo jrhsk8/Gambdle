@@ -26,25 +26,28 @@
 - `rankPoker()` (Video Poker) vs `handScore()` (UTH) use different internal thresholds.
 - `G.rSpin` (pre-gen result) vs `rSpin()` (the UI function).
 
-## Working Context: Add additional detail to this section so as to resume work if interrupted.
-- **Current**: Developing new modifiers and refining game balance.
-- **Completed**: Persistent state, Daily seed PRNG, Split logic, Roulette canvas wheel, History chart, Scoring tiers, Dev tools, `modifiers.js` preset system, Desktop UI scaling, BJ payout fixes, Roulette mobile UX.
-- **Completed**: Persistent state, Daily seed PRNG, Split logic, Roulette canvas wheel, History chart, Scoring tiers, Dev tools, `modifiers.js` preset system, Desktop UI scaling, BJ payout fixes, Roulette mobile UX, Progress UI polish, Code reorganization.
+## Working Context
+- **Current**: Refactoring + UI polish pass.
+- **Completed**: Persistent state, Daily seed PRNG, Split logic, Roulette canvas wheel, History chart, Scoring tiers, Dev tools, `modifiers.js` preset system, Desktop UI scaling, BJ payout fixes, Roulette mobile UX, Progress UI polish, Code reorganization, `gameDots()` refactor, share text consolidation.
 
 ## Ideas to add
-- more preset modifiers (e.g., Deuces Wild).
+- More preset modifiers (e.g., Deuces Wild).
 - "Lowball" poker modifier.
 - UTH scenario seeding.
 
-
 ## Changelog
+- Refactored `bjDots`/`pkDots`/`uthDots` into single `gameDots(history, hand, phase)` helper.
+- Dots now always show hand number; current hand highlighted gold on bet screen.
+- Consolidated share text into `buildShareText()` used by both results preview and `doShare()`.
+- Result tier emoji in share text: 🐋 (2500+), 💎 (1500+), 🏆 (1000+), 😢 (>0), 🤡 (bust).
+- UTH result screen: "You Win!" / result label moved to top of panel above cards.
+- Dev mode (`?dev=true`) re-enables vertical scrollbar on desktop via `body.dev-mode` class.
+- Fixed syntax error (duplicate template literal in BJ split rendering, line ~839).
 - Added `modifiers.js` with preset system and daily-scheduled rules (title/desc support).
 - Fixed Blackjack payouts (3:2 for naturals) and standardized "Blackjack!" celebration logic.
 - Improved Roulette table accessibility on mobile via horizontal scrolling and larger tiles.
-- Enforced `min_chips` modifier in betting logic (`patchBetUI`).
 - Implemented desktop-specific UI scaling, fixed-size game panel, and scrollbar suppression.
 - Added "Force Modifier" buttons to Dev Tools for testing specific rules.
-- Updated progress trackers (`bjDots`, `pkDots`, `uthDots`) to show "Next" instead of "Playing" while viewing results.
-- Rearranged `index.html` structure to put Game Config, Dev Mode, and Card Seeding at the top for better maintainability.
-- Fixed `forcedMod` priority in `loadState` to ensure developer tool modifier selection correctly overrides saved state.
-- Improved "Daily Rule" visibility with glowing animations and dynamic positioning below hand info.
+- Rearranged `index.html` structure to put Game Config, Dev Mode, and Card Seeding at the top.
+- Fixed `forcedMod` priority in `loadState` to ensure dev tool modifier overrides saved state.
+- Improved "Daily Rule" visibility with glowing animations and dynamic positioning.

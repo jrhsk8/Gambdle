@@ -16,7 +16,7 @@
  */
 
 const PRESET_MODIFIERS = {
-  double_pay: { title: "Double Pay", desc: "Blackjacks pay 2:1", bj_payout: 2.0 },
+  double_pay: { title: "Blackjacks Pay 2:1", desc: "Blackjacks pay 2:1", bj_payout: 2.0 },
   high_stakes: { title: "High Stakes", desc: "Minimum chips requirement is 50", min_chips: 50 },
 };
 
