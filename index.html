@@ -258,6 +258,43 @@ const getDailySeed = () => { const d=new Date(); return d.getFullYear()*10000+(d
 const getDayNum = () => { const s=Date.UTC(2026,4,5),n=new Date(); n.setUTCHours(0,0,0,0); return Math.floor((n-s)/86400000)+1; };
 
 /** 
+ * ─── GAME CONFIG & SEEDING ───────────────────────────────────────────
+ */
+function card(r,s){return{r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]||s};}
+
+// 'uth' = Ultimate Texas Hold'em  |  'poker' = 5 Card Poker
+const GAME2 = 'uth';
+const STORAGE_KEY = 'gambdle_state_';
+
+/** DEV_OVERRIDE enabled via ?dev=true in URL */
+const urlParams = new URLSearchParams(window.location.search);
+let DEV_OVERRIDE = urlParams.get('dev') === 'true' ? {} : null; // Set to {} if ?dev=true is in URL
+
+/** Manual overrides for deck seeding (independent of ?dev=true flag) */
+const ENABLE_CARD_SEEDING = false; // Set to true to enable the overrides below
+
+const CARD_SEED_OVERRIDE = {
+  bjShoe: [
+    // Hand 1 — player: K-K  dealer: K-5
+    card('A','s'), card('J','s'), card('K','d'), card('5','c'),
+    // Hand 2 — player: J-A  dealer: 2-9
+    card('J','s'), card('A','d'), card('2','d'), card('9','c'),
+    // Hand 3 — player: 10-10 dealer: Q-2
+    card('10','s'), card('10','h'), card('Q','d'), card('2','c'),
+  ],
+  rSpin: 17, // 0–36
+};
+
+function getMod(key) {
+  const seed = getDailySeed();
+  const modRef = S.forcedMod || DAILY_MODIFIERS[seed];
+  if (!modRef) return null;
+  
+  let mod = typeof modRef === 'string' ? PRESET_MODIFIERS[modRef] : modRef;
+  return (mod && mod[key] !== undefined) ? mod[key] : null;
+}
+
+/** 
  * ─── CARD UTILITIES ───────────────────────────────────────────
  * Basic definitions and value mapping for standard decks.
  */
@@ -394,44 +431,6 @@ function uthBlindDelta(cat,blind){
   if(cat===4)return blind;
   return 0;
 }
-/** 
- * ─── DEV MODE & SEEDING ───────────────────────────────────────────
- * card(rank, suit) helper — rank: '2'-'10','J','Q','K','A'
- *                         — suit: 's'=♠  'h'=♥  'd'=♦  'c'=♣
- */
-function card(r,s){return{r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]||s};}
-
-/** DEV_OVERRIDE enabled via ?dev=true in URL */
-const urlParams = new URLSearchParams(window.location.search);
-let DEV_OVERRIDE = urlParams.get('dev') === 'true' ? {} : null; // Set to {} if ?dev=true is in URL
-
-// ─── GAME CONFIG ─────────────────────────────────────
-// 'uth' = Ultimate Texas Hold'em  |  'poker' = 5 Card Poker
-const GAME2 = 'uth';
-const STORAGE_KEY = 'gambdle_state_';
-
-function getMod(key) {
-  const seed = getDailySeed();
-  let mod = S.forcedMod || DAILY_MODIFIERS[seed];
-  if (!mod) return null;
-  if (typeof mod === 'string') mod = PRESET_MODIFIERS[mod];
-  return (mod && mod[key]) || null;
-}
-
-/** Manual overrides for deck seeding (independent of ?dev=true flag) */
-const ENABLE_CARD_SEEDING = false; // Set to true to enable the overrides below
-
-const CARD_SEED_OVERRIDE = {
-  bjShoe: [
-    // Hand 1 — player: K-K  dealer: K-5
-    card('K','s'), card('K','h'), card('K','d'), card('5','c'),
-    // Hand 2 — player: J-A  dealer: 2-9
-    card('J','s'), card('A','d'), card('2','d'), card('9','c'),
-    // Hand 3 — player: 10-10 dealer: Q-2
-    card('10','s'), card('10','h'), card('Q','d'), card('2','c'),
-  ],
-  rSpin: 17, // 0–36
-};
 
 /** 
  * ─── GAME GENERATION ─────────────────────────────────────────
@@ -504,17 +503,19 @@ function saveState() {
 
 /** Loads any existing saved progress for the current day. */
 function loadState() {
-  const forced = localStorage.getItem('gambdle_forced_mod');
-  if (forced) {
-    S.forcedMod = forced;
-    localStorage.removeItem('gambdle_forced_mod');
-    saveState();
-  }
   const saved = localStorage.getItem(STORAGE_KEY + getDailySeed());
   if (saved) {
     const parsed = JSON.parse(saved);
     // Merge saved state but ensure day-specific constants are current
     S = { ...S, ...parsed, day: getDayNum() };
+  }
+
+  // Check for a forced modifier AFTER loading saved state to ensure it's not overwritten
+  const forced = localStorage.getItem('gambdle_forced_mod');
+  if (forced) {
+    S.forcedMod = forced;
+    localStorage.removeItem('gambdle_forced_mod');
+    saveState();
   }
 }
 
@@ -561,7 +562,7 @@ function bjDots(){
   return`<div class="dots-row">${Array.from({length:3},(_,i)=>{
     const h=S.bjHistory[i];
     if(h){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${sign(d)}</div>`;}
-    return`<div class="hdot ${i===S.bjHand&&S.bjPhase!=='bet'?'cur':i<S.bjHand?'push':'pend'}">${i===S.bjHand&&S.bjPhase!=='bet'?'Playing':'Hand '+(i+1)}</div>`;
+    return`<div class="hdot ${i===S.bjHand&&S.bjPhase!=='bet'?'cur':i<S.bjHand?'push':'pend'}">${i===S.bjHand&&S.bjPhase!=='bet'?(S.bjPhase==='result'?'Next':'Playing'):'Hand '+(i+1)}</div>`;
   }).join('')}</div>`;
 }
 /** ─── SECONDARY GAME DOTS (UTH / POKER) ─── */
@@ -569,14 +570,14 @@ function pkDots(){
   return`<div class="dots-row">${Array.from({length:3},(_,i)=>{
     const h=S.pkHistory[i];
     if(h){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${sign(d)}</div>`;}
-    return`<div class="hdot ${i===S.pkHand&&S.pkPhase!=='bet'?'cur':i<S.pkHand?'push':'pend'}">${i===S.pkHand&&S.pkPhase!=='bet'?'Playing':'Hand '+(i+1)}</div>`;
+    return`<div class="hdot ${i===S.pkHand&&S.pkPhase!=='bet'?'cur':i<S.pkHand?'push':'pend'}">${i===S.pkHand&&S.pkPhase!=='bet'?(S.pkPhase==='result'?'Next':'Playing'):'Hand '+(i+1)}</div>`;
   }).join('')}</div>`;
 }
 function uthDots(){
   return`<div class="dots-row">${Array.from({length:3},(_,i)=>{
     const h=S.uthHistory[i];
     if(h){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${sign(d)}</div>`;}
-    return`<div class="hdot ${i===S.uthHand&&S.uthPhase!=='bet'?'cur':i<S.uthHand?'push':'pend'}">${i===S.uthHand&&S.uthPhase!=='bet'?'Playing':'Hand '+(i+1)}</div>`;
+    return`<div class="hdot ${i===S.uthHand&&S.uthPhase!=='bet'?'cur':i<S.uthHand?'push':'pend'}">${i===S.uthHand&&S.uthPhase!=='bet'?(S.uthPhase==='result'?'Next':'Playing'):'Hand '+(i+1)}</div>`;
   }).join('')}</div>`;
 }
 
@@ -830,13 +831,13 @@ function screenBJ(){
         <div style="text-align:center">
           <div class="sec">Hand ${ai+1} of ${S.bjSplitHands.length}</div>
           <div class="hand">${activeHand.map((c,i)=>{const n=i>=af;return cardHTML(c,'lg','',n?(i-af)*0.4+0.1:0,n);}).join('')}</div>
-          ${S.bjCelebrating
-            ?`<div style="animation:fadein .4s .6s ease both">
+          ${S.bjCelebrating || done21
+      ? `<div style="${S.bjDealerReveal ? '' : 'animation:fadein .4s .6s ease both'}">
                 <div style="font-family:var(--serif);font-size:2.8rem;color:var(--gold2);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(230,181,74,.55)">Blackjack!</div>
               </div>`
             :`<div class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
         </div>
-        ${S.bjCelebrating?'':`<div class="divider"></div>
+        ${(S.bjCelebrating || done21)?'':`<div class="divider"></div>
         <div class="act-btns">
           <button class="act-btn" onclick="bjHit()" ${bust||done21||S.bjDealerReveal?'disabled':''}>Hit</button>
           <button class="act-btn" onclick="bjStand()" ${done21||S.bjDealerReveal?'disabled':''}>Stand</button>
@@ -850,36 +851,38 @@ function screenBJ(){
     const isInitial=S.bjPlayer.length===2;
     const can2=S.chips>=S.bjBet&&isInitial;
     const canSplit=isInitial&&S.bjPlayer[0].r===S.bjPlayer[1].r&&S.chips>0;
-    return`${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
-    <div class="panel">
-      <div style="text-align:center;margin-bottom:12px">
-        ${S.bjDealerReveal
-          ?`<div class="sec">Dealer${hVal(S.bjDealer)>21?' · BUST':''}</div>
-            <div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjDealerAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
-            <div class="hand-val ${hVal(S.bjDealer)>21?'bust':''}">${hVal(S.bjDealer)}${hVal(S.bjDealer)>21?' BUST':''}</div>`
-          :`<div class="sec">Dealer Shows</div>
-            <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${cardHTML('back','lg')}</div>`}
-      </div>
-      <div class="divider"></div>
-      <div style="text-align:center">
-        <div class="sec">Your Hand</div>
-        <div class="hand">${S.bjPlayer.map((c,i)=>{const n=i>=S.bjAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
-        ${S.bjCelebrating
-          ?`<div style="animation:fadein .4s .6s ease both">
-              <div style="font-family:var(--serif);font-size:2.8rem;color:var(--gold2);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(230,181,74,.55)">Blackjack!</div>
-              <div style="font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.22em;margin-top:6px">Pays 3 · 2</div>
-            </div>`
-          :`<div class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
-      </div>
-      ${S.bjCelebrating?'':`<div class="divider"></div>
-      <div class="act-btns">
-        <button class="act-btn" onclick="bjHit()" ${bust||done21||S.bjDealerReveal?'disabled':''}>Hit</button>
-        <button class="act-btn" onclick="bjStand()" ${done21||S.bjDealerReveal?'disabled':''}>Stand</button>
-        <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21||S.bjDealerReveal?'disabled':''}>Double</button>
-        <button class="act-btn" onclick="bjSplit()" ${!canSplit||done21||S.bjDealerReveal?'disabled':''}>Split</button>
-      </div>`}
-      <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${fmt(S.bjBet)} chips</span></div>
-    </div>`;
+    return `${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
+<div class="panel">
+  <div style="text-align:center;margin-bottom:12px">
+    ${S.bjDealerReveal
+      ? `<div class="sec">Dealer${hVal(S.bjDealer)>21?' · BUST':''}</div>
+        <div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjDealerAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
+        <div class="hand-val ${hVal(S.bjDealer)>21?'bust':''}">${hVal(S.bjDealer)}${hVal(S.bjDealer)>21?' BUST':''}</div>`
+      : `<div class="sec">Dealer Shows</div>
+        <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${cardHTML('back','lg')}</div>`}
+  </div>
+  <div class="divider"></div>
+  <div style="text-align:center">
+    <div class="sec">Your Hand</div>
+    <div class="hand">${S.bjPlayer.map((c,i)=>{const n=i>=S.bjAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
+    ${(S.bjCelebrating || done21)
+      ? `<div style="${S.bjDealerReveal ? '' : 'animation:fadein .4s .6s ease both'}">
+          <div style="font-family:var(--serif);font-size:2.8rem;color:var(--gold2);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(230,181,74,.55)">Blackjack!</div>
+          ${isBJ(S.bjPlayer) ? `<div style="font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.22em;margin-top:6px">Pays 3 · 2</div>` : ''}
+        </div>`
+      : `<div class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
+  </div>
+  ${(S.bjCelebrating || done21) ? '' : `
+    <div class="divider"></div>
+    <div class="act-btns">
+      <button class="act-btn" onclick="bjHit()" ${bust||done21||S.bjDealerReveal?'disabled':''}>Hit</button>
+      <button class="act-btn" onclick="bjStand()" ${done21||S.bjDealerReveal?'disabled':''}>Stand</button>
+      <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21||S.bjDealerReveal?'disabled':''}>Double</button>
+      <button class="act-btn" onclick="bjSplit()" ${!canSplit||done21||S.bjDealerReveal?'disabled':''}>Split</button>
+    </div>
+  `}
+  <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${fmt(S.bjBet)} chips</span></div>
+</div>`;
   }
   // result
   const res=S.bjResult, isLast=S.bjHand>=3;

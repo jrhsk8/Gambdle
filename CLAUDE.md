@@ -27,12 +27,24 @@
 - `G.rSpin` (pre-gen result) vs `rSpin()` (the UI function).
 
 ## Working Context: Add additional detail to this section so as to resume work if interrupted.
-- **Current**: Refactoring `CLAUDE.md` for token efficiency.
-- **Completed**: Persistent state, Daily seed PRNG, Split logic, Roulette canvas wheel, History chart, Scoring tiers, Dev tools.
-- **Backlog**: "Lowball" poker modifier, date-specific daily rules, UTH scenario seeding.
+- **Current**: Developing new modifiers and refining game balance.
+- **Completed**: Persistent state, Daily seed PRNG, Split logic, Roulette canvas wheel, History chart, Scoring tiers, Dev tools, `modifiers.js` preset system, Desktop UI scaling, BJ payout fixes, Roulette mobile UX.
+- **Completed**: Persistent state, Daily seed PRNG, Split logic, Roulette canvas wheel, History chart, Scoring tiers, Dev tools, `modifiers.js` preset system, Desktop UI scaling, BJ payout fixes, Roulette mobile UX, Progress UI polish, Code reorganization.
+
+## Ideas to add
+- more preset modifiers (e.g., Deuces Wild).
+- "Lowball" poker modifier.
+- UTH scenario seeding.
+
 
 ## Changelog
-- Added `localStorage` daily run persistence and lockout.
-- Implemented 7-day history CSS bar chart and tiers (Whale to Bozo).
-- Separated manual card seeding from `?dev=true` flag.
-- Added comprehensive code documentation/readability comments.
+- Added `modifiers.js` with preset system and daily-scheduled rules (title/desc support).
+- Fixed Blackjack payouts (3:2 for naturals) and standardized "Blackjack!" celebration logic.
+- Improved Roulette table accessibility on mobile via horizontal scrolling and larger tiles.
+- Enforced `min_chips` modifier in betting logic (`patchBetUI`).
+- Implemented desktop-specific UI scaling, fixed-size game panel, and scrollbar suppression.
+- Added "Force Modifier" buttons to Dev Tools for testing specific rules.
+- Updated progress trackers (`bjDots`, `pkDots`, `uthDots`) to show "Next" instead of "Playing" while viewing results.
+- Rearranged `index.html` structure to put Game Config, Dev Mode, and Card Seeding at the top for better maintainability.
+- Fixed `forcedMod` priority in `loadState` to ensure developer tool modifier selection correctly overrides saved state.
+- Improved "Daily Rule" visibility with glowing animations and dynamic positioning below hand info.
