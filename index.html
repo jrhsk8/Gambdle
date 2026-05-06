@@ -824,7 +824,7 @@ function screenBJ(){
       const canResplit=isInitial&&activeHand[0].r===activeHand[1].r&&S.chips>=S.bjSplitBets[ai];
       const af=S.bjSplitAnimFrom[ai]??0;
       return`${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
-      <div class="panel">
+      <div class="panel" style="display:flex;flex-direction:column">
         <div style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
         <div class="divider"></div>
         ${S.bjSplitHands.length>1?`<div style="display:flex;gap:12px;justify-content:center;margin-bottom:10px">
@@ -834,15 +834,17 @@ function screenBJ(){
             <div style="font-size:.82rem;font-weight:700;color:${hv>21?'var(--lose)':'var(--dim)'};margin-top:2px">${hv}${hv>21?' B':''}</div>
           </div>`;}).join('')}
         </div><div class="divider"></div>`:''}
-        <div style="text-align:center">
+        <div style="text-align:center;flex:1">
           <div class="sec">Hand ${ai+1} of ${S.bjSplitHands.length}</div>
-          <div class="hand">${activeHand.map((c,i)=>{const n=i>=af;return cardHTML(c,'lg','',n?(i-af)*0.4+0.1:0,n);}).join('')}</div>
+          <div id="bj-active-hand" class="hand">${activeHand.map((c,i)=>{const n=i>=af;return cardHTML(c,'lg','',n?(i-af)*0.4+0.1:0,n);}).join('')}</div>
           ${S.bjCelebrating||done21
             ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div style="font-family:var(--serif);font-size:2.8rem;color:var(--gold2);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(230,181,74,.55)">Blackjack!</div></div>`
-            :`<div class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
+            :`<div id="bj-active-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
         </div>
-        ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canResplit)}
-        <div class="irow" style="margin-top:10px"><span class="ik">Hand ${ai+1} Bet</span><span class="iv">${fmt(S.bjSplitBets[ai])} chips</span></div>
+        <div style="margin-top:auto">
+          ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canResplit)}
+          <div class="irow" style="margin-top:10px"><span class="ik">Hand ${ai+1} Bet</span><span class="iv">${fmt(S.bjSplitBets[ai])} chips</span></div>
+        </div>
       </div>`;
     }
     const pv=hVal(S.bjPlayer),bust=pv>21,done21=pv===21;
@@ -850,21 +852,23 @@ function screenBJ(){
     const can2=S.chips>=S.bjBet&&isInitial;
     const canSplit=isInitial&&S.bjPlayer[0].r===S.bjPlayer[1].r&&S.chips>0;
     return`${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
-<div class="panel">
+<div class="panel" style="display:flex;flex-direction:column">
   <div style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
   <div class="divider"></div>
-  <div style="text-align:center">
+  <div style="text-align:center;flex:1">
     <div class="sec">Your Hand</div>
-    <div class="hand">${S.bjPlayer.map((c,i)=>{const n=i>=S.bjAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
+    <div id="bj-player-hand" class="hand">${S.bjPlayer.map((c,i)=>{const n=i>=S.bjAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
     ${(S.bjCelebrating||done21)
       ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}">
           <div style="font-family:var(--serif);font-size:2.8rem;color:var(--gold2);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(230,181,74,.55)">Blackjack!</div>
           ${isBJ(S.bjPlayer)?`<div style="font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.22em;margin-top:6px">Pays 3 · 2</div>`:''}
         </div>`
-      :`<div class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
+      :`<div id="bj-player-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
   </div>
-  ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canSplit)}
-  <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${fmt(S.bjBet)} chips</span></div>
+  <div style="margin-top:auto">
+    ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canSplit)}
+    <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${fmt(S.bjBet)} chips</span></div>
+  </div>
 </div>`;
   }
   // result
@@ -948,9 +952,9 @@ function screenPoker(){
     const held=S.pkHeld;
     return`${hdr('5 Card Poker · Hand '+(S.pkHand+1)+' of 3')}
     <div class="panel">
-      <div style="text-align:center;font-size:.82rem;color:var(--dim);margin-bottom:10px">Tap cards to hold · ${held.size} held · ${5-held.size} replaced</div>
+      <div class="pk-hold-status" style="text-align:center;font-size:.82rem;color:var(--dim);margin-bottom:10px">Tap cards to hold · ${held.size} held · ${5-held.size} replaced</div>
       <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px">
-        ${S.pkCards.map((c,i)=>{const h=held.has(i);return`<div class="hold-wrap" onclick="toggleHold(${i})">
+        ${S.pkCards.map((c,i)=>{const h=held.has(i);return`<div id="pk-hw-${i}" class="hold-wrap" onclick="toggleHold(${i})">
           ${cardHTML(c,'md',`transition:transform .2s,box-shadow .2s;transform:${h?'translateY(-10px)':'translateY(0)'};box-shadow:${h?'0 8px 20px rgba(200,163,74,.5),0 0 0 2px var(--gold)':'2px 3px 10px rgba(0,0,0,.5),0 0 0 2px rgba(200,50,75,.65)'}`,0.04+i*0.06)}
           <div class="hold-tag" style="${h?'':'color:var(--red)'}">${h?'HOLD':'REPLACE'}</div></div>`;}).join('')}
       </div>
@@ -1409,8 +1413,14 @@ function bjHit(){
   S.bjDealerAnimFrom=99;
   hand.push(G.bjShoe[S.bjIdx++]);
   sndCard(100);
-  if(hVal(hand)>=21){_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;isSplit?bjAdvanceSplit():bjRevealDealer();},700);}
-  else{_noAnim=true;render();}
+  const pv=hVal(hand);
+  if(pv>=21){_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;isSplit?bjAdvanceSplit():bjRevealDealer();},700);}
+  else{
+    const handEl=document.getElementById(isSplit?'bj-active-hand':'bj-player-hand');
+    const valEl=document.getElementById(isSplit?'bj-active-val':'bj-player-val');
+    if(handEl&&valEl){handEl.insertAdjacentHTML('beforeend',cardHTML(hand[hand.length-1],'lg','',0.1,true));valEl.textContent=String(pv);saveState();}
+    else{_noAnim=true;render();}
+  }
 }
 /** Player finishes their turn. */
 function bjStand(){
@@ -1578,7 +1588,20 @@ function pkDeal(){
     sndCard(40);sndCard(100);sndCard(160);sndCard(220);sndCard(280);
   });
 }
-function toggleHold(i){S.pkHeld.has(i)?S.pkHeld.delete(i):S.pkHeld.add(i);_noAnim=true;render();}
+function toggleHold(i){
+  S.pkHeld.has(i)?S.pkHeld.delete(i):S.pkHeld.add(i);
+  const h=S.pkHeld.has(i);
+  const hw=document.getElementById('pk-hw-'+i);
+  if(hw){
+    const card=hw.querySelector('.card');
+    const tag=hw.querySelector('.hold-tag');
+    if(card){card.style.transform=h?'translateY(-10px)':'translateY(0)';card.style.boxShadow=h?'0 8px 20px rgba(200,163,74,.5),0 0 0 2px var(--gold)':'2px 3px 10px rgba(0,0,0,.5),0 0 0 2px rgba(200,50,75,.65)';}
+    if(tag){tag.style.color=h?'':'var(--red)';tag.textContent=h?'HOLD':'REPLACE';}
+    const status=document.querySelector('.pk-hold-status');
+    if(status)status.textContent=`Tap cards to hold · ${S.pkHeld.size} held · ${5-S.pkHeld.size} replaced`;
+    saveState();
+  }else{_noAnim=true;render();}
+}
 /** Discard unheld cards and draw new ones, then calculate final rank. */
 function pkDraw(){
   const draw=G.pokerDecks[S.pkHand].slice(5);let di=0;

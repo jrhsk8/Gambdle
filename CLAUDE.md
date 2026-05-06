@@ -24,6 +24,16 @@
 - **Audio**: `sndCard`, `sndChip`, `sndShuffle`, `sndBigWin`, `sndSpin`.
 - **Animations**: Use `_noAnim=true` before `render()` to suppress panel fade-in mid-hand.
 
+## Surgical DOM Updates (flash prevention)
+Full `render()` replaces all of `#app` innerHTML, causing a visible flash. For mid-hand updates where only a small region changes, use targeted DOM mutations instead:
+
+- **BJ hit (normal, pv < 21)**: `insertAdjacentHTML('beforeend', cardHTML(...))` onto `#bj-player-hand` or `#bj-active-hand`; update `#bj-player-val` / `#bj-active-val` textContent. Falls back to `render()` if IDs not found.
+- **BJ play panel layout**: `display:flex;flex-direction:column` on `.panel`; card area has `flex:1`; buttons+irow wrapped in `margin-top:auto` div so buttons pin to panel bottom.
+- **Poker hold toggle**: update `transform` + `boxShadow` on `.card` inside `#pk-hw-{i}` (CSS transition already present); update `.hold-tag` text/color; update `.pk-hold-status` text. No render needed.
+- **UTH community reveals** (not yet done): candidate for surgical update — update community card section + action buttons by ID, skip full render.
+
+Pattern: add stable IDs to the elements that change, mutate them directly, call `saveState()` instead of `render()`. Always include a fallback to `_noAnim=true;render()` if IDs are missing.
+
 ## Known Quirks
 - `GAME2` always uses screen key `'poker'` internally.
 - `curBetRef()` uses a `BET_REF` lookup object for `bj`/`roulette` screens; falls back to `GAME2` check for the shared `poker` screen.
