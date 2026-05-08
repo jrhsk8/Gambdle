@@ -566,6 +566,7 @@ let S={
   // Roulette
   rPhase:'bet', rBet:0, rPick:null, rResult:null,
   forcedMod: null,
+  peekUsed: false,
 };
 
 /** Writes the current run state to localStorage for persistence. */
@@ -886,8 +887,8 @@ function bjDealerHTML(){
     ?`<div class="sec">Dealer${dv>21?' · BUST':''}</div>
       <div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjDealerAnimFrom)*0.85+0.1:0,n);}).join('')}</div>
       <div class="hand-val ${dv>21?'bust':''}">${dv}${dv>21?' BUST':''}</div>`
-    :`<div class="sec">Dealer Shows</div>
-      <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${cardHTML('back','lg')}</div>`;
+    :`<div class="sec">Dealer Shows${getMod('peek')&&S.peekUsed?' · <span style="color:var(--gold-leaf);font-size:.7rem">👁 Peeked</span>':''}</div>
+      <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${getMod('peek')&&S.peekUsed?cardHTML(S.bjDealer[1],'lg','box-shadow:0 0 18px 5px rgba(230,181,74,.65);border-radius:8px',0,false):cardHTML('back','lg')}</div>`;
 }
 function bjActionBtns(bust,done21,can2,canSplit){
   return`<div class="divider"></div>
@@ -897,6 +898,29 @@ function bjActionBtns(bust,done21,can2,canSplit){
     <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21||S.bjDealerReveal?'disabled':''}>Double</button>
     <button class="act-btn" onclick="bjSplit()" ${!canSplit||done21||S.bjDealerReveal?'disabled':''}>Split</button>
   </div>`;
+}
+function peekBtnHTML(){
+  if(!getMod('peek')||S.peekUsed) return '';
+  return `<div id="peek-btn-wrap" style="text-align:center;margin-top:8px"><button onclick="doPeek()" style="background:rgba(230,181,74,.12);border:1.5px solid rgba(230,181,74,.5);color:var(--gold-leaf);padding:6px 18px;border-radius:8px;font-size:.8rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation">🔍 Peek</button></div>`;
+}
+function doPeek(){
+  S.peekUsed=true;
+  saveState();
+  const btn=document.getElementById('peek-btn-wrap');
+  if(btn) btn.style.display='none';
+  if(S.screen==='bj'){
+    const sec=document.getElementById('bj-dealer-section');
+    if(sec){sec.innerHTML=bjDealerHTML();return;}
+  } else {
+    const hand=document.getElementById('uth-dealer-hand');
+    const lbl=document.getElementById('uth-dealer-sec');
+    if(hand&&lbl){
+      lbl.innerHTML='Dealer · <span style="color:var(--gold-leaf);font-size:.7rem">👁 Peeked</span>';
+      hand.innerHTML=[0,1].map((_,i)=>i===0?cardHTML(S.uthDealer[0],'md','box-shadow:0 0 18px 5px rgba(230,181,74,.65);border-radius:8px',0,false):cardHTML('back','md')).join('');
+      return;
+    }
+  }
+  _noAnim=true;render();
 }
 function screenBJ(){
   const ph=S.bjPhase;
@@ -921,7 +945,8 @@ function screenBJ(){
       const af=S.bjSplitAnimFrom[ai]??0;
       return `${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
 <div class="panel" style="display:flex;flex-direction:column">
-        <div style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
+        <div id="bj-dealer-section" style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
+        ${peekBtnHTML()}
         <div class="divider"></div>
         ${S.bjSplitHands.length>1?`<div style="display:flex;gap:12px;justify-content:center;margin-bottom:10px">
           ${S.bjSplitHands.map((hand,i)=>{if(i===ai)return'';const hv=hVal(hand);const isDone=S.bjSplitDone[i];return`<div style="text-align:center;opacity:${isDone?0.35:0.5}">
@@ -949,7 +974,8 @@ function screenBJ(){
     const canSplit=isInitial&&S.bjPlayer[0].r===S.bjPlayer[1].r&&S.chips>0;
     return`${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
 <div class="panel" style="display:flex;flex-direction:column">
-  <div style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
+  <div id="bj-dealer-section" style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
+  ${peekBtnHTML()}
   <div class="divider"></div>
   <div style="text-align:center;flex:1;">
     <div class="sec">Your Hand</div>
@@ -1153,10 +1179,10 @@ function screenUTH(){
   </div>`;
 
   const dealerRow=(reveal=false)=>`<div id="uth-dealer-container" style="text-align:center;margin-bottom:8px">
-    <div id="uth-dealer-sec" class="sec">${reveal?'Dealer':'Dealer (Face Down)'}</div>
+    <div id="uth-dealer-sec" class="sec">${reveal?'Dealer':getMod('peek')&&S.peekUsed?'Dealer · <span style="color:var(--gold-leaf);font-size:.7rem">👁 Peeked</span>':'Dealer (Face Down)'}</div>
     <div id="uth-dealer-hand" class="hand">${reveal
       ?S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.9+0.1)).join('')
-      :[0,1].map(()=>cardHTML('back','md')).join('')}</div>
+      :[0,1].map((_,i)=>i===0&&getMod('peek')&&S.peekUsed?cardHTML(S.uthDealer[0],'md','box-shadow:0 0 18px 5px rgba(230,181,74,.65);border-radius:8px',0,false):cardHTML('back','md')).join('')}</div>
   </div>`;
 
   const betChips=()=>{
@@ -1186,6 +1212,7 @@ function screenUTH(){
           <button class="act-btn" onclick="uthCheck()">Check</button>
         </div>
       </div>
+      ${peekBtnHTML()}
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
@@ -1207,6 +1234,7 @@ function screenUTH(){
             <button class="act-btn" onclick="uthCheck()">Check</button>
           </div>`}
       </div>
+      ${peekBtnHTML()}
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
@@ -1228,6 +1256,7 @@ function screenUTH(){
             <button class="act-btn" style="color:var(--lose);border-color:rgba(239,35,60,.4)" onclick="uthFold()">Fold</button>
           </div>`}
       </div>
+      ${peekBtnHTML()}
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
@@ -1469,8 +1498,11 @@ async function submitAndFetchLeaderboard() {
     const row = Array.isArray(data) ? data[0] : data;
     const el = document.getElementById('lb-stat');
     if (!el) return;
-    if (!row || row.total < 5) { el.style.display = 'none'; return; }
-    el.innerHTML = `<span class="ik">Today's Ranking</span><span class="iv" style="color:var(--gold-leaf)">Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players</span>`;
+    if (!row || row.total < 1) { el.style.display = 'none'; return; }
+    const iv = row.total < 5
+      ? `Rank ${row.rank} of ${row.total} ${row.total === 1 ? 'player' : 'players'}`
+      : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
+    el.innerHTML = `<span class="ik">Today's Ranking</span><span class="iv" style="color:var(--gold-leaf)">${iv}</span>`;
   } catch(e) {}
 }
 

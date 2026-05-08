@@ -18,6 +18,7 @@
 const PRESET_MODIFIERS = {
   double_pay: { title: "Blackjacks Pay 2:1", desc: "Blackjacks pay 2:1", bj_payout: 2.0 },
   high_stakes: { title: "High Stakes", desc: "Minimum chips requirement is 50", min_chips: 50 },
+  peek: { title: "Dealer Peek", desc: "One free peek at a dealer card", peek: true },
 };
 
 const DAILY_MODIFIERS = {
@@ -25,7 +26,7 @@ const DAILY_MODIFIERS = {
   20260505: {}, // Day 1
   20260506: {},
   20260507: {},
-  20260508: {},
+  20260508: "peek",
   20260509: "double_pay",
   20260510: "high_stakes",
   20260511: {},
