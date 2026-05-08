@@ -901,22 +901,37 @@ function bjActionBtns(bust,done21,can2,canSplit){
 }
 function peekBtnHTML(){
   if(!getMod('peek')||S.peekUsed) return '';
-  return `<div id="peek-btn-wrap" style="text-align:center;margin-top:8px"><button onclick="doPeek()" style="background:rgba(230,181,74,.12);border:1.5px solid rgba(230,181,74,.5);color:var(--gold-leaf);padding:6px 18px;border-radius:8px;font-size:.8rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation">🔍 Peek</button></div>`;
+  return `<div id="peek-btn-wrap" style="text-align:center;margin-top:8px"><button onclick="doPeek()" style="background:rgba(230,181,74,.12);border:1.5px solid rgba(230,181,74,.5);color:var(--gold-leaf);padding:6px 18px;border-radius:8px;font-size:.8rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.3">🔍 Peek<span style="display:block;font-size:.65rem;font-weight:400;opacity:.7;letter-spacing:.04em">1 remaining today</span></button></div>`;
 }
 function doPeek(){
   S.peekUsed=true;
   saveState();
   const btn=document.getElementById('peek-btn-wrap');
   if(btn) btn.style.display='none';
+  const glow='box-shadow:0 0 18px 5px rgba(230,181,74,.65);border-radius:8px';
   if(S.screen==='bj'){
     const sec=document.getElementById('bj-dealer-section');
-    if(sec){sec.innerHTML=bjDealerHTML();return;}
+    if(sec){
+      const lbl=sec.querySelector('.sec');
+      if(lbl) lbl.innerHTML='Dealer Shows · <span style="color:var(--gold-leaf);font-size:.7rem">👁 Peeked</span>';
+      const hand=sec.querySelector('.hand');
+      if(hand&&hand.children.length>=2){
+        const old=hand.children[1];
+        old.insertAdjacentHTML('afterend',cardHTML(S.bjDealer[1],'lg',glow,0.1,true));
+        old.remove();
+        sndCard(100);
+      }
+      return;
+    }
   } else {
-    const hand=document.getElementById('uth-dealer-hand');
     const lbl=document.getElementById('uth-dealer-sec');
-    if(hand&&lbl){
+    const hand=document.getElementById('uth-dealer-hand');
+    if(lbl&&hand&&hand.children.length>=1){
       lbl.innerHTML='Dealer · <span style="color:var(--gold-leaf);font-size:.7rem">👁 Peeked</span>';
-      hand.innerHTML=[0,1].map((_,i)=>i===0?cardHTML(S.uthDealer[0],'md','box-shadow:0 0 18px 5px rgba(230,181,74,.65);border-radius:8px',0,false):cardHTML('back','md')).join('');
+      const old=hand.children[0];
+      old.insertAdjacentHTML('beforebegin',cardHTML(S.uthDealer[0],'md',glow,0.1,true));
+      old.remove();
+      sndCard(100);
       return;
     }
   }
@@ -1201,6 +1216,7 @@ function screenUTH(){
     return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${dealerRow(false)}
+      ${peekBtnHTML()}
       <div class="divider"></div>
       ${commRow()}
       <div class="divider"></div>
@@ -1212,7 +1228,6 @@ function screenUTH(){
           <button class="act-btn" onclick="uthCheck()">Check</button>
         </div>
       </div>
-      ${peekBtnHTML()}
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
@@ -1222,6 +1237,7 @@ function screenUTH(){
     return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${dealerRow(false)}
+      ${peekBtnHTML()}
       <div class="divider"></div>
       ${commRow()}
       <div class="divider"></div>
@@ -1234,7 +1250,6 @@ function screenUTH(){
             <button class="act-btn" onclick="uthCheck()">Check</button>
           </div>`}
       </div>
-      ${peekBtnHTML()}
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
@@ -1244,6 +1259,7 @@ function screenUTH(){
     return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${dealerRow(false)}
+      ${peekBtnHTML()}
       <div class="divider"></div>
       ${commRow()}
       <div class="divider"></div>
@@ -1256,7 +1272,6 @@ function screenUTH(){
             <button class="act-btn" style="color:var(--lose);border-color:rgba(239,35,60,.4)" onclick="uthFold()">Fold</button>
           </div>`}
       </div>
-      ${peekBtnHTML()}
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
