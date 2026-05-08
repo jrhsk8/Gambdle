@@ -51,32 +51,25 @@ Pattern: add stable IDs to the elements that change, mutate them directly, call 
 - `buildShareText()` — generates full share string; used by both results preview and `doShare()`.
 - `col(delta)` — returns CSS color var for win/loss/push. `sign(delta)` — formats with +/− prefix.
 
-## Working Context
-- **Current**: No active task.
-- **Completed**: Persistent state, Daily seed PRNG, Split logic, Roulette canvas wheel, History chart, Scoring tiers, Dev tools, `modifiers.js` preset system, Desktop UI scaling, BJ payout fixes, Roulette mobile UX, Progress UI polish, Code reorganization, `gameDots()` refactor (wrappers removed), BJ helper extraction, share text consolidation, UTH card highlighting, result screen standardization, mobile width fix, `CHIP_TIERS`/`getTier()` centralisation, UTH `'reveal'` phase, `bjHit()` unification, `curBetRef()` lookup refactor, `CARD_SEED_OVERRIDE` runtime-gated.
+## Supabase Leaderboard
+- Project ref: `kxbteesmfozqzoxzktzv` · URL: `https://kxbteesmfozqzoxzktzv.supabase.co`
+- `scores` table, RLS policies, and `get_percentile` RPC are live.
+- `submitAndFetchLeaderboard()` — async, called from `render()` when `S.screen === 'results'`
+- Submits `{seed, chips}` once per day per device (localStorage guard: `gambdle_submitted_SEED`)
+- Fetches percentile via RPC; updates `#lb-stat` div in results screen
+- Hides itself if fewer than 5 players exist for the day
+- Display: "Top 23% · 142 players" in gold-leaf color
 
 ## Ideas to add
-- More preset modifiers (e.g., Deuces Wild).
-- "Lowball" poker modifier.
 - UTH scenario seeding.
 
 ## Changelog
+- Supabase leaderboard: `submitAndFetchLeaderboard()` wired into results screen; `#lb-stat` placeholder in `screenResults()`; MCP configured, SQL pending.
+- Double-tap zoom prevention: `button { touch-action: manipulation; }` added globally.
+- BJ split result: hands now stack vertically with gold top-border divider (was side-by-side with left-border).
 - UTH dealer reveal is now a dedicated `'reveal'` phase before the result screen; dealer cards animate at `i*0.9+0.1s`, auto-transitions after 2.3s. Result screens show dealer cards static.
 - BJ dealer reveal delays bumped to `*0.75–0.85s` per card across play, split, and result screens.
 - `CHIP_TIERS` array + `getTier()` centralise score tier thresholds; tier emoji now consistent between share text and results screen. 1000-chip tier = 🎓 Apprentice.
 - `bjDots`/`pkDots`/`uthDots` wrappers removed; `gameDots()` called directly at all 12 call sites.
 - `bjHit()` unified: split and non-split paths merged into single code path; branch points are hand reference and next-step callback only.
 - `curBetRef()` replaced nested ternary with `BET_REF` lookup object; poker screen still uses `GAME2` check.
-- `CARD_SEED_OVERRIDE` moved inside `if(ENABLE_CARD_SEEDING)` in `genGame()` — no runtime cost when disabled.
-- Removed `min-width:584px` from `.panel` — fixes mobile overflow; desktop override unchanged.
-- All result screens standardized to "You Win!" / "You Lose!" / "Push" in `col(delta)` color.
-- BJ result: `.hand-val` shown below dealer and player cards (same styling as play phase).
-- BJ split result: overall You Win/Lose header + net delta; `.hand-val` on each split hand and dealer; gold-tinted left border separates hands visually.
-- Extracted `bjDealerHTML()` and `bjActionBtns()` — eliminated ~140 lines of BJ split/non-split duplication.
-- UTH showdown: community cards now between dealer and player; winning 5-card hand highlighted with gold/red glow.
-- Refactored `bjDots`/`pkDots`/`uthDots` into `gameDots(history, hand, phase)`; dots always show hand number.
-- Consolidated share text into `buildShareText()`; result tier emoji driven by `CHIP_TIERS`.
-- Dev mode re-enables vertical scrollbar via `body.dev-mode` class.
-- Added `modifiers.js` with preset system and daily-scheduled rules.
-- Fixed BJ payouts (3:2 naturals), Roulette mobile UX, `min_chips` modifier enforcement.
-- Desktop UI scaling and scrollbar suppression via `@media (min-width:1024px)`.

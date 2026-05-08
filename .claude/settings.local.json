@@ -1,4 +1,5 @@
 {
+  "enabledMcpjsonServers": ["supabase"],
   "permissions": {
     "allow": [
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\" -Recurse -Force)",

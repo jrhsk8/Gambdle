@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+button { touch-action: manipulation; }
 
 :root {
   --felt: #16855e; --felt2: #114836; --felt3: #0a2e22; --felt-edge: #0a3127;
@@ -327,6 +328,10 @@ function card(r,s){return{r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]||s};}
 // 'uth' = Ultimate Texas Hold'em  |  'poker' = 5 Card Poker
 const GAME2 = 'uth';
 const STORAGE_KEY = 'gambdle_state_';
+
+// ─── SUPABASE CONFIG ──────────────────────────────────
+const SUPABASE_URL = 'https://kxbteesmfozqzoxzktzv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4YnRlZXNtZm96cXpveHprdHp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMDk3OTEsImV4cCI6MjA5Mzc4NTc5MX0.oiDpuibLU5zZWKjm5LEoXRJGyOLBWieSO5FhPl4I3UU';
 
 /** DEV_OVERRIDE enabled via ?dev=true in URL */
 const urlParams = new URLSearchParams(window.location.search);
@@ -982,9 +987,9 @@ function screenBJ(){
         <div class="hand-val ${dv>21?'bust':''}" style="font-size:1.6rem">${dv}${dv>21?' BUST':''}</div>
       </div>
       <div class="divider"></div>
-      <div style="display:flex;gap:0;flex-wrap:wrap;justify-content:center;align-items:flex-start;margin-bottom:14px">
-        ${S.bjSplitHands.map((hand,i)=>{const r=S.bjSplitResults[i];const hv=hVal(hand);return`<div style="flex:0 0 auto;min-width:68px;text-align:center;${i>0?'border-left:1px solid rgba(230,181,74,0.18);padding-left:20px;margin-left:20px':''}">
-          <div class="sec" style="font-size:.62rem">H${i+1}: <span style="color:${col(r.delta)}">${RES_LBL2[r.result]||r.result}</span></div>
+      <div style="display:flex;flex-direction:column;gap:0;margin-bottom:14px">
+        ${S.bjSplitHands.map((hand,i)=>{const r=S.bjSplitResults[i];const hv=hVal(hand);return`<div style="text-align:center;${i>0?'border-top:1px solid rgba(230,181,74,0.18);padding-top:14px;margin-top:14px':''}">
+          <div class="sec" style="font-size:.62rem">Hand ${i+1}: <span style="color:${col(r.delta)}">${RES_LBL2[r.result]||r.result}</span></div>
           <div style="font-size:.78rem;color:${col(r.delta)};margin-bottom:4px">${sign(r.delta)}</div>
           <div class="hand" style="justify-content:center">${hand.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
           <div class="hand-val ${hv>21?'bust':''}" style="font-size:1.4rem">${hv}${hv>21?' BUST':''}</div>
@@ -1418,6 +1423,7 @@ function screenResults(){
       <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:${col(net)}">${sign(net)}</div>
     </div>`).join('')}
     <div class="irow" style="margin-top:12px;background:rgba(230,181,74,0.05)"><span class="ik">All-Time High</span><span class="iv" style="color:var(--gold-leaf)">${fmt(Math.max(S.chips, high))}</span></div>
+    <div id="lb-stat" class="irow" style="margin-top:8px"><span class="ik">Today's Ranking</span><span class="iv" style="color:var(--dim);font-size:.9rem">Loading…</span></div>
     ${chartHtml}
     <div class="divider"></div>
     <div class="share-box">${shareText}</div>
@@ -1426,7 +1432,49 @@ function screenResults(){
   </div>`;
 }
 
-/** 
+/**
+ * ─── LEADERBOARD ─────────────────────────────────────────────────────
+ * Submits score to Supabase once per day per device, then fetches the
+ * player's percentile rank among all submissions for that day's seed.
+ */
+async function submitAndFetchLeaderboard() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
+  const seed = getDailySeed();
+  const subKey = `gambdle_submitted_${seed}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+  };
+
+  if (!localStorage.getItem(subKey)) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/scores`, {
+        method: 'POST',
+        headers: { ...headers, 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ seed, chips: S.chips })
+      });
+      if (res.ok || res.status === 201) localStorage.setItem(subKey, '1');
+    } catch(e) {}
+  }
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_percentile`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ p_seed: seed, p_chips: S.chips })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const row = Array.isArray(data) ? data[0] : data;
+    const el = document.getElementById('lb-stat');
+    if (!el) return;
+    if (!row || row.total < 5) { el.style.display = 'none'; return; }
+    el.innerHTML = `<span class="ik">Today's Ranking</span><span class="iv" style="color:var(--gold-leaf)">Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players</span>`;
+  } catch(e) {}
+}
+
+/**
  * ─── GLOBAL RENDER CONTROLLER ──────────────────────────────────────────
  * Coordinates screen transitions and the Developer UI overlay.
  */
@@ -1473,6 +1521,7 @@ function render(){
     document.querySelectorAll('.panel').forEach(el=>{el.style.animation='none';el.style.opacity='1';el.style.transform='none';});
   }
   saveState();
+  if (S.screen === 'results') submitAndFetchLeaderboard();
 }
 
 function updateChipDisplay() {
