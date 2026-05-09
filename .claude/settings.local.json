@@ -1,10 +1,20 @@
 {
-  "enabledMcpjsonServers": ["supabase"],
   "permissions": {
     "allow": [
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\" -Recurse -Force)",
       "Bash(Select-Object FullName)",
-      "PowerShell(head -100)"
+      "PowerShell(head -100)",
+      "WebSearch",
+      "Bash(grep -n \"^function\\\\|^const \\\\|^let \\\\|^var \\\\|^// ---\\\\|^//\" /c/users/jack/documents/github/Gambdle/index.html)",
+      "Bash(mkdir -p /c/users/jack/documents/github/Gambdle/sounds)",
+      "Bash(mv /c/users/jack/documents/github/Gambdle/*.mp3 /c/users/jack/documents/github/Gambdle/sounds/)",
+      "Bash(git -C /c/users/jack/documents/github/Gambdle status)",
+      "Bash(git -C /c/users/jack/documents/github/Gambdle diff)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }
