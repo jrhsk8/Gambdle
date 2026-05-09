@@ -276,8 +276,7 @@ body::before {
 /* --- Desktop Enhancements --- */
 @media (min-width: 1024px) {
   :root { font-size: 18px; }
-  body { overflow: hidden; }
-  body.dev-mode { overflow-y: auto; }
+  body { overflow-x: hidden; overflow-y: auto; }
   .app { max-width: 800px; }
   .panel { padding: 32px 28px; min-height: 680px; min-width: 764px; }
   .card.lg { width: 96px; height: 137px; }
@@ -507,7 +506,7 @@ function genGame(){
   let bjShoe=shuffle(shoe,rng);
   const pokerDecks=Array.from({length:3},()=>shuffle(buildDeck(),rng));
   const uthDeck=shuffle(buildDeck(),rng);
-  let rSpin=Math.floor(rng()*37);
+  let rSpinOverride=null;
   if(ENABLE_CARD_SEEDING){
     const CARD_SEED_OVERRIDE = {
       bjShoe: [
@@ -518,7 +517,7 @@ function genGame(){
         // Hand 3 — player: 10-10 dealer: Q-2
         card('10','s'), card('10','h'), card('Q','d'), card('2','c'),
       ],
-      rSpin: 17, // 0–36
+      rSpin: null, // 0–36, or null to use random
     };
     if(CARD_SEED_OVERRIDE.bjShoe && CARD_SEED_OVERRIDE.bjShoe.length){
       const pool=[...bjShoe];
@@ -528,9 +527,9 @@ function genGame(){
       }
       bjShoe=[...CARD_SEED_OVERRIDE.bjShoe,...pool];
     }
-    if(CARD_SEED_OVERRIDE.rSpin != null)rSpin=CARD_SEED_OVERRIDE.rSpin;
+    if(CARD_SEED_OVERRIDE.rSpin != null) rSpinOverride=CARD_SEED_OVERRIDE.rSpin;
   }
-  return{bjShoe,pokerDecks,uthDeck,rSpin};
+  return{bjShoe,pokerDecks,uthDeck,rSpinOverride};
 }
 const G=genGame();
 
@@ -564,7 +563,7 @@ let S={
   uthHole:[], uthDealer:[], uthComm:[],
   uthRevealComm:0, uthPrevRevealComm:0, uthHistory:[],
   // Roulette
-  rPhase:'bet', rBet:0, rPick:null, rResult:null,
+  rPhase:'bet', rBet:0, rPick:null, rResult:null, rSpin:null,
   forcedMod: null,
   peekUsed: false,
 };
@@ -695,10 +694,10 @@ function rBoard(){
 
 /** ─── AUDIO SYSTEM ─── */
 function playMp3(src,ms=0){if(ms){setTimeout(()=>playMp3(src),ms);return;}new Audio(src).play().catch(()=>{});}
-function sndCard(ms=0){playMp3(`card${Math.ceil(Math.random()*3)}.mp3`,ms);}
-function sndChip(d){playMp3(d==='allin'?'allin.mp3':d<=25?'smallbet.mp3':'mediumbet.mp3');}
+function sndCard(ms=0){playMp3(`sounds/card${Math.ceil(Math.random()*3)}.mp3`,ms);}
+function sndChip(d){playMp3(d==='allin'?'sounds/allin.mp3':d<=25?'sounds/smallbet.mp3':'sounds/mediumbet.mp3');}
 function sndShuffle(cb){
-  const a=new Audio('shuffle.mp3');
+  const a=new Audio('sounds/shuffle.mp3');
   if(cb){
     let done=false;
     const once=()=>{if(!done){done=true;cb();}};
@@ -708,7 +707,7 @@ function sndShuffle(cb){
     a.play().catch(()=>{});
   }
 }
-function sndBigWin(){playMp3('bigwin.mp3');}
+function sndBigWin(){playMp3('sounds/bigwin.mp3');}
 
 let _ac=null;
 function getAC(){if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();return _ac;}
@@ -811,7 +810,7 @@ function startWheelAnim(){
   cnv.width=size;cnv.height=size;
 
   const N=37,seg=2*Math.PI/N;
-  const tidx=WO.indexOf(G.rSpin);
+  const tidx=WO.indexOf(S.rSpin);
 
   // wheel spins CW (angle increases). We want winning pocket at top (-PI/2).
   // Pocket i center: wAngle + (i+0.5)*seg = -PI/2 + 2PIk
@@ -1409,7 +1408,7 @@ function screenRouletteBet(){
 }
 
 function screenRouletteResult(){
-  const res=S.rResult,b=R_BETS[S.rPick],n=G.rSpin;
+  const res=S.rResult,b=R_BETS[S.rPick],n=S.rSpin;
   return`${hdr('Roulette · Result')}
   <div class="panel" style="text-align:center">
     <div style="display:flex;justify-content:center;margin-bottom:14px">
@@ -1580,7 +1579,7 @@ function updateChipDisplay() {
 
 // ─── ACTIONS ─────────────────────────────────────────
 function goTo(s){S.screen=s;render();}
-function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('mediumbet.mp3');else playMp3('smallbet.mp3');}
+function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('sounds/mediumbet.mp3');else playMp3('sounds/smallbet.mp3');}
 function advanceTo(s){sndAdvance();if(s!=='results'&&S.chips<10)s='results';goTo(s);}
 function startGame(){sndChip('allin');S.screen='bj';S.bjPhase='bet';render();}
 
@@ -1843,6 +1842,8 @@ function bjResolve(dealerDrawn=false){
   }
   S.bjHand++;S.bjPhase='result';render();
   updateChipDisplay();
+  const {result:_bjr,delta:_bjd}=S.bjResult;
+  if(S.bjSplit?_bjd>0:_bjr==='win')setTimeout(sndBigWin,400);
 }
 function bjNext(){
   S.bjBet=0;S.bjPhase='bet';
@@ -1898,6 +1899,7 @@ function pkDraw(){
   _noAnim=true;render();updateChipDisplay();
   function revealNext(){
     if(S.pkRevealStep>=replaceIdxs.length){
+      if(delta>0)setTimeout(sndBigWin,200);
       setTimeout(()=>{S.pkHand++;S.pkPhase='result';render();},900);
       return;
     }
@@ -2030,6 +2032,7 @@ function pickBet(i){
 /** Initiates the Roulette spin animation. */
 function rSpin(){
   if(S.rPick===null||!S.rBet)return;
+  S.rSpin=G.rSpinOverride??Math.floor(Math.random()*37);
   S.chips-=S.rBet;
   S.rPhase='spinning';
   render();updateChipDisplay();
@@ -2038,12 +2041,13 @@ function rSpin(){
 }
 /** Final result calculation for Roulette after the animation. */
 function rFinish(){
-  const n=G.rSpin,won=evalBet(S.rPick,n);
+  const n=S.rSpin,won=evalBet(S.rPick,n);
   const profit=won?S.rBet*R_BETS[S.rPick].pay:0;
   const delta=won?profit:-S.rBet;
   if(won)S.chips+=S.rBet+profit;
   S.rResult={won,delta};
   S.rPhase='result';render();updateChipDisplay();
+  if(won)setTimeout(sndBigWin,400);
 }
 
 /** 
