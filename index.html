@@ -206,6 +206,7 @@ body::before {
 
 /* --- Roulette Specifics --- */
 .rboard, .rboard-sub { display: grid; grid-template-columns: 22px repeat(12, 1fr) 28px; gap: 2px; margin-bottom: 4px; }
+.rboard { margin-top: 6px; }
 .rboard { grid-template-rows: 32px 32px 32px; }
 .rboard-sub { grid-auto-rows: 26px; }
 .rn { border: none; border-radius: 4px; cursor: pointer; font-family: var(--f); font-size: 0.72rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; transition: transform 0.1s, box-shadow 0.1s; padding: 0; position: relative; z-index: 1; }
@@ -217,6 +218,10 @@ body::before {
 .rout { padding: 3px 1px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.32); color: var(--text); cursor: pointer; font-size: 0.68rem; font-weight: 600; font-family: var(--f); text-align: center; transition: all 0.12s; display: flex; align-items: center; justify-content: center; }
 .rout:hover { background: rgba(0,0,0,0.52); border-color: rgba(255,255,255,0.22); } .rout.r-sel { background: var(--gold); color: #1a0e00; border-color: var(--gold); font-weight: 700; }
 .rout-r { border-left: 3px solid #b91c1c; } .rout-b { border-left: 3px solid #444; }
+.r-boost { position: relative; box-shadow: 0 0 0 2px rgba(230,181,74,0.65), 0 0 8px rgba(230,181,74,0.3); animation: r-boost-pulse 1.4s ease-in-out infinite; }
+.rn.r-sel.r-boost, .rout.r-sel.r-boost, .r2to1.r-sel.r-boost { animation: none; }
+@keyframes r-boost-pulse { 50% { box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(230,181,74,0.65); } }
+.r-pay-lbl { position: absolute; bottom: 2px; left: 0; right: 0; font-size: 0.46rem; font-weight: 800; color: var(--gold); text-align: center; line-height: 1; pointer-events: none; letter-spacing: 0.01em; }
 
 .wheel-outer { display: flex; flex-direction: column; align-items: center; margin-bottom: 14px; }
 .wheel-pointer { width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 24px solid var(--gold); margin-bottom: -3px; position: relative; z-index: 2; filter: drop-shadow(0 3px 8px rgba(249,199,79,0.8)); }
@@ -287,6 +292,7 @@ body::before {
   .rboard, .rboard-sub { grid-template-columns: 44px repeat(12, 1fr) 50px; }
   .rboard { grid-template-rows: 52px 52px 52px; }
   .rboard-sub { grid-auto-rows: 44px; }
+  .r-pay-lbl { font-size: 0.62rem; bottom: 3px; }
   .rn { font-size: 1.1rem; }
   .logo { font-size: 4.2rem; }
 }
@@ -484,15 +490,19 @@ function bestOf7(cards){
   return{cards:best,score:bs,cat:bc,rank:rankPoker(best)};
 }
 
-/** UTH Blind Payout Table: only pays on wins with Straight or better. */
+/** UTH Blind Payout Table. Base: Straight or better. Extended by uth_blind_extended modifier. */
 function uthBlindDelta(cat,blind){
-  if(cat===9)return blind*500;
-  if(cat===8)return blind*50;
-  if(cat===7)return blind*10;
-  if(cat===6)return blind*3;
-  if(cat===5)return Math.floor(blind*1.5);
-  if(cat===4)return blind;
-  return 0;
+  let base=0;
+  if(cat===9)base=blind*500;
+  else if(cat===8)base=blind*50;
+  else if(cat===7)base=blind*10;
+  else if(cat===6)base=blind*3;
+  else if(cat===5)base=Math.floor(blind*1.5);
+  else if(cat===4)base=blind;
+  else if(getMod('uth_blind_extended')&&cat===3)base=blind;
+  else if(getMod('uth_blind_extended')&&cat===2)base=Math.floor(blind*0.5);
+  const boost=getMod('uth_blind_boost')||1;
+  return Math.floor(base*boost);
 }
 
 /** 
@@ -661,7 +671,7 @@ function hdr(sub){
     <div>
       <div class="logo-sm">GAMBDLE</div>
       <div id="hdr-sub" class="logo-sub">${sub}</div>
-      ${title ? `<div style="margin-top:8px"><span class="mod-badge" title="${desc || ''}">✨ ${title}</span></div>` : ''}
+      ${title ? `<div style="margin-top:8px"><span class="mod-badge">✨ ${title}: ${desc||''}</span></div>` : ''}
     </div>
     <div id="chip-badge" class="chip-badge">💵 ${fmt(S.chips)}</div>
   </div>
@@ -671,21 +681,38 @@ function hdr(sub){
 /** ─── ROULETTE BOARD ─── */
 function rBoard(){
   const sel=i=>S.rPick===i?'r-sel':'';
+  const rMod=getMod('r_payout_mult')?'all':getMod('r_number_pay')?'nums':getMod('r_zero_boost')?'zero':getMod('r_color_double')?'color':null;
+  const boost=i=>{
+    if(!rMod)return'';
+    if(rMod==='all')return'r-boost';
+    if(rMod==='nums'&&i<=36)return'r-boost';
+    if(rMod==='zero'&&i===0)return'r-boost';
+    if(rMod==='color'&&(i===45||i===46))return'r-boost';
+    return'';
+  };
+  const boostLabel=i=>{
+    if(!rMod)return'';
+    if(rMod==='all'){const p=R_BETS[i]?.pay;return p!=null?`${p*2}:1`:'';}
+    if(rMod==='nums'&&i<=36)return'50:1';
+    if(rMod==='color'&&(i===45||i===46))return'2:1';
+    return'';
+  };
+  const lbl=i=>{const t=boostLabel(i);return t?`<span class="r-pay-lbl">${t}</span>`:''};
   const numBtns=Array.from({length:37},(_,n)=>{
     const gc=n===0?'1':String(Math.floor((n-1)/3)+2);
     const gr=n===0?'1/4':String(n%3===0?1:n%3===2?2:3);
-    return`<button class="rn ${rCls(n)} ${sel(n)}" data-idx="${n}" style="grid-column:${gc};grid-row:${gr}" onclick="pickBet(${n})">${n}</button>`;
+    return`<button class="rn ${rCls(n)} ${sel(n)} ${boost(n)}" data-idx="${n}" style="grid-column:${gc};grid-row:${gr}" onclick="pickBet(${n})">${n}${lbl(n)}</button>`;
   }).join('');
   const col2to1=[0,1,2].map(r=>{
     const idx=37+r;
-    return`<button class="r2to1 ${sel(idx)}" data-idx="${idx}" style="grid-column:14;grid-row:${r+1}" onclick="pickBet(${idx})">2:1</button>`;
+    return`<button class="r2to1 ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:14;grid-row:${r+1}" onclick="pickBet(${idx})">2:1${lbl(idx)}</button>`;
   }).join('');
   const dozBtns=[[40,'2/6'],[41,'6/10'],[42,'10/14']].map(([idx,gc])=>
-    `<button class="rout ${sel(idx)}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})">${R_BETS[idx].lbl}</button>`
+    `<button class="rout ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})">${R_BETS[idx].lbl}${lbl(idx)}</button>`
   ).join('');
   const outData=[[43,'2/4',''],[44,'4/6',''],[45,'6/8','rout-r'],[46,'8/10','rout-b'],[47,'10/12',''],[48,'12/14','']];
   const outBtns=outData.map(([idx,gc,ex])=>
-    `<button class="rout ${ex} ${sel(idx)}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})">${R_BETS[idx].lbl}</button>`
+    `<button class="rout ${ex} ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})">${R_BETS[idx].lbl}${lbl(idx)}</button>`
   ).join('');
   return`<div class="rboard">${numBtns}${col2to1}</div>
     <div class="rboard-sub">${dozBtns}</div>
@@ -842,11 +869,15 @@ function startWheelAnim(){
  * Individual render functions for each game phase.
  */
 function screenIntro(){
-  const activeRule = getMod('desc');
+  const modTitle = getMod('title');
+  const modDesc = getMod('desc');
   return`<div class="hdr" style="justify-content:center;flex-direction:column;gap:4px;padding:20px 0 16px">
     <div class="logo">GAMBDLE</div>
     <div class="logo-sub">Daily Casino · #${S.day}</div>
-    ${activeRule ? `<div style="margin-top:12px"><span class="mod-badge">✨ Daily Modifier: ${activeRule}</span></div>` : ''}
+    ${modTitle ? `<div style="margin-top:12px"><span class="mod-badge" style="display:inline-flex;flex-direction:column;gap:3px;text-align:center">
+      <span>✨ Daily Modifier: ${modTitle}</span>
+      <span style="font-size:0.78rem;font-weight:500;letter-spacing:0.03em;text-transform:none;opacity:0.9">${modDesc||''}</span>
+    </span></div>` : ''}
   </div><div class="hdr-div"></div>
   <div class="panel">
     <div style="text-align:center;padding:8px 0 14px">
@@ -1453,7 +1484,8 @@ function screenResults(){
   const {emoji,label}=getTier(S.chips);const tier=`${emoji} ${label}`;
   const msg = S.chips >= 1000 ? '📈 Excellent run!' : S.chips > 0 ? '📉 Tough session' : 'Better luck tomorrow';
 
-  return`<div class="hdr" style="justify-content:center;flex-direction:column;gap:4px;padding:16px 0 12px"><div class="logo">GAMBDLE</div><div class="logo-sub">Day #${S.day} · Final Score</div></div><div class="hdr-div"></div>
+  const resModTitle=getMod('title'),resModDesc=getMod('desc');
+  return`<div class="hdr" style="justify-content:center;flex-direction:column;gap:4px;padding:16px 0 12px"><div class="logo">GAMBDLE</div><div class="logo-sub">Day #${S.day} · Final Score</div>${resModTitle?`<div style="margin-top:10px"><span class="mod-badge">✨ ${resModTitle}: ${resModDesc||''}</span></div>`:''}</div><div class="hdr-div"></div>
   <div class="panel" style="text-align:center">
     <div style="font-size:1.1rem;color:var(--gold);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">${tier}</div>
     <div class="shimmer-text" style="font-family:var(--serif);font-size:4rem;font-weight:400;line-height:1;letter-spacing:.01em">${fmt(S.chips)}</div>
@@ -1978,11 +2010,12 @@ function uthResolve(){
   const ante=S.uthAnte/2,play=S.uthPlay;
   const pb=bestOf7([...S.uthHole,...S.uthComm]);
   const db2=bestOf7([...S.uthDealer,...S.uthComm]);
-  const dealerQualifies=db2.cat>=1;
+  const dealerQualifies=db2.cat>=(getMod('uth_hard_qualify')?2:1);
   const cmp=pb.score-db2.score;
   let anteDelta=0,blindDelta=0,playDelta=0;
   if(cmp>0){
-    playDelta=play;S.chips+=play*2;
+    const playMult=getMod('uth_double_play')?2:1;
+    playDelta=play*playMult;S.chips+=play+playDelta;
     if(dealerQualifies){anteDelta=ante;S.chips+=ante*2;}
     else{anteDelta=0;S.chips+=ante;}
     const bd=uthBlindDelta(pb.cat,ante);
@@ -2032,7 +2065,10 @@ function pickBet(i){
 /** Initiates the Roulette spin animation. */
 function rSpin(){
   if(S.rPick===null||!S.rBet)return;
-  S.rSpin=G.rSpinOverride??Math.floor(Math.random()*37);
+  const zb=getMod('r_zero_boost');
+  if(G.rSpinOverride!=null){S.rSpin=G.rSpinOverride;}
+  else if(zb){const r=Math.floor(Math.random()*(36+zb));S.rSpin=r<zb?0:r-zb+1;}
+  else{S.rSpin=Math.floor(Math.random()*37);}
   S.chips-=S.rBet;
   S.rPhase='spinning';
   render();updateChipDisplay();
@@ -2042,7 +2078,14 @@ function rSpin(){
 /** Final result calculation for Roulette after the animation. */
 function rFinish(){
   const n=S.rSpin,won=evalBet(S.rPick,n);
-  const profit=won?S.rBet*R_BETS[S.rPick].pay:0;
+  const b=R_BETS[S.rPick];
+  let pay=b.pay;
+  if(won){
+    if(getMod('r_payout_mult'))pay*=getMod('r_payout_mult');
+    else if(getMod('r_number_pay')&&b.type==='num')pay=getMod('r_number_pay');
+    else if(getMod('r_color_double')&&b.type==='col2')pay*=2;
+  }
+  const profit=won?S.rBet*pay:0;
   const delta=won?profit:-S.rBet;
   if(won)S.chips+=S.rBet+profit;
   S.rResult={won,delta};

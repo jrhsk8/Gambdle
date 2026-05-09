@@ -3,7 +3,7 @@
 ## What is Claude Working On
 _Updated each session with active tasks and their status._
 
-- Nothing active — last session: desktop vertical scroll, per-player roulette RNG, roulette seed override.
+- Nothing active — last session: 4 roulette daily modifiers added (`r_double_all`, `r_hot_numbers`, `r_hot_zero`, `r_color_double`); boosted bets glow on the bet screen.
 
 ---
 
