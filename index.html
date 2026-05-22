@@ -278,6 +278,12 @@ body::before {
 .chart-bar::after { content: attr(data-v); position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 0.55rem; font-family: var(--mono); color: var(--gold-leaf); white-space: nowrap; }
 .chart-day { position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 0.6rem; font-weight: 700; color: var(--dim); text-transform: uppercase; }
 
+/* --- Info Modal --- */
+.info-modal { position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.78);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:18px;animation:fadein .2s ease both; }
+.info-box { background:var(--panel);border:1px solid rgba(230,181,74,.25);border-radius:18px;padding:26px 22px;max-width:560px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 30px 60px rgba(0,0,0,.6); }
+.info-btn { width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(230,181,74,.35);background:rgba(230,181,74,.08);color:var(--gold);font-size:.82rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .12s; }
+.info-btn:hover { background:rgba(230,181,74,.18); }
+
 /* --- Desktop Enhancements --- */
 @media (min-width: 1024px) {
   :root { font-size: 18px; }
@@ -365,6 +371,13 @@ const buildDeck=()=>SUITS.flatMap(s=>RANKS.map(r=>({s,r})));
 function shuffle(d,rng){const a=[...d];for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function cVal(r){return 'JQK'.includes(r)?10:r==='A'?11:+r;}
 function hVal(cs){let v=0,a=0;for(const c of cs){v+=cVal(c.r);if(c.r==='A')a++;}while(v>21&&a-- >0)v-=10;return v;}
+function hValDisplay(cs){
+  let v=0,aces=0;
+  for(const c of cs){v+=cVal(c.r);if(c.r==='A')aces++;}
+  let red=0;while(v>21&&red<aces){v-=10;red++;}
+  if(aces-red>0&&v<=21){const hard=v-10*(aces-red);return`${hard} / ${v}`;}
+  return String(v);
+}
 const isBJ=cs=>cs.length===2&&hVal(cs)===21;
 
 // ─── ROULETTE ────────────────────────────────────────
@@ -515,17 +528,27 @@ function genGame(){
   const shoe=[];for(let i=0;i<2;i++)shoe.push(...buildDeck());
   let bjShoe=shuffle(shoe,rng);
   const pokerDecks=Array.from({length:3},()=>shuffle(buildDeck(),rng));
-  const uthDeck=shuffle(buildDeck(),rng);
+  let uthDeck=shuffle(buildDeck(),rng);
   let rSpinOverride=null;
   if(ENABLE_CARD_SEEDING){
     const CARD_SEED_OVERRIDE = {
       bjShoe: [
-        // Hand 1 — player: K-K  dealer: K-5
+        // Hand 1 — player: A-J  dealer: K-5
         card('A','s'), card('J','s'), card('K','d'), card('5','c'),
         // Hand 2 — player: J-A  dealer: 2-9
         card('J','s'), card('A','d'), card('2','d'), card('9','c'),
         // Hand 3 — player: 10-10 dealer: Q-2
         card('10','s'), card('10','h'), card('Q','d'), card('2','c'),
+      ],
+      // UTH hands: array of 3 entries (null = use random). Each entry: { hole, dealer, comm }
+      // Layout per hand at offset h*9: [hole0,hole1, dealer0,dealer1, comm0..comm4]
+      uthHands: [
+        // Hand 1 — player royal flush draw: A-K suited, board completes it
+        { hole:   [card('A','s'), card('K','s')],
+          dealer: [card('2','h'), card('7','d')],
+          comm:   [card('Q','s'), card('J','s'), card('10','s'), card('3','c'), card('6','d')] },
+        null, // Hand 2 — random
+        null, // Hand 3 — random
       ],
       rSpin: null, // 0–36, or null to use random
     };
@@ -536,6 +559,25 @@ function genGame(){
         if(i!==-1)pool.splice(i,1);
       }
       bjShoe=[...CARD_SEED_OVERRIDE.bjShoe,...pool];
+    }
+    if(CARD_SEED_OVERRIDE.uthHands && CARD_SEED_OVERRIDE.uthHands.length){
+      const placed=new Map();
+      const pool=[...uthDeck];
+      for(let h=0;h<3;h++){
+        const spec=CARD_SEED_OVERRIDE.uthHands[h];
+        if(!spec)continue;
+        const off=h*9;
+        const slots=[...(spec.hole||[]).slice(0,2),...(spec.dealer||[]).slice(0,2),...(spec.comm||[]).slice(0,5)];
+        for(let i=0;i<slots.length;i++){
+          if(!slots[i])continue;
+          placed.set(off+i,slots[i]);
+          const pi=pool.findIndex(c=>c.r===slots[i].r&&c.s===slots[i].s);
+          if(pi!==-1)pool.splice(pi,1);
+        }
+      }
+      const newDeck=[];let pi=0;
+      for(let i=0;i<52;i++) newDeck.push(placed.has(i)?placed.get(i):pool[pi++]);
+      uthDeck=newDeck;
     }
     if(CARD_SEED_OVERRIDE.rSpin != null) rSpinOverride=CARD_SEED_OVERRIDE.rSpin;
   }
@@ -573,7 +615,7 @@ let S={
   uthHole:[], uthDealer:[], uthComm:[],
   uthRevealComm:0, uthPrevRevealComm:0, uthHistory:[],
   // Roulette
-  rPhase:'bet', rBet:0, rPick:null, rResult:null, rSpin:null,
+  rPhase:'bet', rBets:[], rBet:0, rPick:null, rResult:null, rSpin:null,
   forcedMod: null,
   peekUsed: false,
 };
@@ -673,7 +715,10 @@ function hdr(sub){
       <div id="hdr-sub" class="logo-sub">${sub}</div>
       ${title ? `<div style="margin-top:8px"><span class="mod-badge">✨ ${title}: ${desc||''}</span></div>` : ''}
     </div>
-    <div id="chip-badge" class="chip-badge">💵 ${fmt(S.chips)}</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="info-btn" onclick="toggleInfo()" title="How to play">?</button>
+      <div id="chip-badge" class="chip-badge">💵 ${fmt(S.chips)}</div>
+    </div>
   </div>
   <div class="hdr-div"></div>`;
 }
@@ -916,7 +961,7 @@ function bjDealerHTML(){
   return S.bjDealerReveal
     ?`<div class="sec">Dealer${dv>21?' · BUST':''}</div>
       <div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjDealerAnimFrom)*0.85+0.1:0,n);}).join('')}</div>
-      <div class="hand-val ${dv>21?'bust':''}">${dv}${dv>21?' BUST':''}</div>`
+      <div class="hand-val ${dv>21?'bust':''}">${hValDisplay(S.bjDealer)}${dv>21?' BUST':''}</div>`
     :`<div class="sec">Dealer Shows${getMod('peek')&&S.peekUsed?' · <span style="color:var(--gold-leaf);font-size:.7rem">👁 Peeked</span>':''}</div>
       <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${getMod('peek')&&S.peekUsed?cardHTML(S.bjDealer[1],'lg','box-shadow:0 0 18px 5px rgba(230,181,74,.65);border-radius:8px',0,false):cardHTML('back','lg')}</div>`;
 }
@@ -970,20 +1015,27 @@ function doPeek(){
 function screenBJ(){
   const ph=S.bjPhase;
   if(ph==='bet'){
+    const aios=getMod('all_in_or_skip');
     return`${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
     <div class="panel">
       ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
       <div class="divider"></div>
-      <div class="sec">Place Your Bet</div>
-      ${chipSel(S.chips,S.bjBet)}
-      <button id="db" class="btn-gold" style="margin-top:12px" onclick="bjDeal()" ${S.bjBet===0?'disabled':''}>Deal →</button>
+      ${aios
+        ?`<div class="sec">All In or Skip · Wins Pay 2×</div>
+          <div style="display:flex;gap:10px;margin-top:8px">
+            <button class="btn-gold" style="flex:2" onclick="allIn();bjDeal()">All In (${fmt(S.chips)}) →</button>
+            <button class="ch-clear" style="flex:1;padding:17px" onclick="bjSkip()">Skip Hand</button>
+          </div>`
+        :`<div class="sec">Place Your Bet</div>
+          ${chipSel(S.chips,S.bjBet)}
+          <button id="db" class="btn-gold" style="margin-top:12px" onclick="bjDeal()" ${S.bjBet===0?'disabled':''}>Deal →</button>`}
     </div>`;
   }
   if(ph==='play'){
     if(S.bjSplit){
       const ai=S.bjSplitActive;
       const activeHand=S.bjSplitHands[ai];
-      const pv=hVal(activeHand),bust=pv>21,done21=pv===21;
+      const pv=hVal(activeHand),bust=pv>21,done21=pv===21,pvStr=hValDisplay(activeHand);
       const isInitial=activeHand.length===2;
       const can2=S.chips>=S.bjSplitBets[ai]&&isInitial;
       const canResplit=isInitial&&activeHand[0].r===activeHand[1].r&&S.chips>=S.bjSplitBets[ai];
@@ -1005,7 +1057,7 @@ function screenBJ(){
           <div id="bj-active-hand" class="hand">${activeHand.map((c,i)=>{const n=i>=af;return cardHTML(c,'lg','',n?(i-af)*0.4+0.1:0,n);}).join('')}</div>
           ${S.bjCelebrating||done21
             ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div style="font-family:var(--serif);font-size:2.8rem;color:var(--gold2);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(230,181,74,.55)">Blackjack!</div></div>`
-            :`<div id="bj-active-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
+            :`<div id="bj-active-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pvStr}${bust?' BUST':done21?' 21!':''}</div>`}
         </div>
         <div style="margin-top:auto;">
           ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canResplit)}
@@ -1013,7 +1065,7 @@ function screenBJ(){
         </div>
 </div>`;
     }
-    const pv=hVal(S.bjPlayer),bust=pv>21,done21=pv===21;
+    const pv=hVal(S.bjPlayer),bust=pv>21,done21=pv===21,pvStr=hValDisplay(S.bjPlayer);
     const isInitial=S.bjPlayer.length===2;
     const can2=S.chips>=S.bjBet&&isInitial;
     const canSplit=isInitial&&S.bjPlayer[0].r===S.bjPlayer[1].r&&S.chips>0;
@@ -1030,7 +1082,7 @@ function screenBJ(){
           <div style="font-family:var(--serif);font-size:2.8rem;color:var(--gold2);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(230,181,74,.55)">Blackjack!</div>
           ${isBJ(S.bjPlayer)?`<div style="font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.22em;margin-top:6px">Pays 3 · 2</div>`:''}
         </div>`
-      :`<div id="bj-player-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pv}${bust?' BUST':done21?' 21!':''}</div>`}
+      :`<div id="bj-player-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pvStr}${bust?' BUST':done21?' 21!':''}</div>`}
   </div>
   <div style="margin-top:auto;">
     ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canSplit)}
@@ -1191,16 +1243,24 @@ function screenUTH(){
 
   if(ph==='bet'){
     const maxAnte=S.chips;
+    const aios=getMod('all_in_or_skip');
     return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
       <div class="divider"></div>
-      <div class="sec">Place Bet (Ante + Blind, split evenly)</div>
-      ${chipSel(maxAnte,S.uthAnte,[10,50,100,500,1000])}
-      <div id="uth-summary" style="text-align:center;margin:10px 0;font-size:.85rem;color:var(--dim)">
-        Ante <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> + Blind <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> = <b style="color:var(--cream)">${fmt(S.uthAnte)}</b> chips total
-      </div>
-      <button id="db" class="btn-gold" style="margin-top:4px" onclick="uthDeal()" ${S.uthAnte===0?'disabled':''}>Deal →</button>
+      ${aios
+        ?`<div class="sec">All In or Skip · Wins Pay 2×</div>
+          <div style="display:flex;gap:10px;margin-top:8px">
+            <button class="btn-gold" style="flex:2" onclick="S.uthAnte=S.chips;uthDeal()">All In (${fmt(S.chips)}) →</button>
+            <button class="ch-clear" style="flex:1;padding:17px" onclick="uthSkip()">Skip Hand</button>
+          </div>`
+        :`<div class="sec">Place Bet (Ante + Blind, split evenly)</div>
+          ${chipSel(maxAnte,S.uthAnte,[10,50,100,500,1000])}
+          <div id="uth-summary" style="text-align:center;margin:10px 0;font-size:.85rem;color:var(--dim)">
+            Ante <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> + Blind <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> = <b style="color:var(--cream)">${fmt(S.uthAnte)}</b> chips total
+          </div>
+          <button id="db" class="btn-gold" style="margin-top:4px" onclick="uthDeal()" ${S.uthAnte===0?'disabled':''}>Deal →</button>`}
+
       <div class="divider"></div>
       <div class="sec">Blind Pay Table</div>
       <div class="ptable">${[['Royal Flush','500x'],['Straight Flush','50x'],['Four of a Kind','10x'],['Full House','3x'],['Flush','3:2'],['Straight','1x'],['< Straight','Push']].map(([n,p])=>`<span class="pname">${n}</span><span class="ppay">${p}</span>`).join('')}</div>
@@ -1409,46 +1469,103 @@ function screenRoulette(){
 }
 
 function screenRouletteSpinning(){
-  const b=R_BETS[S.rPick];
+  const bets=S.rBets;
+  const total=bets.reduce((a,b)=>a+b.bet,0);
+  const betLabel=bets.length===1
+    ?`Bet on <b style="color:var(--text)">${R_BETS[bets[0].pick].type==='num'?'Number '+R_BETS[bets[0].pick].lbl:R_BETS[bets[0].pick].lbl}</b> &nbsp;|&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`
+    :`<b style="color:var(--gold)">${bets.length} bets</b> &nbsp;|&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`;
   return`${hdr('Roulette - Spinning!')}
   <div class="panel">
     <div class="wheel-outer">
       <div class="wheel-pointer"></div>
       <canvas id="rwheel" width="300" height="300"></canvas>
     </div>
-    <div style="text-align:center;font-size:.95rem;color:var(--dim)">
-      Bet on <b style="color:var(--text)">${b.type==='num'?'Number '+b.lbl:b.lbl}</b> &nbsp;|&nbsp; <b style="color:var(--gold)">${fmt(S.rBet)} chips</b>
-    </div>
+    <div style="text-align:center;font-size:.95rem;color:var(--dim)">${betLabel}</div>
   </div>`;
 }
 
 function screenRouletteBet(){
   const pb=S.rPick!==null?R_BETS[S.rPick]:null;
-  return`${hdr('Roulette · 1 Spin')}
+  const maxBets=getMod('r_max_bets')||5;
+  const aios=getMod('all_in_or_skip');
+  const board=`<div style="overflow-x:auto;margin:0 -10px;padding:0 10px 12px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;"><div style="min-width:380px">${rBoard()}</div></div>`;
+  const betInfo=`<div id="r-bet-info">${pb?`<div class="irow"><span class="ik">Bet on: <b style="color:var(--text)">${pb.type==='num'?'Number '+pb.lbl:pb.lbl}</b></span><span class="iv">${pb.pay}:1 payout</span></div>`:`<div style="font-size:.88rem;color:var(--dim);text-align:center;margin-bottom:10px">Select a number or outside bet above</div>`}</div>`;
+
+  if(aios&&S.rBets.length===0){
+    return`${hdr('Roulette · 1 Spin')}
+    <div class="panel">
+      <div class="sec">The Table — select where to go all in</div>
+      ${board}<div class="divider"></div>
+      ${betInfo}
+      <div class="sec" style="margin-top:10px">All In or Skip · Wins Pay 2×</div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn-gold" style="flex:2" onclick="rAllIn()" ${!pb?'disabled':''}>All In on ${pb?pb.lbl:'...'} (${fmt(S.chips)}) →</button>
+        <button class="ch-clear" style="flex:1;padding:17px" onclick="rSkip()">Skip Spin</button>
+      </div>
+    </div>`;
+  }
+
+  if(maxBets===1){
+    return`${hdr('Roulette · 1 Spin')}
+    <div class="panel">
+      <div class="sec">The Table - tap to place your bet</div>
+      ${board}<div class="divider"></div>
+      ${betInfo}
+      <div class="sec">Stake</div>
+      ${chipSel(S.chips,S.rBet)}
+      <button id="db" class="btn-gold" style="margin-top:12px" onclick="rSpin()" ${(!pb||S.rBet===0)?'disabled':''}>Spin the Wheel 🎡</button>
+    </div>`;
+  }
+
+  // Multi-bet mode
+  const canAdd=S.rBets.length<maxBets&&pb&&S.rBet>0;
+  const canSpin=S.rBets.length>0;
+  const placedHtml=S.rBets.length>0?`<div class="divider" style="margin:10px 0"></div>
+    <div class="sec">Placed Bets (${S.rBets.length}/${maxBets})</div>
+    ${S.rBets.map((b,i)=>{const d=R_BETS[b.pick];return`<div class="irow" style="margin-bottom:4px">
+      <span class="ik">${d.type==='num'?'#'+d.lbl:d.lbl} · ${d.pay}:1</span>
+      <span style="display:flex;align-items:center;gap:8px"><span class="iv">${fmt(b.bet)}</span>
+        <button onclick="rRemoveBet(${i})" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:1rem;padding:2px 6px">×</button>
+      </span></div>`;}).join('')}`:'';
+  return`${hdr(`Roulette · Up to ${maxBets} Bets`)}
   <div class="panel">
-    <div class="sec">The Table - tap to place your bet</div>
-    <div style="overflow-x: auto; margin: 0 -10px; padding: 0 10px 12px; scrollbar-width: thin; -webkit-overflow-scrolling: touch;">
-      <div style="min-width: 380px;">${rBoard()}</div>
-    </div>
-    <div class="divider"></div>
-    <div id="r-bet-info">${pb?`<div class="irow"><span class="ik">Bet on: <b style="color:var(--text)">${pb.type==='num'?'Number '+pb.lbl:pb.lbl}</b></span><span class="iv">${pb.pay}:1 payout</span></div>`:`<div style="font-size:.88rem;color:var(--dim);text-align:center;margin-bottom:10px">Select a number or outside bet above</div>`}</div>
+    <div class="sec">The Table - tap to select bet type</div>
+    ${board}<div class="divider"></div>
+    ${betInfo}
     <div class="sec">Stake</div>
     ${chipSel(S.chips,S.rBet)}
-    <button id="db" class="btn-gold" style="margin-top:12px" onclick="rSpin()" ${(!pb||S.rBet===0)?'disabled':''}>Spin the Wheel 🎡</button>
+    <button id="pb-add" style="margin-top:10px;width:100%;padding:13px;border-radius:12px;border:1.5px solid var(--gold);background:rgba(230,181,74,.1);color:var(--gold-leaf);font-family:var(--f);font-size:1rem;font-weight:700;cursor:pointer" onclick="rAddBet()" ${!canAdd?'disabled':''}>+ Place Bet (${S.rBets.length}/${maxBets})</button>
+    ${placedHtml}
+    <button id="db" class="btn-gold" style="margin-top:10px" onclick="rSpin()" ${!canSpin?'disabled':''}>Spin the Wheel 🎡</button>
   </div>`;
 }
 
 function screenRouletteResult(){
-  const res=S.rResult,b=R_BETS[S.rPick],n=S.rSpin;
+  const res=S.rResult,n=S.rSpin;
+  if(res.skipped){
+    return`${hdr('Roulette · Skipped')}
+    <div class="panel" style="text-align:center">
+      <div style="font-size:1.75rem;font-weight:700;color:var(--dim);margin-bottom:12px">Spin Skipped</div>
+      <div class="irow"><span class="ik">Chips</span><span class="iv">${fmt(S.chips)}</span></div>
+      <button class="btn-gold" style="margin-top:12px" onclick="advanceTo('results')">See Final Results →</button>
+    </div>`;
+  }
+  const bets=res.bets||[{pick:S.rPick,won:res.won,delta:res.delta,pay:R_BETS[S.rPick]?.pay}];
+  const betRows=bets.map(b=>{const d=R_BETS[b.pick];return`<div class="irow" style="margin-bottom:4px">
+    <span class="ik">${d?d.type==='num'?'#'+d.lbl:d.lbl:'?'} &nbsp;${b.pay}:1</span>
+    <span style="font-weight:700;color:${col(b.delta)}">${b.won?'✓':'✗'} ${sign(b.delta)}</span>
+  </div>`;}).join('');
   return`${hdr('Roulette · Result')}
   <div class="panel" style="text-align:center">
-    <div style="display:flex;justify-content:center;margin-bottom:14px">
+    <div style="display:flex;justify-content:center;margin-bottom:10px">
       <div class="r-res-num ${rCls(n)}">${n}</div>
     </div>
-    <div style="font-size:1.75rem;font-weight:700;color:${col(res.delta)}">${res.won?'You Win! 🎉':'You Lose! 💸'}</div>
-    <div style="font-size:.9rem;color:var(--dim);margin:6px 0 12px">Ball on <b style="color:var(--text)">${n}</b> (${rName(n)}) · Bet: <b style="color:var(--text)">${b.type==='num'?'#'+b.lbl:b.lbl}</b></div>
+    <div style="font-size:.88rem;color:var(--dim);margin-bottom:14px">${rName(n)}</div>
+    <div style="font-size:1.75rem;font-weight:700;color:${col(res.delta)};margin-bottom:4px">${res.delta>0?'You Win! 🎉':res.delta===0?'No change':'You Lose! 💸'}</div>
     <div style="font-size:1.5rem;font-weight:700;color:${col(res.delta)};margin-bottom:16px">${sign(res.delta)} chips</div>
-    <div class="irow"><span class="ik">Final chip count</span><span class="iv">${fmt(S.chips)} chips</span></div>
+    <div class="divider"></div>
+    ${betRows}
+    <div class="irow" style="margin-top:8px;background:rgba(230,181,74,.05)"><span class="ik">Chips after</span><span class="iv">${fmt(S.chips)}</span></div>
     <button class="btn-gold" style="margin-top:12px" onclick="advanceTo('results')">See Final Results →</button>
   </div>`;
 }
@@ -1458,9 +1575,6 @@ function screenResults(){
   const g2Hist=GAME2==='uth'?S.uthHistory:S.pkHistory;
   const g2Net=g2Hist.reduce((a,h)=>a+h.delta,0);
   const rNet=S.rResult?.delta||0;
-  const bjEm=S.bjHistory.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
-  const g2Em=g2Hist.map(h=>h.delta>0?'🟢':h.delta===0?'🟡':'🔴').join('');
-  const rEm=rNet>0?'🎰':rNet===0?'🟡':'💸';
   const g2Label=GAME2==='uth'?"♠ Ultimate Texas Hold'em":'♠ 5 Card Poker';
   const shareText=buildShareText();
   
@@ -1492,12 +1606,12 @@ function screenResults(){
     <div style="color:var(--dim);margin-bottom:6px;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;margin-top:4px">chips</div>
     <div style="font-size:1.1rem;margin-bottom:18px">${msg}</div>
     <div class="divider"></div>
-    ${[['🃏 Blackjack',bjEm,bjNet],[g2Label,g2Em,g2Net],['🎡 Roulette',rEm,rNet]].map(([lbl,em,net])=>`
+    ${[['🃏 Blackjack',bjNet],[g2Label,g2Net],['🎡 Roulette',rNet]].map(([lbl,net])=>`
     <div class="score-row">
-      <div><div style="font-size:.95rem">${lbl}</div><div style="font-size:.8rem;letter-spacing:.04em">${em}</div></div>
+      <div style="font-size:.95rem">${lbl}</div>
       <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;color:${col(net)}">${sign(net)}</div>
     </div>`).join('')}
-    <div class="irow" style="margin-top:12px;background:rgba(230,181,74,0.05)"><span class="ik">All-Time High</span><span class="iv" style="color:var(--gold-leaf)">${fmt(Math.max(S.chips, high))}</span></div>
+    <div class="irow" style="margin-top:12px;background:rgba(230,181,74,0.05)"><span class="ik">Your All-Time High</span><span class="iv" style="color:var(--gold-leaf)">${fmt(Math.max(S.chips, high))}</span></div>
     <div id="lb-stat" class="irow" style="margin-top:8px"><span class="ik">Today's Ranking</span><span class="iv" style="color:var(--dim);font-size:.9rem">Loading…</span></div>
     ${chartHtml}
     <div class="divider"></div>
@@ -1547,7 +1661,9 @@ async function submitAndFetchLeaderboard() {
     if (!row || row.total < 1) { el.style.display = 'none'; return; }
     const iv = row.total < 5
       ? `Rank ${row.rank} of ${row.total} ${row.total === 1 ? 'player' : 'players'}`
-      : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
+      : row.top_pct > 50
+        ? `Bottom ${100 - row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`
+        : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
     el.innerHTML = `<span class="ik">Today's Ranking</span><span class="iv" style="color:var(--gold-leaf)">${iv}</span>`;
   } catch(e) {}
 }
@@ -1730,7 +1846,7 @@ function bjHit(){
     if(handEl&&valEl){
       // Surgical DOM update for Blackjack hit to avoid full screen flash
       handEl.insertAdjacentHTML('beforeend', cardHTML(hand[hand.length-1], 'lg', '', 0.1, true));
-      valEl.textContent = String(pv);
+      valEl.textContent = hValDisplay(hand);
       saveState();
     }
   }
@@ -1840,18 +1956,44 @@ function bjRevealDealer(){
   }
   setTimeout(step,800);
 }
+/** Returns 2 when the all_in_or_skip modifier is active (wins are doubled), else 1. */
+function winMult(){return getMod('all_in_or_skip')?2:1;}
+/** Skip the current BJ hand (all_in_or_skip modifier). Records delta 0 and advances. */
+function bjSkip(){
+  S.bjHistory.push({bet:0,result:'skip',delta:0,player:[],dealer:[]});
+  S.bjHand++;
+  if(S.bjHand>=3){advanceTo('poker');return;}
+  S.bjBet=0;S.bjPhase='bet';S.bjPlayer=[];S.bjDealer=[];
+  S.bjSplit=false;S.bjSplitHands=[];S.bjSplitActive=0;S.bjSplitBets=[];S.bjSplitResults=[];S.bjSplitDone=[];
+  S.bjAnimFrom=0;S.bjDealerAnimFrom=0;S.bjSplitAnimFrom=[];S.bjResultAnimPlayer=false;S.bjDealerReveal=false;S.bjCelebrating=false;
+  render();
+}
+/** Skip the current UTH hand (all_in_or_skip modifier). Records delta 0 and advances. */
+function uthSkip(){
+  S.uthHistory.push({ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0});
+  S.uthHand++;
+  if(S.uthHand>=3){advanceTo('roulette');return;}
+  S.uthAnte=0;S.uthPhase='bet';S.uthPlay=0;S.uthPlayMult=0;
+  S.uthRaised=false;S.uthFolded=false;S.uthHole=[];S.uthDealer=[];S.uthComm=[];
+  S.uthRevealComm=0;S.uthPrevRevealComm=0;render();
+}
+/** Skip the roulette spin (all_in_or_skip modifier). Records delta 0 and goes to result. */
+function rSkip(){
+  S.rResult={delta:0,skipped:true};S.rPhase='result';render();
+}
 /** Final payout calculation for Blackjack, handling both standard and split hands. */
 function bjResolve(dealerDrawn=false){
   if(!dealerDrawn){S.bjDealerAnimFrom=1;}
   while(hVal(S.bjDealer)<17)S.bjDealer.push(G.bjShoe[S.bjIdx++]);
   const dv=hVal(S.bjDealer),dBJ=isBJ(S.bjDealer);
+  const wm=winMult();
   if(S.bjSplit){
     let totalDelta=0;
     const handResults=S.bjSplitHands.map((hand,i)=>{
       const bet=S.bjSplitBets[i],pv=hVal(hand);
       let result,delta;
       if(pv>21){result='bust';delta=-bet;}
-      else if(dv>21||pv>dv){result='win';delta=bet;S.chips+=bet*2;}
+      else if(dv>21||pv>dv){result='win';delta=bet*wm;S.chips+=bet+delta;}
       else if(pv===dv){result='push';delta=0;S.chips+=bet;}
       else{result='lose';delta=-bet;}
       totalDelta+=delta;return{result,delta,bet};
@@ -1864,9 +2006,9 @@ function bjResolve(dealerDrawn=false){
     const bjMult = getMod('bj_payout') || 1.5;
     let result,delta;
     if(pBJ&&dBJ){result='push';delta=0;S.chips+=S.bjBet;}
-    else if(pBJ){result='blackjack';delta=Math.floor(S.bjBet*bjMult);S.chips+=S.bjBet+delta;}
+    else if(pBJ){result='blackjack';delta=Math.floor(S.bjBet*bjMult*wm);S.chips+=S.bjBet+delta;}
     else if(pv>21){result='bust';delta=-S.bjBet;}
-    else if(dv>21||pv>dv){result='win';delta=S.bjBet;S.chips+=S.bjBet*2;}
+    else if(dv>21||pv>dv){result='win';delta=S.bjBet*wm;S.chips+=S.bjBet+delta;}
     else if(pv===dv){result='push';delta=0;S.chips+=S.bjBet;}
     else{result='lose';delta=-S.bjBet;}
     S.bjResult={result,delta};
@@ -2012,14 +2154,15 @@ function uthResolve(){
   const db2=bestOf7([...S.uthDealer,...S.uthComm]);
   const dealerQualifies=db2.cat>=(getMod('uth_hard_qualify')?2:1);
   const cmp=pb.score-db2.score;
+  const wm=winMult();
   let anteDelta=0,blindDelta=0,playDelta=0;
   if(cmp>0){
     const playMult=getMod('uth_double_play')?2:1;
-    playDelta=play*playMult;S.chips+=play+playDelta;
-    if(dealerQualifies){anteDelta=ante;S.chips+=ante*2;}
+    playDelta=play*playMult*wm;S.chips+=play+playDelta;
+    if(dealerQualifies){anteDelta=ante*wm;S.chips+=ante+anteDelta;}
     else{anteDelta=0;S.chips+=ante;}
     const bd=uthBlindDelta(pb.cat,ante);
-    blindDelta=bd;S.chips+=ante+bd;
+    blindDelta=bd*wm;S.chips+=ante+blindDelta;
   }else if(cmp===0){
     anteDelta=0;blindDelta=0;playDelta=0;
     S.chips+=ante+ante+play;
@@ -2062,14 +2205,42 @@ function pickBet(i){
   patchBetUI(); // Updates the Spin button state surgically
   saveState();
 }
+/** Adds current rPick+rBet to the placed bets list (multi-bet mode). */
+function rAddBet(){
+  const maxBets=getMod('r_max_bets')||5;
+  if(S.rPick===null||!S.rBet||S.rBets.length>=maxBets)return;
+  S.chips-=S.rBet;
+  S.rBets.push({pick:S.rPick,bet:S.rBet});
+  S.rBet=0;S.rPick=null;
+  saveState();render();
+}
+/** Removes a placed bet and refunds chips. */
+function rRemoveBet(i){
+  if(i<0||i>=S.rBets.length)return;
+  S.chips+=S.rBets[i].bet;
+  S.rBets.splice(i,1);
+  saveState();render();
+}
+/** All In on the current pick (all_in_or_skip modifier). */
+function rAllIn(){
+  if(S.rPick===null||S.chips===0)return;
+  S.rBets=[{pick:S.rPick,bet:S.chips}];
+  S.chips=0;
+  rSpin();
+}
 /** Initiates the Roulette spin animation. */
 function rSpin(){
-  if(S.rPick===null||!S.rBet)return;
+  const maxBets=getMod('r_max_bets')||5;
+  if(maxBets===1&&S.rBets.length===0){
+    if(S.rPick===null||!S.rBet)return;
+    S.chips-=S.rBet;
+    S.rBets=[{pick:S.rPick,bet:S.rBet}];
+  }
+  if(S.rBets.length===0)return;
   const zb=getMod('r_zero_boost');
   if(G.rSpinOverride!=null){S.rSpin=G.rSpinOverride;}
   else if(zb){const r=Math.floor(Math.random()*(36+zb));S.rSpin=r<zb?0:r-zb+1;}
   else{S.rSpin=Math.floor(Math.random()*37);}
-  S.chips-=S.rBet;
   S.rPhase='spinning';
   render();updateChipDisplay();
   sndSpin(4.6);
@@ -2077,20 +2248,28 @@ function rSpin(){
 }
 /** Final result calculation for Roulette after the animation. */
 function rFinish(){
-  const n=S.rSpin,won=evalBet(S.rPick,n);
-  const b=R_BETS[S.rPick];
-  let pay=b.pay;
-  if(won){
-    if(getMod('r_payout_mult'))pay*=getMod('r_payout_mult');
-    else if(getMod('r_number_pay')&&b.type==='num')pay=getMod('r_number_pay');
-    else if(getMod('r_color_double')&&b.type==='col2')pay*=2;
-  }
-  const profit=won?S.rBet*pay:0;
-  const delta=won?profit:-S.rBet;
-  if(won)S.chips+=S.rBet+profit;
-  S.rResult={won,delta};
+  const n=S.rSpin;
+  let totalDelta=0;
+  const betResults=S.rBets.map(b=>{
+    const bDef=R_BETS[b.pick];
+    const won=evalBet(b.pick,n);
+    let pay=bDef.pay;
+    if(won){
+      if(getMod('r_payout_mult'))pay*=getMod('r_payout_mult');
+      else if(getMod('r_number_pay')&&bDef.type==='num')pay=getMod('r_number_pay');
+      else if(getMod('r_color_double')&&bDef.type==='col2')pay*=2;
+    }
+    const profit=won?b.bet*pay:0;
+    const delta=won?profit:-b.bet;
+    if(won)S.chips+=b.bet+profit;
+    totalDelta+=delta;
+    return{...b,won,delta,pay};
+  });
+  const wm=winMult();
+  if(wm>1&&totalDelta>0){S.chips+=totalDelta;totalDelta*=wm;}
+  S.rResult={delta:totalDelta,bets:betResults};
   S.rPhase='result';render();updateChipDisplay();
-  if(won)setTimeout(sndBigWin,400);
+  if(totalDelta>0)setTimeout(sndBigWin,400);
 }
 
 /** 
@@ -2122,7 +2301,13 @@ function patchBetUI() {
   });
   
   const db=document.getElementById('db');
-  if(db)db.disabled=(k==='rBet'?(S.rPick===null||!isBetValid):(bet===0||!isBetValid));
+  if(db){
+    const maxBets=getMod('r_max_bets')||5;
+    const rDisabled=maxBets>1?S.rBets.length===0:(S.rPick===null||!isBetValid);
+    db.disabled=(k==='rBet'?rDisabled:(bet===0||!isBetValid));
+    const pba=document.getElementById('pb-add');
+    if(pba)pba.disabled=!(S.rBets.length<maxBets&&S.rPick!==null&&bet>0);
+  }
   const ai=document.getElementById('ai');
   if(ai)ai.disabled=max===0 || max < minChipsMod;
   
@@ -2165,6 +2350,29 @@ function doShare(){
   navigator.clipboard.writeText(buildShareText()).then(()=>toast('Copied! 🎲'));
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+function toggleInfo(){
+  const existing=document.getElementById('info-modal');
+  if(existing){existing.remove();return;}
+  const el=document.createElement('div');
+  el.id='info-modal';el.className='info-modal';
+  el.onclick=e=>{if(e.target===el)el.remove();};
+  el.innerHTML=`<div class="info-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-family:var(--serif);color:var(--gold);font-size:1.35rem">How to Play</div>
+      <button onclick="document.getElementById('info-modal').remove()" style="background:none;border:none;color:var(--dim);font-size:1.4rem;cursor:pointer;padding:4px 8px;line-height:1">✕</button>
+    </div>
+    <div class="divider" style="margin-bottom:14px"></div>
+    <div style="display:flex;flex-direction:column;gap:12px;font-size:.9rem;color:var(--dim);line-height:1.55">
+      <div><b style="color:var(--gold)">🎰 Gambdle</b> is a daily casino challenge. Start with <b style="color:var(--cream)">1,000 chips</b> and play Blackjack, Ultimate Texas Hold'em, and Roulette.</div>
+      <div><b style="color:var(--cream)">🃏 Blackjack</b> — Beat the dealer without going over 21. Hit, stand, double down, or split pairs. Blackjack pays 3:2.</div>
+      <div><b style="color:var(--cream)">♠ Ultimate Texas Hold'em</b> — Ante + Blind to start. Raise 4× or 3× preflop, 2× on the flop, 1× on the turn, or fold. Best 5-card hand from 7 beats the dealer.</div>
+      <div><b style="color:var(--cream)">🎡 Roulette</b> — Pick a number (35:1) or an outside bet (1:1 or 2:1). One spin seals your fate.</div>
+      <div><b style="color:var(--cream)">✨ Daily Modifier</b> — Some days add a special rule that changes payouts or gameplay for everyone.</div>
+      <div style="color:var(--gold)">Your final chip count is your leaderboard score. New game every day at midnight.</div>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+}
 
 // ─── BOOT ────────────────────────────────────────────
 loadState();

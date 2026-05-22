@@ -3,7 +3,7 @@
 ## What is Claude Working On
 _Updated each session with active tasks and their status._
 
-- Nothing active — last session: 4 roulette daily modifiers added (`r_double_all`, `r_hot_numbers`, `r_hot_zero`, `r_color_double`); boosted bets glow on the bet screen.
+- Nothing active — last session: large batch of UI/game improvements (see Ideas and Changelog below).
 
 ---
 
@@ -17,7 +17,8 @@ _Updated each session with active tasks and their status._
 ## Technical Specifications
 - **Chips**: Start: 1000 (`S.chips`). Busted if < 10 between hands.
 - **RNG Data**: `G` object holds pre-generated data: `bjShoe`, `pokerDecks`, `uthDeck`, `rSpinOverride`. `G.rSpinOverride` is `null` in production; set to 0–36 via `CARD_SEED_OVERRIDE.rSpin` when `ENABLE_CARD_SEEDING = true`.
-- **Roulette RNG**: `S.rSpin` (0–36) is generated at click time via `G.rSpinOverride ?? Math.floor(Math.random()*37)` and persisted in `S` for page-refresh consistency.
+- **Roulette RNG**: `S.rSpin` (0–36) is generated at click time and persisted in `S`. `S.rBets[]` holds placed bets `{pick, bet}`; populated by `rAddBet()` or auto-filled by `rSpin()` in single-bet mode. `S.rResult.bets[]` holds resolved bet outcomes `{pick, bet, won, delta, pay}`.
+- **Roulette multi-bet**: `r_max_bets` modifier key (default 1). When > 1, board shows "Place Bet" button (deducts chips immediately); separate "Spin" enabled when `rBets.length > 0`. `rRemoveBet(i)` refunds. `rAllIn()` places entire stack on current pick and spins.
 - **UTH Logic**: `S.uthAnte` is total bet (Ante+Blind 50:50). Raises use multipliers on base units.
 - **Eval**: `rankPoker()` (Jacks+) vs `handScore()` (UTH weighted 1e12 scoring). `bestOf7()` returns `{cards, score, cat}` — `cards` preserves object references from `S.uthHole`/`S.uthDealer`/`S.uthComm`, enabling identity-based card highlighting via `Set`.
 - **Dev Mode**: `?dev=true` in URL adds `body.dev-mode` and enables UI tools. `ENABLE_CARD_SEEDING = false` in `index.html` — set to `true` to enable `CARD_SEED_OVERRIDE` (manual BJ shoe + roulette spin override via `rSpin: null|0–36`). The block costs nothing at runtime when disabled.
@@ -71,13 +72,22 @@ Pattern: add stable IDs to the elements that change, mutate them directly, call 
 - Submits `{seed, chips}` once per day per device (localStorage guard: `gambdle_submitted_SEED`).
 - Fetches percentile via RPC; updates `#lb-stat` div in results screen.
 - Hides itself if fewer than 5 players exist for the day.
-- Display: "Top 23% · 142 players" in gold-leaf color.
+- Display: "Top 23% · 142 players" if top_pct ≤ 50, "Bottom X% · N players" if top_pct > 50. Gold-leaf color.
 
 ## Ideas to add
-- UTH scenario seeding (via `CARD_SEED_OVERRIDE` extension).
-- More `PRESET_MODIFIERS` entries and populated `DAILY_MODIFIERS` dates.
+- **Font consolidation** (analysis only, not yet implemented): 3 fonts in use — Space Grotesk (body/buttons/UI text), DM Serif Display (logo, card ranks, hand values, chip badge), JetBrains Mono (share box, chart bar labels, canvas roulette wheel). JetBrains Mono is the easiest to drop: its only visual role is "monospace feel" on small stat labels. Replacing it with `monospace` system font or Space Grotesk at 600 weight would save ~40KB. DM Serif Display is loadbearing for the game's aesthetic (serif numbers feel casino-like). Recommend: cut JetBrains Mono, keep the other two.
+- **Incognito replay detection** (design challenge, not implemented): Can't reliably detect incognito via JS — localStorage, cookies, and sessionStorage all clear on incognito session close. A server-side approach (Supabase: check if a score was already submitted for today's seed before the game starts) would work but requires a new RPC and network call at game boot. Alternative: per-device fingerprint stored server-side.
 
 ## Changelog
+- **"Your All-Time High"**: Label corrected on results screen.
+- **Results score rows**: Removed per-hand 🟢🟡🔴 circles (spoilers); emoji circles kept only in share text.
+- **Leaderboard percentile**: Now shows "Bottom X%" when player is below median (top_pct > 50).
+- **Ace 1/11 display**: `hValDisplay(cs)` added — shows "8 / 18" for soft hands during BJ play (player + dealer). Surgical DOM update path also uses it.
+- **`all_in_or_skip` modifier**: New cross-game preset. Bet screens for BJ/UTH/Roulette show "All In → " and "Skip" buttons. Wins pay 2× via `winMult()` applied in `bjResolve()`, `uthResolve()`, and `rFinish()`. Scheduled into July/August dates.
+- **Multi-bet roulette**: `S.rBets[]` array tracks placed bets. `r_max_bets` modifier key controls the limit (default 1). New functions: `rAddBet()`, `rRemoveBet(i)`, `rAllIn()`. `rSpin()` auto-adds the single pending bet in default mode for backward compat. `rFinish()` processes all bets and returns a `bets` array in `S.rResult`. Result screen lists each bet outcome. New preset: `r_multi_bet` (3 bets).
+- **Info/tutorial button**: `?` button in the page header opens a modal overlay (`toggleInfo()`) with concise game rules for all three games.
+- **UTH scenario seeding**: `uthHands` array in `CARD_SEED_OVERRIDE`; cards placed positionally at `h*9` offset in `uthDeck`.
+- **Daily modifiers July–Dec 2026**: All dates populated with rotating presets (~12/month).
 - **Roulette RNG**: Now per-player (`Math.random()` at spin time), stored in `S.rSpin`. Other games unchanged (still seeded PRNG). `G.rSpinOverride` enables dev seeding via `CARD_SEED_OVERRIDE.rSpin`.
 - **Desktop scroll**: `overflow-y: auto` always on desktop; removed `dev-mode` scroll override (no longer needed).
 - **Supabase leaderboard**: `submitAndFetchLeaderboard()` wired into results screen; `#lb-stat` placeholder in `screenResults()`; MCP configured, SQL live.
