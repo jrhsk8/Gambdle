@@ -1,101 +1,163 @@
 # Gambdle — AI Context
 
-## What is Claude Working On
-_Updated each session with active tasks and their status._
+## Active Work
+_Update this section at the start of each session._
 
-- Nothing active — last session: large batch of UI/game improvements (see Ideas and Changelog below).
+- Nothing active.
+
+---
+
+## File Structure
+| File | Lines | Purpose |
+|------|-------|---------|
+| `index.html` | 17 | Shell only — links CSS, JS, fonts |
+| `styles.css` | ~637 | All CSS |
+| `game.js` | ~2149 | All game logic and rendering |
+| `modifiers.js` | ~88 | Daily modifier config (separate so it's easy to edit) |
+
+No build steps. Pure vanilla JS/CSS/HTML.
 
 ---
 
 ## System & Stack
-- **App**: Single-file daily casino (Vanilla HTML/CSS/JS + `modifiers.js`). No build steps.
-- **RNG**: Seeded PRNG (`YYYYMMDD`) for BJ/poker/UTH — deterministic (same hands for everyone daily). Roulette uses `Math.random()` per-player at spin time.
-- **Flow**: Intro → BJ (3 hands) → G2 (3 hands) → Roulette (1 spin) → Results.
-- **State**: Global `S` persists to `localStorage` (key: `gambdle_state_[seed]`).
-- **Config**: `GAME2 = 'uth' | 'poker'` toggles Game 2 logic/screens. Currently `'uth'`.
+- **Flow**: Intro → BJ (3 hands) → UTH (3 hands) → Roulette (1 spin) → Results
+- **State**: Global `S` persists to `localStorage` (`gambdle_state_YYYYMMDD`)
+- **RNG**: SplitMix32 PRNG seeded by `getDailySeed()` (YYYYMMDD int) for BJ/UTH/Poker — same hands for everyone daily. Roulette uses `Math.random()` at spin time, stored in `S.rSpin`.
+- **Config**: `GAME2 = 'uth'` in `game.js` toggles Game 2 (`'uth'` | `'poker'`). Screen key is always `'poker'` internally.
+- **Chips**: Start 1000. Busted if `S.chips < 10` between hands.
+- **Day numbering**: Day 1 = May 5, 2026. `getDayNum()` computes from `START_DATE_UTC`.
 
-## Technical Specifications
-- **Chips**: Start: 1000 (`S.chips`). Busted if < 10 between hands.
-- **RNG Data**: `G` object holds pre-generated data: `bjShoe`, `pokerDecks`, `uthDeck`, `rSpinOverride`. `G.rSpinOverride` is `null` in production; set to 0–36 via `CARD_SEED_OVERRIDE.rSpin` when `ENABLE_CARD_SEEDING = true`.
-- **Roulette RNG**: `S.rSpin` (0–36) is generated at click time and persisted in `S`. `S.rBets[]` holds placed bets `{pick, bet}`; populated by `rAddBet()` or auto-filled by `rSpin()` in single-bet mode. `S.rResult.bets[]` holds resolved bet outcomes `{pick, bet, won, delta, pay}`.
-- **Roulette multi-bet**: `r_max_bets` modifier key (default 1). When > 1, board shows "Place Bet" button (deducts chips immediately); separate "Spin" enabled when `rBets.length > 0`. `rRemoveBet(i)` refunds. `rAllIn()` places entire stack on current pick and spins.
-- **UTH Logic**: `S.uthAnte` is total bet (Ante+Blind 50:50). Raises use multipliers on base units.
-- **Eval**: `rankPoker()` (Jacks+) vs `handScore()` (UTH weighted 1e12 scoring). `bestOf7()` returns `{cards, score, cat}` — `cards` preserves object references from `S.uthHole`/`S.uthDealer`/`S.uthComm`, enabling identity-based card highlighting via `Set`.
-- **Dev Mode**: `?dev=true` in URL adds `body.dev-mode` and enables UI tools. `ENABLE_CARD_SEEDING = false` in `index.html` — set to `true` to enable `CARD_SEED_OVERRIDE` (manual BJ shoe + roulette spin override via `rSpin: null|0–36`). The block costs nothing at runtime when disabled.
-- **Card Animations**: `cardHTML(c, sz, ex, dl, anim)` — `ex` is extra inline style (used for glow effects), `dl` is delay in seconds, `anim=false` skips the `adeal` class. BJ dealer reveals use `*0.75–0.85s` between cards. UTH dealer reveal uses `i*0.9+0.1s`.
-- **UTH Hand Highlight**: On showdown result, `hlCards = new Set(pb.cards or db2.cards)`, `hl(c)` returns gold or red `box-shadow` style if card is in the winning 5-card hand.
-- **UTH Reveal Phase**: After showdown or fold, `uthPhase='reveal'` renders dealer cards animating with no result text. Auto-transitions to `'result'` via `setTimeout(2300ms)` using `_noAnim=true`.
-- **Score Tiers**: `CHIP_TIERS` array + `getTier(chips)` centralises thresholds. Tiers: 🐋 Whale (2500+), 💎 High Roller (1500+), 🎓 Apprentice (1000+), 😢 Survivor (1+), 🤡 Bozo (0). Used by both `buildShareText()` and `screenResults()`.
-- **Daily Modifiers**: Defined in `modifiers.js`. `PRESET_MODIFIERS` has named rules (`double_pay`, `high_stakes`, `peek`). `DAILY_MODIFIERS[seed]` maps dates to preset keys. `getMod(key)` checks `S.forcedMod` first, then `DAILY_MODIFIERS[seed]`. Dev override: `devApplyMod()` stores to localStorage, reloads; cleared on load.
-- **Peek Modifier**: When `getMod('peek')` is active and `S.peekUsed` is false, `peekBtnHTML()` renders a one-use button. `doPeek()` sets `S.peekUsed=true`, reveals dealer hole card with glow. Shows "👁 Peeked" indicator in dealer section thereafter.
+---
 
-## Visuals & Assets
-- **Theme**: Felt green (`--felt`), Gold family (`--gold`, `--gold-leaf`), Cream (`--cream`).
-- **Fonts**: Space Grotesk (UI), DM Serif Display (Numbers), JetBrains Mono (Chips).
-- **Audio**: `sndCard`, `sndChip`, `sndShuffle`, `sndBigWin`, `sndSpin`.
-- **Animations**: Use `_noAnim=true` before `render()` to suppress panel fade-in mid-hand.
-- **Scroll**: Desktop (`min-width: 1024px`) always has `overflow-y: auto`. `overflow-x: hidden` on both.
+## Fonts & Visuals
+- `--btn-f`: VT323 — **main UI font** (body, buttons, labels, values, chips, hand counts, all game text)
+- `--display`: Space Grotesk — **decorative only** (`.logo`, `.ct-r` card ranks, `.card.back::before` G)
+- `--f`: Courier New — **card suits only** (`.ct-s`, `.cbody .csuit`)
 
-## Surgical DOM Updates (flash prevention)
-Full `render()` replaces all of `#app` innerHTML, causing a visible flash. For mid-hand updates where only a small region changes, use targeted DOM mutations instead:
+**Theme**: Felt green (`--felt`), Gold (`--gold`, `--gold-hi`, `--gold-lo`), Cream (`--cream`), XP-style window chrome.
 
-- **BJ hit (normal, pv < 21)**: `insertAdjacentHTML('beforeend', cardHTML(...))` onto `#bj-player-hand` or `#bj-active-hand`; update `#bj-player-val` / `#bj-active-val` textContent. Falls back to `render()` if IDs not found.
-- **BJ play panel layout**: `display:flex;flex-direction:column` on `.panel`; card area has `flex:1`; buttons+irow wrapped in `margin-top:auto` div so buttons pin to panel bottom.
-- **Poker hold toggle**: update `transform` + `boxShadow` on `.card` inside `#pk-hw-{i}` (CSS transition already present); update `.hold-tag` text/color; update `.pk-hold-status` text. No render needed.
-- **UTH community reveals** (not yet done): candidate for surgical update — update community card section + action buttons by ID, skip full render.
+**Key CSS custom properties** (in `:root` in `styles.css`):
+- `--raised`: the repeating `inset 1.5px 1.5px 0 var(--highlight), inset -2px -2px 0 var(--shadow)` box-shadow — used on `.act-btn`, `.hdot`, `.r2to1`, `.rout`, `.irow`, `.rnd-row`, `.ptable`, `.score-row`
+- `--raised-sm`: the 1px variant — used on `.tb-btn`, `.tb-icon`, `.mod-badge`, `.readout`, `.share-box`
 
-Pattern: add stable IDs to the elements that change, mutate them directly, call `saveState()` instead of `render()`. Always include a fallback to `_noAnim=true;render()` if IDs are missing.
+**Audio**: `sndCard(delay_ms)`, `sndChip()`, `sndShuffle(cb)`, `sndBigWin()`, `sndSpin()`
 
-## Known Quirks
-- `GAME2` always uses screen key `'poker'` internally regardless of value.
-- `curBetRef()` uses a `BET_REF` lookup object for `bj`/`roulette` screens; falls back to `GAME2` check for the shared `poker` screen.
-- `rankPoker()` (Video Poker) vs `handScore()` (UTH) use different internal thresholds.
-- `S.rSpin` (stored result, set at spin time) vs `rSpin()` (the UI function that triggers the spin). `G.rSpinOverride` is the dev seed value (usually `null`).
-- UTH fold can only happen at the turn phase (all 5 community cards visible). Both fold and showdown go through `'reveal'` phase before `'result'`.
-- BJ split hands use `S.bjSplitHands`, `S.bjSplitResults`, `S.bjSplitBets`, `S.bjSplitDone`, `S.bjSplitActive`. Split result net = sum of `S.bjSplitResults[i].delta`.
-- `.panel` has no `min-width` on mobile (removed); desktop media query (`min-width:1024px`) sets `min-width:764px`.
+---
 
-## Key Helpers (AI reference)
-- `gameDots(history, hand, phase)` — renders progress dots for any game; called directly at all call sites (no wrapper functions).
-- `getTier(chips)` — returns matching entry from `CHIP_TIERS` `{min, emoji, label}`; used by results screen and share text.
-- `bjDealerHTML()` — dealer section HTML for BJ play phase (handles revealed vs hidden).
-- `bjActionBtns(bust, done21, can2, canSplit)` — BJ Hit/Stand/Double/Split buttons (shared by split and non-split).
-- `buildShareText()` — generates full share string; used by both results preview and `doShare()`.
-- `col(delta)` — returns CSS color var for win/loss/push. `sign(delta)` — formats with +/− prefix.
-- `getMod(key)` — returns the active modifier object for a key, checking `S.forcedMod` before `DAILY_MODIFIERS[seed]`.
-- `getDailySeed()` — returns today as YYYYMMDD integer (e.g. `20260509`). Used for RNG seed, localStorage keys, and modifier lookups.
+## Rendering
+- `render()` replaces all of `#app` innerHTML — causes a flash if used mid-hand
+- `_noAnim=true` before `render()` suppresses the panel slide-in animation
+- For mid-hand changes, use **surgical DOM updates** instead of `render()`:
+  - **BJ hit** (`pv < 21`): `insertAdjacentHTML` on `#bj-player-hand` / `#bj-active-hand`, update `#bj-player-val` / `#bj-active-val`. Falls back to `render()` if IDs missing.
+  - **Poker hold toggle**: mutate `.card` transform/shadow and `.hold-tag` text directly via `#pk-hw-{i}`
+  - **Roulette bet UI**: `patchBetUI()` updates Spin button, chip buttons, Place Bet count surgically after chip/pick changes
+- Pattern: stable IDs on changing elements → mutate directly → `saveState()` (not `render()`)
+
+---
+
+## Key Constants & Helpers
+
+### Constants (`game.js`)
+- `ANIM_NONE = 99` — sentinel assigned to `S.bjAnimFrom` / `S.bjDealerAnimFrom` to suppress animation on a hand
+- `START_DATE_UTC` — May 5, 2026 UTC, used for day numbering
+- `GAME2 = 'uth'` — selects Game 2 variant
+- `CHIP_TIERS` — array of `{min, emoji, label}` — Whale 2500+, High Roller 1500+, Apprentice 1000+, Survivor 1+, Bozo 0
+
+### Utility functions
+- `getDailySeed()` → YYYYMMDD int (RNG seed, localStorage key, modifier lookup)
+- `getDayNum()` → day count since May 5, 2026
+- `getMod(key)` → active modifier value; checks `S.forcedMod` → `DAILY_MODIFIERS[seed]` → `CYCLE_ORDER` cycle
+- `col(n)` → hardcoded hex: `#9be07a` (win), `#e03535` (loss), `#cabd9a` (push)
+- `sign(n)` → formats with +/− prefix
+- `fmt(n)` → `toLocaleString()`
+- `getTier(chips)` → `{min, emoji, label}` from `CHIP_TIERS`
+- `gameDots(history, hand, phase)` → progress dot pills; called directly everywhere (no per-game wrappers)
+- `cardHTML(c, sz, ex, dl, anim)` → card HTML; `ex`=extra inline style, `dl`=delay secs, `anim=false` skips deal animation
+- `hValDisplay(cs)` → shows "8 / 18" for soft BJ hands; used in play and surgical DOM updates
+- `buildShareText()` → share string (no emoji circles — they were removed)
+- `chipSel(maxC, curBet, denoms, extraBtn='')` → chip row + bet-row HTML; `extraBtn` inserts a button left of Clear/All In (used by roulette multi-bet for Place Bet)
+
+### BJ helpers
+- `bjDealerHTML()` — dealer section for BJ play phase (revealed vs hidden)
+- `bjActionBtns(bust, done21, can2, canSplit)` — Hit/Stand/Double/Split buttons (shared by split and non-split paths)
+- `resetBJHand()` — resets all BJ hand state to `bet` phase; called by `bjSkip()` and `bjNext()`
+- `winMult()` — returns 2 if `all_in_or_skip` or `comeback` modifier active, else 1
+
+### UTH helpers
+- `resetUTHHand()` — resets all UTH hand state to `bet` phase; called by `uthSkip()` and `uthNext()`
+- `bestOf7(cards)` → `{cards, score, cat}` — best 5 from 7; `cards` preserves object references for identity-based highlighting
+- `uthBlindDelta(cat, blind)` — blind payout calc (paytable + boost modifier)
+
+---
+
+## Game-Specific Details
+
+### Blackjack
+- BJ dealer reveal: `bjRevealDealer()` → `uthPhase='reveal'` equivalent; auto-steps dealer cards at 800ms intervals
+- Split state: `S.bjSplitHands[]`, `S.bjSplitBets[]`, `S.bjSplitResults[]`, `S.bjSplitDone[]`, `S.bjSplitActive`, `S.bjSplitDoubled[]`
+- `S.bjAnimFrom` / `S.bjDealerAnimFrom` track which cards are new (animate). Set to `ANIM_NONE` to suppress.
+- BJ peek modifier: `peekBtnHTML()` + `doPeek()` — one-use, sets `S.peekUsed=true`
+
+### Ultimate Texas Hold'em
+- `S.uthAnte` = total bet (Ante + Blind, split 50:50 as `uthAnte/2` each)
+- Phases: `bet` → `preflop` → `flop` → `turn` → `reveal` → `result`
+- `'reveal'` phase animates dealer cards, auto-transitions to `'result'` after 2300ms with `_noAnim=true`
+- Hand eval: `handScore()` (weighted 1e12 scoring) vs `rankPoker()` (Jacks+ threshold for video poker)
+- Highlight: `hlCards = new Set(pb.cards)`, identity-based card match using object references
+
+### Roulette
+- Default max bets: 5 (`getMod('r_max_bets') || 5`)
+- `if(maxBets===1)` → single-bet mode (pick + stake + spin directly)
+- Multi-bet mode: `rAddBet()` deducts chips and pushes to `S.rBets[]`; `rRemoveBet(i)` refunds; `rAllIn()` all-in on current pick
+- `rSpin()` auto-adds single pending bet in default single-bet mode for backward compat
+- `rFinish()` processes all bets → `S.rResult.bets[]` array of `{pick, bet, won, delta, pay}`
+- R_BETS: indices 0–36 = numbers, 37–39 = column 2:1, 40–42 = dozens, 43–48 = outside bets
+- `evalBet(idx, result)` → win/loss for a bet given the spin result
+- Board: no selection chip preview (removed); placed bets show gold chip with amount
+
+### Results Screen
+- Big chip count: 6rem VT323, gold
+- Score rows show net delta per game (no emoji circles)
+- Share text: no emoji circles, just `(+N)` / `(-N)` per game
+- Leaderboard (`#lb-stat`): dark ink color; shows "Top X% · N players" or "Bottom X% · N players"
+- Status bar shows "Game complete · new game at midnight daily." on results screen
+- Chart: past 7 days performance bars
+
+---
+
+## Daily Modifiers (`modifiers.js`)
+- `PRESET_MODIFIERS` — named modifier objects
+- `CYCLE_ORDER` — rotation list; Day 1 = May 5, 2026; repeats every N days
+- `DAILY_MODIFIERS` — date-specific overrides (YYYYMMDD keys)
+- Validation guard at file bottom: throws if `CYCLE_ORDER` contains an unknown key
+- Dev override: `devApplyMod()` stores to localStorage, reloads; cleared on next load
+
+---
+
+## Dev Mode
+- `?dev=true` in URL → `body.dev-mode` + dev UI tools
+- `ENABLE_CARD_SEEDING = false` in `game.js` → set `true` to activate `CARD_SEED_OVERRIDE` (manual BJ shoe, UTH hands at `h*9` offset, roulette spin `rSpin: null|0–36`)
+- `G.rSpinOverride` is the dev seed value (null in production)
+
+---
 
 ## Supabase Leaderboard
-- Project ref: `kxbteesmfozqzoxzktzv` · URL: `https://kxbteesmfozqzoxzktzv.supabase.co`
-- `scores` table, RLS policies, and `get_percentile` RPC are live.
-- `submitAndFetchLeaderboard()` — async, called from `render()` when `S.screen === 'results'`.
-- Submits `{seed, chips}` once per day per device (localStorage guard: `gambdle_submitted_SEED`).
-- Fetches percentile via RPC; updates `#lb-stat` div in results screen.
-- Hides itself if fewer than 5 players exist for the day.
-- Display: "Top 23% · 142 players" if top_pct ≤ 50, "Bottom X% · N players" if top_pct > 50. Gold-leaf color.
+- Project: `kxbteesmfozqzoxzktzv` · `https://kxbteesmfozqzoxzktzv.supabase.co`
+- `scores` table + `get_percentile` RPC
+- `submitAndFetchLeaderboard()` — called from `render()` on results screen; submits `{seed, chips}` once per day per device (guard: `gambdle_submitted_SEED` in localStorage); hides if < 5 players
 
-## Ideas to add
-- **Font consolidation** (analysis only, not yet implemented): 3 fonts in use — Space Grotesk (body/buttons/UI text), DM Serif Display (logo, card ranks, hand values, chip badge), JetBrains Mono (share box, chart bar labels, canvas roulette wheel). JetBrains Mono is the easiest to drop: its only visual role is "monospace feel" on small stat labels. Replacing it with `monospace` system font or Space Grotesk at 600 weight would save ~40KB. DM Serif Display is loadbearing for the game's aesthetic (serif numbers feel casino-like). Recommend: cut JetBrains Mono, keep the other two.
-- **Incognito replay detection** (design challenge, not implemented): Can't reliably detect incognito via JS — localStorage, cookies, and sessionStorage all clear on incognito session close. A server-side approach (Supabase: check if a score was already submitted for today's seed before the game starts) would work but requires a new RPC and network call at game boot. Alternative: per-device fingerprint stored server-side.
+---
 
-## Changelog
-- **"Your All-Time High"**: Label corrected on results screen.
-- **Results score rows**: Removed per-hand 🟢🟡🔴 circles (spoilers); emoji circles kept only in share text.
-- **Leaderboard percentile**: Now shows "Bottom X%" when player is below median (top_pct > 50).
-- **Ace 1/11 display**: `hValDisplay(cs)` added — shows "8 / 18" for soft hands during BJ play (player + dealer). Surgical DOM update path also uses it.
-- **`all_in_or_skip` modifier**: New cross-game preset. Bet screens for BJ/UTH/Roulette show "All In → " and "Skip" buttons. Wins pay 2× via `winMult()` applied in `bjResolve()`, `uthResolve()`, and `rFinish()`. Scheduled into July/August dates.
-- **Multi-bet roulette**: `S.rBets[]` array tracks placed bets. `r_max_bets` modifier key controls the limit (default 1). New functions: `rAddBet()`, `rRemoveBet(i)`, `rAllIn()`. `rSpin()` auto-adds the single pending bet in default mode for backward compat. `rFinish()` processes all bets and returns a `bets` array in `S.rResult`. Result screen lists each bet outcome. New preset: `r_multi_bet` (3 bets).
-- **Info/tutorial button**: `?` button in the page header opens a modal overlay (`toggleInfo()`) with concise game rules for all three games.
-- **UTH scenario seeding**: `uthHands` array in `CARD_SEED_OVERRIDE`; cards placed positionally at `h*9` offset in `uthDeck`.
-- **Daily modifiers July–Dec 2026**: All dates populated with rotating presets (~12/month).
-- **Roulette RNG**: Now per-player (`Math.random()` at spin time), stored in `S.rSpin`. Other games unchanged (still seeded PRNG). `G.rSpinOverride` enables dev seeding via `CARD_SEED_OVERRIDE.rSpin`.
-- **Desktop scroll**: `overflow-y: auto` always on desktop; removed `dev-mode` scroll override (no longer needed).
-- **Supabase leaderboard**: `submitAndFetchLeaderboard()` wired into results screen; `#lb-stat` placeholder in `screenResults()`; MCP configured, SQL live.
-- **Double-tap zoom prevention**: `button { touch-action: manipulation; }` added globally.
-- **BJ split result**: hands now stack vertically with gold top-border divider (was side-by-side with left-border).
-- **UTH dealer reveal**: dedicated `'reveal'` phase before result screen; dealer cards animate at `i*0.9+0.1s`, auto-transitions after 2.3s. Result screens show dealer cards static.
-- **BJ dealer reveal**: delays bumped to `*0.75–0.85s` per card across play, split, and result screens.
-- **`CHIP_TIERS` + `getTier()`**: centralise score tier thresholds; tier emoji consistent between share text and results screen.
-- **`gameDots()` unified**: `bjDots`/`pkDots`/`uthDots` wrappers removed; called directly at all call sites.
-- **`bjHit()` unified**: split and non-split paths merged; branch points are hand reference and next-step callback only.
-- **`curBetRef()` refactor**: replaced nested ternary with `BET_REF` lookup object.
+## Known Quirks
+- `GAME2` always uses screen key `'poker'` internally regardless of value
+- `curBetRef()` uses `BET_REF` lookup object for `bj`/`roulette`; falls back to `GAME2` check for `poker` screen
+- `S.rSpin` (stored result) vs `rSpin()` (UI function that triggers spin) — different things
+- UTH fold only available at turn phase; both fold and showdown go through `'reveal'` before `'result'`
+- The `.panel` flex layout: card area has `flex:1`; action buttons + irow wrapped in `margin-top:auto` div to pin to bottom
+
+---
+
+## Ideas
+- hand 1 hand 2 etc gives away uth result before result is actually revealed
+- **WinXP-style dropdown menu** from 'File' and 'Help' menu bar items — break tutorial into sections there
+- **Incognito replay detection** — not reliably possible via JS alone; would need server-side RPC check at boot
