@@ -213,14 +213,17 @@ body::before {
 .rn:hover { transform: scale(1.08); z-index: 2; }
 .rn.r-sel { box-shadow: 0 0 0 2px var(--gold), 0 0 10px rgba(249,199,79,0.55); transform: scale(1.08); z-index: 3; }
 .rn-red { background: #b91c1c; } .rn-blk { background: #1a1a1a; } .rn-grn { background: #15803d; }
-.r2to1 { background: rgba(0,0,0,0.4); border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 700; color: var(--dim); display: flex; align-items: center; justify-content: center; transition: all 0.1s; padding: 0; }
+.r2to1 { background: rgba(0,0,0,0.4); border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 700; color: var(--dim); display: flex; align-items: center; justify-content: center; transition: all 0.1s; padding: 0; position: relative; }
 .r2to1:hover { background: rgba(0,0,0,0.55); color: var(--text); } .r2to1.r-sel { background: var(--gold); color: #1a0e00; }
-.rout { padding: 3px 1px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.32); color: var(--text); cursor: pointer; font-size: 0.68rem; font-weight: 600; font-family: var(--f); text-align: center; transition: all 0.12s; display: flex; align-items: center; justify-content: center; }
+.rout { padding: 3px 1px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.32); color: var(--text); cursor: pointer; font-size: 0.68rem; font-weight: 600; font-family: var(--f); text-align: center; transition: all 0.12s; display: flex; align-items: center; justify-content: center; position: relative; }
 .rout:hover { background: rgba(0,0,0,0.52); border-color: rgba(255,255,255,0.22); } .rout.r-sel { background: var(--gold); color: #1a0e00; border-color: var(--gold); font-weight: 700; }
 .rout-r { border-left: 3px solid #b91c1c; } .rout-b { border-left: 3px solid #444; }
 .r-boost { position: relative; box-shadow: 0 0 0 2px rgba(230,181,74,0.65), 0 0 8px rgba(230,181,74,0.3); animation: r-boost-pulse 1.4s ease-in-out infinite; }
 .rn.r-sel.r-boost, .rout.r-sel.r-boost, .r2to1.r-sel.r-boost { animation: none; }
 @keyframes r-boost-pulse { 50% { box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(230,181,74,0.65); } }
+.r-chip { position: absolute; top: 3px; right: 3px; width: 17px; height: 17px; border-radius: 50%; font-size: .5rem; font-weight: 800; display: flex; align-items: center; justify-content: center; z-index: 10; pointer-events: none; line-height: 1; }
+.r-chip-placed { background: var(--gold); color: #1a0e00; border: 1.5px solid #fff; box-shadow: 0 1px 5px rgba(0,0,0,.65); }
+.r-chip-sel { background: rgba(230,181,74,.2); border: 2px dashed var(--gold); }
 .r-pay-lbl { position: absolute; bottom: 2px; left: 0; right: 0; font-size: 0.46rem; font-weight: 800; color: var(--gold); text-align: center; line-height: 1; pointer-events: none; letter-spacing: 0.01em; }
 
 .wheel-outer { display: flex; flex-direction: column; align-items: center; margin-bottom: 14px; }
@@ -726,6 +729,13 @@ function hdr(sub){
 /** ─── ROULETTE BOARD ─── */
 function rBoard(){
   const sel=i=>S.rPick===i?'r-sel':'';
+  const placedTotals=S.rBets.reduce((m,b)=>{m.set(b.pick,(m.get(b.pick)||0)+b.bet);return m;},new Map());
+  const chipLbl=amt=>amt>=1000?Math.floor(amt/1000)+'K':String(amt);
+  const chip=i=>{
+    if(placedTotals.has(i))return`<span class="r-chip r-chip-placed">${chipLbl(placedTotals.get(i))}</span>`;
+    if(S.rPick===i)return`<span class="r-chip r-chip-sel"></span>`;
+    return'';
+  };
   const rMod=getMod('r_payout_mult')?'all':getMod('r_number_pay')?'nums':getMod('r_zero_boost')?'zero':getMod('r_color_double')?'color':null;
   const boost=i=>{
     if(!rMod)return'';
@@ -746,18 +756,18 @@ function rBoard(){
   const numBtns=Array.from({length:37},(_,n)=>{
     const gc=n===0?'1':String(Math.floor((n-1)/3)+2);
     const gr=n===0?'1/4':String(n%3===0?1:n%3===2?2:3);
-    return`<button class="rn ${rCls(n)} ${sel(n)} ${boost(n)}" data-idx="${n}" style="grid-column:${gc};grid-row:${gr}" onclick="pickBet(${n})">${n}${lbl(n)}</button>`;
+    return`<button class="rn ${rCls(n)} ${sel(n)} ${boost(n)}" data-idx="${n}" style="grid-column:${gc};grid-row:${gr}" onclick="pickBet(${n})">${n}${lbl(n)}${chip(n)}</button>`;
   }).join('');
   const col2to1=[0,1,2].map(r=>{
     const idx=37+r;
-    return`<button class="r2to1 ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:14;grid-row:${r+1}" onclick="pickBet(${idx})">2:1${lbl(idx)}</button>`;
+    return`<button class="r2to1 ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:14;grid-row:${r+1}" onclick="pickBet(${idx})">2:1${lbl(idx)}${chip(idx)}</button>`;
   }).join('');
   const dozBtns=[[40,'2/6'],[41,'6/10'],[42,'10/14']].map(([idx,gc])=>
-    `<button class="rout ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})">${R_BETS[idx].lbl}${lbl(idx)}</button>`
+    `<button class="rout ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})">${R_BETS[idx].lbl}${lbl(idx)}${chip(idx)}</button>`
   ).join('');
   const outData=[[43,'2/4',''],[44,'4/6',''],[45,'6/8','rout-r'],[46,'8/10','rout-b'],[47,'10/12',''],[48,'12/14','']];
   const outBtns=outData.map(([idx,gc,ex])=>
-    `<button class="rout ${ex} ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})">${R_BETS[idx].lbl}${lbl(idx)}</button>`
+    `<button class="rout ${ex} ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})">${R_BETS[idx].lbl}${lbl(idx)}${chip(idx)}</button>`
   ).join('');
   return`<div class="rboard">${numBtns}${col2to1}</div>
     <div class="rboard-sub">${dozBtns}</div>
@@ -1520,13 +1530,6 @@ function screenRouletteBet(){
   // Multi-bet mode
   const canAdd=S.rBets.length<maxBets&&pb&&S.rBet>0;
   const canSpin=S.rBets.length>0;
-  const placedHtml=S.rBets.length>0?`<div class="divider" style="margin:10px 0"></div>
-    <div class="sec">Placed Bets (${S.rBets.length}/${maxBets})</div>
-    ${S.rBets.map((b,i)=>{const d=R_BETS[b.pick];return`<div class="irow" style="margin-bottom:4px">
-      <span class="ik">${d.type==='num'?'#'+d.lbl:d.lbl} · ${d.pay}:1</span>
-      <span style="display:flex;align-items:center;gap:8px"><span class="iv">${fmt(b.bet)}</span>
-        <button onclick="rRemoveBet(${i})" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:1rem;padding:2px 6px">×</button>
-      </span></div>`;}).join('')}`:'';
   return`${hdr(`Roulette · Up to ${maxBets} Bets`)}
   <div class="panel">
     <div class="sec">The Table - tap to select bet type</div>
@@ -1535,7 +1538,7 @@ function screenRouletteBet(){
     <div class="sec">Stake</div>
     ${chipSel(S.chips,S.rBet)}
     <button id="pb-add" style="margin-top:10px;width:100%;padding:13px;border-radius:12px;border:1.5px solid var(--gold);background:rgba(230,181,74,.1);color:var(--gold-leaf);font-family:var(--f);font-size:1rem;font-weight:700;cursor:pointer" onclick="rAddBet()" ${!canAdd?'disabled':''}>+ Place Bet (${S.rBets.length}/${maxBets})</button>
-    ${placedHtml}
+    <div id="r-placed">${rPlacedInner(S.rBets,maxBets)}</div>
     <button id="db" class="btn-gold" style="margin-top:10px" onclick="rSpin()" ${!canSpin?'disabled':''}>Spin the Wheel 🎡</button>
   </div>`;
 }
@@ -2199,20 +2202,72 @@ function pickBet(i){
   const btn = document.querySelector(`[data-idx="${i}"]`);
   if(btn) btn.classList.add('r-sel');
 
+  // Move pending chip to newly selected cell (only if not already placed there)
+  document.querySelectorAll('.r-chip-sel').forEach(c => c.remove());
+  if(btn && !btn.querySelector('.r-chip-placed')) btn.insertAdjacentHTML('beforeend','<span class="r-chip r-chip-sel"></span>');
+
   const pb = R_BETS[i];
   info.innerHTML = `<div class="irow"><span class="ik">Bet on: <b style="color:var(--text)">${pb.type==='num'?'Number '+pb.lbl:pb.lbl}</b></span><span class="iv">${pb.pay}:1 payout</span></div>`;
   
   patchBetUI(); // Updates the Spin button state surgically
   saveState();
 }
+function rPlacedInner(bets,maxBets){
+  if(!bets.length)return'';
+  return`<div class="divider" style="margin:10px 0"></div>
+    <div class="sec">Placed Bets (${bets.length}/${maxBets})</div>
+    ${bets.map((b,i)=>{const d=R_BETS[b.pick];return`<div class="irow" style="margin-bottom:4px">
+      <span class="ik">${d.type==='num'?'#'+d.lbl:d.lbl} · ${d.pay}:1</span>
+      <span style="display:flex;align-items:center;gap:8px"><span class="iv">${fmt(b.bet)}</span>
+        <button onclick="rRemoveBet(${i})" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:1rem;padding:2px 6px">×</button>
+      </span></div>`;}).join('')}`;
+}
 /** Adds current rPick+rBet to the placed bets list (multi-bet mode). */
 function rAddBet(){
   const maxBets=getMod('r_max_bets')||5;
   if(S.rPick===null||!S.rBet||S.rBets.length>=maxBets)return;
-  S.chips-=S.rBet;
-  S.rBets.push({pick:S.rPick,bet:S.rBet});
-  S.rBet=0;S.rPick=null;
-  saveState();render();
+
+  const prevPick=S.rPick, betAmt=S.rBet;
+  S.chips-=betAmt;
+  S.rBets.push({pick:prevPick,bet:betAmt});
+  S.rBet=0; S.rPick=null;
+  saveState();
+
+  // --- surgical DOM updates ---
+  const boardBtn=document.querySelector(`[data-idx="${prevPick}"]`);
+  if(!boardBtn){render();return;}
+
+  // Board: pending chip → placed chip
+  boardBtn.classList.remove('r-sel');
+  boardBtn.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
+  const total=S.rBets.filter(b=>b.pick===prevPick).reduce((s,b)=>s+b.bet,0);
+  const chipLbl=amt=>amt>=1000?Math.floor(amt/1000)+'K':String(amt);
+  const existing=boardBtn.querySelector('.r-chip-placed');
+  if(existing)existing.textContent=chipLbl(total);
+  else boardBtn.insertAdjacentHTML('beforeend',`<span class="r-chip r-chip-placed">${chipLbl(total)}</span>`);
+
+  // Bet info: reset to prompt
+  const info=document.getElementById('r-bet-info');
+  if(info)info.innerHTML=`<div style="font-size:.88rem;color:var(--dim);text-align:center;margin-bottom:10px">Select a number or outside bet above</div>`;
+
+  // Chip selector: reset to 0
+  const bv=document.getElementById('bv');
+  if(bv)bv.textContent=fmt(0);
+  document.querySelectorAll('.chbtn').forEach(b=>{b.disabled=(+b.dataset.v)>S.chips;});
+
+  // Placed bets list
+  const placed=document.getElementById('r-placed');
+  if(placed)placed.innerHTML=rPlacedInner(S.rBets,maxBets);
+
+  // Place Bet button: update count, disable (rBet=0)
+  const pba=document.getElementById('pb-add');
+  if(pba){pba.textContent=`+ Place Bet (${S.rBets.length}/${maxBets})`;pba.disabled=true;}
+
+  // Spin button: enable now that a bet exists
+  const db=document.getElementById('db');
+  if(db)db.disabled=false;
+
+  updateChipDisplay();
 }
 /** Removes a placed bet and refunds chips. */
 function rRemoveBet(i){
