@@ -206,13 +206,13 @@ body {
 
 /* ── Logo / brand ───────────────────────────────────────── */
 .logo {
-  font-family: var(--display);
-  font-size: 3.4rem; font-weight: 700;
+  font-family: var(--btn-f);
+  font-size: 5.4rem; font-weight: 700;
   line-height: 0.95; letter-spacing: 0.04em;
   color: var(--ink);
 }
-.logo-spade { color: var(--red-deep); }
-.logo-sub { font-size: 0.85rem; color: var(--shadow); letter-spacing: 0.18em; margin-top: 8px; text-transform: uppercase; }
+.logo-diamond { color: var(--red-deep); }
+.logo-sub { font-size: 1.5rem; color: var(--shadow); letter-spacing: 0.18em; margin-top: 8px; text-transform: uppercase; }
 
 /* ── Buttons ────────────────────────────────────────────── */
 .btn-gold {
@@ -227,6 +227,7 @@ body {
 }
 .btn-gold:active { transform: translate(1px,1px); box-shadow: inset 2.5px 2.5px 0 var(--gold-lo), inset -1.5px -1.5px 0 var(--gold-hi); }
 .btn-gold:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn-gold.btn-lg { padding: 22px 24px; font-size: 2.2rem; }
 
 .act-btns { display: flex; gap: 8px; }
 .act-btn {
@@ -332,9 +333,18 @@ body {
   border: 2.5px solid rgba(0,0,0,0.8);
   cursor: pointer; padding: 0;
   background:
-    radial-gradient(ellipse 56% 36% at 50% 30%, rgba(255,255,255,0.28) 0%, transparent 100%),
-    radial-gradient(circle, var(--c-base) 0% 60%, transparent 60%),
-    repeating-conic-gradient(var(--c-stripe) 0deg 30deg, var(--c-base) 30deg 60deg);
+    /* Top lighting/gloss */
+    radial-gradient(ellipse 60% 40% at 50% 25%, rgba(255,255,255,0.25) 0%, transparent 100%),
+    /* Thick Recessed Bevel Shadow */
+    radial-gradient(circle, transparent 40%, rgba(0,0,0,0.3) 48%, transparent 55%),
+    /* Multi-color Edge Inserts (Base + Stripe + Accent) */
+    radial-gradient(circle, var(--c-base) 0% 58%, transparent 59%),
+    repeating-conic-gradient(
+      var(--c-base) 0deg 12deg,
+      var(--c-stripe) 12deg 24deg,
+      var(--c-accent) 24deg 36deg,
+      var(--c-base) 36deg 60deg
+    );
   box-shadow:
     inset 0 -4px 6px rgba(0,0,0,0.28),
     inset 0 2px 4px rgba(255,255,255,0.14),
@@ -357,14 +367,14 @@ body {
 }
 .chbtn:disabled { opacity: 0.32; cursor: not-allowed; }
 
-.ch-10   { --c-base: #b8b6b0; --c-stripe: #f0ece4; color: var(--ink); }
+.ch-10   { --c-base: #b8b6b0; --c-stripe: #ffffff; --c-accent: #444444; color: var(--ink); }
 .ch-10 > span  { text-shadow: 1px 1px 0 rgba(255,255,255,0.6); color: var(--ink); }
-.ch-25   { --c-base: #b52030; --c-stripe: #f0e8e0; }
-.ch-50   { --c-base: #0d6834; --c-stripe: #e8f0e8; }
-.ch-100  { --c-base: #1e1e1e; --c-stripe: #d8c890; }
-.ch-250  { --c-base: #1a60ae; --c-stripe: #e8f0f8; }
-.ch-500  { --c-base: #c06818; --c-stripe: #f0e8d8; }
-.ch-1000 { --c-base: #5522a8; --c-stripe: #e8e0f8; }
+.ch-25   { --c-base: #b52030; --c-stripe: #ffffff; --c-accent: #1a60ae; }
+.ch-50   { --c-base: #0d6834; --c-stripe: #ffffff; --c-accent: #dfb95e; }
+.ch-100  { --c-base: #1e1e1e; --c-stripe: #ffffff; --c-accent: #b52030; }
+.ch-250  { --c-base: #1a60ae; --c-stripe: #ffffff; --c-accent: #b52030; }
+.ch-500  { --c-base: #c06818; --c-stripe: #ffffff; --c-accent: #1a60ae; }
+.ch-1000 { --c-base: #5522a8; --c-stripe: #ffffff; --c-accent: #dfb95e; }
 
 .bet-row { display: flex; align-items: stretch; gap: 10px; }
 .bet-amt {
@@ -431,8 +441,8 @@ body {
   box-shadow: var(--raised-sm);
 }
 .rnd-ic { font-size: 1.6rem; line-height: 1; }
-.rnd-nm { font-size: 1.7rem; font-weight: 700; line-height: 1; letter-spacing: 0.02em; }
-.rnd-dc { font-size: 1.35rem; color: var(--shadow); margin-top: 2px; }
+.rnd-nm { font-size: 2.1rem; font-weight: 700; line-height: 1; letter-spacing: 0.02em; }
+.rnd-dc { font-size: 1.6rem; color: var(--shadow); margin-top: 2px; }
 
 /* ── Pay table ──────────────────────────────────────────── */
 .ptable { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px;
@@ -629,13 +639,16 @@ body {
   body { font-size: 24px; }
   .app { padding: 8px 8px 30px; }
   .panel { padding: 10px; min-height: 480px; }
+  .title-bar { font-size: 18px; }
+  .tb-detail { display: none; }
   .card.lg { width: 78px; height: 110px; }
   .card.md { width: 68px; height: 96px; }
   .card.sm { width: 54px; height: 76px; }
-  .card.lg .csuit { font-size: 3.2rem; }
-  .card.md .csuit { font-size: 2.6rem; }
-  .card.sm .csuit { font-size: 2rem; }
+  .card.lg .csuit { font-size: 2.2rem; }
+  .card.md .csuit { font-size: 1.8rem; }
+  .card.sm .csuit { font-size: 1.4rem; }
   .rboard, .rboard-sub { grid-template-columns: 22px repeat(12, 1fr) 32px; }
+  .r2to1, .rout { font-size: 0.95rem; }
   .rboard { grid-template-rows: 30px 30px 30px; }
   .rn { font-size: 0.9rem; }
   .chbtn { width: 54px; height: 54px; }
@@ -656,4 +669,3 @@ body {
   .chbtn { width: 70px; height: 70px; }
   .chbtn > span { font-size: 1.35rem; }
 }
-

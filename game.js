@@ -373,7 +373,7 @@ function cardHTML(c,sz='md',ex='',dl=0,anim=true){
  * @returns {string} HTML string.
  */
 function chipSel(maxC,curBet,denoms,extraBtn=''){
-  const ds=(denoms||[10,25,50,100,250,500,1000]).filter(d=>d<=Math.max(maxC,1));
+  const ds=(denoms||[10,25,50,100,250,500,1000]);
   const btns=ds.map(d=>`<button class="chbtn ch-${d}" data-v="${d}" onclick="addChip(${d})" ${curBet+d>maxC?'disabled':''}><span>${d}</span></button>`).join('');
   return`<div class="chip-row">${btns}</div>
   <div class="bet-row">
@@ -391,19 +391,30 @@ function chipSel(maxC,curBet,denoms,extraBtn=''){
  * Shared progress indicator for all games.
  * won = green, lost = red, current = gold pulse, pending = dim.
  */
-function gameDots(history, hand, phase){
-  return`<div class="dots-row">${Array.from({length:3},(_,i)=>{
+function gameDots(history, hand, phase, count = 3){
+  const isR = count <= 2;
+  return`<div class="dots-row">${Array.from({length:count},(_,i)=>{
     const h=history[i];
-    if(h){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">Hand ${i+1} ${sign(d)}</div>`;}
+    const label = isR ? (i === 0 ? 'Spin 1' : 'Final Results') : `Hand ${i+1}`;
+    if(h && !h.skipped){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${label} ${sign(d)}</div>`;}
     const isCur=i===hand;
     const cls=isCur?'cur':i<hand?'push':'pend';
-    const txt=isCur&&phase==='result'?`Hand ${i+1} · Next`:isCur&&phase==='bet'?`Hand ${i+1} · Bet →`:isCur?`Hand ${i+1} · Playing`:`Hand ${i+1}`;
+    let txt = label;
+    if(isCur && phase==='result') txt += ` · Next`;
+    else if(isCur && phase==='bet') txt += ` · Bet →`;
+    else if(isCur) txt += ` · Playing`;
     return`<div class="hdot ${cls}">${txt}</div>`;
   }).join('')}</div>`;
 }
 
 function hdr(sub){
-  const titleText = sub ? `Gambdle — ${sub}` : 'Gambdle';
+  let titleText = 'Gambdle';
+  if (sub) {
+    const parts = sub.split(' · ');
+    const main = parts[0];
+    const detail = parts.length > 1 ? `<span class="tb-detail"> · ${parts[1]}</span>` : '';
+    titleText = `Gambdle — ${main}${detail}`;
+  }
   return`<div class="title-bar">
     <span class="tb-title"><span class="tb-icon">♠</span>${titleText}</span>
     <span class="tb-btns">
@@ -632,24 +643,23 @@ function startWheelAnim(){
  */
 function screenIntro(){
   const dayN = String(S.day).padStart(3,'0');
-  return`${hdr('New Game')}
+  return `${hdr('New Game')}
   <div class="panel">
     <div style="text-align:center;padding:14px 4px 6px">
-      <div class="logo"><span class="logo-spade">♠</span> GAMBDLE</div>
+      <div class="logo"><span class="logo-diamond">♦</span> GAMBDLE</div>
       <div class="logo-sub">Daily No. ${dayN}</div>
     </div>
     <div class="divider"></div>
     <div style="text-align:center;padding:4px 4px">
-      <div style="font-size:1.15rem;color:var(--cream)">You start with <b style="color:var(--gold-hi)">${fmt(START)} chips</b>.</div>
-      <div style="font-size:0.92rem;color:var(--cream);opacity:0.7;margin-top:3px">Your final stack is your leaderboard score.</div>
+      <div style="font-size:1.8rem;color:var(--cream)">You start with <b style="color:var(--gold-hi)">${fmt(START)} chips</b>.</div>
+      <div style="font-size:1.4rem;color:var(--cream);opacity:0.7;margin-top:4px">Your final stack is your leaderboard score.</div>
     </div>
+    <button class="btn-gold btn-lg" style="margin: 10px 0" onclick="startGame()">► Start new game — $${fmt(START)}</button>
     <div class="divider"></div>
-    <div style="font-size:0.88rem;color:var(--cream);opacity:0.7;letter-spacing:0.16em;text-transform:uppercase;margin:2px 2px -2px">Today's program:</div>
+    <div style="font-size:1.4rem;color:var(--cream);opacity:0.7;letter-spacing:0.16em;text-transform:uppercase;margin:2px 2px 4px">Today's program:</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       ${renderIntroGameRows()}
     </div>
-    <div style="flex:1;min-height:8px"></div>
-    <button class="btn-gold" onclick="startGame()">► Start new game — $${fmt(START)}</button>
   </div>`;
 }
 
@@ -758,6 +768,8 @@ function screenBJ(){
       const af=S.bjSplitAnimFrom[ai]??0;
       return `${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
 <div class="panel" style="display:flex;flex-direction:column">
+        ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
+        <div class="divider"></div>
         <div id="bj-dealer-section" style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
         ${peekBtnHTML()}
         <div class="divider"></div>
@@ -785,8 +797,10 @@ function screenBJ(){
     const isInitial=S.bjPlayer.length===2;
     const can2=S.chips>=S.bjBet&&isInitial;
     const canSplit=isInitial&&S.bjPlayer[0].r===S.bjPlayer[1].r&&S.chips>0;
-    return`${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
+    return `${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
 <div class="panel" style="display:flex;flex-direction:column">
+  ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
+  <div class="divider"></div>
   <div id="bj-dealer-section" style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
   ${peekBtnHTML()}
   <div class="divider"></div>
@@ -816,8 +830,10 @@ function screenBJ(){
     const dv=hVal(S.bjDealer);
     const RES_LBL2={win:'Win!',push:'Push',bust:'Bust',lose:'Lose'};
     const splitNet=S.bjSplitResults.reduce((a,r)=>a+r.delta,0);
-    return`${hdr('Blackjack · Split Result')}
+    return `${hdr('Blackjack · Split Result')}
     <div class="panel" style="text-align:center">
+      ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
+      <div class="divider"></div>
       <div style="font-family:var(--btn-f);font-size:3rem;color:${col(splitNet)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${splitNet>0?'You Win!':splitNet<0?'You Lose!':'Push'}</div>
       <div style="font-family:var(--btn-f);font-size:2rem;color:${col(splitNet)};margin-bottom:14px">${sign(splitNet)} chips</div>
       <div style="margin-bottom:20px">
@@ -834,7 +850,6 @@ function screenBJ(){
           <div class="hand-val ${hv>21?'bust':''}" style="font-size:1.4rem">${hv}${hv>21?' BUST':''}</div>
         </div>`;}).join('')}
       </div>
-      ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
       <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
       <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
     </div>`;
@@ -845,8 +860,10 @@ function screenBJ(){
   // If player cards animate (BJ skip), stagger them first; dealer reveal waits for them to finish
   const pAnimN=S.bjResultAnimPlayer?S.bjPlayer.length:0;
   const dOff=pAnimN>0?(pAnimN-1)*0.4+0.85:0;
-  return`${hdr('Blackjack · Result')}
+  return `${hdr('Blackjack · Result')}
   <div class="panel" style="text-align:center">
+    ${gameDots(S.bjHistory, S.bjHand, S.bjPhase)}
+    <div class="divider"></div>
     <div style="font-family:var(--btn-f);font-size:3rem;color:${col(res.delta)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${res.result === 'blackjack' && bjMult === 2 ? 'Mega Blackjack! 💎' : RES_LBL[res.result]}</div>
     <div style="font-family:var(--btn-f);font-size:2rem;color:${col(res.delta)};margin-bottom:14px">${sign(res.delta)} chips</div>
     <div style="display:flex;flex-direction:column;gap:16px;align-items:center;margin-bottom:14px">
@@ -854,7 +871,6 @@ function screenBJ(){
       <div style="width:60%;height:1px;background:rgba(196,147,58,0.1)"></div>
       ${renderBJResultPlayer(pv, res.result)}
     </div>
-    ${gameDots(S.bjHistory, S.bjHand, S.bjPhase)}
     <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
     <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
   </div>`;
@@ -885,7 +901,7 @@ function renderBJResultPlayer(pv, result) {
 function screenPoker(){
   const ph=S.pkPhase;
   if(ph==='bet'){
-    return`${hdr('5 Card Poker · Hand '+(S.pkHand+1)+' of 3')}
+    return `${hdr('5 Card Poker · Hand '+(S.pkHand+1)+' of 3')}
     <div class="panel">
       ${gameDots(S.pkHistory,S.pkHand,S.pkPhase)}
       <div class="divider"></div>
@@ -899,7 +915,7 @@ function screenPoker(){
   }
   if(ph==='hold'){
     const held=S.pkHeld;
-    return`${hdr('5 Card Poker · Hand '+(S.pkHand+1)+' of 3')}
+    return `${hdr('5 Card Poker · Hand '+(S.pkHand+1)+' of 3')}
     <div class="panel">
       <div class="pk-hold-status" style="text-align:center;font-size:.82rem;color:var(--shadow);margin-bottom:10px">Tap cards to hold · ${held.size} held · ${5-held.size} replaced</div>
       <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px">
@@ -914,7 +930,7 @@ function screenPoker(){
   if(ph==='draw'){
     const replaceIdxs=[0,1,2,3,4].filter(i=>!S.pkHeld.has(i));
     const newestPos=S.pkRevealStep-1;
-    return`${hdr('5 Card Poker · Hand '+(S.pkHand+1)+' of 3')}
+    return `${hdr('5 Card Poker · Hand '+(S.pkHand+1)+' of 3')}
     <div class="panel">
       <div style="text-align:center;font-size:.82rem;color:var(--shadow);margin-bottom:10px">Drawing replacements…</div>
       <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px">
@@ -938,7 +954,7 @@ function screenPoker(){
   const btnText=isBusted?'Game Over 💀':(isLast?'Final Round: Roulette →':'Next Hand →');
   const btnAction=isBusted?"advanceTo('results')":(isLast?"advanceTo('roulette')":'pkNext()');
 
-  return`${hdr('5 Card Poker · Result')}
+  return `${hdr('5 Card Poker · Result')}
   <div class="panel" style="text-align:center">
     <div style="font-family:var(--btn-f);font-size:3rem;color:${col(h.delta)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${h.delta>0?'You Win!':h.delta<0?'You Lose!':'Push'}</div>
     <div style="font-family:var(--btn-f);font-size:1.1rem;color:var(--gold);margin-bottom:2px">${res.n}</div>
@@ -960,9 +976,10 @@ function screenUTH(){
   if(ph==='bet'){
     const maxAnte=S.chips;
     const aios=getMod('all_in_or_skip');
-    return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
+    return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
-      ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
+      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
+      <div class="divider"></div>
       <div class="divider"></div>
       ${aios
         ?`<div class="sec">All In or Skip · Wins Pay 2×</div>
@@ -1019,8 +1036,10 @@ function screenUTH(){
 
   if(ph==='preflop'){
     const canR4=S.chips>=S.uthAnte*2;
-    return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
+    return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
+      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
+      <div class="divider"></div>
       ${dealerRow(false)}
       ${peekBtnHTML()}
       <div class="divider"></div>
@@ -1034,14 +1053,15 @@ function screenUTH(){
           <button class="act-btn" onclick="uthCheck()">Check</button>
         </div>
       </div>
-      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
 
   if(ph==='flop'){
     const canR2=S.chips>=S.uthAnte;
-    return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
+    return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
+      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
+      <div class="divider"></div>
       ${dealerRow(false)}
       ${peekBtnHTML()}
       <div class="divider"></div>
@@ -1056,14 +1076,15 @@ function screenUTH(){
             <button class="act-btn" onclick="uthCheck()">Check</button>
           </div>`}
       </div>
-      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
 
   if(ph==='turn'){
     const canR1=S.chips>=S.uthAnte/2;
-    return`${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
+    return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
+      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
+      <div class="divider"></div>
       ${dealerRow(false)}
       ${peekBtnHTML()}
       <div class="divider"></div>
@@ -1078,13 +1099,14 @@ function screenUTH(){
             <button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button>
           </div>`}
       </div>
-      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
     </div>`;
   }
 
   if(ph==='reveal'){
-    return`${hdr("Ultimate Texas Hold'em · Dealer Reveals")}
+    return `${hdr("Ultimate Texas Hold'em · Dealer Reveals")}
     <div class="panel">
+      <div id="uth-dots-container">${gameDots(S.uthHistory.slice(0,-1),S.uthHand-1,'reveal')}</div>
+      <div class="divider"></div>
       <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px">
         <div>
           <div class="sec" style="font-size:.62rem">Dealer</div>
@@ -1098,7 +1120,6 @@ function screenUTH(){
         </div>
       </div>
       ${betChips()}
-      <div id="uth-dots-container">${gameDots(S.uthHistory.slice(0,-1),S.uthHand-1,'reveal')}</div>
       <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
     </div>`;
   }
@@ -1113,8 +1134,10 @@ function screenUTH(){
 
   if(hist.result==='fold'){
     const dealerBest=bestOf7([...S.uthDealer,...S.uthComm]);
-    return`${hdr("Ultimate Texas Hold'em · Folded")}
+    return `${hdr("Ultimate Texas Hold'em · Folded")}
     <div class="panel" style="text-align:center">
+      ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
+      <div class="divider"></div>
       <div style="font-size:1.65rem;font-weight:700;color:var(--lose);margin-bottom:2px">You Folded</div>
       <div style="font-size:1.3rem;color:var(--lose);margin-bottom:14px">${sign(hist.delta)} chips</div>
       <div class="divider"></div>
@@ -1132,7 +1155,6 @@ function screenUTH(){
         </div>
       </div>
       <div class="divider"></div>
-      ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
       <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
       <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
     </div>`;
@@ -1144,8 +1166,10 @@ function screenUTH(){
   const hlStyle=hist.result==='win'?'box-shadow:0 0 0 2px var(--gold),0 0 14px 4px rgba(196,147,58,0.55)':'box-shadow:0 0 0 2px var(--lose),0 0 14px 4px rgba(196,48,48,0.5)';
   const hl=c=>hlCards.has(c)?hlStyle:'';
 
-  return`${hdr("Ultimate Texas Hold'em · Showdown")}
+  return `${hdr("Ultimate Texas Hold'em · Showdown")}
   <div class="panel">
+    ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
+    <div class="divider"></div>
     <div style="text-align:center;margin-bottom:10px">
       <div style="font-size:1.4rem;font-weight:700;color:${col(hist.delta)}">${resLabel}</div>
       <div style="font-size:1.1rem;font-weight:700;color:${col(hist.delta)}">${sign(hist.delta)} chips</div>
@@ -1172,7 +1196,6 @@ function screenUTH(){
     <div style="display:grid;grid-template-columns:1fr auto;gap:3px 14px;margin-bottom:10px">
       ${[['Ante',hist.anteDelta],['Blind',hist.blindDelta],...(hist.play>0?[['Play ('+hist.playMult+'×)',hist.playDelta]]:[])].map(([lbl,d])=>`<span class="pname">${lbl}</span><span class="ppay" style="color:${col(d)}">${sign(d)}</span>`).join('')}
     </div>
-    ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
     <div class="irow" style="margin-top:8px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
     <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
   </div>`;
@@ -1190,8 +1213,10 @@ function screenRouletteSpinning(){
   const betLabel=bets.length===1
     ?`Bet on <b style="color:var(--ink)">${R_BETS[bets[0].pick].type==='num'?'Number '+R_BETS[bets[0].pick].lbl:R_BETS[bets[0].pick].lbl}</b> &nbsp;|&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`
     :`<b style="color:var(--gold)">${bets.length} bets</b> &nbsp;|&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`;
-  return`${hdr('Roulette - Spinning!')}
+  return `${hdr('Roulette · Spinning!')}
   <div class="panel">
+    ${gameDots([], 0, 'play', 2)}
+    <div class="divider"></div>
     <div class="wheel-outer">
       <div class="wheel-pointer"></div>
       <canvas id="rwheel" width="300" height="300"></canvas>
@@ -1208,8 +1233,10 @@ function screenRouletteBet(){
   const betInfo=`<div id="r-bet-info"><div class="irow" ${pb?'':'style="visibility:hidden"'}><span class="ik">Bet on: <b style="color:var(--ink)">${pb?(pb.type==='num'?'Number '+pb.lbl:pb.lbl):'—'}</b></span><span class="iv">${pb?pb.pay+':1 payout':'—'}</span></div></div>`;
 
   if(aios&&S.rBets.length===0){
-    return`${hdr('Roulette · 1 Spin')}
+    return `${hdr('Roulette · 1 Spin')}
     <div class="panel">
+      ${gameDots([], 0, 'bet', 2)}
+      <div class="divider"></div>
       <div class="sec">The Table — select where to go all in</div>
       ${board}<div class="divider"></div>
       ${betInfo}
@@ -1222,8 +1249,10 @@ function screenRouletteBet(){
   }
 
   if(maxBets===1){
-    return`${hdr('Roulette · 1 Spin')}
+    return `${hdr('Roulette · 1 Spin')}
     <div class="panel">
+      ${gameDots([], 0, 'bet', 2)}
+      <div class="divider"></div>
       ${board}<div class="divider"></div>
       ${betInfo}
       <div class="sec">Place Your Bet</div>
@@ -1235,8 +1264,10 @@ function screenRouletteBet(){
   // Multi-bet mode
   const canAdd=S.rBets.length<maxBets&&pb&&S.rBet>0;
   const canSpin=S.rBets.length>0;
-  return`${hdr(`Roulette · Up to ${maxBets} Bets`)}
+  return `${hdr(`Roulette · Up to ${maxBets} Bets`)}
   <div class="panel">
+    ${gameDots([], 0, 'bet', 2)}
+    <div class="divider"></div>
     ${board}<div class="divider"></div>
     ${betInfo}
     <div class="sec">Place Your Bets</div>
@@ -1249,8 +1280,10 @@ function screenRouletteBet(){
 function screenRouletteResult(){
   const res=S.rResult,n=S.rSpin;
   if(res.skipped){
-    return`${hdr('Roulette · Skipped')}
+    return `${hdr('Roulette · Skipped')}
     <div class="panel" style="text-align:center">
+      ${gameDots([res], 0, 'result', 2)}
+      <div class="divider"></div>
       <div style="font-size:1.75rem;font-weight:700;color:var(--shadow);margin-bottom:12px">Spin Skipped</div>
       <div class="irow"><span class="ik">Chips</span><span class="iv">${fmt(S.chips)}</span></div>
       <button class="btn-gold" style="margin-top:12px" onclick="advanceTo('results')">See Final Results →</button>
@@ -1261,8 +1294,10 @@ function screenRouletteResult(){
     <span class="ik">${d?d.type==='num'?'#'+d.lbl:d.lbl:'?'} · Pays ${b.pay}:1</span>
     <span style="font-family:var(--btn-f);font-size:1.2rem;color:${col(b.delta)}">${sign(b.delta)}</span>
   </div>`;}).join('');
-  return`${hdr('Roulette · Result')}
+  return `${hdr('Roulette · Result')}
   <div class="panel" style="text-align:center">
+    ${gameDots([res], 1, 'result', 2)}
+    <div class="divider"></div>
     <div style="display:flex;justify-content:center;margin-bottom:10px">
       <div class="r-res-num ${rCls(n)}">${n}</div>
     </div>
@@ -1305,7 +1340,7 @@ function screenResults(){
   const msg = S.chips >= 1000 ? '📈 Excellent run!' : S.chips > 0 ? '📉 Tough session' : 'Better luck tomorrow';
 
   const resModTitle=getMod('title'),resModDesc=getMod('desc');
-  return`${hdr('Daily Results')}
+  return `${hdr('Daily Results')}
   <div class="panel" style="text-align:center">
     <div style="font-size:1.05rem;color:var(--cream);text-transform:uppercase;letter-spacing:0.16em;margin-bottom:6px">${tier}</div>
     <div style="font-family:var(--btn-f);font-size:6rem;line-height:1;letter-spacing:.04em;color:var(--gold-hi);text-shadow:2px 2px 0 rgba(0,0,0,0.45)">${fmt(S.chips)}</div>
@@ -1341,7 +1376,7 @@ async function submitAndFetchLeaderboard() {
     'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
   };
 
-  if (!localStorage.getItem(subKey)) {
+  if (!localStorage.getItem(subKey) && !DEV_OVERRIDE && !_testActive()) {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/scores`, {
         method: 'POST',
@@ -2252,6 +2287,7 @@ function toggleMenu(which, trigger) {
       <div class="dd-item" onclick="goTo('results');document.querySelectorAll('.dropdown').forEach(d=>d.remove())">→ Results</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="S.chips+=500;render();updateChipDisplay();document.querySelectorAll('.dropdown').forEach(d=>d.remove())">+ 500 chips</div>
+      <div class="dd-item" onclick="S.chips+=10000;render();updateChipDisplay();document.querySelectorAll('.dropdown').forEach(d=>d.remove())">+ 10,000 chips</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="toggleTestSeed();event.stopPropagation()" style="gap:12px">
         <span>Test Seed (reset to apply)</span>
