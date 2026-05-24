@@ -12,7 +12,8 @@
       "Bash(git -C /c/users/jack/documents/github/Gambdle diff)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "PowerShell(cd \"c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\"; @\\(\"game.js\",\"styles.css\",\"modifiers.js\",\"index.html\"\\) | ForEach-Object { \"$_`: $\\(\\(Get-Content $_\\).Count\\) lines\" })"
     ]
   },
   "enabledMcpjsonServers": [

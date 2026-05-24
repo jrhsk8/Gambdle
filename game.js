@@ -220,9 +220,28 @@ function uthBlindDelta(cat,blind){
 // Hardcoded test scenarios applied when the dev "Test Seed" checkbox is active.
 const TEST_CARD_OVERRIDE = {
   bjShoe: [
-    // Hand 1: Split 8s — dealer shows 6 (must hit on 15). Split cards give soft-19 and 18.
-    card('8','s'), card('6','d'), card('8','h'), card('9','c'),
-    card('A','c'), card('J','d'),
+    // Deal: P=[8s,8h] D=[6d,7c] (dealer 13, must draw)
+    card('8','s'), card('8','h'), card('6','d'), card('7','c'),
+    // Split 8s/8h → hand0=[8s,8d] (pair! re-split)
+    card('8','d'),
+    // Re-split 8s/8d → hand0=[8s,Jh]=18 (stand)  hand1=[8d] pending
+    card('J','h'),
+    // bjAdvanceSplit deals to hand1=[8d,8c] (pair! re-split)
+    card('8','c'),
+    // Re-split 8d/8c → hand1=[8d,7s]=15 (hit)  hand2=[8c] pending
+    card('7','s'),
+    // Hit hand1 → [8d,7s,4h]=19 (stand)
+    card('4','h'),
+    // bjAdvanceSplit deals to hand2=[8c,5d]=13 (hit)
+    card('5','d'),
+    // Hit hand2 → [8c,5d,6h]=19 (stand)
+    card('6','h'),
+    // bjAdvanceSplit deals to hand3=[8h,3c]=11 (double!)
+    card('3','c'),
+    // Double hand3 → [8h,3c,10s]=21
+    card('10','s'),
+    // Dealer hits 6+7: draws K → 23, bust. All hands win.
+    card('K','d'),
   ],
   uthHands: [
     // Hand 0: Pocket aces, JJ on board → player two-pair (AA+JJ). Dealer qualifies with one pair.
@@ -352,7 +371,23 @@ function saveState() {
   localStorage.setItem(getStateKey(), JSON.stringify(S));
   if (S.screen === 'results' && !_testActive()) {
     const high = parseInt(localStorage.getItem('gambdle_highscore') || '0');
-    if (S.chips > high) localStorage.setItem('gambdle_highscore', S.chips.toString());
+    if (S.chips > high) {
+      localStorage.setItem('gambdle_highscore', S.chips.toString());
+      let unlockMsg = null;
+      if (S.chips >= 1001 && !getPref('orange_back_unlocked')) {
+        setPref('orange_back_unlocked', true);
+        unlockMsg = '🟠 Orange Card Back unlocked! Check Preferences.';
+      }
+      if (S.chips >= 2500 && !getPref('whale_back_unlocked')) {
+        setPref('whale_back_unlocked', true);
+        unlockMsg = '🐋 Whale Card Back unlocked! Check Preferences.';
+      }
+      if (S.chips >= 5000 && !getPref('golden_back_unlocked')) {
+        setPref('golden_back_unlocked', true);
+        unlockMsg = '🏆 Golden Card Back unlocked! Check Preferences.';
+      }
+      if (unlockMsg) setTimeout(()=>toast(unlockMsg), 1200);
+    }
     
     // Store history
     const history = JSON.parse(localStorage.getItem('gambdle_history') || '{}');
@@ -382,7 +417,7 @@ function loadState() {
 /** ─── UI HELPERS ───────────────────────────────────────── */
 const fmt=n=>n.toLocaleString();
 const sign=n=>n>=0?'+'+fmt(n):fmt(n);
-const col=n=>n>0?'#9be07a':n<0?'#e03535':'#cabd9a';
+const col=n=>n>0?'#1fa845':n<0?'#e03535':'#cabd9a';
 
 const SUIT_CLS={'♠':'suit-s','♥':'suit-h','♦':'suit-d','♣':'suit-c'};
 /** Generates the HTML for a card, optionally animating its entrance. */
@@ -459,7 +494,7 @@ function hdr(sub){
     <span class="mb-item" onclick="toggleMenu('file',this);event.stopPropagation()"><u>F</u>ile</span>
     <span class="mb-item" onclick="toggleMenu('help',this);event.stopPropagation()"><u>H</u>elp</span>
     ${DEV_OVERRIDE ? `<span class="mb-item" style="color:var(--gold)" onclick="toggleMenu('dev',this);event.stopPropagation()"><u>D</u>eveloper</span>` : ''}
-    <span class="mb-right"><span id="chip-badge" style="font-size:1.25rem;font-weight:700;letter-spacing:0.02em">💵 ${fmt(S.chips)}</span></span>
+    <span class="mb-right"><span id="chip-badge" class="chip-badge">💵 ${fmt(S.chips)}</span></span>
   </div>
   <div id="hdr-sub" style="display:none">${sub||''}</div>`;
 }
@@ -719,7 +754,7 @@ function renderIntroGameRows() {
     GAME2 === 'uth'
       ? ['♠', "Ultimate Hold'em",      '3 hands · Ante, Blind & Play']
       : ['♠', '5 Card Poker',          '3 hands · Jacks or Better'],
-    ['🎡', 'Roulette',                 '1 spin · pays up to 35:1'],
+    ['🎡', 'Roulette',                 'One spin · Anything is possible'],
   ];
   return games.map((g, i) => `
     <div class="rnd-row">
@@ -817,7 +852,7 @@ function screenBJ(){
       const pv=hVal(activeHand),bust=pv>21,done21=pv===21,pvStr=hValDisplay(activeHand);
       const isInitial=activeHand.length===2;
       const can2=S.chips>=S.bjSplitBets[ai]&&isInitial;
-      const canResplit=isInitial&&activeHand[0].r===activeHand[1].r&&S.chips>=S.bjSplitBets[ai];
+      const canResplit=isInitial&&activeHand[0].r===activeHand[1].r&&S.chips>=S.bjSplitBets[ai]&&S.bjSplitHands.length<4;
       const af=S.bjSplitAnimFrom[ai]??0;
       return `${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
 <div class="panel" style="display:flex;flex-direction:column">
@@ -826,11 +861,11 @@ function screenBJ(){
         <div id="bj-dealer-section" style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
         ${peekBtnHTML()}
         <div class="divider"></div>
-        ${S.bjSplitHands.length>1?`<div style="display:flex;gap:12px;justify-content:center;margin-bottom:10px">
-          ${S.bjSplitHands.map((hand,i)=>{if(i===ai)return'';const hv=hVal(hand);const isDone=S.bjSplitDone[i];return`<div style="text-align:center;opacity:${isDone?0.35:0.5}">
-            <div class="sec" style="font-size:.6rem">${isDone?'H'+(i+1)+' ✓':'H'+(i+1)}</div>
+        ${S.bjSplitHands.length>1?`<div class="bj-split-aside">
+          ${S.bjSplitHands.map((hand,i)=>{if(i===ai)return'';const hv=hVal(hand);const isDone=S.bjSplitDone[i];return`<div style="text-align:center;opacity:${isDone?0.55:0.8}">
+            <div class="sec bj-split-lbl">${isDone?'Hand '+(i+1)+' ✓':'Hand '+(i+1)}</div>
             <div class="hand" style="justify-content:center">${hand.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
-            <div style="font-size:.82rem;font-weight:700;color:${hv>21?'var(--lose)':'var(--shadow)'};margin-top:2px">${hv}${hv>21?' B':''}</div>
+            <div class="bj-split-val" style="color:${hv>21?'var(--lose)':'var(--shadow)'}">${hv}${hv>21?' B':''}</div>
           </div>`;}).join('')}
         </div><div class="divider"></div>`:''}
         <div style="text-align:center;flex:1;">
@@ -1285,7 +1320,7 @@ function screenRouletteBet(){
   const pb=S.rPick!==null?R_BETS[S.rPick]:null;
   const boardPad=getMod('r_color_double')||getMod('r_payout_mult')?'padding-bottom:28px':'';
   const board=`<div class="r-board-wrap" ${boardPad?`style="${boardPad}"`:''}><div style="min-width:380px">${rBoard()}</div></div>`;
-  const betInfo=`<div id="r-bet-info"><div class="irow" ${pb?'':'style="visibility:hidden"'}><span class="ik">Bet on: <b style="color:var(--ink)">${pb?(pb.type==='num'?'Number '+pb.lbl:pb.lbl):'—'}</b></span><span class="iv">${pb?pb.pay+':1 payout':'—'}</span></div></div>`;
+  const betInfo=`<div id="r-bet-info"><div class="irow">${pb?`<span class="ik">Bet on: <b style="color:var(--ink)">${pb.type==='num'?'Number '+pb.lbl:pb.lbl}</b></span><span class="iv">${pb.pay}:1 payout</span>`:`<span class="ik" style="color:var(--shadow)">Select a tile to bet on</span><span class="iv"></span>`}</div></div>`;
 
   if(aios&&S.rBets.length===0){
     return `${hdr('Roulette · 1 Spin')}
@@ -1343,15 +1378,15 @@ function screenRouletteResult(){
   <div class="panel" style="text-align:center">
     ${gameDots([res], 1, 'result', 2)}
     <div class="divider"></div>
-    <div style="display:flex;justify-content:center;margin-bottom:10px">
+    <div style="display:flex;justify-content:center;margin-bottom:4px">
       <div class="r-res-num ${rCls(n)}">${n}</div>
     </div>
-    <div style="font-size:.88rem;color:var(--shadow);margin-bottom:14px">${rName(n)}</div>
-    <div style="font-size:3rem;font-weight:700;color:${col(res.delta)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${res.delta>0?'You Win! 🎉':res.delta===0?'No change':'You Lose! 💸'}</div>
-    <div style="font-size:2rem;font-weight:700;color:${col(res.delta)};margin-bottom:16px">${sign(res.delta)} chips</div>
+    <div style="font-size:.88rem;color:var(--shadow);margin-bottom:6px">${rName(n)}</div>
+    <div style="font-size:2.2rem;font-weight:700;color:${col(res.delta)};margin-bottom:2px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${res.delta>0?'You Win! 🎉':res.delta===0?'No change':'You Lose! 💸'}</div>
+    <div style="font-size:1.6rem;font-weight:700;color:${col(res.delta)};margin-bottom:8px">${sign(res.delta)} chips</div>
     <div class="divider"></div>
     ${betRows}
-    <div class="irow" style="margin-top:8px;background:rgba(196,147,58,.05)"><span class="ik">Chips after</span><span class="iv">${fmt(S.chips)}</span></div>
+    <div class="irow" style="margin-top:8px"><span class="ik">Chips after</span><span class="iv">${fmt(S.chips)}</span></div>
     <button class="btn-gold" style="margin-top:12px" onclick="advanceTo('results')">See Final Results →</button>
   </div>`;
 }
@@ -1481,6 +1516,16 @@ function devSpin(){
   saveState();
   if(S.rBets.length>0)rSpin();else render();
 }
+function devToggleUnlocks(){
+  const on=!getPref('golden_back_unlocked');
+  setPref('golden_back_unlocked', on);
+  setPref('whale_back_unlocked', on);
+  setPref('orange_back_unlocked', on);
+  if(!on && ['gold','whale','orange'].includes(getPref('cardback'))) setPref('cardback','default');
+  applyPrefs();
+  const cb=document.getElementById('dev-unlocks-cb');
+  if(cb) cb.checked=on;
+}
 
 function toggleTestSeed() {
   if (_testActive()) {
@@ -1513,7 +1558,7 @@ const STATUS_HINT = {
   bj:       'Blackjack — choose action.',
   poker:    "Hold'em — choose action.",
   roulette: 'Roulette — place a bet.',
-  results:  'Game complete · new game at midnight daily.',
+  results:  '<span class="sb-prefix">Game complete · </span>New game at midnight PST daily.',
 };
 
 function render(){
@@ -1704,6 +1749,7 @@ function bjDouble(){
 /** Splits a pair into two separate hands. Supports re-splitting. */
 function bjSplit(){
   if(S.bjSplit){
+    if(S.bjSplitHands.length>=4)return;
     const ai=S.bjSplitActive,bet=S.bjSplitBets[ai];
     if(S.chips<bet)return;
     const[c0,c1]=S.bjSplitHands[ai];
@@ -2032,7 +2078,7 @@ function pickBet(i){
     document.querySelectorAll('[data-idx]').forEach(b=>b.classList.remove('r-sel'));
     document.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
     const info=document.getElementById('r-bet-info');
-    if(info){const irow=info.querySelector('.irow');if(irow)irow.style.visibility='hidden';}
+    if(info){const irow=info.querySelector('.irow');if(irow)irow.innerHTML=`<span class="ik" style="color:var(--shadow)">Select a tile to bet on</span><span class="iv"></span>`;}
     patchBetUI();saveState();return;
   }
   S.rPick=i;
@@ -2093,10 +2139,9 @@ function rAddBet(){
   if(existing)existing.textContent=chipLbl(total);
   else boardBtn.insertAdjacentHTML('beforeend',`<span class="r-chip r-chip-placed">${chipLbl(total)}</span>`);
 
-  // Bet info: hide (keep irow in DOM so chip row doesn't shift)
   const info=document.getElementById('r-bet-info');
   const irow=info?.querySelector('.irow');
-  if(irow)irow.style.visibility='hidden';
+  if(irow)irow.innerHTML=`<span class="ik" style="color:var(--shadow)">Select a tile to bet on</span><span class="iv"></span>`;
 
   // Chip selector: reset to 0
   const bv=document.getElementById('bv');
@@ -2329,12 +2374,21 @@ function showInfo(section) {
 }
 
 function _positionSubmenu(sub, trigger) {
-  sub.style.top = trigger.getBoundingClientRect().top + 'px';
-  sub.style.left = (trigger.getBoundingClientRect().right + 2) + 'px';
+  const tr = trigger.getBoundingClientRect();
+  const mobile = window.innerWidth <= 480;
+  if (mobile) {
+    sub.style.top = (tr.bottom + 2) + 'px';
+    sub.style.left = (tr.left + 12) + 'px';
+  } else {
+    sub.style.top = tr.top + 'px';
+    sub.style.left = (tr.right + 2) + 'px';
+  }
   document.body.appendChild(sub);
   const sr = sub.getBoundingClientRect();
-  if (sr.right > window.innerWidth - 4) sub.style.left = (trigger.getBoundingClientRect().left - sr.width - 2) + 'px';
-  if (sr.bottom > window.innerHeight - 4) sub.style.top = (window.innerHeight - sr.height - 4) + 'px';
+  if (sr.right > window.innerWidth - 4)
+    sub.style.left = Math.max(4, window.innerWidth - sr.width - 4) + 'px';
+  if (sr.bottom > window.innerHeight - 4)
+    sub.style.top = Math.max(4, window.innerHeight - sr.height - 4) + 'px';
 }
 
 function showModSubmenu(trigger) {
@@ -2364,11 +2418,59 @@ function showModTypeSubmenu(type, trigger) {
   _positionSubmenu(sub, trigger);
 }
 
+function showModifiersSubmenu(trigger) {
+  document.querySelectorAll('.dd-submenu').forEach(d => d.remove());
+  const cats = [
+    { key: 'bj',       label: '🃏 Blackjack' },
+    { key: 'uth',      label: "♠ Hold'em" },
+    { key: 'cross',    label: '🔀 Cross-Game' },
+    { key: 'roulette', label: '🎡 Roulette' },
+  ];
+  const sub = document.createElement('div');
+  sub.className = 'dropdown dd-submenu dd-sub1';
+  sub.innerHTML = cats.map(c =>
+    `<div class="dd-item" onclick="showModifiersByType('${c.key}',this);event.stopPropagation()">${c.label} <span class="dd-key">►</span></div>`
+  ).join('');
+  _positionSubmenu(sub, trigger);
+}
+
+function showModifiersByType(type, trigger) {
+  document.querySelector('.dd-sub2')?.remove();
+  const mods = Object.entries(PRESET_MODIFIERS).filter(([, m]) => m.type === type);
+  const sub = document.createElement('div');
+  sub.className = 'dropdown dd-submenu dd-sub2';
+  sub.innerHTML = mods.map(([k, m]) =>
+    `<div class="dd-item" onclick="showModifierPopup('${k}')">${m.title}</div>`
+  ).join('');
+  _positionSubmenu(sub, trigger);
+}
+
+function showModifierPopup(key) {
+  document.querySelectorAll('.dropdown, .dd-submenu').forEach(d => d.remove());
+  const m = PRESET_MODIFIERS[key];
+  if (!m) return;
+  const existing = document.getElementById('info-modal');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.id = 'info-modal'; el.className = 'info-modal';
+  el.onclick = e => { if (e.target === el) el.remove(); };
+  el.innerHTML = `<div class="info-box" style="padding:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-family:var(--btn-f);color:var(--ink);font-size:1.7rem">✨ ${m.title}</div>
+      <button onclick="document.getElementById('info-modal').remove()" style="background:none;border:none;color:var(--shadow);font-size:1.6rem;cursor:pointer;padding:4px 8px;line-height:1">✕</button>
+    </div>
+    <div class="divider" style="margin-bottom:14px"></div>
+    <div style="font-size:1.15rem;color:var(--ink);line-height:1.55">${m.desc}</div>
+    ${m.devNote ? `<div class="divider" style="margin:14px 0 10px"></div><div style="font-size:1rem;color:var(--shadow);line-height:1.5"><b>Dev Note:</b> ${m.devNote}</div>` : ''}
+  </div>`;
+  document.body.appendChild(el);
+}
+
 function toggleMenu(which, trigger) {
   const existing = document.querySelector('.dropdown');
   if (existing) {
     const wasThis = existing.dataset.menu === which;
-    existing.remove();
+    document.querySelectorAll('.dropdown, .dd-submenu').forEach(d => d.remove());
     if (wasThis) return;
   }
   const rect = trigger.getBoundingClientRect();
@@ -2392,6 +2494,10 @@ function toggleMenu(which, trigger) {
         <span>Test Seed (reset to apply)</span>
         <input type="checkbox" id="dev-test-seed-cb" ${_testActive()?'checked':''} onclick="event.stopPropagation()" style="width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0">
       </div>
+      <div class="dd-item" onclick="devToggleUnlocks();event.stopPropagation()" style="gap:12px">
+        <span>All Unlocks</span>
+        <input type="checkbox" id="dev-unlocks-cb" ${getPref('golden_back_unlocked')?'checked':''} onclick="event.stopPropagation()" style="width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0">
+      </div>
       <div class="dd-sep"></div>
       <div class="dd-item" id="dd-mod-trigger" onclick="showModSubmenu(this);event.stopPropagation()">Force Modifier <span class="dd-key">►</span></div>`;
   } else if (which === 'file') {
@@ -2412,7 +2518,7 @@ function toggleMenu(which, trigger) {
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showInfo('hands');document.querySelector('.dropdown')?.remove()">🂡 Poker Hands</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showInfo('modifiers');document.querySelector('.dropdown')?.remove()">✨ Daily Modifiers</div>`;
+      <div class="dd-item" onclick="showModifiersSubmenu(this);event.stopPropagation()">✨ Daily Modifiers <span class="dd-key">►</span></div>`;
   }
 
   // Position below the trigger, clamped to viewport
@@ -2428,7 +2534,13 @@ const PREFS_KEY='gambdle_prefs';
 function getPrefs(){try{return JSON.parse(localStorage.getItem(PREFS_KEY)||'{}');}catch{return{};}}
 function getPref(k){return getPrefs()[k];}
 function setPref(k,v){const p=getPrefs();p[k]=v;localStorage.setItem(PREFS_KEY,JSON.stringify(p));}
-function applyPrefs(){document.body.classList.toggle('four-color',!!getPref('four_color'));}
+function applyPrefs(){
+  document.body.classList.toggle('four-color',!!getPref('four_color'));
+  const cb=getPref('cardback')||'default';
+  document.body.classList.toggle('cardback-gold',   cb==='gold'   && !!getPref('golden_back_unlocked'));
+  document.body.classList.toggle('cardback-orange', cb==='orange' && !!getPref('orange_back_unlocked'));
+  document.body.classList.toggle('cardback-whale',  cb==='whale'  && !!getPref('whale_back_unlocked'));
+}
 
 function _prefItem(key,id,label){
   const checked=!!getPref(key);
@@ -2442,8 +2554,36 @@ function showPrefsSubmenu(trigger){
   const sub=document.createElement('div');
   sub.className='dropdown dd-submenu dd-sub1';
   sub.innerHTML=_prefItem('four_color','pref-4color','Four Color Deck')+
-                _prefItem('mute','pref-mute','Mute Audio');
+                _prefItem('mute','pref-mute','Mute Audio')+
+                `<div class="dd-item" onclick="showCardbackSubmenu(this);event.stopPropagation()">Card Back <span class="dd-key">►</span></div>`;
   _positionSubmenu(sub,trigger);
+}
+function showCardbackSubmenu(trigger){
+  document.querySelector('.dd-sub2')?.remove();
+  const cur=getPref('cardback')||'default';
+  const goldUnlocked=!!getPref('golden_back_unlocked');
+  const whaleUnlocked=!!getPref('whale_back_unlocked');
+  const cbStyle='width:14px;height:14px;accent-color:var(--gold);flex-shrink:0;pointer-events:none';
+  const row=(val,label)=>`<div class="dd-item" onclick="setCardback('${val}');event.stopPropagation()" style="gap:12px">
+    <span>${label}</span><input type="checkbox" ${cur===val?'checked':''} style="${cbStyle}">
+  </div>`;
+  const locked=(label,hint)=>`<div class="dd-item dd-disabled" style="gap:12px"><span>${label}</span><span style="font-size:.8rem;opacity:.55">${hint}</span></div>`;
+  const sub=document.createElement('div');
+  sub.className='dropdown dd-submenu dd-sub2';
+  const orangeUnlocked=!!getPref('orange_back_unlocked');
+  sub.innerHTML=
+    row('default','Default')+
+    (orangeUnlocked ? row('orange','Orange')      : locked('Orange','🔒 1001+'))+
+    (whaleUnlocked  ? row('whale','Whale 🐋')     : locked('Whale 🐋','🔒 2500+'))+
+    (goldUnlocked   ? row('gold','Golden')         : locked('Golden','🔒 5000+'));
+  _positionSubmenu(sub,trigger);
+}
+function setCardback(val){
+  setPref('cardback',val);
+  applyPrefs();
+  document.querySelectorAll('.dd-sub2').forEach(d=>d.remove());
+  const t=document.querySelector('.dd-sub1 .dd-item:last-child');
+  if(t) showCardbackSubmenu(t);
 }
 function togglePref(k){
   setPref(k,!getPref(k));

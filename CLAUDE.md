@@ -11,9 +11,9 @@ _Update this section at the start of each session._
 | File | Lines | Purpose |
 |------|-------|---------|
 | `index.html` | 17 | Shell only — links CSS, JS, fonts |
-| `styles.css` | ~637 | All CSS |
-| `game.js` | ~2149 | All game logic and rendering |
-| `modifiers.js` | ~88 | Daily modifier config (separate so it's easy to edit) |
+| `styles.css` | ~737 | All CSS |
+| `game.js` | ~2523 | All game logic and rendering |
+| `modifiers.js` | ~98 | Daily modifier config (separate so it's easy to edit) |
 
 No build steps. Pure vanilla JS/CSS/HTML.
 
@@ -31,14 +31,19 @@ No build steps. Pure vanilla JS/CSS/HTML.
 
 ## Fonts & Visuals
 - `--btn-f`: VT323 — **main UI font** (body, buttons, labels, values, chips, hand counts, all game text)
-- `--display`: Space Grotesk — **decorative only** (`.logo`, `.ct-r` card ranks, `.card.back::before` G)
+- `--display`: Space Grotesk — **decorative only** (`.logo`, `.ct-r` card ranks)
 - `--f`: Courier New — **card suits only** (`.ct-s`, `.cbody .csuit`)
 
 **Theme**: Felt green (`--felt`), Gold (`--gold`, `--gold-hi`, `--gold-lo`), Cream (`--cream`), XP-style window chrome.
 
 **Key CSS custom properties** (in `:root` in `styles.css`):
 - `--raised`: the repeating `inset 1.5px 1.5px 0 var(--highlight), inset -2px -2px 0 var(--shadow)` box-shadow — used on `.act-btn`, `.hdot`, `.r2to1`, `.rout`, `.irow`, `.rnd-row`, `.ptable`, `.score-row`
-- `--raised-sm`: the 1px variant — used on `.tb-btn`, `.tb-icon`, `.mod-badge`, `.readout`, `.share-box`
+- `--raised-sm`: the 1px variant — used on `.tb-btn`, `.tb-icon`, `.mod-badge`, `.readout`, `.share-box`, `.chip-badge`
+
+**Key CSS classes**:
+- `.chip-badge` — styled chip counter in menu bar right (VT323, `--panel2` bg, `--raised-sm` shadow, ink border)
+- `.card.back::before` — uses `--btn-f` (VT323), not `--display`; sizes 3.2/2.7/2.1rem for lg/md/sm
+- Body classes for unlockable card backs: `cardback-gold`, `cardback-orange`, `cardback-whale` (set by `applyPrefs()`)
 
 **Audio**: `sndCard(delay_ms)`, `sndChip()`, `sndShuffle(cb)`, `sndBigWin()`, `sndSpin()`
 
@@ -62,6 +67,7 @@ No build steps. Pure vanilla JS/CSS/HTML.
 - `START_DATE_UTC` — May 5, 2026 UTC, used for day numbering
 - `GAME2 = 'uth'` — selects Game 2 variant
 - `CHIP_TIERS` — array of `{min, emoji, label}` — Whale 2500+, High Roller 1500+, Apprentice 1000+, Survivor 1+, Bozo 0
+- `R_GROUP_INFO` — maps `r_force_group` modifier value (e.g. `'1_12'`) to `{nums: Set, bannedIdx}` — `bannedIdx` is the R_BETS index for the redundant outside bet that's locked out
 
 ### Utility functions
 - `getDailySeed()` → YYYYMMDD int (RNG seed, localStorage key, modifier lookup)
@@ -76,6 +82,12 @@ No build steps. Pure vanilla JS/CSS/HTML.
 - `hValDisplay(cs)` → shows "8 / 18" for soft BJ hands; used in play and surgical DOM updates
 - `buildShareText()` → share string (no emoji circles — they were removed)
 - `chipSel(maxC, curBet, denoms, extraBtn='')` → chip row + bet-row HTML; `extraBtn` inserts a button left of Clear/All In (used by roulette multi-bet for Place Bet)
+- `toast(msg)` → shows a brief in-game notification (2200ms); used for card-back unlock announcements
+- `getPref(k)` / `setPref(k, v)` / `getPrefs()` → persistent user preferences in `gambdle_prefs` localStorage key
+- `applyPrefs()` → applies `four_color`, `mute`, and card-back body classes (`cardback-gold/orange/whale`)
+- `toggleMenu(which, trigger)` → WinXP-style dropdown for `'file'`, `'help'`, `'dev'` menu bar items
+- `showPrefsSubmenu(trigger)` → submenu under File > Preferences (four-color, mute, card back)
+- `showCardbackSubmenu(trigger)` / `setCardback(val)` → card back picker (default/orange/whale/gold); locked entries shown grayed with score hint
 
 ### BJ helpers
 - `bjDealerHTML()` — dealer section for BJ play phase (revealed vs hidden)
@@ -127,10 +139,11 @@ No build steps. Pure vanilla JS/CSS/HTML.
 
 ## Daily Modifiers (`modifiers.js`)
 - `PRESET_MODIFIERS` — named modifier objects
-- `CYCLE_ORDER` — rotation list; Day 1 = May 5, 2026; repeats every N days
+- `CYCLE_ORDER` — rotation list; Day 1 = May 5, 2026; repeats every N days (currently 21-day cycle)
 - `DAILY_MODIFIERS` — date-specific overrides (YYYYMMDD keys)
 - Validation guard at file bottom: throws if `CYCLE_ORDER` contains an unknown key
 - Dev override: `devApplyMod()` stores to localStorage, reloads; cleared on next load
+- `r_force_group` key (used by `r_group_*` presets) — value is a `R_GROUP_INFO` key (`'1_12'`, `'13_24'`, `'25_36'`, `'1_18'`, `'19_36'`); forces spin to land in that group and grays out the redundant outside bet on the board
 
 ---
 
@@ -138,6 +151,7 @@ No build steps. Pure vanilla JS/CSS/HTML.
 - `?dev=true` in URL → `body.dev-mode` + dev UI tools
 - `ENABLE_CARD_SEEDING = false` in `game.js` → set `true` to activate `CARD_SEED_OVERRIDE` (manual BJ shoe, UTH hands at `h*9` offset, roulette spin `rSpin: null|0–36`)
 - `G.rSpinOverride` is the dev seed value (null in production)
+- `devToggleUnlocks()` — dev menu toggle for all card-back unlocks (orange/whale/gold); clears `cardback` pref if active back becomes locked
 
 ---
 
@@ -145,6 +159,16 @@ No build steps. Pure vanilla JS/CSS/HTML.
 - Project: `kxbteesmfozqzoxzktzv` · `https://kxbteesmfozqzoxzktzv.supabase.co`
 - `scores` table + `get_percentile` RPC
 - `submitAndFetchLeaderboard()` — called from `render()` on results screen; submits `{seed, chips}` once per day per device (guard: `gambdle_submitted_SEED` in localStorage); hides if < 5 players
+
+---
+
+## Unlockable Card Backs
+Card backs unlock permanently on a new personal-best score (checked in `saveState()`):
+- **Orange** — 1001+ chips → sets `orange_back_unlocked` pref, toasts unlock message
+- **Whale** — 2500+ chips → sets `whale_back_unlocked` pref
+- **Golden** — 5000+ chips → sets `golden_back_unlocked` pref
+
+Active back stored as `cardback` pref (`'default'|'orange'|'whale'|'gold'`). `applyPrefs()` applies the correct body class; if the pref is set to a locked back it falls back gracefully (class not toggled). Selection UI is in File > Preferences > Card Back (3-level submenu: `.dd-sub1` → `.dd-sub2`).
 
 ---
 
@@ -157,7 +181,30 @@ No build steps. Pure vanilla JS/CSS/HTML.
 
 ---
 
+## Bug Investigation: Mobile Card Glitch Line
+
+**Symptom:** A thin vertical line, exactly the height of a card, appears at the edge of a card on mobile (confirmed in Firefox responsive mode). Color is teal/cyan — matches `--felt-light: #2b8c66`, meaning the panel's felt background is bleeding through. Appears only after new cards are dealt and persists. Happens on any BJ hand (not just splits). Not reproducible on desktop.
+
+**Current CSS state (changes in place, not yet reverted):**
+- `styles.css` `.card` — `transform: translateZ(0)` added (GPU compositing hint)
+- `styles.css` `@keyframes deal` `to` — changed from `transform: none` to `transform: translateZ(0)` (keep on GPU after animation)
+
+**Failed approaches:**
+1. Remove 1px horizontal offset from card `box-shadow` (`1px 4px 8px` → `0 4px 8px`)
+2. `transform: translateZ(0)` on `.card`
+3. Animation `to: { transform: translateZ(0) }` to keep card on GPU post-animation
+
+**Leading theory:** The `deal` animation (`@keyframes deal`) goes `from { rotate(-8deg) scale(.85) translateY(-32px) }` → `to { translateZ(0) }`. The rotation-to-none transition is the likely trigger — on mobile, the rotated card during animation creates a compositing layer whose boundaries, when torn down at animation end, leave a 1px rendering seam showing the felt background behind it.
+
+**Next things to try (in order of least invasive):**
+1. **Remove `rotate(-8deg)` from the deal animation** — simplest diagnostic. Change `from { transform: translateY(-32px) scale(.85) rotate(-8deg) }` to `from { transform: translateY(-24px) scale(.9) }`. If the line disappears, rotation was the trigger. Visually similar enough.
+2. **Revert the two current GPU-compositing changes** (they haven't helped and may be causing separate issues with `overflow:hidden` + `border-radius` clipping in Firefox). Remove `transform: translateZ(0)` from `.card` and revert `@keyframes deal to` back to `transform: none`.
+3. **Reduce or remove `border-radius` on mobile** — try `border-radius: 2px` in the mobile media query. Smaller radius = less antialiasing area. If this fixes it, a border-radius antialiasing issue is the root cause.
+4. **Use `outline` to cover edge artifacts** — add `outline: 2px solid var(--ink)` to `.card` (outline renders outside border-box and doesn't clip with `border-radius`). Might visually mask the artifact.
+5. **Inspect in DevTools** — open Firefox responsive mode, right-click the glitch line and "Inspect Element" to identify exactly which element is creating it.
+6. **Test in Chrome mobile simulation** — if it only happens in Firefox, it's a Firefox-specific compositing bug, not a general CSS issue.
+
+---
+
 ## Ideas
-- hand 1 hand 2 etc gives away uth result before result is actually revealed
-- **WinXP-style dropdown menu** from 'File' and 'Help' menu bar items — break tutorial into sections there
 - **Incognito replay detection** — not reliably possible via JS alone; would need server-side RPC check at boot
