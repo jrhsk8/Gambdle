@@ -333,6 +333,9 @@ body.four-color .sym-c { color: #1a7a3a; }
 .card.lg.back::before { font-size: 3.2rem; }
 .card.md.back::before { font-size: 2.7rem; }
 .card.sm.back::before { font-size: 2.1rem; }
+/* Maroon felt (unlockable at 2500+ PB) */
+body.felt-maroon { --felt: #611018; --felt-light: #8a1825; --felt-dark: #3d0a10; --felt-edge: #200508; }
+
 /* Golden card back (unlockable) */
 body.cardback-gold .card.back {
   background: #1e1206;
@@ -341,7 +344,7 @@ body.cardback-gold .card.back {
 }
 body.cardback-gold .card.back::after { display: none; }
 body.cardback-gold .card.back::before { content: ''; text-shadow: none; }
-/* Orange card back (unlockable at 1001+ PB) */
+/* Orange card back (unlockable at 1500+ PB) */
 body.cardback-orange .card.back {
   background: #8c3a00;
   background-image:
@@ -349,7 +352,45 @@ body.cardback-orange .card.back {
     repeating-linear-gradient(-45deg, rgba(251,245,220,0.10) 0 1px, transparent 1px 5px),
     radial-gradient(ellipse at center, #f06010 0%, #8c3a00 75%);
 }
-/* Whale card back (unlockable at 2500+ PB) */
+/* Emoji deck (unlockable at 3500+ PB) — replace suit symbols and ranks with emoji */
+body.deck-emoji .ct-s,
+body.deck-emoji .csuit,
+body.deck-emoji .ct-r[data-r="A"],  body.deck-emoji .ct-r[data-r="2"],
+body.deck-emoji .ct-r[data-r="3"],  body.deck-emoji .ct-r[data-r="4"],
+body.deck-emoji .ct-r[data-r="5"],  body.deck-emoji .ct-r[data-r="6"],
+body.deck-emoji .ct-r[data-r="7"],  body.deck-emoji .ct-r[data-r="8"],
+body.deck-emoji .ct-r[data-r="9"],  body.deck-emoji .ct-r[data-r="10"],
+body.deck-emoji .ct-r[data-r="J"],  body.deck-emoji .ct-r[data-r="Q"],
+body.deck-emoji .ct-r[data-r="K"] { visibility: hidden; display: inline-block; position: relative; }
+body.deck-emoji .ct-s::after,
+body.deck-emoji .csuit::after,
+body.deck-emoji .ct-r[data-r="A"]::after,  body.deck-emoji .ct-r[data-r="2"]::after,
+body.deck-emoji .ct-r[data-r="3"]::after,  body.deck-emoji .ct-r[data-r="4"]::after,
+body.deck-emoji .ct-r[data-r="5"]::after,  body.deck-emoji .ct-r[data-r="6"]::after,
+body.deck-emoji .ct-r[data-r="7"]::after,  body.deck-emoji .ct-r[data-r="8"]::after,
+body.deck-emoji .ct-r[data-r="9"]::after,  body.deck-emoji .ct-r[data-r="10"]::after,
+body.deck-emoji .ct-r[data-r="J"]::after,  body.deck-emoji .ct-r[data-r="Q"]::after,
+body.deck-emoji .ct-r[data-r="K"]::after { visibility: visible; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+body.deck-emoji .csuit::after { font-size: 0.8em; }
+body.deck-emoji .suit-s .ct-s::after, body.deck-emoji .suit-s .csuit::after { content: '💧'; }
+body.deck-emoji .suit-h .ct-s::after, body.deck-emoji .suit-h .csuit::after { content: '🔥'; }
+body.deck-emoji .suit-d .ct-s::after, body.deck-emoji .suit-d .csuit::after { content: '💨'; }
+body.deck-emoji .suit-c .ct-s::after, body.deck-emoji .suit-c .csuit::after { content: '🌱'; }
+body.deck-emoji .ct-r[data-r="A"]::after  { content: '🅰️'; }
+body.deck-emoji .ct-r[data-r="2"]::after  { content: '2️⃣'; }
+body.deck-emoji .ct-r[data-r="3"]::after  { content: '3️⃣'; }
+body.deck-emoji .ct-r[data-r="4"]::after  { content: '4️⃣'; }
+body.deck-emoji .ct-r[data-r="5"]::after  { content: '5️⃣'; }
+body.deck-emoji .ct-r[data-r="6"]::after  { content: '6️⃣'; }
+body.deck-emoji .ct-r[data-r="7"]::after  { content: '7️⃣'; }
+body.deck-emoji .ct-r[data-r="8"]::after  { content: '8️⃣'; }
+body.deck-emoji .ct-r[data-r="9"]::after  { content: '9️⃣'; }
+body.deck-emoji .ct-r[data-r="10"]::after { content: '🔟'; }
+body.deck-emoji .ct-r[data-r="J"]::after  { content: '🤡'; }
+body.deck-emoji .ct-r[data-r="Q"]::after  { content: '👸'; }
+body.deck-emoji .ct-r[data-r="K"]::after  { content: '🤴'; }
+
+/* Whale card back (unlockable at 5000+ PB) */
 body.cardback-whale .card.back {
   background: #0a2a50;
   background-image:
@@ -380,10 +421,16 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .hand-val.bust { color: var(--lose-hi); }
 .hand-val.bj { color: var(--gold-hi); }
 
+.uth-summary { font-size: 1.7rem; }
+
 /* ── BJ inactive split hands ────────────────────────────── */
 .bj-split-aside { display: flex; justify-content: space-evenly; margin-bottom: 10px; }
 .bj-split-lbl { font-size: 1.1rem; margin-bottom: 4px; }
 .bj-split-val { font-size: 1.4rem; font-weight: 700; margin-top: 2px; }
+
+/* ── Overlapping card fan (split hands) ─────────────────── */
+.hand-fan { flex-wrap: nowrap; gap: 0; }
+.hand-fan .card + .card { margin-left: -28px; }
 
 /* ── Chip selector ──────────────────────────────────────── */
 .chip-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
@@ -491,15 +538,18 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .ik { font-size: 1.4rem; color: var(--shadow); letter-spacing: 0.04em; }
 .iv { font-family: var(--btn-f); font-size: 1.35rem; color: var(--ink); }
 
-/* ── Game manifest rows (intro screen) ──────────────────── */
-.rnd-row {
-  display: grid; grid-template-columns: 36px 1fr;
-  gap: 12px; align-items: center;
-  padding: 8px 12px;
+/* ── Game manifest tile (intro screen) ──────────────────── */
+.game-manifest {
   background: var(--panel); color: var(--ink);
   border: 2px solid var(--ink);
   box-shadow: var(--raised-sm);
 }
+.gm-row {
+  display: grid; grid-template-columns: 32px 1fr;
+  gap: 10px; align-items: center;
+  padding: 8px 12px;
+}
+.gm-sep { height: 1px; background: var(--ink); }
 .rnd-ic { font-size: 1.6rem; line-height: 1; }
 .rnd-nm { font-size: 2.1rem; font-weight: 700; line-height: 1; letter-spacing: 0.02em; }
 .rnd-dc { font-size: 1.6rem; color: var(--shadow); margin-top: 2px; }
@@ -621,7 +671,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   display: flex; align-items: flex-end; gap: 8px;
   height: 70px; padding: 0 8px;
   border-bottom: 1px solid var(--ink);
-  margin: 18px 4px 28px;
+  margin: 6px 4px 28px;
 }
 .chart-bar { flex: 1; max-width: 36px; background: var(--shadow);
   border: 1.5px solid var(--ink);
@@ -733,10 +783,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bet-amt { flex: 1 1 100%; }
   .bet-row:has(#pb-add) .bet-amt, #pb-add { flex: 1 1 45%; }
   .ch-clear, .ch-allin { flex: 1; }
-  .rnd-row { grid-template-columns: 24px 1fr; gap: 8px; padding: 6px 10px; }
+  .gm-row { grid-template-columns: 22px 1fr; gap: 8px; padding: 6px 10px; }
   .rnd-ic { font-size: 1.1rem; }
   .rnd-nm { font-size: 1.3rem; }
   .rnd-dc { font-size: 0.85rem; white-space: nowrap; margin-top: 1px; }
+  body.deck-emoji .ct-s::after { font-size: 0.72em; }
+  .uth-summary { font-size: 0.9rem; }
 }
 
 /* ── Desktop / large screen ─────────────────────────────── */

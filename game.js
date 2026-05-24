@@ -361,7 +361,7 @@ let S={
   uthHole:[], uthDealer:[], uthComm:[],
   uthRevealComm:0, uthPrevRevealComm:0, uthHistory:[],
   // Roulette
-  rPhase:'bet', rBets:[], rBet:0, rPick:null, rResult:null, rSpin:null,
+  rPhase:'bet', rBets:[], rBet:0, rPick:null, rResult:null, rSpin:null, rReSpun:false,
   forcedMod: null,
   peekUsed: false,
 };
@@ -374,15 +374,23 @@ function saveState() {
     if (S.chips > high) {
       localStorage.setItem('gambdle_highscore', S.chips.toString());
       let unlockMsg = null;
-      if (S.chips >= 1001 && !getPref('orange_back_unlocked')) {
+      if (S.chips >= 1500 && !getPref('orange_back_unlocked')) {
         setPref('orange_back_unlocked', true);
         unlockMsg = '🟠 Orange Card Back unlocked! Check Preferences.';
       }
-      if (S.chips >= 2500 && !getPref('whale_back_unlocked')) {
+      if (S.chips >= 2500 && !getPref('maroon_felt_unlocked')) {
+        setPref('maroon_felt_unlocked', true);
+        unlockMsg = '🎱 Maroon Felt unlocked! Check Preferences.';
+      }
+      if (S.chips >= 3500 && !getPref('deck_emoji_unlocked')) {
+        setPref('deck_emoji_unlocked', true);
+        unlockMsg = '🌱 Emoji Deck unlocked! Check Preferences.';
+      }
+      if (S.chips >= 5000 && !getPref('whale_back_unlocked')) {
         setPref('whale_back_unlocked', true);
         unlockMsg = '🐋 Whale Card Back unlocked! Check Preferences.';
       }
-      if (S.chips >= 5000 && !getPref('golden_back_unlocked')) {
+      if (S.chips >= 10000 && !getPref('golden_back_unlocked')) {
         setPref('golden_back_unlocked', true);
         unlockMsg = '🏆 Golden Card Back unlocked! Check Preferences.';
       }
@@ -742,9 +750,7 @@ function screenIntro(){
     <button class="btn-gold btn-lg" style="margin: 10px 0" onclick="startGame()">► Start new game<span class="btn-detail"> — $${fmt(START)}</span></button>
     <div class="divider"></div>
     <div style="font-size:1.4rem;color:var(--cream);opacity:0.7;letter-spacing:0.16em;text-transform:uppercase;margin:2px 2px 4px">Today's program:</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${renderIntroGameRows()}
-    </div>
+    ${renderIntroGameRows()}
   </div>`;
 }
 
@@ -756,14 +762,15 @@ function renderIntroGameRows() {
       : ['♠', '5 Card Poker',          '3 hands · Jacks or Better'],
     ['🎡', 'Roulette',                 'One spin · Anything is possible'],
   ];
-  return games.map((g, i) => `
-    <div class="rnd-row">
+  const rows = games.map((g, i) => `
+    <div class="gm-row">
       <span class="rnd-ic">${g[0]}</span>
       <div>
         <div class="rnd-nm">${i+1}. ${g[1]}</div>
         <div class="rnd-dc">${g[2]}</div>
       </div>
-    </div>`).join('');
+    </div>`).join('<div class="gm-sep"></div>');
+  return `<div class="game-manifest">${rows}</div>`;
 }
 
 function bjDealerHTML(){
@@ -864,10 +871,10 @@ function screenBJ(){
         ${S.bjSplitHands.length>1?`<div class="bj-split-aside">
           ${S.bjSplitHands.map((hand,i)=>{if(i===ai)return'';const hv=hVal(hand);const isDone=S.bjSplitDone[i];return`<div style="text-align:center;opacity:${isDone?0.55:0.8}">
             <div class="sec bj-split-lbl">${isDone?'Hand '+(i+1)+' ✓':'Hand '+(i+1)}</div>
-            <div class="hand" style="justify-content:center">${hand.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
-            <div class="bj-split-val" style="color:${hv>21?'var(--lose)':'var(--shadow)'}">${hv}${hv>21?' B':''}</div>
+            <div class="hand hand-fan" style="justify-content:center">${hand.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
+            <div class="bj-split-val" style="color:${hv>21?'var(--lose)':'var(--shadow)'}">${hv}${hv>21?' Bust':''}</div>
           </div>`;}).join('')}
-        </div><div class="divider"></div>`:''}
+        </div>`:''}
         <div style="text-align:center;flex:1;">
           <div class="sec">Hand ${ai+1} of ${S.bjSplitHands.length}</div>
           <div id="bj-active-hand" class="hand">${activeHand.map((c,i)=>{const n=i>=af;return cardHTML(c,'lg','',n?(i-af)*0.4+0.1:0,n);}).join('')}</div>
@@ -930,11 +937,11 @@ function screenBJ(){
         <div class="hand-val ${dv>21?'bust':''}" style="font-size:1.6rem">${dv}${dv>21?' BUST':''}</div>
       </div>
       <div class="divider"></div>
-      <div style="display:flex;flex-direction:column;gap:0;margin-bottom:14px">
-        ${S.bjSplitHands.map((hand,i)=>{const r=S.bjSplitResults[i];const hv=hVal(hand);return`<div style="text-align:center;${i>0?'border-top:1px solid rgba(196,147,58,0.18);padding-top:14px;margin-top:14px':''}">
-          <div class="sec" style="font-size:.62rem">Hand ${i+1}: <span style="color:${col(r.delta)}">${RES_LBL2[r.result]||r.result}</span></div>
+      <div style="display:flex;flex-wrap:${S.bjSplitHands.length===4?'wrap':'nowrap'};justify-content:space-evenly;gap:8px;margin-bottom:14px">
+        ${S.bjSplitHands.map((hand,i)=>{const r=S.bjSplitResults[i];const hv=hVal(hand);return`<div style="text-align:center;${S.bjSplitHands.length===4?'flex:0 0 calc(50% - 8px);min-width:0':'flex:1'}">
+          <div class="sec" style="font-size:.85rem">Hand ${i+1}: <span style="color:${col(r.delta)}">${RES_LBL2[r.result]||r.result}</span></div>
           <div style="font-size:1rem;color:${col(r.delta)};margin-bottom:4px">${sign(r.delta)}</div>
-          <div class="hand" style="justify-content:center">${hand.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
+          <div class="hand hand-fan" style="justify-content:center">${hand.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
           <div class="hand-val ${hv>21?'bust':''}" style="font-size:1.4rem">${hv}${hv>21?' BUST':''}</div>
         </div>`;}).join('')}
       </div>
@@ -1074,9 +1081,9 @@ function screenUTH(){
             <button class="btn-gold" style="flex:2" onclick="S.uthAnte=S.chips;uthDeal()">All In (${fmt(S.chips)}) →</button>
             <button class="ch-clear" style="flex:1;padding:17px" onclick="uthSkip()">Skip Hand</button>
           </div>`
-        :`<div class="sec">Place Bet (Ante + Blind, split evenly)</div>
+        :`<div class="sec" style="text-align:center">Place Bet (Ante + Blind)</div>
           ${chipSel(maxAnte,S.uthAnte,[10,50,100,250,500,1000])}
-          <div id="uth-summary" style="text-align:center;margin:10px 0;font-size:1.7rem;color:var(--cream)">
+          <div id="uth-summary" class="uth-summary" style="text-align:center;margin:10px 0;color:var(--cream)">
             Ante <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> + Blind <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> = <b style="color:var(--gold-hi)">${fmt(S.uthAnte)}</b> chips total
           </div>
           <button id="db" class="btn-gold" style="margin-top:4px" onclick="uthDeal()" ${S.uthAnte===0?'disabled':''}>Deal →</button>`}
@@ -1291,7 +1298,52 @@ function screenUTH(){
 function screenRoulette(){
   if(S.rPhase==='bet') return screenRouletteBet();
   if(S.rPhase==='spinning') return screenRouletteSpinning();
+  if(S.rPhase==='respin') return screenRouletteRespin();
   return screenRouletteResult();
+}
+
+function screenRouletteRespin(){
+  const n=S.rSpin;
+  let totalDelta=0;
+  const betPreviews=S.rBets.map(b=>{
+    const bDef=R_BETS[b.pick];
+    const won=evalBet(b.pick,n);
+    let pay=bDef.pay;
+    if(won){
+      if(getMod('r_payout_mult'))pay*=getMod('r_payout_mult');
+      else if(getMod('r_number_pay')&&bDef.type==='num')pay=getMod('r_number_pay');
+      else if(getMod('r_color_double')&&bDef.type==='col2')pay*=2;
+    }
+    const profit=won?b.bet*pay:0;
+    const delta=won?profit:-b.bet;
+    totalDelta+=delta;
+    return{...b,won,delta,pay};
+  });
+  const wm=winMult();
+  let displayDelta=totalDelta;
+  if(wm>1&&totalDelta>0)displayDelta*=wm;
+  const betRows=betPreviews.map(b=>{const d=R_BETS[b.pick];return`<div class="irow" style="margin-bottom:4px">
+    <span class="ik">${d?d.type==='num'?'#'+d.lbl:d.lbl:'?'} · Pays ${b.pay}:1</span>
+    <span style="font-family:var(--btn-f);font-size:1.2rem;color:${col(b.delta)}">${sign(b.delta)}</span>
+  </div>`;}).join('');
+  return `${hdr('Roulette · Second Chance')}
+  <div class="panel" style="text-align:center">
+    ${gameDots([], 0, 'spinning', 2)}
+    <div class="divider"></div>
+    <div style="display:flex;justify-content:center;margin-bottom:4px">
+      <div class="r-res-num ${rCls(n)}">${n}</div>
+    </div>
+    <div style="font-size:.88rem;color:var(--shadow);margin-bottom:6px">${rName(n)}</div>
+    <div style="font-size:1.6rem;font-weight:700;color:${col(displayDelta)};margin-bottom:8px">${sign(displayDelta)} chips</div>
+    <div class="divider"></div>
+    ${betRows}
+    <div class="divider"></div>
+    <div style="font-size:.9rem;color:var(--cream);margin-bottom:10px">Keep this result, or use your one re-spin?</div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="act-btn" onclick="rKeepSpin()">Keep Result</button>
+      <button class="btn-gold" onclick="rDoRespin()">Re-spin 🎡</button>
+    </div>
+  </div>`;
 }
 
 function screenRouletteSpinning(){
@@ -1403,7 +1455,7 @@ function screenResults(){
   const historySorted = Object.entries(histData).sort((a,b) => parseInt(a[0]) - parseInt(b[0])).slice(-7);
   const maxScore = Math.max(...historySorted.map(h => h[1]), 1000);
   const chartHtml = historySorted.length > 0 ? `
-    <div class="sec" style="margin-top:20px;margin-bottom:0">Past Performance</div>
+    <div class="sec" style="margin-top:6px;margin-bottom:0">Past Performance</div>
     <div class="chart-wrap">
       ${historySorted.map(([seed, score]) => {
         const s = parseInt(seed);
@@ -1422,20 +1474,28 @@ function screenResults(){
   const resModTitle=getMod('title'),resModDesc=getMod('desc');
   return `${hdr('Daily Results')}
   <div class="panel" style="text-align:center">
-    <div style="font-size:1.05rem;color:var(--cream);text-transform:uppercase;letter-spacing:0.16em;margin-bottom:6px">${tier}</div>
-    <div style="font-family:var(--btn-f);font-size:6rem;line-height:1;letter-spacing:.04em;color:var(--gold-hi);text-shadow:2px 2px 0 rgba(0,0,0,0.45)">${fmt(S.chips)}</div>
-    <div style="color:var(--cream);opacity:0.7;margin-bottom:6px;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;margin-top:4px">chips</div>
-    <div style="font-size:1.05rem;margin-bottom:14px;color:var(--cream)">${msg}</div>
-    <div class="divider"></div>
-    ${[['🃏 Blackjack',bjNet],[g2Label,g2Net],['🎡 Roulette',rNet]].map(([lbl,net])=>`
-    <div class="score-row">
-      <div style="font-size:.98rem">${lbl}</div>
-      <div style="font-family:var(--btn-f);font-size:1.35rem;color:${col(net)}">${sign(net)}</div>
-    </div>`).join('')}
-    <div class="irow" style="margin-top:12px"><span class="ik">Your all-time high</span><span class="iv">${fmt(Math.max(S.chips, high))}</span></div>
-    <div id="lb-stat" class="irow" style="margin-top:8px"><span class="ik">Today's ranking</span><span class="iv" style="color:var(--ink)">Loading…</span></div>
+    <div style="font-size:1.05rem;color:var(--cream);text-transform:uppercase;letter-spacing:0.16em;margin-bottom:2px">${tier}</div>
+    <div style="font-family:var(--btn-f);font-size:5rem;line-height:1;letter-spacing:.04em;color:var(--gold-hi);text-shadow:2px 2px 0 rgba(0,0,0,0.45)">${fmt(S.chips)}</div>
+    <div style="color:var(--cream);opacity:0.7;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;margin-top:2px;margin-bottom:4px">chips</div>
+    <div style="font-size:1.05rem;margin-bottom:8px;color:var(--cream)">${msg}</div>
+    <div class="game-manifest" style="text-align:left;margin-bottom:6px">
+      ${[['🃏 Blackjack',bjNet],[g2Label,g2Net],['🎡 Roulette',rNet]].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep"></div>':''}
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
+        <span style="font-size:1rem">${lbl}</span>
+        <span style="font-family:var(--btn-f);font-size:1.35rem;color:${col(net)}">${sign(net)}</span>
+      </div>`).join('')}
+      <div class="gm-sep" style="opacity:0.35"></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
+        <span class="ik">All-time high</span><span class="iv">${fmt(Math.max(S.chips, high))}</span>
+      </div>
+      <div id="lb-stat">
+        <div class="gm-sep" style="opacity:0.35"></div>
+        <div class="lb-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
+          <span class="ik">Today's ranking</span><span class="iv" style="color:var(--ink)">Loading…</span>
+        </div>
+      </div>
+    </div>
     ${chartHtml}
-    <div class="divider"></div>
     <div class="share-box">${shareText}</div>
     <button class="btn-gold" onclick="doShare()">📋 Copy &amp; Share</button>
   </div>`;
@@ -1486,7 +1546,8 @@ async function submitAndFetchLeaderboard() {
       : row.top_pct > 50
         ? `Bottom ${100 - row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`
         : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
-    el.innerHTML = `<span class="ik">Today's Ranking</span><span class="iv" style="color:var(--ink)">${iv}</span>`;
+    const lr = el.querySelector('.lb-row');
+    if (lr) lr.innerHTML = `<span class="ik">Today's Ranking</span><span class="iv" style="color:var(--ink)">${iv}</span>`;
   } catch(e) {
     if (DEV_OVERRIDE) console.error("Leaderboard fetch failed:", e);
   }
@@ -1521,7 +1582,11 @@ function devToggleUnlocks(){
   setPref('golden_back_unlocked', on);
   setPref('whale_back_unlocked', on);
   setPref('orange_back_unlocked', on);
+  setPref('maroon_felt_unlocked', on);
+  setPref('deck_emoji_unlocked', on);
   if(!on && ['gold','whale','orange'].includes(getPref('cardback'))) setPref('cardback','default');
+  if(!on && getPref('felt')==='maroon') setPref('felt','default');
+  if(!on && getPref('deck')==='emoji') setPref('deck','default');
   applyPrefs();
   const cb=document.getElementById('dev-unlocks-cb');
   if(cb) cb.checked=on;
@@ -2191,7 +2256,7 @@ function rSpin(){
   setTimeout(startWheelAnim,60);
 }
 /** Final result calculation for Roulette after the animation. */
-function rFinish(){
+function _resolveRoulette(){
   const n=S.rSpin;
   let totalDelta=0;
   const betResults=S.rBets.map(b=>{
@@ -2215,6 +2280,12 @@ function rFinish(){
   S.rPhase='result';render();updateChipDisplay();
   if(totalDelta>0)setTimeout(sndBigWin,400);
 }
+function rFinish(){
+  if(getMod('r_respin')&&!S.rReSpun){S.rPhase='respin';render();return;}
+  _resolveRoulette();
+}
+function rKeepSpin(){_resolveRoulette();}
+function rDoRespin(){S.rReSpun=true;rSpin();}
 
 /** 
  * --- CHIP & BETTING LOGIC --- 
@@ -2375,18 +2446,12 @@ function showInfo(section) {
 
 function _positionSubmenu(sub, trigger) {
   const tr = trigger.getBoundingClientRect();
-  const mobile = window.innerWidth <= 480;
-  if (mobile) {
-    sub.style.top = (tr.bottom + 2) + 'px';
-    sub.style.left = (tr.left + 12) + 'px';
-  } else {
-    sub.style.top = tr.top + 'px';
-    sub.style.left = (tr.right + 2) + 'px';
-  }
+  sub.style.top = tr.top + 'px';
+  sub.style.left = (tr.right + 4) + 'px';
   document.body.appendChild(sub);
   const sr = sub.getBoundingClientRect();
   if (sr.right > window.innerWidth - 4)
-    sub.style.left = Math.max(4, window.innerWidth - sr.width - 4) + 'px';
+    sub.style.left = Math.max(4, tr.left - sr.width - 4) + 'px';
   if (sr.bottom > window.innerHeight - 4)
     sub.style.top = Math.max(4, window.innerHeight - sr.height - 4) + 'px';
 }
@@ -2540,6 +2605,10 @@ function applyPrefs(){
   document.body.classList.toggle('cardback-gold',   cb==='gold'   && !!getPref('golden_back_unlocked'));
   document.body.classList.toggle('cardback-orange', cb==='orange' && !!getPref('orange_back_unlocked'));
   document.body.classList.toggle('cardback-whale',  cb==='whale'  && !!getPref('whale_back_unlocked'));
+  const felt=getPref('felt')||'default';
+  document.body.classList.toggle('felt-maroon', felt==='maroon' && !!getPref('maroon_felt_unlocked'));
+  const deck=getPref('deck')||'default';
+  document.body.classList.toggle('deck-emoji', deck==='emoji' && !!getPref('deck_emoji_unlocked'));
 }
 
 function _prefItem(key,id,label){
@@ -2555,8 +2624,33 @@ function showPrefsSubmenu(trigger){
   sub.className='dropdown dd-submenu dd-sub1';
   sub.innerHTML=_prefItem('four_color','pref-4color','Four Color Deck')+
                 _prefItem('mute','pref-mute','Mute Audio')+
-                `<div class="dd-item" onclick="showCardbackSubmenu(this);event.stopPropagation()">Card Back <span class="dd-key">►</span></div>`;
+                `<div class="dd-item" onclick="showDeckSubmenu(this);event.stopPropagation()">Deck <span class="dd-key">►</span></div>`+
+                `<div class="dd-item" onclick="showCardbackSubmenu(this);event.stopPropagation()">Card Back <span class="dd-key">►</span></div>`+
+                `<div class="dd-item" onclick="showFeltSubmenu(this);event.stopPropagation()">Felt <span class="dd-key">►</span></div>`;
   _positionSubmenu(sub,trigger);
+}
+function showDeckSubmenu(trigger){
+  document.querySelector('.dd-sub2')?.remove();
+  const cur=getPref('deck')||'default';
+  const emojiUnlocked=!!getPref('deck_emoji_unlocked');
+  const cbStyle='width:14px;height:14px;accent-color:var(--gold);flex-shrink:0;pointer-events:none';
+  const row=(val,label)=>`<div class="dd-item" onclick="setDeck('${val}');event.stopPropagation()" style="gap:12px">
+    <span>${label}</span><input type="checkbox" ${cur===val?'checked':''} style="${cbStyle}">
+  </div>`;
+  const locked=(label,hint)=>`<div class="dd-item dd-disabled" style="gap:12px"><span>${label}</span><span style="font-size:.8rem;opacity:.55">${hint}</span></div>`;
+  const sub=document.createElement('div');
+  sub.className='dropdown dd-submenu dd-sub2';
+  sub.innerHTML=
+    row('default','Default')+
+    (emojiUnlocked ? row('emoji','Emoji') : locked('Emoji','🔒 3500+'));
+  _positionSubmenu(sub,trigger);
+}
+function setDeck(val){
+  setPref('deck',val);
+  applyPrefs();
+  document.querySelectorAll('.dd-sub2').forEach(d=>d.remove());
+  const t=document.querySelector('.dd-sub1 .dd-item:nth-last-child(3)');
+  if(t) showDeckSubmenu(t);
 }
 function showCardbackSubmenu(trigger){
   document.querySelector('.dd-sub2')?.remove();
@@ -2573,19 +2667,43 @@ function showCardbackSubmenu(trigger){
   const orangeUnlocked=!!getPref('orange_back_unlocked');
   sub.innerHTML=
     row('default','Default')+
-    (orangeUnlocked ? row('orange','Orange')      : locked('Orange','🔒 1001+'))+
-    (whaleUnlocked  ? row('whale','Whale 🐋')     : locked('Whale 🐋','🔒 2500+'))+
-    (goldUnlocked   ? row('gold','Golden')         : locked('Golden','🔒 5000+'));
+    (orangeUnlocked ? row('orange','Orange')      : locked('Orange','🔒 1500+'))+
+    (whaleUnlocked  ? row('whale','Whale 🐋')     : locked('Whale 🐋','🔒 5000+'))+
+    (goldUnlocked   ? row('gold','Golden')         : locked('Golden','🔒 10000+'));
   _positionSubmenu(sub,trigger);
 }
 function setCardback(val){
   setPref('cardback',val);
   applyPrefs();
   document.querySelectorAll('.dd-sub2').forEach(d=>d.remove());
-  const t=document.querySelector('.dd-sub1 .dd-item:last-child');
+  const t=document.querySelector('.dd-sub1 .dd-item:nth-last-child(2)');
   if(t) showCardbackSubmenu(t);
 }
+function showFeltSubmenu(trigger){
+  document.querySelector('.dd-sub2')?.remove();
+  const cur=getPref('felt')||'default';
+  const maroonUnlocked=!!getPref('maroon_felt_unlocked');
+  const cbStyle='width:14px;height:14px;accent-color:var(--gold);flex-shrink:0;pointer-events:none';
+  const row=(val,label)=>`<div class="dd-item" onclick="setFelt('${val}');event.stopPropagation()" style="gap:12px">
+    <span>${label}</span><input type="checkbox" ${cur===val?'checked':''} style="${cbStyle}">
+  </div>`;
+  const locked=(label,hint)=>`<div class="dd-item dd-disabled" style="gap:12px"><span>${label}</span><span style="font-size:.8rem;opacity:.55">${hint}</span></div>`;
+  const sub=document.createElement('div');
+  sub.className='dropdown dd-submenu dd-sub2';
+  sub.innerHTML=
+    row('default','Green')+
+    (maroonUnlocked ? row('maroon','Maroon') : locked('Maroon','🔒 2500+'));
+  _positionSubmenu(sub,trigger);
+}
+function setFelt(val){
+  setPref('felt',val);
+  applyPrefs();
+  document.querySelectorAll('.dd-sub2').forEach(d=>d.remove());
+  const t=document.querySelector('.dd-sub1 .dd-item:last-child');
+  if(t) showFeltSubmenu(t);
+}
 function togglePref(k){
+  document.querySelector('.dd-sub2')?.remove();
   setPref(k,!getPref(k));
   applyPrefs();
   const idMap={four_color:'pref-4color',mute:'pref-mute'};

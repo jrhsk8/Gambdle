@@ -24,6 +24,7 @@
  * - r_zero_boost: 10        Zero is this many times more likely to hit
  * - r_color_double: true    Red and Black bets pay 2:1
  * - r_max_bets: 3           Max roulette bets per spin (default 5)
+ * - r_respin: true          After spin, choose to keep the result or re-spin once
  */
 
 const PRESET_MODIFIERS = {
@@ -47,6 +48,7 @@ const PRESET_MODIFIERS = {
   r_hot_zero:     { type: 'roulette', title: "Hot Zero",             desc: "Roulette: Zero is 10x more likely to hit",        r_zero_boost: 10,                            devNote: '' },
   r_color_double: { type: 'roulette', title: "Color Bonus",          desc: "Roulette: Red and Black bets pay double. One bet max.", r_color_double: true, r_max_bets: 1,  devNote: '' },
   r_multi_bet:    { type: 'roulette', title: "Multi Bet",            desc: "Roulette: Place up to 10 bets",                   r_max_bets: 10,                              devNote: '' },
+  r_respin:       { type: 'roulette', title: "Second Chance",        desc: "Roulette: One free re-spin",                      r_respin: true,                              devNote: '' },
   r_group_1_12:   { type: 'roulette', title: "Dozen I",              desc: "Roulette: Winning number will be from 1-12.",     r_force_group: '1_12',  r_max_bets: 3,      devNote: '' },
   r_group_13_24:  { type: 'roulette', title: "Dozen II",             desc: "Roulette: Winning number will be from 13-24.",    r_force_group: '13_24', r_max_bets: 3,      devNote: '' },
   r_group_25_36:  { type: 'roulette', title: "Dozen III",            desc: "Roulette: Winning number will be from 25-36.",    r_force_group: '25_36', r_max_bets: 3,      devNote: '' },
@@ -60,27 +62,28 @@ const PRESET_MODIFIERS = {
  * Edit this list to change the rotation.
  */
 const CYCLE_ORDER = [
-  'double_pay',       // Day 1
-  'r_hot_numbers',    // Day 2
-  'uth_blind_boost',  // Day 3
-  'comeback',         // Day 4
-  'easy_dealer',      // Day 5
-  'r_color_double',   // Day 6
-  'uth_hard_qualify', // Day 7
-  'peek',             // Day 8
-  'r_multi_bet',      // Day 9
-  'bj_double_bonus',  // Day 10
-  'uth_blind_extended', // Day 11
-  'r_double_all',     // Day 12
-  'high_stakes',      // Day 13
-  'r_hot_zero',       // Day 14
-  'uth_double_play',  // Day 15
-  'all_in_or_skip',   // Day 16
-  'r_group_1_12',    // Day 17
-  'r_group_13_24',   // Day 18
-  'r_group_25_36',   // Day 19
-  'r_group_1_18',    // Day 20
-  'r_group_19_36',   // Day 21
+  'r_hot_numbers',      // Day 1  — roulette
+  'double_pay',         // Day 2  — bj
+  'r_color_double',     // Day 3  — roulette
+  'uth_blind_boost',    // Day 4  — uth
+  'r_multi_bet',        // Day 5  — roulette
+  'comeback',           // Day 6  — cross
+  'r_double_all',       // Day 7  — roulette
+  'easy_dealer',        // Day 8  — bj
+  'r_hot_zero',         // Day 9  — roulette
+  'uth_hard_qualify',   // Day 10 — uth
+  'r_group_1_12',       // Day 11 — roulette
+  'peek',               // Day 12 — cross
+  'r_group_13_24',      // Day 13 — roulette
+  'bj_double_bonus',    // Day 14 — bj
+  'r_group_25_36',      // Day 15 — roulette
+  'uth_blind_extended', // Day 16 — uth
+  'r_group_1_18',       // Day 17 — roulette
+  'high_stakes',        // Day 18 — bj
+  'r_group_19_36',      // Day 19 — roulette
+  'uth_double_play',    // Day 20 — uth
+  'r_respin',           // Day 21 — roulette
+  'all_in_or_skip',     // Day 22 — cross
 ];
 
 /**
