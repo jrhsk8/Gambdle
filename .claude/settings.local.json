@@ -13,7 +13,13 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(python -c ' *)",
-      "PowerShell(cd \"c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\"; @\\(\"game.js\",\"styles.css\",\"modifiers.js\",\"index.html\"\\) | ForEach-Object { \"$_`: $\\(\\(Get-Content $_\\).Count\\) lines\" })"
+      "PowerShell(cd \"c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\"; @\\(\"game.js\",\"styles.css\",\"modifiers.js\",\"index.html\"\\) | ForEach-Object { \"$_`: $\\(\\(Get-Content $_\\).Count\\) lines\" })",
+      "Bash(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\game.js)",
+      "Bash(Measure-Object -Line)",
+      "Bash(Select-Object -ExpandProperty Lines)",
+      "Bash(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\styles.css)",
+      "Bash(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\modifiers.js)",
+      "PowerShell(\\(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\game.js | Measure-Object -Line\\).Lines; \\(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\styles.css | Measure-Object -Line\\).Lines; \\(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\modifiers.js | Measure-Object -Line\\).Lines)"
     ]
   },
   "enabledMcpjsonServers": [
