@@ -45,8 +45,13 @@ const PRESET_MODIFIERS = {
   r_double_all:   { title: "Double Payout",         desc: "Roulette: All wins are doubled. One bet max.",                        r_payout_mult: 2.0, r_max_bets: 1 },
   r_hot_numbers:  { title: "Hot Numbers",           desc: "Roulette: Straight number bets pay 50:1",             r_number_pay: 50 },
   r_hot_zero:     { title: "Hot Zero",              desc: "Roulette: Zero is 10x more likely to hit",                      r_zero_boost: 10 },
-  r_color_double: { title: "Color Bonus",           desc: "Roulette: Red/Black bets pay double. One bet max.",   r_color_double: true, r_max_bets: 1 },
+  r_color_double: { title: "Color Bonus",           desc: "Roulette: Red and Black bets pay double. One bet max.",   r_color_double: true, r_max_bets: 1 },
   r_multi_bet:    { title: "Multi Bet",             desc: "Roulette: Place up to 10 bets",                        r_max_bets: 10 },
+  r_group_1_12:  { title: "Dozen I",              desc: "Roulette: Winning number will be from 1-12.",   r_force_group: '1_12',  r_max_bets: 3 },
+  r_group_13_24: { title: "Dozen II",             desc: "Roulette: Winning number will be from 13-24.",  r_force_group: '13_24', r_max_bets: 3 },
+  r_group_25_36: { title: "Dozen III",            desc: "Roulette: Winning number will be from 25-36.",  r_force_group: '25_36', r_max_bets: 3 },
+  r_group_1_18:  { title: "Low Numbers",          desc: "Roulette: Winning number will be from 1-18.",     r_force_group: '1_18',  r_max_bets: 3 },
+  r_group_19_36: { title: "High Numbers",         desc: "Roulette: Winning number will be from 19-36.",   r_force_group: '19_36', r_max_bets: 3 },
 };
 
 /**
@@ -71,6 +76,11 @@ const CYCLE_ORDER = [
   'r_hot_zero',       // Day 14
   'uth_double_play',  // Day 15
   'all_in_or_skip',   // Day 16
+  'r_group_1_12',    // Day 17
+  'r_group_13_24',   // Day 18
+  'r_group_25_36',   // Day 19
+  'r_group_1_18',    // Day 20
+  'r_group_19_36',   // Day 21
 ];
 
 /**

@@ -450,8 +450,8 @@ body {
   border: 2px solid var(--ink);
   box-shadow: var(--raised-sm);
 }
-.pname { font-size: 1.35rem; color: var(--ink); }
-.ppay  { font-size: 1rem; color: var(--gold); text-align: right; font-family: var(--btn-f); }
+.pname { font-size: 1.65rem; color: var(--ink); }
+.ppay  { font-size: 1.5rem; color: var(--gold-lo); font-weight: 700; text-align: right; font-family: var(--btn-f); }
 
 /* ── Roulette ───────────────────────────────────────────── */
 .r-board-wrap { overflow-x: auto; margin: 0 -10px; padding: 0 10px 4px; -webkit-overflow-scrolling: touch; }
@@ -497,8 +497,15 @@ body {
 .rout-r { box-shadow: var(--raised), inset 4px 0 0 #a32f24; padding-left: 5px; }
 .rout-b { box-shadow: var(--raised), inset 4px 0 0 var(--ink); padding-left: 5px; }
 .r-boost { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px var(--gold-hi); animation: r-pulse 1.4s ease-in-out infinite; }
-.rn.r-sel.r-boost, .rout.r-sel.r-boost, .r2to1.r-sel.r-boost { animation: none; }
 @keyframes r-pulse { 50% { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 3px var(--gold); } }
+.r-boost-fire { box-shadow: inset 1.5px 1.5px 0 rgba(255,200,80,0.15), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px #e05500; animation: r-pulse-fire 1.1s ease-in-out infinite; }
+@keyframes r-pulse-fire { 50% { box-shadow: inset 1.5px 1.5px 0 rgba(255,200,80,0.15), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 3px #ff8c00; } }
+.rn.r-group-win { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px #22c55e; }
+.rn.r-group-partial { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px #ca8a04; }
+.rout.r-group-win, .r2to1.r-group-win { box-shadow: var(--raised), 0 0 0 2px #22c55e; }
+.rout.r-group-partial, .r2to1.r-group-partial { box-shadow: var(--raised), 0 0 0 2px #ca8a04; }
+.r-group-lose { opacity: 0.42; }
+.r-group-banned { opacity: 0.22; cursor: not-allowed; pointer-events: none; }
 
 .r-chip {
   position: absolute; top: -6px; right: -6px;
@@ -514,7 +521,7 @@ body {
 }
 .r-chip-sel { background: rgba(196,147,58,0.25); border: 2px dashed var(--gold); }
 .r-pay-lbl {
-  position: absolute; bottom: 1px; left: 0; right: 0;
+  position: absolute; bottom: -22px; left: 0; right: 0;
   font-size: 0.75rem; font-weight: 700; color: var(--gold-hi);
   text-align: center; line-height: 1; pointer-events: none;
 }
@@ -642,8 +649,8 @@ body {
   .panel { padding: 10px; min-height: 480px; }
   .title-bar { font-size: 18px; }
   .mod-banner { padding: 6px 10px; gap: 8px; margin-bottom: 10px; }
-  .mod-banner-l { white-space: normal; flex-shrink: 1; }
-  .mod-banner-title { font-size: 1.3rem; }
+  .mod-banner-l { white-space: normal; flex-shrink: 0; }
+  .mod-banner-title { font-size: 1.3rem; white-space: nowrap; }
   .mod-banner-r { font-size: 1.05rem; }
   .tb-detail, .btn-detail, .dot-detail { display: none; }
   .card.lg { width: 78px; height: 110px; }
@@ -662,7 +669,7 @@ body {
   .r-board-wrap::-webkit-scrollbar { display: none; }
   .bet-row { flex-wrap: wrap; gap: 8px; }
   .bet-amt { flex: 1 1 100%; }
-  #pb-add { flex: 1 1 100%; }
+  .bet-row:has(#pb-add) .bet-amt, #pb-add { flex: 1 1 45%; }
   .ch-clear, .ch-allin { flex: 1; }
 }
 
@@ -680,4 +687,8 @@ body {
   .card.sm .csuit { font-size: 2.7rem; }
   .chbtn { width: 70px; height: 70px; }
   .chbtn > span { font-size: 1.35rem; }
+  .bet-row > .bet-amt { order: 1; }
+  .bet-row > .ch-clear { order: 2; }
+  #pb-add { order: 3; width: auto; }
+  .bet-row > .ch-allin { order: 4; }
 }

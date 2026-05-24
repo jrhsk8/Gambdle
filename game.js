@@ -92,6 +92,34 @@ const R_BETS=[
   {type:'hl',val:'high',lbl:'19-36',pay:1},  // 48
 ];
 
+// Group definitions: winning number set + which bet idx is locked out
+const R_GROUP_INFO={
+  '1_12':  {nums:new Set([1,2,3,4,5,6,7,8,9,10,11,12]),bannedIdx:40},
+  '13_24': {nums:new Set([13,14,15,16,17,18,19,20,21,22,23,24]),bannedIdx:41},
+  '25_36': {nums:new Set([25,26,27,28,29,30,31,32,33,34,35,36]),bannedIdx:42},
+  '1_18':  {nums:new Set([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]),bannedIdx:43},
+  '19_36': {nums:new Set([19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36]),bannedIdx:48},
+};
+// Returns the 1-36 numbers covered by a given R_BETS index.
+function getRBetNums(i){
+  if(i===0)return[];
+  if(i<=36)return[i];
+  return({
+    37:[3,6,9,12,15,18,21,24,27,30,33,36],
+    38:[2,5,8,11,14,17,20,23,26,29,32,35],
+    39:[1,4,7,10,13,16,19,22,25,28,31,34],
+    40:[1,2,3,4,5,6,7,8,9,10,11,12],
+    41:[13,14,15,16,17,18,19,20,21,22,23,24],
+    42:[25,26,27,28,29,30,31,32,33,34,35,36],
+    43:[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
+    44:[2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36],
+    45:[...REDS],
+    46:Array.from({length:36},(_,n)=>n+1).filter(n=>!REDS.has(n)),
+    47:[1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35],
+    48:[19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36],
+  }[i]||[]);
+}
+
 // Returns true if R_BETS[idx] wins for the given spin result.
 function evalBet(idx,result){
   const b=R_BETS[idx];
@@ -450,7 +478,20 @@ function modBannerHTML(){
 
 /** ─── ROULETTE BOARD ─── */
 function rBoard(){
-  const sel=i=>S.rPick===i?'r-sel':'';
+  const fg=getMod('r_force_group');
+  const grp=fg?R_GROUP_INFO[fg]:null;
+  const bannedIdx=grp?grp.bannedIdx:-1;
+  const sel=i=>S.rPick===i&&i!==bannedIdx?'r-sel':'';
+  const groupCls=i=>{
+    if(!grp)return'';
+    if(i===bannedIdx)return'r-group-banned';
+    const covered=getRBetNums(i);
+    if(!covered.length)return'r-group-lose';
+    const wins=covered.filter(n=>grp.nums.has(n)).length;
+    if(wins===0)return'r-group-lose';
+    if(wins===covered.length)return'r-group-win';
+    return'r-group-partial';
+  };
   const placedTotals=S.rBets.reduce((m,b)=>{m.set(b.pick,(m.get(b.pick)||0)+b.bet);return m;},new Map());
   const chipLbl=amt=>amt>=1000?Math.floor(amt/1000)+'K':String(amt);
   const chip=i=>{
@@ -462,14 +503,13 @@ function rBoard(){
     if(!rMod)return'';
     if(rMod==='all')return'r-boost';
     if(rMod==='nums'&&i<=36)return'r-boost';
-    if(rMod==='zero'&&i===0)return'r-boost';
+    if(rMod==='zero'&&i===0)return'r-boost-fire';
     if(rMod==='color'&&(i===45||i===46))return'r-boost';
     return'';
   };
   const boostLabel=i=>{
     if(!rMod)return'';
-    if(rMod==='all'){const p=R_BETS[i]?.pay;return p!=null?`${p*2}:1`:'';}
-    if(rMod==='nums'&&i<=36)return'50:1';
+    if(rMod==='zero'&&i===0)return'🔥';
     if(rMod==='color'&&(i===45||i===46))return'2:1';
     return'';
   };
@@ -477,19 +517,22 @@ function rBoard(){
   const numBtns=Array.from({length:37},(_,n)=>{
     const gc=n===0?'1':String(Math.floor((n-1)/3)+2);
     const gr=n===0?'1/4':String(n%3===0?1:n%3===2?2:3);
-    return`<button class="rn ${rCls(n)} ${sel(n)} ${boost(n)}" data-idx="${n}" style="grid-column:${gc};grid-row:${gr}" onclick="pickBet(${n})">${n}${lbl(n)}${chip(n)}</button>`;
+    const gh=groupCls(n);
+    return`<button class="rn ${rCls(n)} ${sel(n)} ${boost(n)} ${gh}" data-idx="${n}" style="grid-column:${gc};grid-row:${gr}" onclick="pickBet(${n})">${n}${lbl(n)}${chip(n)}</button>`;
   }).join('');
   const col2to1=[0,1,2].map(r=>{
-    const idx=37+r;
-    return`<button class="r2to1 ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:14;grid-row:${r+1}" onclick="pickBet(${idx})">2:1${lbl(idx)}${chip(idx)}</button>`;
+    const idx=37+r;const gh=groupCls(idx);
+    return`<button class="r2to1 ${sel(idx)} ${boost(idx)} ${gh}" data-idx="${idx}" style="grid-column:14;grid-row:${r+1}" onclick="pickBet(${idx})" ${gh==='r-group-banned'?'disabled':''}>2:1${lbl(idx)}${chip(idx)}</button>`;
   }).join('');
-  const dozBtns=[[40,'2/6'],[41,'6/10'],[42,'10/14']].map(([idx,gc])=>
-    `<button class="rout ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})">${R_BETS[idx].lbl}${lbl(idx)}${chip(idx)}</button>`
-  ).join('');
+  const dozBtns=[[40,'2/6'],[41,'6/10'],[42,'10/14']].map(([idx,gc])=>{
+    const gh=groupCls(idx);
+    return`<button class="rout ${sel(idx)} ${boost(idx)} ${gh}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})" ${gh==='r-group-banned'?'disabled':''}>${R_BETS[idx].lbl}${lbl(idx)}${chip(idx)}</button>`;
+  }).join('');
   const outData=[[43,'2/4',''],[44,'4/6',''],[45,'6/8','rout-r'],[46,'8/10','rout-b'],[47,'10/12',''],[48,'12/14','']];
-  const outBtns=outData.map(([idx,gc,ex])=>
-    `<button class="rout ${ex} ${sel(idx)} ${boost(idx)}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})">${R_BETS[idx].lbl}${lbl(idx)}${chip(idx)}</button>`
-  ).join('');
+  const outBtns=outData.map(([idx,gc,ex])=>{
+    const gh=groupCls(idx);
+    return`<button class="rout ${ex} ${sel(idx)} ${boost(idx)} ${gh}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})" ${gh==='r-group-banned'?'disabled':''}>${R_BETS[idx].lbl}${lbl(idx)}${chip(idx)}</button>`;
+  }).join('');
   return`<div class="rboard">${numBtns}${col2to1}</div>
     <div class="rboard-sub">${dozBtns}</div>
     <div class="rboard-sub">${outBtns}</div>`;
@@ -685,12 +728,16 @@ function renderIntroGameRows() {
 
 function bjDealerHTML(){
   const dv=hVal(S.bjDealer);
+  const valHTML = S.bjDealerReveal
+    ? `<div class="hand-val ${dv>21?'bust':''}">${hValDisplay(S.bjDealer)}${dv>21?' BUST':''}</div>`
+    : `<div class="hand-val" style="visibility:hidden">&nbsp;</div>`;
   return S.bjDealerReveal
     ?`<div class="sec">Dealer${dv>21?' · BUST':''}</div>
       <div class="hand">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjDealerAnimFrom)*0.85+0.1:0,n);}).join('')}</div>
-      <div class="hand-val ${dv>21?'bust':''}">${hValDisplay(S.bjDealer)}${dv>21?' BUST':''}</div>`
+      ${valHTML}`
     :`<div class="sec">Dealer Shows${getMod('peek')&&S.peekUsed?' · <span style="color:var(--gold-hi);font-size:.7rem">👁 Peeked</span>':''}</div>
-      <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${getMod('peek')&&S.peekUsed?cardHTML(S.bjDealer[1],'lg','box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px',0,false):cardHTML('back','lg')}</div>`;
+      <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${getMod('peek')&&S.peekUsed?cardHTML(S.bjDealer[1],'lg','box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px',0,false):cardHTML('back','lg')}</div>
+      ${valHTML}`;
 }
 function bjActionBtns(bust,done21,can2,canSplit){
   return`<div class="divider"></div>
@@ -1227,10 +1274,13 @@ function screenRouletteSpinning(){
 }
 
 function screenRouletteBet(){
-  const pb=S.rPick!==null?R_BETS[S.rPick]:null;
   const maxBets=getMod('r_max_bets')||5;
   const aios=getMod('all_in_or_skip');
-  const board=`<div class="r-board-wrap"><div style="min-width:380px">${rBoard()}</div></div>`;
+  const fg=getMod('r_force_group');
+  if(fg&&R_GROUP_INFO[fg]&&S.rPick===R_GROUP_INFO[fg].bannedIdx){S.rPick=null;S.rBet=0;}
+  const pb=S.rPick!==null?R_BETS[S.rPick]:null;
+  const boardPad=getMod('r_color_double')||getMod('r_payout_mult')?'padding-bottom:28px':'';
+  const board=`<div class="r-board-wrap" ${boardPad?`style="${boardPad}"`:''}><div style="min-width:380px">${rBoard()}</div></div>`;
   const betInfo=`<div id="r-bet-info"><div class="irow" ${pb?'':'style="visibility:hidden"'}><span class="ik">Bet on: <b style="color:var(--ink)">${pb?(pb.type==='num'?'Number '+pb.lbl:pb.lbl):'—'}</b></span><span class="iv">${pb?pb.pay+':1 payout':'—'}</span></div></div>`;
 
   if(aios&&S.rBets.length===0){
@@ -1250,33 +1300,20 @@ function screenRouletteBet(){
     </div>`;
   }
 
-  if(maxBets===1){
-    return `${hdr('Roulette · 1 Spin')}
-    <div class="panel">
-      ${gameDots([], 0, 'bet', 2)}
-      <div class="divider"></div>
-      ${board}
-      <button id="db" class="btn-gold" style="margin:12px 0" onclick="rSpin()" ${(!pb||S.rBet===0)?'disabled':''}>Spin the Wheel 🎡</button>
-      <div class="divider"></div>
-      ${betInfo}
-      <div class="sec">Place Your Bet</div>
-      ${chipSel(S.chips,S.rBet)}
-    </div>`;
-  }
-
-  // Multi-bet mode
   const canAdd=S.rBets.length<maxBets&&pb&&S.rBet>0;
   const canSpin=S.rBets.length>0;
-  return `${hdr(`Roulette · Up to ${maxBets} Bets`)}
+  const hdrTitle=maxBets===1?'Roulette · 1 Spin':`Roulette · Up to ${maxBets} Bets`;
+  const secLabel=maxBets===1?'Place Your Bet':'Place Your Bets';
+  return `${hdr(hdrTitle)}
   <div class="panel">
     ${gameDots([], 0, 'bet', 2)}
     <div class="divider"></div>
     ${board}
     <button id="db" class="btn-gold" style="margin:10px 0" onclick="rSpin()" ${!canSpin?'disabled':''}>Spin the Wheel 🎡</button>
     <div class="divider"></div>
+    <div class="sec">${secLabel}</div>
     ${betInfo}
-    <div class="sec">Place Your Bets</div>
-    ${chipSel(S.chips,S.rBet,null,`<button id="pb-add" class="ch-clear" onclick="rAddBet()" ${!canAdd?'disabled':''}>Place Bet (${S.rBets.length}/${maxBets})</button>`)}
+    ${chipSel(S.chips,S.rBet,null,`<button id="pb-add" class="btn-gold" onclick="rAddBet()" ${!canAdd?'disabled':''}>Place Bet (${S.rBets.length}/${maxBets})</button>`)}
     <div id="r-placed">${rPlacedInner(S.rBets,maxBets)}</div>
   </div>`;
 }
@@ -1429,9 +1466,9 @@ function devReset() {
 }
 
 function devApplyMod(k) {
-  localStorage.removeItem(getStateKey());
-  localStorage.setItem('gambdle_forced_mod', k);
-  location.reload();
+  S.forcedMod = k;
+  saveState();
+  render();
 }
 
 function toggleTestSeed() {
@@ -1977,6 +2014,16 @@ function uthNext(){
  */
 
 function pickBet(i){
+  const _fg=getMod('r_force_group');
+  if(_fg&&R_GROUP_INFO[_fg]&&i===R_GROUP_INFO[_fg].bannedIdx)return;
+  if(S.rPick===i){
+    S.rPick=null;
+    document.querySelectorAll('[data-idx]').forEach(b=>b.classList.remove('r-sel'));
+    document.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
+    const info=document.getElementById('r-bet-info');
+    if(info){const irow=info.querySelector('.irow');if(irow)irow.style.visibility='hidden';}
+    patchBetUI();saveState();return;
+  }
   S.rPick=i;
   const info = document.getElementById('r-bet-info');
   if(!info){ render(); return; }
@@ -2075,15 +2122,11 @@ function rAllIn(){
 }
 /** Initiates the Roulette spin animation. */
 function rSpin(){
-  const maxBets=getMod('r_max_bets')||5;
-  if(maxBets===1&&S.rBets.length===0){
-    if(S.rPick===null||!S.rBet)return;
-    S.chips-=S.rBet;
-    S.rBets=[{pick:S.rPick,bet:S.rBet}];
-  }
   if(S.rBets.length===0)return;
   const zb=getMod('r_zero_boost');
+  const fg=getMod('r_force_group');
   if(G.rSpinOverride!=null){S.rSpin=G.rSpinOverride;}
+  else if(fg&&R_GROUP_INFO[fg]){const ns=[...R_GROUP_INFO[fg].nums];S.rSpin=ns[Math.floor(Math.random()*ns.length)];}
   else if(zb){const r=Math.floor(Math.random()*(36+zb));S.rSpin=r<zb?0:r-zb+1;}
   else{S.rSpin=Math.floor(Math.random()*37);}
   S.rPhase='spinning';
@@ -2148,8 +2191,7 @@ function patchBetUI() {
   const db=document.getElementById('db');
   if(db){
     const maxBets=getMod('r_max_bets')||5;
-    const rDisabled=maxBets>1?S.rBets.length===0:(S.rPick===null||!isBetValid);
-    db.disabled=(k==='rBet'?rDisabled:(bet===0||!isBetValid));
+    db.disabled=(k==='rBet'?S.rBets.length===0:(bet===0||!isBetValid));
     const pba=document.getElementById('pb-add');
     if(pba)pba.disabled=!(S.rBets.length<maxBets&&S.rPick!==null&&bet>0);
   }
