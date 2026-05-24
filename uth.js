@@ -458,7 +458,8 @@ function screenUTH(){
   };
 
   if(ph==='preflop'){
-    const canR4=S.chips>=S.uthAnte*2;
+    const r4Cost=(S.uthAnte/2)*4, r3Cost=(S.uthAnte/2)*3;
+    const canR4=S.chips>=r4Cost, canR3=S.chips>=r3Cost;
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
@@ -472,7 +473,8 @@ function screenUTH(){
       ${betChips()}
       <div id="uth-actions-ui">
         <div id="uth-action-btns" class="act-btns">
-          <button class="act-btn" onclick="uthRaise(4)" ${canR4?'':'disabled'}>Raise 4× (${fmt(S.uthAnte*2)})</button>
+          <button class="act-btn" onclick="uthRaise(4)" ${canR4?'':'disabled'}>Raise 4× (${fmt(r4Cost)})</button>
+          <button class="act-btn" onclick="uthRaise(3)" ${canR3?'':'disabled'}>Raise 3× (${fmt(r3Cost)})</button>
           <button class="act-btn" onclick="uthCheck()">Check</button>
         </div>
       </div>
