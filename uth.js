@@ -423,7 +423,7 @@ function screenUTH(){
     </div>`;
   }
 
-  const commRow=()=>`<div id="uth-community-container" style="text-align:center;margin-bottom:8px">
+  const commRow=()=>`<div id="uth-community-container" style="text-align:center">
     <div class="sec">Community Cards</div>
     <div id="uth-community-hand" class="hand">${[0,1,2,3,4].map(i=>{
       if(i<S.uthRevealComm){
@@ -434,12 +434,12 @@ function screenUTH(){
     }).join('')}</div>
   </div>`;
 
-  const playerRow=(anim=false)=>`<div style="text-align:center;margin-bottom:8px">
+  const playerRow=(anim=false)=>`<div style="text-align:center">
     <div class="sec">Your Hand</div>
     <div class="hand">${S.uthHole.map((c,i)=>cardHTML(c,'md','',anim?0.05+i*0.2:0,anim)).join('')}</div>
   </div>`;
 
-  const dealerRow=(reveal=false)=>`<div id="uth-dealer-container" style="text-align:center;margin-bottom:8px">
+  const dealerRow=(reveal=false)=>`<div id="uth-dealer-container" style="text-align:center">
     <div id="uth-dealer-sec" class="sec">${reveal?'Dealer':getMod('peek')&&S.peekUsed?'Dealer · <span style="color:var(--gold-hi);font-size:.7rem">👁 Peeked</span>':'Dealer (Face Down)'}</div>
     <div id="uth-dealer-hand" class="hand">${reveal
       ?S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.9+0.1)).join('')

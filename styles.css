@@ -668,7 +668,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
 /* Past performance chart */
 .chart-wrap {
-  display: flex; align-items: flex-end; gap: 8px;
+  display: flex; align-items: flex-end; justify-content: center; gap: 8px;
   height: 70px; padding: 0 8px;
   border-bottom: 1px solid var(--ink);
   margin: 6px 4px 28px;
@@ -755,40 +755,78 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* ── Mobile / small screen ──────────────────────────────── */
 @media (max-width: 480px) {
   body { font-size: 24px; }
-  .app { padding: 8px 8px 30px; }
-  .panel { padding: 10px; min-height: 480px; }
+  /* Reduce outer chrome — the 30px bottom padding was the biggest offender */
+  .app { padding: 5px 5px 5px; }
+  .panel { padding: 8px; min-height: 0; gap: 6px; }
+  .divider { margin: 2px 0; }
   .title-bar { font-size: 18px; }
-  .mod-banner { padding: 6px 10px; gap: 4px; margin-bottom: 10px; flex-direction: column; align-items: flex-start; }
-  .mod-banner-l { white-space: normal; flex-shrink: 0; }
-  .mod-banner-title { font-size: 1.3rem; white-space: nowrap; }
+  .mod-banner { padding: 6px 10px; gap: 2px; margin-bottom: 6px; flex-direction: column; align-items: stretch; }
+  .mod-banner-l { display: flex; flex-direction: row; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; }
+  .mod-banner-label { font-size: 0.85rem; letter-spacing: 0.08em; flex-shrink: 0; }
+  .mod-banner-title { font-size: 1.25rem; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .mod-banner-r { font-size: 1.05rem; text-align: left; text-wrap: balance; }
   .tb-detail, .btn-detail, .dot-detail { display: none; }
   .sb-prefix { display: none; }
-  .card.lg { width: 78px; height: 110px; }
-  .card.md { width: 68px; height: 96px; }
-  .card.sm { width: 54px; height: 76px; }
-  .card.lg .csuit { font-size: 2.2rem; }
-  .card.md .csuit { font-size: 1.8rem; }
-  .card.sm .csuit { font-size: 1.4rem; }
+  /* Section labels */
+  .sec { font-size: 1.2rem; margin-bottom: 3px; }
+  /* Progress dots */
+  .dots-row { margin: 0; gap: 5px; }
+  .hdot { padding: 2px 6px; font-size: 1.2rem; }
+  /* Info rows */
+  .ik { font-size: 1.2rem; }
+  .iv { font-size: 1.15rem; }
+  .irow { padding: 4px 10px; }
+  /* Buttons */
+  .btn-gold { padding: 10px 12px; font-size: 1.2rem; }
+  .btn-gold.btn-lg { padding: 14px 16px; font-size: 1.5rem; }
+  /* Hand value under cards */
+  .hand-val { font-size: 2rem; margin-top: 4px; }
+  /* Intro logo */
+  .logo { font-size: 3.6rem; }
+  .logo-sub { font-size: 1.2rem; margin-top: 4px; }
+  /* Cards — modestly smaller to reclaim vertical space */
+  .card.lg { width: 72px; height: 102px; }
+  .card.md { width: 62px; height: 88px; }
+  .card.sm { width: 50px; height: 70px; }
+  .card.lg .csuit { font-size: 2.0rem; }
+  .card.md .csuit { font-size: 1.6rem; }
+  .card.sm .csuit { font-size: 1.25rem; }
+  /* Roulette board — reduce row heights; horizontal scroll is acceptable */
   .rboard, .rboard-sub { grid-template-columns: 22px repeat(12, 1fr) 32px; }
   .r2to1, .rout { font-size: 0.95rem; }
-  .rboard { grid-template-rows: 30px 30px 30px; }
+  .rboard { grid-template-rows: 28px 28px 28px; }
+  .rboard-sub { grid-auto-rows: 24px; }
   .rn { font-size: 0.9rem; }
-  .chip-row { flex-wrap: nowrap; gap: 6px; }
-  .chbtn { width: 48px; height: 48px; }
-  .ch-1000 { display: none; }
-  .r-board-wrap { scrollbar-width: none; -ms-overflow-style: none; }
+  .r-board-wrap { margin: 0 -8px; padding: 0 8px 4px; scrollbar-width: none; -ms-overflow-style: none; }
   .r-board-wrap::-webkit-scrollbar { display: none; }
+  /* Chip selector */
+  .chip-row { flex-wrap: nowrap; gap: 6px; }
+  .chbtn { width: 44px; height: 44px; }
+  .ch-1000 { display: none; }
+  /* Bet row */
   .bet-row { flex-wrap: wrap; gap: 8px; }
   .bet-amt { flex: 1 1 100%; }
   .bet-row:has(#pb-add) .bet-amt, #pb-add { flex: 1 1 45%; }
   .ch-clear, .ch-allin { flex: 1; }
-  .gm-row { grid-template-columns: 22px 1fr; gap: 8px; padding: 6px 10px; }
+  /* Intro game manifest */
+  .gm-row { grid-template-columns: 22px 1fr; gap: 8px; padding: 5px 10px; }
   .rnd-ic { font-size: 1.1rem; }
   .rnd-nm { font-size: 1.3rem; }
   .rnd-dc { font-size: 0.85rem; white-space: nowrap; margin-top: 1px; }
-  body.deck-emoji .ct-s::after { font-size: 0.72em; }
+  /* Action buttons */
+  .act-btns { gap: 6px; }
+  .act-btn { font-size: 1.1rem; padding: 12px 5px; white-space: normal; }
+  /* Results screen */
+  .big-chips { font-size: 3.2rem !important; line-height: 1; }
+  .chart-wrap { height: 45px; margin: 4px 4px 20px; }
+  .share-box { padding: 8px 10px; font-size: 1.1rem; line-height: 1.4; }
+  /* Split hands */
+  .bj-split-lbl { font-size: 1.6rem; }
+  .bj-split-val { font-size: 2rem; }
+  /* UTH */
   .uth-summary { font-size: 0.9rem; }
+  /* Emoji deck */
+  body.deck-emoji .ct-s::after { font-size: 0.72em; }
 }
 
 /* ── Desktop / large screen ─────────────────────────────── */
