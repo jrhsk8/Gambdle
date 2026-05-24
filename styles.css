@@ -641,6 +641,10 @@ body {
   .app { padding: 8px 8px 30px; }
   .panel { padding: 10px; min-height: 480px; }
   .title-bar { font-size: 18px; }
+  .mod-banner { padding: 6px 10px; gap: 8px; margin-bottom: 10px; }
+  .mod-banner-l { white-space: normal; flex-shrink: 1; }
+  .mod-banner-title { font-size: 1.3rem; }
+  .mod-banner-r { font-size: 1.05rem; }
   .tb-detail, .btn-detail, .dot-detail { display: none; }
   .card.lg { width: 78px; height: 110px; }
   .card.md { width: 68px; height: 96px; }
@@ -656,6 +660,10 @@ body {
   .ch-1000 { display: none; }
   .r-board-wrap { scrollbar-width: none; -ms-overflow-style: none; }
   .r-board-wrap::-webkit-scrollbar { display: none; }
+  .bet-row { flex-wrap: wrap; gap: 8px; }
+  .bet-amt { flex: 1 1 100%; }
+  #pb-add { flex: 1 1 100%; }
+  .ch-clear, .ch-allin { flex: 1; }
 }
 
 /* ── Desktop / large screen ─────────────────────────────── */

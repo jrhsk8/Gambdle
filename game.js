@@ -645,12 +645,11 @@ function startWheelAnim(){
  * Individual render functions for each game phase.
  */
 function screenIntro(){
-  const dayN = String(S.day).padStart(3,'0');
   return `${hdr('New Game')}
   <div class="panel">
     <div style="text-align:center;padding:14px 4px 6px">
       <div class="logo"><span class="logo-spade">♠</span>GAMBDLE</div>
-      <div class="logo-sub">Daily No. ${dayN}</div>
+      <div class="logo-sub">Daily Game #${S.day}</div>
     </div>
     <div class="divider"></div>
     <div style="text-align:center;padding:4px 4px">
