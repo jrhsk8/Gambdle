@@ -28,30 +28,30 @@
 
 const PRESET_MODIFIERS = {
   // Blackjack
-  double_pay:      { title: "Blackjack Bonus",      desc: "Blackjacks pay 3:1 instead of 3:2",              bj_payout: 3.0 },
-  easy_dealer:     { title: "Easy Dealer",          desc: "Dealer stands on 15 instead of 17",        bj_dealer_stand: 15 },
-  bj_double_bonus: { title: "Quadruple Down",       desc: "Successful double downs pay 2x profit",    bj_double_bonus: true },
-  high_stakes:     { title: "High Stakes",          desc: "Minimum chips requirement is 100",                 min_chips: 100 },
-  peek:            { title: "Dealer Peek",          desc: "One-time peek at any dealer card",                 peek: true },
-  comeback:        { title: "Comeback",             desc: "Wins pay 2x if you are below 1000 chips",          comeback: true },
+  double_pay:      { type: 'bj',      title: "Blackjack Bonus",      desc: "Blackjacks pay 3:1 instead of 3:2",              bj_payout: 3.0 },
+  easy_dealer:     { type: 'bj',      title: "Easy Dealer",          desc: "Blackjack: Dealer stands on 15 instead of 17",        bj_dealer_stand: 15 },
+  bj_double_bonus: { type: 'bj',      title: "Quadruple Down",       desc: "Blackjack: Successful double downs pay 2x profit",    bj_double_bonus: true },
+  high_stakes:     { type: 'bj',      title: "High Stakes",          desc: "Blackjack: Minimum chips requirement is 100",                 min_chips: 100 },
   // UTH
-  uth_blind_boost:    { title: "Big Blind",         desc: "All Hold'em blind payouts are doubled",               uth_blind_boost: 2.0 },
-  uth_blind_extended: { title: "Loose Blind",       desc: "Hold'em blind pays on two pair and up",               uth_blind_extended: true },
-  uth_double_play:    { title: "Raise the Roof",    desc: "Hold'em Raises Pay Double",                           uth_double_play: true },
-  uth_hard_qualify:   { title: "Tough Table",       desc: "Hold'em: Dealer needs two pair or better to win",     uth_hard_qualify: true },
+  uth_blind_boost:    { type: 'uth',  title: "Big Blind",            desc: "Hold'em: Blind payouts are doubled",               uth_blind_boost: 2.0 },
+  uth_blind_extended: { type: 'uth',  title: "Loose Blind",          desc: "Hold'em: Blind pays on two pair and up",               uth_blind_extended: true },
+  uth_double_play:    { type: 'uth',  title: "Raise the Roof",       desc: "Hold'em: Raises pay double",                           uth_double_play: true },
+  uth_hard_qualify:   { type: 'uth',  title: "Tough Table",          desc: "Hold'em: Dealer needs two pair or better to win",     uth_hard_qualify: true },
   // Cross-game
-  all_in_or_skip: { title: "Martingale",            desc: "All wins are doubled. You can only go all in.",       all_in_or_skip: true },
+  peek:            { type: 'cross',   title: "Dealer Peek",          desc: "One-time peek at any dealer card",                 peek: true },
+  comeback:        { type: 'cross',   title: "Comeback",             desc: "Wins pay 2x if you are below 1000 chips",          comeback: true },
+  all_in_or_skip:  { type: 'cross',   title: "Martingale",           desc: "All wins are doubled. You can only go all in.",    all_in_or_skip: true },
   // Roulette
-  r_double_all:   { title: "Double Payout",         desc: "Roulette: All wins are doubled. One bet max.",                        r_payout_mult: 2.0, r_max_bets: 1 },
-  r_hot_numbers:  { title: "Hot Numbers",           desc: "Roulette: Straight number bets pay 50:1",             r_number_pay: 50 },
-  r_hot_zero:     { title: "Hot Zero",              desc: "Roulette: Zero is 10x more likely to hit",                      r_zero_boost: 10 },
-  r_color_double: { title: "Color Bonus",           desc: "Roulette: Red and Black bets pay double. One bet max.",   r_color_double: true, r_max_bets: 1 },
-  r_multi_bet:    { title: "Multi Bet",             desc: "Roulette: Place up to 10 bets",                        r_max_bets: 10 },
-  r_group_1_12:  { title: "Dozen I",              desc: "Roulette: Winning number will be from 1-12.",   r_force_group: '1_12',  r_max_bets: 3 },
-  r_group_13_24: { title: "Dozen II",             desc: "Roulette: Winning number will be from 13-24.",  r_force_group: '13_24', r_max_bets: 3 },
-  r_group_25_36: { title: "Dozen III",            desc: "Roulette: Winning number will be from 25-36.",  r_force_group: '25_36', r_max_bets: 3 },
-  r_group_1_18:  { title: "Low Numbers",          desc: "Roulette: Winning number will be from 1-18.",     r_force_group: '1_18',  r_max_bets: 3 },
-  r_group_19_36: { title: "High Numbers",         desc: "Roulette: Winning number will be from 19-36.",   r_force_group: '19_36', r_max_bets: 3 },
+  r_double_all:   { type: 'roulette', title: "Double Payout",        desc: "Roulette: All wins are doubled. One bet max.",                        r_payout_mult: 2.0, r_max_bets: 1 },
+  r_hot_numbers:  { type: 'roulette', title: "Hot Numbers",          desc: "Roulette: Straight number bets pay 50:1",             r_number_pay: 50 },
+  r_hot_zero:     { type: 'roulette', title: "Hot Zero",             desc: "Roulette: Zero is 10x more likely to hit",                      r_zero_boost: 10 },
+  r_color_double: { type: 'roulette', title: "Color Bonus",          desc: "Roulette: Red and Black bets pay double. One bet max.",   r_color_double: true, r_max_bets: 1 },
+  r_multi_bet:    { type: 'roulette', title: "Multi Bet",            desc: "Roulette: Place up to 10 bets",                        r_max_bets: 10 },
+  r_group_1_12:   { type: 'roulette', title: "Dozen I",              desc: "Roulette: Winning number will be from 1-12.",   r_force_group: '1_12',  r_max_bets: 3 },
+  r_group_13_24:  { type: 'roulette', title: "Dozen II",             desc: "Roulette: Winning number will be from 13-24.",  r_force_group: '13_24', r_max_bets: 3 },
+  r_group_25_36:  { type: 'roulette', title: "Dozen III",            desc: "Roulette: Winning number will be from 25-36.",  r_force_group: '25_36', r_max_bets: 3 },
+  r_group_1_18:   { type: 'roulette', title: "Low Numbers",          desc: "Roulette: Winning number will be from 1-18.",   r_force_group: '1_18',  r_max_bets: 3 },
+  r_group_19_36:  { type: 'roulette', title: "High Numbers",         desc: "Roulette: Winning number will be from 19-36.",  r_force_group: '19_36', r_max_bets: 3 },
 };
 
 /**

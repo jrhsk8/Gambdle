@@ -287,6 +287,17 @@ body {
 
 .card.red, .card.red .ct-r, .card.red .ct-s, .card.red .csuit { color: var(--red); }
 .card.blk, .card.blk .ct-r, .card.blk .ct-s, .card.blk .csuit { color: var(--ink); }
+body.four-color .card.suit-d .ct-r,
+body.four-color .card.suit-d .ct-s,
+body.four-color .card.suit-d .csuit { color: #1a6fcc; }
+body.four-color .card.suit-c .ct-r,
+body.four-color .card.suit-c .ct-s,
+body.four-color .card.suit-c .csuit { color: #1a7a3a; }
+/* Suit-colored spans (used in help text, responds to four-color pref) */
+.sym-s, .sym-c { color: var(--ink); }
+.sym-h, .sym-d { color: var(--red); }
+body.four-color .sym-d { color: #1a6fcc; }
+body.four-color .sym-c { color: #1a7a3a; }
 
 /* Card back */
 .card.back {
@@ -528,7 +539,7 @@ body {
 
 .wheel-outer { display: flex; flex-direction: column; align-items: center; margin: 6px 0 14px; }
 .wheel-pointer { width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 22px solid var(--gold); margin-bottom: -3px; position: relative; z-index: 2; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.5)); }
-#rwheel { display: block; border-radius: 50%; box-shadow: 0 0 40px rgba(0,0,0,0.6), 0 0 0 4px var(--gold-lo); }
+#rwheel { display: block; border-radius: 50%; box-shadow: 0 0 0 2px var(--gold-hi), 0 0 0 5px var(--gold-lo), 0 0 40px rgba(0,0,0,0.7); }
 .r-res-num {
   width: 96px; height: 96px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;

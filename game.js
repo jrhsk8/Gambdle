@@ -384,10 +384,11 @@ const fmt=n=>n.toLocaleString();
 const sign=n=>n>=0?'+'+fmt(n):fmt(n);
 const col=n=>n>0?'#9be07a':n<0?'#e03535':'#cabd9a';
 
+const SUIT_CLS={'♠':'suit-s','♥':'suit-h','♦':'suit-d','♣':'suit-c'};
 /** Generates the HTML for a card, optionally animating its entrance. */
 function cardHTML(c,sz='md',ex='',dl=0,anim=true){
   if(c==='back')return`<div class="card ${sz} back" style="${ex}"></div>`;
-  const cl=RED_S.has(c.s)?'red':'blk';
+  const cl=(RED_S.has(c.s)?'red':'blk')+' '+(SUIT_CLS[c.s]||'suit-s');
   const ds=anim&&dl?`animation-delay:${dl}s`:'';
   return`<div class="card ${sz} ${cl}${anim?' adeal':''}" style="${ds}${ex?';'+ex:''}">
     <div class="ctl"><span class="ct-r" data-r="${c.r}">${c.r}</span><span class="ct-s">${c.s}</span></div>
@@ -426,13 +427,13 @@ function gameDots(history, hand, phase, count = 3){
   const isR = count <= 2;
   return`<div class="dots-row">${Array.from({length:count},(_,i)=>{
     const h=history[i];
-    const label = isR ? (i === 0 ? 'Spin 1' : 'Final Results') : `Hand ${i+1}`;
+    const label = isR ? (i === 0 ? 'Last Spin' : 'Final Results') : `Hand ${i+1}`;
     if(h && !h.skipped){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${label}<span class="dot-detail"> ${sign(d)}</span></div>`;}
     const isCur=i===hand;
     const cls=isCur?'cur':i<hand?'push':'pend';
     let txt = label;
     if(isCur && phase==='result') txt += `<span class="dot-detail"> · Next</span>`;
-    else if(isCur && phase==='bet') txt += `<span class="dot-detail"> Place bet</span>`;
+    else if(isCur && phase==='bet') txt += `<span class="dot-detail"> · Place bet</span>`;
     else if(isCur) txt += `<span class="dot-detail"> · Playing</span>`;
     return`<div class="hdot ${cls}">${txt}</div>`;
   }).join('')}</div>`;
@@ -539,10 +540,11 @@ function rBoard(){
 }
 
 /** ─── AUDIO SYSTEM ─── */
-function playMp3(src,ms=0){if(ms){setTimeout(()=>playMp3(src),ms);return;}new Audio(src).play().catch(()=>{});}
+function playMp3(src,ms=0){if(getPref('mute'))return;if(ms){setTimeout(()=>playMp3(src),ms);return;}new Audio(src).play().catch(()=>{});}
 function sndCard(ms=0){playMp3(`sounds/card${Math.ceil(Math.random()*3)}.mp3`,ms);}
 function sndChip(d){playMp3(d==='allin'?'sounds/allin.mp3':d<=25?'sounds/smallbet.mp3':'sounds/mediumbet.mp3');}
 function sndShuffle(cb){
+  if(getPref('mute')){if(cb)setTimeout(cb,0);return;}
   const a=new Audio('sounds/shuffle.mp3');
   if(cb){
     let done=false;
@@ -560,6 +562,7 @@ function getAC(){if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)
 
 /** Synthesized sound for the Roulette ball rattle. */
 function sndSpin(dur){
+  if(getPref('mute'))return;
   try{
     const c=getAC(),t0=c.currentTime+0.05;
     let t=t0;
@@ -599,24 +602,26 @@ function drawWheel(cnv,wAngle,bAngle,bR){
   const N=37,seg=2*Math.PI/N;
   ctx.clearRect(0,0,W,H);
 
-  // outer wooden rim
+  // outer rim — game gold palette
   const rimG=ctx.createRadialGradient(cx,cy,R-4,cx,cy,R+8);
-  rimG.addColorStop(0,'#8B6010');rimG.addColorStop(0.5,'#c8960a');rimG.addColorStop(1,'#5c3a08');
+  rimG.addColorStop(0,'#7a5a18');rimG.addColorStop(0.45,'#c4933a');rimG.addColorStop(1,'#3d2c0a');
   ctx.beginPath();ctx.arc(cx,cy,R+7,0,2*Math.PI);ctx.fillStyle=rimG;ctx.fill();
+  // inner rim highlight ring
+  ctx.beginPath();ctx.arc(cx,cy,R+1,0,2*Math.PI);ctx.strokeStyle='rgba(223,185,94,.45)';ctx.lineWidth=1.5;ctx.stroke();
 
   // pocket segments
   for(let i=0;i<N;i++){
     const n=WO[i],a0=wAngle+i*seg,a1=a0+seg;
     ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,R,a0,a1);ctx.closePath();
-    ctx.fillStyle=n===0?'#16a34a':REDS.has(n)?'#b91c1c':'#1c1c1c';
+    ctx.fillStyle=n===0?'#1d6e4d':REDS.has(n)?'#b91c1c':'#1a1814';
     ctx.fill();
-    ctx.strokeStyle='rgba(212,160,23,.55)';ctx.lineWidth=0.7;ctx.stroke();
+    ctx.strokeStyle='rgba(196,147,58,.6)';ctx.lineWidth=0.8;ctx.stroke();
     // number label
-    const mA=wAngle+(i+0.5)*seg,nr=R*0.72;
+    const mA=wAngle+(i+0.5)*seg,nr=R*0.83;
     ctx.save();
     ctx.translate(cx+nr*Math.cos(mA),cy+nr*Math.sin(mA));
     ctx.rotate(mA+Math.PI/2);
-    ctx.fillStyle='#fff';ctx.font=`700 ${Math.max(7,Math.floor(R*0.068))}px "Space Grotesk", "Segoe UI", sans-serif`;
+    ctx.fillStyle='#fbf5dc';ctx.font=`700 ${Math.max(7,Math.floor(R*0.120))}px "VT323", "Courier New", monospace`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(String(n),0,0);
     ctx.restore();
@@ -628,24 +633,24 @@ function drawWheel(cnv,wAngle,bAngle,bR){
     ctx.beginPath();
     ctx.moveTo(cx+R*0.22*Math.cos(a),cy+R*0.22*Math.sin(a));
     ctx.lineTo(cx+R*0.9*Math.cos(a),cy+R*0.9*Math.sin(a));
-    ctx.strokeStyle='rgba(212,160,23,.25)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.strokeStyle='rgba(196,147,58,.32)';ctx.lineWidth=2;ctx.stroke();
   }
 
-  // inner hub ring
-  ctx.beginPath();ctx.arc(cx,cy,R*0.22,0,2*Math.PI);ctx.fillStyle='#5c3a08';ctx.fill();
-  ctx.strokeStyle='#d4a017';ctx.lineWidth=3;ctx.stroke();
-  // hub center
-  ctx.beginPath();ctx.arc(cx,cy,R*0.1,0,2*Math.PI);ctx.fillStyle='#3a2206';ctx.fill();
-  ctx.strokeStyle='#d4a017';ctx.lineWidth=1.5;ctx.stroke();
+  // inner hub ring — ink base, gold border
+  ctx.beginPath();ctx.arc(cx,cy,R*0.22,0,2*Math.PI);ctx.fillStyle='#1a1814';ctx.fill();
+  ctx.strokeStyle='#c4933a';ctx.lineWidth=3;ctx.stroke();
+  // hub center dot
+  ctx.beginPath();ctx.arc(cx,cy,R*0.1,0,2*Math.PI);ctx.fillStyle='#0e0d0b';ctx.fill();
+  ctx.strokeStyle='#dfb95e';ctx.lineWidth=2;ctx.stroke();
 
   // ball shadow
   const bx=cx+bR*Math.cos(bAngle),by=cy+bR*Math.sin(bAngle);
-  ctx.beginPath();ctx.arc(bx+1.5,by+2.5,8,0,2*Math.PI);ctx.fillStyle='rgba(0,0,0,.5)';ctx.fill();
-  // ball
+  ctx.beginPath();ctx.arc(bx+1.5,by+2.5,8,0,2*Math.PI);ctx.fillStyle='rgba(0,0,0,.55)';ctx.fill();
+  // ball — cream tinted
   const bg=ctx.createRadialGradient(bx-3,by-3,1,bx,by,8);
-  bg.addColorStop(0,'#ffffff');bg.addColorStop(0.65,'#e0e0e0');bg.addColorStop(1,'#aaaaaa');
+  bg.addColorStop(0,'#fefaf0');bg.addColorStop(0.6,'#dfd5b0');bg.addColorStop(1,'#b8a878');
   ctx.beginPath();ctx.arc(bx,by,8,0,2*Math.PI);ctx.fillStyle=bg;ctx.fill();
-  ctx.strokeStyle='#999';ctx.lineWidth=1;ctx.stroke();
+  ctx.strokeStyle='#7a5a18';ctx.lineWidth=1;ctx.stroke();
 }
 
 /** Animates the wheel and ball until they reach the daily result. */
@@ -669,7 +674,7 @@ function startWheelAnim(){
   const bRevs=11;
   const bStartA=bFinalA+bRevs*2*Math.PI;
   const R=size/2-6;
-  const bRi=R*0.91,bRf=R*0.84;
+  const bRi=R*0.91,bRf=R*0.68;
 
   const DUR=4600,t0=performance.now();
   function ease(t){return 1-Math.pow(1-t,4);}
@@ -1028,7 +1033,6 @@ function screenUTH(){
     <div class="panel">
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
       <div class="divider"></div>
-      <div class="divider"></div>
       ${aios
         ?`<div class="sec">All In or Skip · Wins Pay 2×</div>
           <div style="display:flex;gap:10px;margin-top:8px">
@@ -1036,9 +1040,9 @@ function screenUTH(){
             <button class="ch-clear" style="flex:1;padding:17px" onclick="uthSkip()">Skip Hand</button>
           </div>`
         :`<div class="sec">Place Bet (Ante + Blind, split evenly)</div>
-          ${chipSel(maxAnte,S.uthAnte,[10,50,100,500,1000])}
-          <div id="uth-summary" style="text-align:center;margin:10px 0;font-size:.85rem;color:var(--shadow)">
-            Ante <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> + Blind <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> = <b style="color:var(--cream)">${fmt(S.uthAnte)}</b> chips total
+          ${chipSel(maxAnte,S.uthAnte,[10,50,100,250,500,1000])}
+          <div id="uth-summary" style="text-align:center;margin:10px 0;font-size:1.7rem;color:var(--cream)">
+            Ante <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> + Blind <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> = <b style="color:var(--gold-hi)">${fmt(S.uthAnte)}</b> chips total
           </div>
           <button id="db" class="btn-gold" style="margin-top:4px" onclick="uthDeal()" ${S.uthAnte===0?'disabled':''}>Deal →</button>`}
 
@@ -1269,7 +1273,7 @@ function screenRouletteSpinning(){
       <div class="wheel-pointer"></div>
       <canvas id="rwheel" width="300" height="300"></canvas>
     </div>
-    <div style="text-align:center;font-size:.95rem;color:var(--shadow)">${betLabel}</div>
+    <div style="text-align:center;font-size:1.8rem;color:var(--cream);margin-top:4px">${betLabel}</div>
   </div>`;
 }
 
@@ -1469,6 +1473,13 @@ function devApplyMod(k) {
   S.forcedMod = k;
   saveState();
   render();
+}
+function devSpin(){
+  S.screen='roulette';S.rPhase='bet';
+  if(S.rBets.length===0&&S.chips>=10){S.chips-=10;S.rBets=[{pick:45,bet:10}];}
+  document.querySelectorAll('.dropdown').forEach(d=>d.remove());
+  saveState();
+  if(S.rBets.length>0)rSpin();else render();
 }
 
 function toggleTestSeed() {
@@ -2200,7 +2211,7 @@ function patchBetUI() {
   
   const us=document.getElementById('uth-summary');
   if(us) {
-    us.innerHTML = `Ante <b style="color:var(--gold)">${fmt(bet/2)}</b> + Blind <b style="color:var(--gold)">${fmt(bet/2)}</b> = <b style="color:var(--cream)">${fmt(bet)}</b> chips total`;
+    us.innerHTML = `Ante <b style="color:var(--gold)">${fmt(bet/2)}</b> + Blind <b style="color:var(--gold)">${fmt(bet/2)}</b> = <b style="color:var(--gold-hi)">${fmt(bet)}</b> chips total`;
   }
 }
 
@@ -2234,12 +2245,14 @@ function doShare(){
   navigator.clipboard.writeText(buildShareText()).then(()=>toast('Copied! 🎲'));
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+const _SUIT_CLS_MAP={'♠':'sym-s','♥':'sym-h','♦':'sym-d','♣':'sym-c'};
+function suitSpans(s){return s.replace(/[♠♥♦♣]/g,m=>`<span class="${_SUIT_CLS_MAP[m]}">${m}</span>`);}
 const INFO_SECTIONS = {
   overview: {
     title: 'How to Play',
-    body: `<div><b style="color:var(--gold)">🎰 Gambdle</b> is a daily casino challenge. Start with <b style="color:var(--gold)">1,000 chips</b> and play three games back to back — Blackjack, Ultimate Texas Hold'em, and Roulette. Your final chip count is your score.</div>
+    body: `<div><b>🎰 Gambdle</b> is a daily casino challenge. Start with <b>1,000 chips</b> and play three games back to back — Blackjack, Ultimate Texas Hold'em, and Roulette. Your final chip count is your score.</div>
       <div>Everyone plays the same hands each day. A new game unlocks every day at midnight.</div>
-      <div><b style="color:var(--gold)">✨ Daily Modifier</b> — A special rule is active every day that tweaks payouts or gameplay for everyone. Check the gold banner at the top of each game screen.</div>`
+      <div><b>✨ Daily Modifier</b> — A special rule is active every day that tweaks payouts or gameplay for everyone. Check the gold banner at the top of each game screen.</div>`
   },
   bj: {
     title: '🃏 Blackjack',
@@ -2275,6 +2288,25 @@ const INFO_SECTIONS = {
       <div><b>Roulette modifiers</b> — e.g. All wins doubled · Number bets pay 50:1 · Red/Black pays 2:1 · Place up to 10 bets.</div>
       <div><b>Cross-game</b> — e.g. All In or Skip: each hand you go all-in or skip it entirely. Wins pay 2×.</div>
       <div>The modifier rotates on a fixed cycle — the same cycle repeats for everyone.</div>`
+  },
+  hands: {
+    title: '🃏 Poker Hands',
+    body: (()=>{
+      const row=(name,cards,desc)=>
+        `<span style="color:var(--ink);font-size:1.3rem">${name}</span><span style="color:var(--ink);font-size:1.2rem;text-align:right">${suitSpans(cards)}</span><span style="font-size:1.05rem;grid-column:1/-1;margin-bottom:4px;color:var(--shadow)">${desc}</span>`;
+      return `<div style="display:grid;grid-template-columns:1fr auto;gap:4px 16px;font-family:var(--btn-f)">
+        ${row('Royal Flush',   'A♠ K♠ Q♠ J♠ 10♠', 'Ace through Ten, all same suit — unbeatable.')}
+        ${row('Straight Flush','9♦ 8♦ 7♦ 6♦ 5♦',  'Five in a row, all same suit.')}
+        ${row('Four of a Kind','K♠ K♥ K♦ K♣',      'All four cards of the same rank.')}
+        ${row('Full House',    'Q♠ Q♥ Q♦ 9♣ 9♥',   'Three of a kind plus a pair.')}
+        ${row('Flush',         'A♣ J♣ 8♣ 5♣ 2♣',   'Any five cards of the same suit.')}
+        ${row('Straight',      '10♠ 9♥ 8♦ 7♣ 6♠',  'Five in a row, any suits. Ace can be low (A-2-3-4-5).')}
+        ${row('Three of a Kind','7♠ 7♥ 7♦',         'Three cards of the same rank.')}
+        ${row('Two Pair',      'J♠ J♦ 4♥ 4♣',       'Two different pairs.')}
+        ${row('One Pair',      'A♠ A♥',              'Two cards of the same rank.')}
+        ${row('High Card',     'K♠ J♥ 9♦ 6♣ 2♠',   'No matching cards — highest card wins.')}
+      </div>`;
+    })()
   }
 };
 
@@ -2287,33 +2319,49 @@ function showInfo(section) {
   el.onclick = e => { if(e.target===el) el.remove(); };
   el.innerHTML = `<div class="info-box" style="padding:18px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-family:var(--btn-f);color:var(--gold);font-size:1.35rem">${title}</div>
-      <button onclick="document.getElementById('info-modal').remove()" style="background:none;border:none;color:var(--shadow);font-size:1.4rem;cursor:pointer;padding:4px 8px;line-height:1">✕</button>
+      <div style="font-family:var(--btn-f);color:var(--ink);font-size:1.7rem">${title}</div>
+      <button onclick="document.getElementById('info-modal').remove()" style="background:none;border:none;color:var(--shadow);font-size:1.6rem;cursor:pointer;padding:4px 8px;line-height:1">✕</button>
     </div>
     <div class="divider" style="margin-bottom:14px"></div>
-    <div style="display:flex;flex-direction:column;gap:12px;font-size:.9rem;color:var(--ink);line-height:1.55">${body}</div>
+    <div style="display:flex;flex-direction:column;gap:14px;font-size:1.15rem;color:var(--ink);line-height:1.55">${body}</div>
   </div>`;
   document.body.appendChild(el);
 }
 
+function _positionSubmenu(sub, trigger) {
+  sub.style.top = trigger.getBoundingClientRect().top + 'px';
+  sub.style.left = (trigger.getBoundingClientRect().right + 2) + 'px';
+  document.body.appendChild(sub);
+  const sr = sub.getBoundingClientRect();
+  if (sr.right > window.innerWidth - 4) sub.style.left = (trigger.getBoundingClientRect().left - sr.width - 2) + 'px';
+  if (sr.bottom > window.innerHeight - 4) sub.style.top = (window.innerHeight - sr.height - 4) + 'px';
+}
+
 function showModSubmenu(trigger) {
-  document.querySelector('.dd-submenu')?.remove();
-  const rect = trigger.getBoundingClientRect();
+  document.querySelectorAll('.dd-submenu').forEach(d => d.remove());
   const sub = document.createElement('div');
-  sub.className = 'dropdown dd-submenu';
-  sub.innerHTML = Object.entries(PRESET_MODIFIERS).map(([k, m]) =>
+  sub.className = 'dropdown dd-submenu dd-sub1';
+  const cats = [
+    {key:'bj',       label:'🃏 Blackjack'},
+    {key:'uth',      label:"♠ Hold'em"},
+    {key:'cross',    label:'🔀 Cross-Game'},
+    {key:'roulette', label:'🎡 Roulette'},
+  ];
+  sub.innerHTML = cats.map(c =>
+    `<div class="dd-item" onclick="showModTypeSubmenu('${c.key}',this);event.stopPropagation()">${c.label} <span class="dd-key">►</span></div>`
+  ).join('');
+  _positionSubmenu(sub, trigger);
+}
+
+function showModTypeSubmenu(type, trigger) {
+  document.querySelector('.dd-sub2')?.remove();
+  const sub = document.createElement('div');
+  sub.className = 'dropdown dd-submenu dd-sub2';
+  const mods = Object.entries(PRESET_MODIFIERS).filter(([, m]) => m.type === type);
+  sub.innerHTML = mods.map(([k, m]) =>
     `<div class="dd-item" onclick="devApplyMod('${k}')">${m.title}</div>`
   ).join('');
-  const top = Math.min(rect.top, window.innerHeight - sub.offsetHeight - 8);
-  sub.style.top = rect.top + 'px';
-  sub.style.left = (rect.right + 2) + 'px';
-  document.body.appendChild(sub);
-  // Clamp left if it overflows viewport
-  const subRect = sub.getBoundingClientRect();
-  if (subRect.right > window.innerWidth - 4) {
-    sub.style.left = (rect.left - subRect.width - 2) + 'px';
-  }
-  setTimeout(() => document.addEventListener('click', () => sub.remove(), {once:true}), 0);
+  _positionSubmenu(sub, trigger);
 }
 
 function toggleMenu(which, trigger) {
@@ -2334,6 +2382,7 @@ function toggleMenu(which, trigger) {
       <div class="dd-item" onclick="goTo('bj');document.querySelectorAll('.dropdown').forEach(d=>d.remove())">→ Blackjack</div>
       <div class="dd-item" onclick="goTo('poker');document.querySelectorAll('.dropdown').forEach(d=>d.remove())">→ Hold'em</div>
       <div class="dd-item" onclick="goTo('roulette');document.querySelectorAll('.dropdown').forEach(d=>d.remove())">→ Roulette</div>
+      <div class="dd-item" onclick="devSpin()">🎡 Spin Wheel</div>
       <div class="dd-item" onclick="goTo('results');document.querySelectorAll('.dropdown').forEach(d=>d.remove())">→ Results</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="S.chips+=500;render();updateChipDisplay();document.querySelectorAll('.dropdown').forEach(d=>d.remove())">+ 500 chips</div>
@@ -2350,7 +2399,9 @@ function toggleMenu(which, trigger) {
     el.innerHTML = `
       <div class="dd-item dd-disabled">Gambdle #${S.day}</div>
       <div class="dd-sep"></div>
-      <div class="dd-item ${canShare?'':'dd-disabled'}" onclick="${canShare?`doShare();document.querySelector('.dropdown')?.remove()`:''}">📋 Copy &amp; Share</div>`;
+      <div class="dd-item ${canShare?'':'dd-disabled'}" onclick="${canShare?`doShare();document.querySelector('.dropdown')?.remove()`:''}">📋 Copy &amp; Share</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="showPrefsSubmenu(this);event.stopPropagation()">Preferences <span class="dd-key">►</span></div>`;
   } else {
     el.innerHTML = `
       <div class="dd-item" onclick="showInfo('overview');document.querySelector('.dropdown')?.remove()">How to Play</div>
@@ -2358,6 +2409,8 @@ function toggleMenu(which, trigger) {
       <div class="dd-item" onclick="showInfo('bj');document.querySelector('.dropdown')?.remove()">🃏 Blackjack</div>
       <div class="dd-item" onclick="showInfo('uth');document.querySelector('.dropdown')?.remove()">♠ Ultimate Hold'em</div>
       <div class="dd-item" onclick="showInfo('roulette');document.querySelector('.dropdown')?.remove()">🎡 Roulette</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="showInfo('hands');document.querySelector('.dropdown')?.remove()">🂡 Poker Hands</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showInfo('modifiers');document.querySelector('.dropdown')?.remove()">✨ Daily Modifiers</div>`;
   }
@@ -2367,9 +2420,40 @@ function toggleMenu(which, trigger) {
   el.style.left = left + 'px';
   el.style.top = rect.bottom + 'px';
   document.body.appendChild(el);
-  setTimeout(() => document.addEventListener('click', () => el.remove(), {once:true}), 0);
+  setTimeout(() => document.addEventListener('click', () => { el.remove(); document.querySelectorAll('.dd-submenu').forEach(d=>d.remove()); }, {once:true}), 0);
+}
+
+// ─── PREFERENCES ─────────────────────────────────────
+const PREFS_KEY='gambdle_prefs';
+function getPrefs(){try{return JSON.parse(localStorage.getItem(PREFS_KEY)||'{}');}catch{return{};}}
+function getPref(k){return getPrefs()[k];}
+function setPref(k,v){const p=getPrefs();p[k]=v;localStorage.setItem(PREFS_KEY,JSON.stringify(p));}
+function applyPrefs(){document.body.classList.toggle('four-color',!!getPref('four_color'));}
+
+function _prefItem(key,id,label){
+  const checked=!!getPref(key);
+  return `<div class="dd-item" onclick="togglePref('${key}');event.stopPropagation()" style="gap:12px">
+    <span>${label}</span>
+    <input type="checkbox" id="${id}" ${checked?'checked':''} onclick="togglePref('${key}');event.stopPropagation()" style="width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0">
+  </div>`;
+}
+function showPrefsSubmenu(trigger){
+  document.querySelectorAll('.dd-submenu').forEach(d=>d.remove());
+  const sub=document.createElement('div');
+  sub.className='dropdown dd-submenu dd-sub1';
+  sub.innerHTML=_prefItem('four_color','pref-4color','Four Color Deck')+
+                _prefItem('mute','pref-mute','Mute Audio');
+  _positionSubmenu(sub,trigger);
+}
+function togglePref(k){
+  setPref(k,!getPref(k));
+  applyPrefs();
+  const idMap={four_color:'pref-4color',mute:'pref-mute'};
+  const cb=document.getElementById(idMap[k]);
+  if(cb)cb.checked=!!getPref(k);
 }
 
 // ─── BOOT ────────────────────────────────────────────
 loadState();
+applyPrefs();
 render();
