@@ -30,10 +30,10 @@ const PRESET_MODIFIERS = {
   // Blackjack
   double_pay:      { title: "Blackjack Bonus",      desc: "Blackjacks pay 3:1 instead of 3:2",              bj_payout: 3.0 },
   easy_dealer:     { title: "Easy Dealer",          desc: "Dealer stands on 15 instead of 17",        bj_dealer_stand: 15 },
-  bj_double_bonus: { title: "Quadruple Down",       desc: "Successful double downs pay 2× profit",    bj_double_bonus: true },
+  bj_double_bonus: { title: "Quadruple Down",       desc: "Successful double downs pay 2x profit",    bj_double_bonus: true },
   high_stakes:     { title: "High Stakes",          desc: "Minimum chips requirement is 100",                 min_chips: 100 },
   peek:            { title: "Dealer Peek",          desc: "One-time peek at any dealer card",                 peek: true },
-  comeback:        { title: "Comeback",             desc: "Wins pay 2× if you are below 1000 chips",          comeback: true },
+  comeback:        { title: "Comeback",             desc: "Wins pay 2x if you are below 1000 chips",          comeback: true },
   // UTH
   uth_blind_boost:    { title: "Big Blind",         desc: "All Hold'em blind payouts are doubled",               uth_blind_boost: 2.0 },
   uth_blind_extended: { title: "Loose Blind",       desc: "Hold'em blind pays on two pair and up",               uth_blind_extended: true },
@@ -42,11 +42,11 @@ const PRESET_MODIFIERS = {
   // Cross-game
   all_in_or_skip: { title: "Martingale",            desc: "All wins are doubled. You can only go all in.",       all_in_or_skip: true },
   // Roulette
-  r_double_all:   { title: "Double Payout",         desc: "All roulette wins pay double",                        r_payout_mult: 2.0, r_max_bets: 1 },
+  r_double_all:   { title: "Double Payout",         desc: "Roulette: All wins are doubled. One bet max.",                        r_payout_mult: 2.0, r_max_bets: 1 },
   r_hot_numbers:  { title: "Hot Numbers",           desc: "Roulette: Straight number bets pay 50:1",             r_number_pay: 50 },
-  r_hot_zero:     { title: "Hot Zero",              desc: "Zero is 10× more likely to hit",                      r_zero_boost: 10 },
+  r_hot_zero:     { title: "Hot Zero",              desc: "Roulette: Zero is 10x more likely to hit",                      r_zero_boost: 10 },
   r_color_double: { title: "Color Bonus",           desc: "Roulette: Red/Black bets pay double. One bet max.",   r_color_double: true, r_max_bets: 1 },
-  r_multi_bet:    { title: "Multi Bet",             desc: "Place up to 10 roulette bets",                        r_max_bets: 10 },
+  r_multi_bet:    { title: "Multi Bet",             desc: "Roulette: Place up to 10 bets",                        r_max_bets: 10 },
 };
 
 /**

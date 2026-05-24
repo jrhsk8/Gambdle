@@ -211,7 +211,7 @@ body {
   line-height: 0.95; letter-spacing: 0.04em;
   color: var(--ink);
 }
-.logo-diamond { color: var(--red-deep); }
+.logo-spade { color: var(--ink); margin-right: 0.12em; }
 .logo-sub { font-size: 1.5rem; color: var(--shadow); letter-spacing: 0.18em; margin-top: 8px; text-transform: uppercase; }
 
 /* ── Buttons ────────────────────────────────────────────── */
@@ -433,7 +433,7 @@ body {
 
 /* ── Game manifest rows (intro screen) ──────────────────── */
 .rnd-row {
-  display: grid; grid-template-columns: 36px 1fr auto;
+  display: grid; grid-template-columns: 36px 1fr;
   gap: 12px; align-items: center;
   padding: 8px 12px;
   background: var(--panel); color: var(--ink);
@@ -454,6 +454,7 @@ body {
 .ppay  { font-size: 1rem; color: var(--gold); text-align: right; font-family: var(--btn-f); }
 
 /* ── Roulette ───────────────────────────────────────────── */
+.r-board-wrap { overflow-x: auto; margin: 0 -10px; padding: 0 10px 4px; -webkit-overflow-scrolling: touch; }
 .rboard, .rboard-sub {
   display: grid;
   grid-template-columns: 30px repeat(12, 1fr) 42px;
@@ -640,7 +641,7 @@ body {
   .app { padding: 8px 8px 30px; }
   .panel { padding: 10px; min-height: 480px; }
   .title-bar { font-size: 18px; }
-  .tb-detail { display: none; }
+  .tb-detail, .btn-detail, .dot-detail { display: none; }
   .card.lg { width: 78px; height: 110px; }
   .card.md { width: 68px; height: 96px; }
   .card.sm { width: 54px; height: 76px; }
@@ -652,6 +653,9 @@ body {
   .rboard { grid-template-rows: 30px 30px 30px; }
   .rn { font-size: 0.9rem; }
   .chbtn { width: 54px; height: 54px; }
+  .ch-1000 { display: none; }
+  .r-board-wrap { scrollbar-width: none; -ms-overflow-style: none; }
+  .r-board-wrap::-webkit-scrollbar { display: none; }
 }
 
 /* ── Desktop / large screen ─────────────────────────────── */

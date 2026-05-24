@@ -1,4 +1,7 @@
 
+// Set browser tab title
+document.title = "♠️ Gambdle";
+
 // SplitMix32-style seeded PRNG for deterministic daily hands.
 function mkRng(seed) {
   let s = (seed ^ 0x6d2b79f5) >>> 0;
@@ -396,13 +399,13 @@ function gameDots(history, hand, phase, count = 3){
   return`<div class="dots-row">${Array.from({length:count},(_,i)=>{
     const h=history[i];
     const label = isR ? (i === 0 ? 'Spin 1' : 'Final Results') : `Hand ${i+1}`;
-    if(h && !h.skipped){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${label} ${sign(d)}</div>`;}
+    if(h && !h.skipped){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${label}<span class="dot-detail"> ${sign(d)}</span></div>`;}
     const isCur=i===hand;
     const cls=isCur?'cur':i<hand?'push':'pend';
     let txt = label;
-    if(isCur && phase==='result') txt += ` · Next`;
-    else if(isCur && phase==='bet') txt += ` · Bet →`;
-    else if(isCur) txt += ` · Playing`;
+    if(isCur && phase==='result') txt += `<span class="dot-detail"> · Next</span>`;
+    else if(isCur && phase==='bet') txt += `<span class="dot-detail"> Place bet</span>`;
+    else if(isCur) txt += `<span class="dot-detail"> · Playing</span>`;
     return`<div class="hdot ${cls}">${txt}</div>`;
   }).join('')}</div>`;
 }
@@ -646,7 +649,7 @@ function screenIntro(){
   return `${hdr('New Game')}
   <div class="panel">
     <div style="text-align:center;padding:14px 4px 6px">
-      <div class="logo"><span class="logo-diamond">♦</span> GAMBDLE</div>
+      <div class="logo"><span class="logo-spade">♠</span>GAMBDLE</div>
       <div class="logo-sub">Daily No. ${dayN}</div>
     </div>
     <div class="divider"></div>
@@ -654,7 +657,7 @@ function screenIntro(){
       <div style="font-size:1.8rem;color:var(--cream)">You start with <b style="color:var(--gold-hi)">${fmt(START)} chips</b>.</div>
       <div style="font-size:1.4rem;color:var(--cream);opacity:0.7;margin-top:4px">Your final stack is your leaderboard score.</div>
     </div>
-    <button class="btn-gold btn-lg" style="margin: 10px 0" onclick="startGame()">► Start new game — $${fmt(START)}</button>
+    <button class="btn-gold btn-lg" style="margin: 10px 0" onclick="startGame()">► Start new game<span class="btn-detail"> — $${fmt(START)}</span></button>
     <div class="divider"></div>
     <div style="font-size:1.4rem;color:var(--cream);opacity:0.7;letter-spacing:0.16em;text-transform:uppercase;margin:2px 2px 4px">Today's program:</div>
     <div style="display:flex;flex-direction:column;gap:8px">
@@ -678,7 +681,6 @@ function renderIntroGameRows() {
         <div class="rnd-nm">${i+1}. ${g[1]}</div>
         <div class="rnd-dc">${g[2]}</div>
       </div>
-      <span style="font-size:0.85rem;color:var(--shadow);letter-spacing:0.04em">${g[2].split(' · ')[0]}</span>
     </div>`).join('');
 }
 
@@ -1229,7 +1231,7 @@ function screenRouletteBet(){
   const pb=S.rPick!==null?R_BETS[S.rPick]:null;
   const maxBets=getMod('r_max_bets')||5;
   const aios=getMod('all_in_or_skip');
-  const board=`<div style="overflow-x:auto;margin:0 -10px;padding:0 10px 12px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;"><div style="min-width:380px">${rBoard()}</div></div>`;
+  const board=`<div class="r-board-wrap"><div style="min-width:380px">${rBoard()}</div></div>`;
   const betInfo=`<div id="r-bet-info"><div class="irow" ${pb?'':'style="visibility:hidden"'}><span class="ik">Bet on: <b style="color:var(--ink)">${pb?(pb.type==='num'?'Number '+pb.lbl:pb.lbl):'—'}</b></span><span class="iv">${pb?pb.pay+':1 payout':'—'}</span></div></div>`;
 
   if(aios&&S.rBets.length===0){
@@ -1238,13 +1240,14 @@ function screenRouletteBet(){
       ${gameDots([], 0, 'bet', 2)}
       <div class="divider"></div>
       <div class="sec">The Table — select where to go all in</div>
-      ${board}<div class="divider"></div>
-      ${betInfo}
-      <div class="sec" style="margin-top:10px">All In or Skip · Wins Pay 2×</div>
-      <div style="display:flex;gap:10px;margin-top:8px">
+      ${board}
+      <div style="display:flex;gap:10px;margin:10px 0">
         <button class="btn-gold" style="flex:2" onclick="rAllIn()" ${!pb?'disabled':''}>All In on ${pb?pb.lbl:'...'} (${fmt(S.chips)}) →</button>
         <button class="ch-clear" style="flex:1;padding:17px" onclick="rSkip()">Skip Spin</button>
       </div>
+      <div class="divider"></div>
+      ${betInfo}
+      <div class="sec" style="margin-top:10px">All In or Skip · Wins Pay 2×</div>
     </div>`;
   }
 
@@ -1253,11 +1256,12 @@ function screenRouletteBet(){
     <div class="panel">
       ${gameDots([], 0, 'bet', 2)}
       <div class="divider"></div>
-      ${board}<div class="divider"></div>
+      ${board}
+      <button id="db" class="btn-gold" style="margin:12px 0" onclick="rSpin()" ${(!pb||S.rBet===0)?'disabled':''}>Spin the Wheel 🎡</button>
+      <div class="divider"></div>
       ${betInfo}
       <div class="sec">Place Your Bet</div>
       ${chipSel(S.chips,S.rBet)}
-      <button id="db" class="btn-gold" style="margin-top:12px" onclick="rSpin()" ${(!pb||S.rBet===0)?'disabled':''}>Spin the Wheel 🎡</button>
     </div>`;
   }
 
@@ -1268,12 +1272,13 @@ function screenRouletteBet(){
   <div class="panel">
     ${gameDots([], 0, 'bet', 2)}
     <div class="divider"></div>
-    ${board}<div class="divider"></div>
+    ${board}
+    <button id="db" class="btn-gold" style="margin:10px 0" onclick="rSpin()" ${!canSpin?'disabled':''}>Spin the Wheel 🎡</button>
+    <div class="divider"></div>
     ${betInfo}
     <div class="sec">Place Your Bets</div>
     ${chipSel(S.chips,S.rBet,null,`<button id="pb-add" class="ch-clear" onclick="rAddBet()" ${!canAdd?'disabled':''}>Place Bet (${S.rBets.length}/${maxBets})</button>`)}
     <div id="r-placed">${rPlacedInner(S.rBets,maxBets)}</div>
-    <button id="db" class="btn-gold" style="margin-top:10px" onclick="rSpin()" ${!canSpin?'disabled':''}>Spin the Wheel 🎡</button>
   </div>`;
 }
 
@@ -1384,7 +1389,9 @@ async function submitAndFetchLeaderboard() {
         body: JSON.stringify({ seed, chips: S.chips })
       });
       if (res.ok || res.status === 201) localStorage.setItem(subKey, '1');
-    } catch(e) {}
+    } catch(e) {
+      if (DEV_OVERRIDE) console.error("Leaderboard submission failed:", e);
+    }
   }
 
   try {
@@ -1405,7 +1412,9 @@ async function submitAndFetchLeaderboard() {
         ? `Bottom ${100 - row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`
         : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
     el.innerHTML = `<span class="ik">Today's Ranking</span><span class="iv" style="color:var(--ink)">${iv}</span>`;
-  } catch(e) {}
+  } catch(e) {
+    if (DEV_OVERRIDE) console.error("Leaderboard fetch failed:", e);
+  }
 }
 
 /**
