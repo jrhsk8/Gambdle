@@ -523,19 +523,17 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   flex: 1; padding: 4px 10px;
   background: var(--panel); color: var(--shadow);
   border: 1px solid var(--ink);
-  box-shadow: var(--raised);
+  box-shadow: none;
   font-family: var(--btn-f);
   font-size: 1.4rem; text-align: center; line-height: 1.1;
   letter-spacing: 0.06em;
 }
 .hdot.cur  { background: var(--gold); color: var(--ink); font-weight: 700;
-  box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2px -2px 0 var(--gold-lo); }
-.hdot.won  { background: var(--win); color: var(--win-fg);
-  box-shadow: inset 1.5px 1.5px 0 var(--win-hi), inset -2px -2px 0 var(--win-lo); }
-.hdot.lost { background: var(--lose); color: var(--win-fg);
-  box-shadow: inset 1.5px 1.5px 0 var(--lose-hi), inset -2px -2px 0 var(--lose-lo); }
-.hdot.push { background: var(--panel); color: var(--shadow); }
-.hdot.pend { background: var(--panel); color: var(--shadow); opacity: 0.6; }
+  box-shadow: inset 2px 2px 0 var(--gold-lo), inset -1px -1px 0 var(--gold-hi); }
+.hdot.won  { color: var(--ink); font-weight: 700; opacity: 0.6; }
+.hdot.lost { color: var(--lose); font-weight: 700; opacity: 0.6; }
+.hdot.push { color: var(--shadow); opacity: 0.6; }
+.hdot.pend { color: var(--shadow); opacity: 0.6; }
 
 /* ── Info row (label / value pair) ──────────────────────── */
 .irow {

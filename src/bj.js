@@ -317,7 +317,7 @@ function screenBJ(){
     if(S.bjSplit){
       const ai=S.bjSplitActive;
       const activeHand=S.bjSplitHands[ai];
-      const pv=hVal(activeHand),bust=pv>21,done21=pv===21,pvStr=hValDisplay(activeHand);
+      const pv=hVal(activeHand),bust=pv>21,done21=pv===21,pvStr=S.bjDealerReveal?String(pv):hValDisplay(activeHand);
       const isInitial=activeHand.length===2;
       const can2=S.chips>=S.bjSplitBets[ai]&&isInitial;
       const canResplit=isInitial&&activeHand[0].r===activeHand[1].r&&S.chips>=S.bjSplitBets[ai]&&S.bjSplitHands.length<4;
@@ -349,7 +349,7 @@ function screenBJ(){
         </div>
 </div>`;
     }
-    const pv=hVal(S.bjPlayer),bust=pv>21,done21=pv===21,pvStr=hValDisplay(S.bjPlayer);
+    const pv=hVal(S.bjPlayer),bust=pv>21,done21=pv===21,pvStr=S.bjDealerReveal?String(pv):hValDisplay(S.bjPlayer);
     const isInitial=S.bjPlayer.length===2;
     const can2=S.chips>=S.bjBet&&isInitial;
     const canSplit=isInitial&&S.bjPlayer[0].r===S.bjPlayer[1].r&&S.chips>0;

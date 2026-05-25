@@ -37,11 +37,13 @@ function gameDots(history, hand, phase, count = 3){
   return`<div class="dots-row">${Array.from({length:count},(_,i)=>{
     const h=history[i];
     const label = isR ? (i === 0 ? 'Last Spin' : 'Final Results') : `Hand ${i+1}`;
-    if(h && !h.skipped){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${label}<span class="dot-detail"> ${sign(d)}</span></div>`;}
-    const isCur=i===hand;
+    const curIdx=phase==='result'?hand-1:hand;
+    const isCur=i===curIdx;
+    if(h && !h.skipped && !isCur){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${label}<span class="dot-detail"> ${sign(d)}</span></div>`;}
+
     const cls=isCur?'cur':i<hand?'push':'pend';
     let txt = label;
-    if(isCur && phase==='result') txt += `<span class="dot-detail"> · Next</span>`;
+    if(isCur && phase==='result') txt += `<span class="dot-detail"> · Results</span>`;
     else if(isCur && phase==='bet') txt += `<span class="dot-detail"> · Place bet</span>`;
     else if(isCur) txt += `<span class="dot-detail"> · Playing</span>`;
     return`<div class="hdot ${cls}">${txt}</div>`;
