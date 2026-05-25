@@ -277,14 +277,12 @@ function screenRouletteBet(){
   if(fg&&R_GROUP_INFO[fg]&&S.rPick===R_GROUP_INFO[fg].bannedIdx){S.rPick=null;S.rBet=0;}
   const pb=S.rPick!==null?R_BETS[S.rPick]:null;
   const boardPad=getMod('r_color_double')||getMod('r_payout_mult')?'padding-bottom:28px':'';
-  const board=`<div class="r-board-wrap" ${boardPad?`style="${boardPad}"`:''}><div style="min-width:380px">${rBoard()}</div></div>`;
+  const board=`<div class="r-board-wrap" ${boardPad?`style="${boardPad}"`:''}>${rBoard()}</div>`;
   const betInfo=`<div id="r-bet-info"><div class="irow">${pb?`<span class="ik">Bet on: <b style="color:var(--ink)">${pb.type==='num'?'Number '+pb.lbl:pb.lbl}</b></span><span class="iv">${pb.pay}:1 payout</span>`:`<span class="ik" style="color:var(--shadow)">Select a tile to bet on</span><span class="iv"></span>`}</div></div>`;
 
   if(aios&&S.rBets.length===0){
     return `${hdr('Roulette · 1 Spin')}
     <div class="panel">
-      ${gameDots([], 0, 'bet', 2)}
-      <div class="divider"></div>
       <div class="sec">The Table — select where to go all in</div>
       ${board}
       <div style="display:flex;gap:10px;margin:10px 0">
@@ -297,16 +295,15 @@ function screenRouletteBet(){
     </div>`;
   }
 
-  const canAdd=S.rBets.length<maxBets&&pb&&S.rBet>0;
+  const pickAlreadyBet=S.rPick!==null&&S.rBets.some(b=>b.pick===S.rPick);
+  const canAdd=(S.rBets.length<maxBets||pickAlreadyBet)&&pb&&S.rBet>0;
   const canSpin=S.rBets.length>0;
   const hdrTitle=maxBets===1?'Roulette · 1 Spin':`Roulette · Up to ${maxBets} Bets`;
   const secLabel=maxBets===1?'Place Your Bet':'Place Your Bets';
   return `${hdr(hdrTitle)}
   <div class="panel">
-    ${gameDots([], 0, 'bet', 2)}
-    <div class="divider"></div>
     ${board}
-    <button id="db" class="btn-gold" style="margin:10px 0" onclick="rSpin()" ${!canSpin?'disabled':''}>Spin the Wheel 🎡</button>
+    <button id="db" class="btn-gold" style="margin:10px 0" onclick="rSpin()" ${!canSpin?'disabled':''}>Final Spin 🎡</button>
     <div class="divider"></div>
     <div class="sec">${secLabel}</div>
     ${betInfo}
@@ -401,11 +398,13 @@ function rPlacedInner(bets,maxBets){
 /** Adds current rPick+rBet to the placed bets list (multi-bet mode). */
 function rAddBet(){
   const maxBets=getMod('r_max_bets')||5;
-  if(S.rPick===null||!S.rBet||S.rBets.length>=maxBets)return;
+  const isNew=!S.rBets.find(b=>b.pick===S.rPick);
+  if(S.rPick===null||!S.rBet||(isNew&&S.rBets.length>=maxBets))return;
 
   const prevPick=S.rPick, betAmt=S.rBet;
   S.chips-=betAmt;
-  S.rBets.push({pick:prevPick,bet:betAmt});
+  const placedBet=S.rBets.find(b=>b.pick===prevPick);
+  if(placedBet){placedBet.bet+=betAmt;}else{S.rBets.push({pick:prevPick,bet:betAmt});}
   sndChip(betAmt);
   S.rBet=0; S.rPick=null;
   saveState();
@@ -417,8 +416,8 @@ function rAddBet(){
   boardBtn.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
   const total=S.rBets.filter(b=>b.pick===prevPick).reduce((s,b)=>s+b.bet,0);
   const chipLbl=amt=>amt>=1000?Math.floor(amt/1000)+'K':String(amt);
-  const existing=boardBtn.querySelector('.r-chip-placed');
-  if(existing)existing.textContent=chipLbl(total);
+  const existingChip=boardBtn.querySelector('.r-chip-placed');
+  if(existingChip)existingChip.textContent=chipLbl(total);
   else boardBtn.insertAdjacentHTML('beforeend',`<span class="r-chip r-chip-placed">${chipLbl(total)}</span>`);
 
   const info=document.getElementById('r-bet-info');

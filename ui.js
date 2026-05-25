@@ -154,7 +154,7 @@ function patchBetUI() {
     const maxBets=getMod('r_max_bets')||5;
     db.disabled=(k==='rBet'?S.rBets.length===0:(bet===0||!isBetValid));
     const pba=document.getElementById('pb-add');
-    if(pba)pba.disabled=!(S.rBets.length<maxBets&&S.rPick!==null&&bet>0);
+    if(pba){const pickAlreadyBet=S.rPick!==null&&S.rBets.some(b=>b.pick===S.rPick);pba.disabled=!((S.rBets.length<maxBets||pickAlreadyBet)&&S.rPick!==null&&bet>0);}
   }
   const ai=document.getElementById('ai');
   if(ai)ai.disabled=max===0 || max < minChipsMod;
@@ -292,44 +292,82 @@ function showInfo(section) {
 }
 
 // ─── MENUS ────────────────────────────────────────────────────
+const _isMobile = () => window.innerWidth <= 480;
+
+function _showInlineSub(trigger, html, level) {
+  // Close level-2 subs always; also close level-1 when opening a new level-1
+  document.querySelectorAll('.dd-inline-sub.dd-level-2').forEach(el => el.remove());
+  document.querySelectorAll('.dd-item--open-2').forEach(el => {
+    el.classList.remove('dd-item--open-2');
+    const a = el.querySelector('.dd-key'); if (a) a.textContent = '►';
+  });
+  if (level === 1) {
+    document.querySelectorAll('.dd-inline-sub.dd-level-1').forEach(el => el.remove());
+    document.querySelectorAll('.dd-item--open-1').forEach(el => {
+      el.classList.remove('dd-item--open-1');
+      const a = el.querySelector('.dd-key'); if (a) a.textContent = '►';
+    });
+  }
+  // Toggle closed if already open
+  if (trigger.classList.contains(`dd-item--open-${level}`)) return;
+  trigger.classList.add(`dd-item--open-${level}`);
+  const a = trigger.querySelector('.dd-key'); if (a) a.textContent = '▼';
+  const sub = document.createElement('div');
+  sub.className = `dd-inline-sub dd-level-${level}`;
+  sub.innerHTML = html;
+  trigger.insertAdjacentElement('afterend', sub);
+}
+
 function _positionSubmenu(sub, trigger) {
   const tr = trigger.getBoundingClientRect();
   sub.style.top = tr.top + 'px';
-  sub.style.left = (tr.right + 4) + 'px';
+  sub.style.left = tr.right + 'px';
   document.body.appendChild(sub);
   const sr = sub.getBoundingClientRect();
-  if (sr.right > window.innerWidth - 4)
-    sub.style.left = Math.max(4, tr.left - sr.width - 4) + 'px';
-  if (sr.bottom > window.innerHeight - 4)
+  if (sr.right > window.innerWidth - 4) {
+    // Doesn't fit to the right — drop below the trigger instead
+    sub.style.top = tr.bottom + 'px';
+    sub.style.left = Math.max(4, Math.min(tr.left, window.innerWidth - sr.width - 4)) + 'px';
+  }
+  const finalTop = parseFloat(sub.style.top);
+  if (finalTop + sr.height > window.innerHeight - 4)
     sub.style.top = Math.max(4, window.innerHeight - sr.height - 4) + 'px';
 }
 
 function showModSubmenu(trigger, action) {
   action = action || 'devApplyMod';
-  document.querySelectorAll('.dd-submenu').forEach(d => d.remove());
-  const sub = document.createElement('div');
-  sub.className = 'dropdown dd-submenu dd-sub1';
   const cats = [
     {key:'bj',       label:'🃏 Blackjack'},
     {key:'uth',      label:"♠ Hold'em"},
     {key:'cross',    label:'🔀 Cross-Game'},
     {key:'roulette', label:'🎡 Roulette'},
   ];
-  sub.innerHTML = cats.map(c =>
+  const html = cats.map(c =>
     `<div class="dd-item" onclick="showModTypeSubmenu('${c.key}',this,'${action}');event.stopPropagation()">${c.label} <span class="dd-key">►</span></div>`
   ).join('');
+  if (_isMobile()) { _showInlineSub(trigger, html, 1); return; }
+  if (document.querySelector('.dd-sub1')) { document.querySelectorAll('.dd-submenu').forEach(d=>d.remove()); return; }
+  document.querySelectorAll('.dd-submenu').forEach(d => d.remove());
+  const sub = document.createElement('div');
+  sub.className = 'dropdown dd-submenu dd-sub1';
+  sub.innerHTML = html;
   _positionSubmenu(sub, trigger);
 }
 
 function showModTypeSubmenu(type, trigger, action) {
   action = action || 'devApplyMod';
-  document.querySelector('.dd-sub2')?.remove();
-  const sub = document.createElement('div');
-  sub.className = 'dropdown dd-submenu dd-sub2';
   const mods = Object.entries(PRESET_MODIFIERS).filter(([, m]) => m.type === type);
-  sub.innerHTML = mods.map(([k, m]) =>
+  const html = mods.map(([k, m]) =>
     `<div class="dd-item" onclick="${action}('${k}')">${m.title}</div>`
   ).join('');
+  if (_isMobile()) { _showInlineSub(trigger, html, 2); return; }
+  const existing = document.querySelector('.dd-sub2');
+  if (existing?.dataset.key === type) { existing.remove(); return; }
+  existing?.remove();
+  const sub = document.createElement('div');
+  sub.className = 'dropdown dd-submenu dd-sub2';
+  sub.dataset.key = type;
+  sub.innerHTML = html;
   _positionSubmenu(sub, trigger);
 }
 
@@ -441,14 +479,17 @@ function _prefItem(key,id,label){
   </div>`;
 }
 function showPrefsSubmenu(trigger){
+  const html=_prefItem('four_color','pref-4color','Four Color Deck')+
+             _prefItem('mute','pref-mute','Mute Audio')+
+             `<div class="dd-item" data-picker="deck"     onclick="_showPickerSub('deck',this);event.stopPropagation()">Deck <span class="dd-key">►</span></div>`+
+             `<div class="dd-item" data-picker="cardback" onclick="_showPickerSub('cardback',this);event.stopPropagation()">Card Back <span class="dd-key">►</span></div>`+
+             `<div class="dd-item" data-picker="felt"     onclick="_showPickerSub('felt',this);event.stopPropagation()">Felt <span class="dd-key">►</span></div>`;
+  if (_isMobile()) { _showInlineSub(trigger, html, 1); return; }
+  if (document.querySelector('.dd-sub1')) { document.querySelectorAll('.dd-submenu').forEach(d=>d.remove()); return; }
   document.querySelectorAll('.dd-submenu').forEach(d=>d.remove());
   const sub=document.createElement('div');
   sub.className='dropdown dd-submenu dd-sub1';
-  sub.innerHTML=_prefItem('four_color','pref-4color','Four Color Deck')+
-                _prefItem('mute','pref-mute','Mute Audio')+
-                `<div class="dd-item" data-picker="deck"     onclick="_showPickerSub('deck',this);event.stopPropagation()">Deck <span class="dd-key">►</span></div>`+
-                `<div class="dd-item" data-picker="cardback" onclick="_showPickerSub('cardback',this);event.stopPropagation()">Card Back <span class="dd-key">►</span></div>`+
-                `<div class="dd-item" data-picker="felt"     onclick="_showPickerSub('felt',this);event.stopPropagation()">Felt <span class="dd-key">►</span></div>`;
+  sub.innerHTML=html;
   _positionSubmenu(sub,trigger);
 }
 const PICKER_ITEMS = {
@@ -457,24 +498,34 @@ const PICKER_ITEMS = {
   felt:     { pref:'felt',     options:[{val:'default',label:'Green'},{val:'maroon',label:'Maroon',lock:'maroon_felt_unlocked',hint:'🔒 2500+'}]},
 };
 function _showPickerSub(pickerKey,trigger){
-  document.querySelector('.dd-sub2')?.remove();
   const {pref,options}=PICKER_ITEMS[pickerKey];
   const cur=getPref(pref)||'default';
   const cbStyle='width:14px;height:14px;accent-color:var(--gold);flex-shrink:0;pointer-events:none';
-  const sub=document.createElement('div');
-  sub.className='dropdown dd-submenu dd-sub2';
-  sub.innerHTML=options.map(o=>o.lock&&!getPref(o.lock)
+  const html=options.map(o=>o.lock&&!getPref(o.lock)
     ?`<div class="dd-item dd-disabled" style="gap:12px"><span>${o.label}</span><span style="font-size:.8rem;opacity:.55">${o.hint}</span></div>`
     :`<div class="dd-item" onclick="setPick('${pickerKey}','${o.val}');event.stopPropagation()" style="gap:12px"><span>${o.label}</span><input type="checkbox" ${cur===o.val?'checked':''} style="${cbStyle}"></div>`
   ).join('');
+  if (_isMobile()) { _showInlineSub(trigger, html, 2); return; }
+  const existing=document.querySelector('.dd-sub2');
+  if (existing?.dataset.key === pickerKey) { existing.remove(); return; }
+  existing?.remove();
+  const sub=document.createElement('div');
+  sub.className='dropdown dd-submenu dd-sub2';
+  sub.dataset.key=pickerKey;
+  sub.innerHTML=html;
   _positionSubmenu(sub,trigger);
 }
 function setPick(pickerKey,val){
   setPref(PICKER_ITEMS[pickerKey].pref,val);
   applyPrefs();
-  document.querySelectorAll('.dd-sub2').forEach(d=>d.remove());
-  const t=document.querySelector(`.dd-sub1 [data-picker="${pickerKey}"]`);
-  if(t)_showPickerSub(pickerKey,t);
+  if (_isMobile()) {
+    const t=document.querySelector(`[data-picker="${pickerKey}"]`);
+    if(t){ t.classList.remove('dd-item--open-2'); _showPickerSub(pickerKey,t); }
+  } else {
+    document.querySelectorAll('.dd-sub2').forEach(d=>d.remove());
+    const t=document.querySelector(`.dd-sub1 [data-picker="${pickerKey}"]`);
+    if(t)_showPickerSub(pickerKey,t);
+  }
 }
 function togglePref(k){
   document.querySelector('.dd-sub2')?.remove();
