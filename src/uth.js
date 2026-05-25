@@ -188,18 +188,18 @@ function uthDeal(){
   sndShuffle(()=>{
     S.uthPhase='preflop';
     render(); updateChipDisplay();
-    sndCard(40);sndCard(100);sndCard(160);sndCard(220);
+    sndCard(100);sndCard(500);
   });
 }
 // Reveal the first 3 community cards (flop). Sounds staggered to match card-flip animation.
 function _uthDealFlop(){
   S.uthPrevRevealComm=0;S.uthRevealComm=3;S.uthPhase='flop';
-  updateUthCommunityCards();sndCard(50);sndCard(150);sndCard(250);
+  updateUthCommunityCards();
 }
 // Reveal community cards 4 and 5 (turn + river combined).
 function _uthDealTurn(){
   S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';
-  updateUthCommunityCards();sndCard(50);sndCard(200);
+  updateUthCommunityCards();
 }
 function uthRaise(mult){
   const bet=(S.uthAnte/2)*mult;
