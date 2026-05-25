@@ -1,9 +1,13 @@
 # Gambdle — AI Context
 
 ## Active Work
-_Update this section at the start of each session._
-
-- Nothing active.
+- make the blue header xp bar rounded like in winxp
+- adjust the buttons on the blue header xp bar to look more like xp
+- blue header and xp toolbar look ~1-2px wider than playfield, they should align
+- results screen graph and day number text should be in gold like the copy and share button below
+- make window draggable like a real xp window, the square button of minimize, square, x buttons snaps window back to original spot.
+        draggable window should be desktop only
+- rewrite tutorial text to make pages digestible to beginners, not appear to be written by AI, and as helpful as possible without overloading information.
 
 ---
 
@@ -36,8 +40,8 @@ No build steps. Pure vanilla JS/CSS/HTML. Load order: `modifiers.js` → `core.j
 
 ## Fonts & Visuals
 - `--btn-f`: VT323 — **main UI font** (body, buttons, labels, values, chips, all game text)
-- `--display`: Space Grotesk — **decorative only** (`.logo`, `.ct-r` card ranks)
-- `--f`: Courier New — **card suits only** (`.ct-s`, `.cbody .csuit`)
+- `--display`: Tahoma — **card ranks** (`.ct-r`)
+- `--f`: Tahoma — **card suits** (`.ct-s`, `.cbody .csuit`)
 
 **Theme**: Felt green (`--felt`), Gold (`--gold`, `--gold-hi`, `--gold-lo`), Cream (`--cream`), XP-style window chrome.
 

@@ -36,8 +36,8 @@ button { touch-action: manipulation; font-family: var(--btn-f); }
   --lose-lo:    #8a1515;
   --push:       #6b6450;
   /* Fonts */
-  --f:        'Courier New', 'Lucida Console', monospace;
-  --display:  'Space Grotesk', 'Segoe UI', sans-serif;
+  --f:        'Tahoma', 'Segoe UI', sans-serif;
+  --display:  'Tahoma', 'Segoe UI', sans-serif;
   --btn-f:    'VT323', 'Courier New', monospace;
   --cream:    #fbf5dc;
   --raised: inset 1.5px 1.5px 0 var(--highlight), inset -2px -2px 0 var(--shadow);
@@ -72,6 +72,7 @@ body {
   box-shadow: inset 1px 1px 0 var(--highlight), inset -2px -2px 0 var(--shadow);
   display: flex; flex-direction: column;
   min-height: calc(100svh - 44px);
+  border-radius: 8px 8px 0 0;
 }
 .title-bar {
   background:
@@ -86,6 +87,7 @@ body {
   display: flex; justify-content: space-between; align-items: center;
   line-height: 1; gap: 8px;
   text-shadow: 1px 1px 0 rgba(0,0,0,0.35);
+  border-radius: 7px 7px 0 0;
 }
 .tb-title { display: flex; align-items: center; gap: 8px; white-space: nowrap; min-width: 0; }
 .tb-icon {
@@ -99,14 +101,20 @@ body {
 .tb-btns { display: flex; gap: 3px; flex-shrink: 0; }
 .tb-btn {
   width: 22px; height: 18px;
-  background: var(--panel); color: var(--ink);
+  background: rgba(255,255,255,0.20);
+  color: #fff;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 14px; line-height: 1; text-shadow: none;
-  border: 1px solid var(--ink);
-  box-shadow: var(--raised-sm);
-  cursor: pointer;
+  font-size: 14px; line-height: 1; text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.35);
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.30), inset -1px -1px 0 rgba(0,0,0,0.20);
+  cursor: pointer; border-radius: 3px;
 }
-.tb-btn.close { background: var(--close-red); color: #fff; }
+.tb-btn:hover { background: rgba(255,255,255,0.32); }
+.tb-btn:active { background: rgba(0,0,0,0.15); box-shadow: inset 1px 1px 0 rgba(0,0,0,0.20), inset -1px -1px 0 rgba(255,255,255,0.15); }
+.tb-btn.close { background: var(--close-red); color: #fff; border-color: rgba(0,0,0,0.4);
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,0.30), inset -1px -1px 0 rgba(0,0,0,0.25); }
+.tb-btn.close:hover { background: #e04040; }
+.tb-btn.close:active { background: #a02020; }
 
 .menu-bar {
   background: var(--panel);
@@ -161,6 +169,7 @@ body {
   display: flex; flex-direction: column; gap: 10px;
   position: relative;
   border: 1px solid var(--felt-edge);
+  border-left: 0; border-right: 0;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
 }
 .panel.cream {
@@ -281,13 +290,13 @@ body {
 .cbr { bottom: 5px; right: 7px; transform: rotate(180deg); }
 .ct-r { font-family: var(--display); font-weight: 700; line-height: 0.95; }
 .ct-s { font-family: var(--f); line-height: 1; margin-top: 1px; }
-.card.lg .ct-r { font-size: 1.5rem; }    .card.lg .ct-s { font-size: 1.25rem; }
-.card.md .ct-r { font-size: 1.25rem; }   .card.md .ct-s { font-size: 1.05rem; }
-.card.sm .ct-r { font-size: 1rem; }      .card.sm .ct-s { font-size: 0.85rem; }
+.card.lg .ct-r { font-size: 1.35rem; }   .card.lg .ct-s { font-size: 1.1rem; }
+.card.md .ct-r { font-size: 1.1rem; }    .card.md .ct-s { font-size: 0.95rem; }
+.card.sm .ct-r { font-size: 0.9rem; }    .card.sm .ct-s { font-size: 0.75rem; }
 /* Tighten "10" so it fits the corner */
-.ct-r[data-r="10"] { font-size: 1.2rem !important; letter-spacing: -0.06em; }
-.card.md .ct-r[data-r="10"] { font-size: 1rem !important; }
-.card.sm .ct-r[data-r="10"] { font-size: 0.8rem !important; }
+.ct-r[data-r="10"] { font-size: 1.05rem !important; letter-spacing: -0.06em; }
+.card.md .ct-r[data-r="10"] { font-size: 0.9rem !important; }
+.card.sm .ct-r[data-r="10"] { font-size: 0.72rem !important; }
 
 .cbody {
   position: absolute; inset: 0;
@@ -296,9 +305,9 @@ body {
 }
 .cbody .crank { display: none; }
 .cbody .csuit { font-family: var(--f); line-height: 1; }
-.card.lg .csuit { font-size: 3.8rem; }
-.card.md .csuit { font-size: 3.1rem; }
-.card.sm .csuit { font-size: 2.4rem; }
+.card.lg .csuit { font-size: 3.4rem; }
+.card.md .csuit { font-size: 2.8rem; }
+.card.sm .csuit { font-size: 2.2rem; }
 
 .card.red, .card.red .ct-r, .card.red .ct-s, .card.red .csuit { color: var(--red); }
 .card.blk, .card.blk .ct-r, .card.blk .ct-s, .card.blk .csuit { color: var(--ink); }
@@ -676,22 +685,22 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   border-bottom: 1px solid var(--ink);
   margin: 6px 4px 28px;
 }
-.chart-bar { flex: 1; max-width: 36px; background: var(--shadow);
+.chart-bar { flex: 1; max-width: 36px; background: var(--gold);
   border: 1px solid var(--ink);
-  box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.15), inset -1px -1px 0 rgba(0,0,0,0.3);
+  box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -1px -1px 0 var(--gold-lo);
   position: relative;
 }
-.chart-bar.today { background: var(--gold);
-  box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -1px -1px 0 var(--gold-lo);
+.chart-bar.today { background: var(--gold-hi);
+  box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.4), inset -1px -1px 0 var(--gold-lo);
 }
 .chart-bar::after {
   content: attr(data-v);
   position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
-  font-size: 0.9rem; color: var(--ink); white-space: nowrap;
+  font-size: 0.9rem; color: var(--gold-hi); white-space: nowrap;
 }
 .chart-day {
   position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
-  font-size: 1rem; color: var(--shadow); letter-spacing: 0.04em;
+  font-size: 1rem; color: var(--gold); letter-spacing: 0.04em;
 }
 
 /* ── Toast ──────────────────────────────────────────────── */
@@ -760,6 +769,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   border: 1px solid var(--ink);
   box-shadow: var(--raised-sm);
   font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em;
+}
+
+/* ── Desktop-only: draggable window cursor ──────────────── */
+@media (hover: hover) and (min-width: 481px) {
+  .window { overflow: hidden; }
+  .title-bar { cursor: move; }
+  .title-bar .tb-btn { cursor: pointer; }
 }
 
 /* ── Mobile / small screen ──────────────────────────────── */

@@ -243,6 +243,7 @@ function render(){
   const _mod = modBannerHTML();
   // Inject the modifier banner at the top of the panel after the screen HTML is in place.
   if (_panel && _mod) _panel.insertAdjacentHTML('afterbegin', _mod);
+  _reapplyDragPos();
   if(_noAnim){
     _noAnim=false;
     document.querySelectorAll('.panel').forEach(el=>{el.style.animation='none';el.style.opacity='1';el.style.transform='none';});
@@ -267,7 +268,54 @@ function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3(
 function advanceTo(s){sndAdvance();if(s!=='results'&&S.chips<10)s='results';goTo(s);}
 function startGame(){sndChip('allin');S.screen=GAME1;S.bjPhase='bet';render();}
 
+// ─── DRAGGABLE WINDOW (desktop only) ─────────────────────────────────────
+
+let _winOffset = { x: 0, y: 0 };
+let _winDragStart = null;
+
+function _reapplyDragPos() {
+  if (_winOffset.x === 0 && _winOffset.y === 0) return;
+  const app = document.querySelector('.app');
+  if (app) app.style.transform = `translate(${_winOffset.x}px,${_winOffset.y}px)`;
+}
+
+function snapWindowToOrigin() {
+  if (_winOffset.x === 0 && _winOffset.y === 0) return;
+  _winOffset = { x: 0, y: 0 };
+  const app = document.querySelector('.app');
+  if (!app) return;
+  app.style.transition = 'transform 0.22s ease';
+  app.style.transform = 'translate(0,0)';
+  setTimeout(() => { app.style.transition = ''; }, 220);
+}
+
+function _winMousemove(e) {
+  if (!_winDragStart) return;
+  _winOffset.x = _winDragStart.ox + e.clientX - _winDragStart.mx;
+  _winOffset.y = _winDragStart.oy + e.clientY - _winDragStart.my;
+  const app = document.querySelector('.app');
+  if (app) app.style.transform = `translate(${_winOffset.x}px,${_winOffset.y}px)`;
+}
+
+function _winMouseup() {
+  _winDragStart = null;
+  document.removeEventListener('mousemove', _winMousemove);
+}
+
+function initWindowDrag() {
+  if (window.innerWidth <= 480 || !window.matchMedia('(hover: hover)').matches) return;
+  document.addEventListener('mousedown', e => {
+    const tb = e.target.closest('.title-bar');
+    if (!tb || e.target.closest('.tb-btn')) return;
+    e.preventDefault();
+    _winDragStart = { mx: e.clientX, my: e.clientY, ox: _winOffset.x, oy: _winOffset.y };
+    document.addEventListener('mousemove', _winMousemove);
+    document.addEventListener('mouseup', _winMouseup, { once: true });
+  });
+}
+
 // ─── BOOT ────────────────────────────────────────────────────────────────
 loadState();
 applyPrefs();
 render();
+initWindowDrag();

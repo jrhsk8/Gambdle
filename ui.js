@@ -59,9 +59,9 @@ function hdr(sub){
   return`<div class="title-bar">
     <span class="tb-title"><span class="tb-icon">♠</span>${titleText}</span>
     <span class="tb-btns">
-      <span class="tb-btn" title="Min">_</span>
-      <span class="tb-btn" title="Max">□</span>
-      <span class="tb-btn close" title="Close">×</span>
+      <span class="tb-btn" title="Min" onclick="snapWindowToOrigin()">_</span>
+      <span class="tb-btn" title="Max" onclick="snapWindowToOrigin()">□</span>
+      <span class="tb-btn close" title="Close" onclick="snapWindowToOrigin()">×</span>
     </span>
   </div>
   <div class="menu-bar">
@@ -224,44 +224,46 @@ function suitSpans(s){return s.replace(/[♠♥♦♣]/g,m=>`<span class="${_SUI
 const INFO_SECTIONS = {
   overview: {
     title: 'How to Play',
-    body: `<div><b>🎰 Gambdle</b> is a daily casino challenge. Start with <b>1,000 chips</b> and play three games back to back — Blackjack, Ultimate Texas Hold'em, and Roulette. Your final chip count is your score.</div>
-      <div>Everyone plays the same hands each day. A new game unlocks every day at midnight.</div>
-      <div><b>✨ Daily Modifier</b> — A special rule is active every day that tweaks payouts or gameplay for everyone. Check the gold banner at the top of each game screen.</div>`
+    body: `<div><b>🎰 Gambdle</b> is a daily casino game. Everyone plays the exact same hands — you start with <b>1,000 chips</b>, play two card games back to back, then finish with one spin of the roulette wheel. Your final chip count is your score.</div>
+      <div>A new game drops every day at midnight. Compare your score on the leaderboard.</div>
+      <div><b>✨ Daily Modifier</b> — every day has a special rule that changes the game for everyone, like boosted payouts or extra betting options. Look for the gold banner at the top of each game screen.</div>`
   },
   bj: {
     title: '🃏 Blackjack',
-    body: `<div>Beat the dealer without going over 21. You play <b>3 hands</b>.</div>
-      <div><b>Hit</b> — take another card. &nbsp;<b>Stand</b> — end your turn.</div>
-      <div><b>Double Down</b> — double your bet, receive exactly one more card, then stand.</div>
-      <div><b>Split</b> — if your first two cards match in rank, split them into two separate hands (each with its own bet).</div>
-      <div>Dealer must stand on 17 or higher. <b>Blackjack</b> (Ace + 10-value on the deal) pays <b>3:2</b>.</div>`
+    body: `<div>You and the dealer each get two cards. Try to get as close to 21 as you can without going over. The dealer plays after you.</div>
+      <div>Card values: number cards are face value, face cards (J/Q/K) are worth 10, and Aces are worth 1 or 11 — whichever helps you more.</div>
+      <div><b>Hit</b> — take another card. <b>Stand</b> — keep what you have and let the dealer go.</div>
+      <div><b>Double Down</b> — double your bet, get exactly one more card, then stand automatically.</div>
+      <div><b>Split</b> — if your first two cards are the same rank, split them into two separate hands, each with its own bet.</div>
+      <div>The dealer must keep drawing until they hit 17 or higher. If the dealer goes over 21, you win. If you go over 21, you bust and lose your bet.</div>
+      <div><b>Blackjack</b> — an Ace plus any 10-value card on your opening two cards. Pays <b>3:2</b> automatically. You play <b>3 hands</b>.</div>`
   },
   uth: {
     title: "♠ Ultimate Texas Hold'em",
-    body: `<div>Beat the dealer's best 5-card hand using 2 hole cards and 5 community cards. You play <b>3 hands</b>.</div>
-      <div>Place equal <b>Ante</b> and <b>Blind</b> bets to start.</div>
-      <div><b>Preflop</b> — Raise 4× or 3× before seeing community cards, or check to wait.</div>
-      <div><b>Flop</b> — 3 community cards are revealed. Raise 2×, or check.</div>
-      <div><b>Turn / River</b> — 4th and 5th community cards. Raise 1×, or fold and forfeit your bets.</div>
-      <div>Dealer needs at least a pair to qualify. If dealer doesn't qualify, your Ante pushes. The <b>Blind</b> pays bonus if you win with a Straight or better.</div>`
+    body: `<div>A poker game — just you versus the dealer. Both get 2 private cards, then 5 shared cards are revealed one group at a time. Best 5-card hand out of 7 wins.</div>
+      <div>Start by placing equal <b>Ante</b> and <b>Blind</b> bets (the game splits your stake in two for you).</div>
+      <div><b>Preflop</b> — you see your 2 cards. Raise <b>4×</b> (strong hand), raise <b>3×</b> (decent hand), or <b>Check</b> to wait and see more cards.</div>
+      <div><b>Flop</b> — 3 shared cards are revealed. Raise <b>2×</b> if you haven't raised yet, or Check again.</div>
+      <div><b>Turn &amp; River</b> — the last 2 shared cards appear. You must either raise <b>1×</b> to stay in, or <b>Fold</b> and forfeit your bets.</div>
+      <div>If your hand beats the dealer's, you win. The dealer needs at least <b>a pair</b> to "qualify" — if they don't, your Ante bet is returned. The <b>Blind</b> pays a bonus if you win with a Straight or better. You play <b>3 hands</b>.</div>`
   },
   roulette: {
     title: '🎡 Roulette',
-    body: `<div>Pick where to bet on the board, set your stake, and spin. <b>One spin</b> ends the run.</div>
-      <div><b>Numbers 0–36</b> — exact match pays <b>35:1</b>.</div>
-      <div><b>Columns (2:1)</b> — top, middle, or bottom row of the board.</div>
-      <div><b>Dozens</b> — 1-12, 13-24, or 25-36 — pay <b>2:1</b>.</div>
-      <div><b>Outside bets</b> — Red/Black, Odd/Even, 1-18/19-36 — pay <b>1:1</b>.</div>
-      <div>On some modifier days you may place multiple bets before spinning.</div>`
+    body: `<div>A ball is dropped onto a spinning wheel numbered 0–36. Pick where you think it'll land, set your stake, and spin. <b>One spin</b> ends the run.</div>
+      <div><b>Numbers 0–36</b> — exact match pays <b>35:1</b>. High risk, high reward.</div>
+      <div><b>Columns (2:1)</b> — bet on one of the three columns on the board.</div>
+      <div><b>Dozens</b> — 1–12, 13–24, or 25–36. Pays <b>2:1</b>.</div>
+      <div><b>Outside bets</b> — Red/Black, Odd/Even, or Low/High (1–18 / 19–36). Pays <b>1:1</b>. Safest option.</div>
+      <div>On some modifier days you can place multiple bets before spinning.</div>`
   },
   modifiers: {
     title: '✨ Daily Modifiers',
-    body: `<div>A modifier is active every day that changes the rules for everyone. The gold banner at the top of each game screen tells you what's active.</div>
-      <div><b>Blackjack modifiers</b> — e.g. Blackjacks pay 2:1 · Dealer stands on 15 · Successful doubles pay 2× profit · One free dealer peek.</div>
-      <div><b>Hold'em modifiers</b> — e.g. All blind payouts doubled · Blind pays on two pair and trips · Raises pay 2:1 · Dealer needs two pair to qualify.</div>
-      <div><b>Roulette modifiers</b> — e.g. All wins doubled · Number bets pay 50:1 · Red/Black pays 2:1 · Place up to 10 bets.</div>
-      <div><b>Cross-game</b> — e.g. All In or Skip: each hand you go all-in or skip it entirely. Wins pay 2×.</div>
-      <div>The modifier rotates on a fixed cycle — the same cycle repeats for everyone.</div>`
+    body: `<div>Every day a special rule kicks in that changes the game for everyone. The gold banner at the top of each screen tells you what it is.</div>
+      <div><b>Blackjack</b> — examples: Blackjacks pay 2:1 · Dealer stands on 15 · Doubles pay 2× profit · One free dealer peek.</div>
+      <div><b>Hold'em</b> — examples: Blind payouts doubled · Blind pays on two pair · Raises pay 2:1 · Dealer needs two pair to qualify.</div>
+      <div><b>Roulette</b> — examples: All wins doubled · Number bets pay 50:1 · Red/Black pays 2:1 · Place up to 10 bets · Free re-spin.</div>
+      <div><b>Cross-game</b> — example: All In or Skip — each hand you go all-in or skip it. Wins pay 2×.</div>
+      <div>Modifiers rotate on a fixed cycle so the same modifier comes around again every few weeks.</div>`
   },
   hands: {
     title: '🃏 Poker Hands',
