@@ -90,12 +90,12 @@ function modBannerHTML(){
 
 // ─── AUDIO SYSTEM ─────────────────────────────────────────────
 function playMp3(src,ms=0){if(getPref('mute'))return;if(ms){setTimeout(()=>playMp3(src),ms);return;}new Audio(src).play().catch(()=>{});}
-function sndCard(ms=0){playMp3(`sounds/card${Math.ceil(Math.random()*3)}.mp3`,ms);}
+function sndCard(ms=0){playMp3(`assets/sounds/card${Math.ceil(Math.random()*3)}.mp3`,ms);}
 // d = chip denomination (or 'allin'); selects the appropriate sound effect.
-function sndChip(d){playMp3(d==='allin'?'sounds/allin.mp3':d<=25?'sounds/smallbet.mp3':'sounds/mediumbet.mp3');}
+function sndChip(d){playMp3(d==='allin'?'assets/sounds/allin.mp3':d<=25?'assets/sounds/smallbet.mp3':'assets/sounds/mediumbet.mp3');}
 function sndShuffle(cb){
   if(getPref('mute')){if(cb)setTimeout(cb,0);return;}
-  const a=new Audio('sounds/shuffle.mp3');
+  const a=new Audio('assets/sounds/shuffle.mp3');
   if(cb){
     let done=false;
     const once=()=>{if(!done){done=true;cb();}};
@@ -105,7 +105,7 @@ function sndShuffle(cb){
     a.play().catch(()=>{});
   }
 }
-function sndBigWin(){playMp3('sounds/bigwin.mp3');}
+function sndBigWin(){playMp3('assets/sounds/bigwin.mp3');}
 
 let _ac=null;
 // Returns the shared AudioContext, creating or resuming it on first use.
@@ -179,6 +179,14 @@ function patchBetUI() {
 function addChip(d){const k=curBetRef();S[k]=Math.min(S[k]+d,maxBet());sndChip();patchBetUI();}
 function clearBet(){S[curBetRef()]=0;patchBetUI();}
 function allIn(){S[curBetRef()]=maxBet();sndChip();patchBetUI();}
+
+// ─── SHARED SNIPPET HELPERS ───────────────────────────────────
+const runningTotalRow = () => `<div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>`;
+const nextBtn = (action, text) => `<button class="btn-gold" style="margin-top:12px" onclick="${action}">${text}</button>`;
+const aiosRow = (allInOnClick, skipOnClick) => `<div style="display:flex;gap:10px;margin-top:8px">
+    <button class="btn-gold" style="flex:2" onclick="${allInOnClick}">All In (${fmt(S.chips)}) →</button>
+    <button class="ch-clear" style="flex:1;padding:17px" onclick="${skipOnClick}">Skip Hand</button>
+  </div>`;
 
 // ─── SHARING & UTILS ──────────────────────────────────────────
 function buildShareText(){

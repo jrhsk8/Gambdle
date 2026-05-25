@@ -367,8 +367,8 @@ function screenRouletteResult(){
       <div class="r-res-num ${rCls(n)}">${n}</div>
     </div>
     <div style="font-size:.88rem;color:var(--shadow);margin-bottom:6px">${rName(n)}</div>
-    <div style="font-family:var(--btn-f);font-size:3rem;color:${col(res.delta)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${res.delta>0?'You Win!':res.delta===0?'Push':'You Lose!'}</div>
-    <div style="font-family:var(--btn-f);font-size:2rem;color:${col(res.delta)};margin-bottom:14px">${sign(res.delta)} chips</div>
+    <div class="result-hl" style="color:${col(res.delta)}">${res.delta>0?'You Win!':res.delta===0?'Push':'You Lose!'}</div>
+    <div class="result-sub" style="color:${col(res.delta)}">${sign(res.delta)} chips</div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
       ${betRows}
       <div class="gm-sep" style="opacity:0.35"></div>
@@ -499,7 +499,7 @@ function rSpin(){
   S.rPhase='spinning';
   render();updateChipDisplay();
   // Preload the audio now so its duration is available by the time startWheelAnim runs.
-  _rouletteAudio = getPref('mute') ? null : new Audio('sounds/roulette ball.mp3');
+  _rouletteAudio = getPref('mute') ? null : new Audio('assets/sounds/roulette ball.mp3');
   if (_rouletteAudio) { _rouletteAudio.volume = 0.5; _rouletteAudio.load(); }
   setTimeout(startWheelAnim,60);
 }

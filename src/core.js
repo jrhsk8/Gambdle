@@ -2,10 +2,10 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-// Storage wrapper: tries _ls, falls back to sessionStorage (private browsing).
+// Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
 const _ls = (() => {
-  try { _ls.setItem('_g','1'); _ls.removeItem('_g'); return _ls; }
+  try { localStorage.setItem('_g','1'); localStorage.removeItem('_g'); return localStorage; }
   catch { return sessionStorage; }
 })();
 

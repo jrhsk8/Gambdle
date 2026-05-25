@@ -307,10 +307,7 @@ function screenBJ(){
       <div class="divider"></div>
       ${aios
         ?`<div class="sec">All In or Skip · Wins Pay 2×</div>
-          <div style="display:flex;gap:10px;margin-top:8px">
-            <button class="btn-gold" style="flex:2" onclick="allIn();bjDeal()">All In (${fmt(S.chips)}) →</button>
-            <button class="ch-clear" style="flex:1;padding:17px" onclick="bjSkip()">Skip Hand</button>
-          </div>`
+          ${aiosRow('allIn();bjDeal()', 'bjSkip()')}`
         :`<div class="sec">Place Your Bet</div>
           ${chipSel(S.chips,S.bjBet)}
           <button id="db" class="btn-gold" style="margin-top:12px" onclick="bjDeal()" ${S.bjBet===0?'disabled':''}>Deal →</button>`}
@@ -343,7 +340,7 @@ function screenBJ(){
           <div class="sec">Hand ${ai+1} of ${S.bjSplitHands.length}</div>
           <div id="bj-active-hand" class="hand">${activeHand.map((c,i)=>{const n=i>=af;return cardHTML(c,'lg','',n?(i-af)*0.4+0.1:0,n);}).join('')}</div>
           ${S.bjCelebrating||done21
-            ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div style="font-family:var(--btn-f);font-size:2.8rem;color:var(--gold-hi);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(196,147,58,.55)">Blackjack!</div></div>`
+            ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div class="bj-celebrate-txt">Blackjack!</div></div>`
             :`<div id="bj-active-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pvStr}${bust?' BUST':done21?' 21!':''}</div>`}
         </div>
         <div style="margin-top:auto;">
@@ -368,7 +365,7 @@ function screenBJ(){
     <div id="bj-player-hand" class="hand">${S.bjPlayer.map((c,i)=>{const n=i>=S.bjAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
     ${(S.bjCelebrating||done21)
       ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}">
-          <div style="font-family:var(--btn-f);font-size:2.8rem;color:var(--gold-hi);letter-spacing:.04em;margin-top:14px;text-shadow:0 0 28px rgba(196,147,58,.55)">Blackjack!</div>
+          <div class="bj-celebrate-txt">Blackjack!</div>
           ${isBJ(S.bjPlayer)?`<div style="font-size:.72rem;color:var(--shadow);text-transform:uppercase;letter-spacing:.22em;margin-top:6px">Pays 3 · 2</div>`:''}
         </div>`
       :`<div id="bj-player-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pvStr}${bust?' BUST':done21?' 21!':''}</div>`}
@@ -393,10 +390,10 @@ function screenBJ(){
     <div class="panel" style="text-align:center">
       ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
       <div class="divider"></div>
-      <div style="font-family:var(--btn-f);font-size:3rem;color:${col(splitNet)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${splitNet>0?'You Win!':splitNet<0?'You Lose!':'Push'}</div>
-      <div style="font-family:var(--btn-f);font-size:2rem;color:${col(splitNet)};margin-bottom:14px">${sign(splitNet)} chips</div>
+      <div class="result-hl" style="color:${col(splitNet)}">${splitNet>0?'You Win!':splitNet<0?'You Lose!':'Push'}</div>
+      <div class="result-sub" style="color:${col(splitNet)}">${sign(splitNet)} chips</div>
       <div style="margin-bottom:20px">
-        <div class="sec" style="font-size:1rem">Dealer</div>
+        <div class="sec sec-sm">Dealer</div>
         <div class="hand" style="justify-content:center">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'sm','',n?(i-S.bjDealerAnimFrom)*0.75+0.15:0,n);}).join('')}</div>
         <div class="hand-val ${dv>21?'bust':''}" style="font-size:1.6rem">${dv}${dv>21?' BUST':''}</div>
       </div>
@@ -409,8 +406,8 @@ function screenBJ(){
           <div class="hand-val ${hv>21?'bust':''}" style="font-size:1.4rem">${hv}${hv>21?' BUST':''}</div>
         </div>`;}).join('')}
       </div>
-      <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
-      <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
+      ${runningTotalRow()}
+      ${nextBtn(btnAction, btnText)}
     </div>`;
   }
   const dv=hVal(S.bjDealer), pv=hVal(S.bjPlayer);
@@ -420,21 +417,21 @@ function screenBJ(){
   <div class="panel" style="text-align:center">
     ${gameDots(S.bjHistory, S.bjHand, S.bjPhase)}
     <div class="divider"></div>
-    <div style="font-family:var(--btn-f);font-size:3rem;color:${col(res.delta)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${res.result === 'blackjack' && bjMult === 2 ? 'Mega Blackjack! 💎' : RES_LBL[res.result]}</div>
-    <div style="font-family:var(--btn-f);font-size:2rem;color:${col(res.delta)};margin-bottom:14px">${sign(res.delta)} chips</div>
+    <div class="result-hl" style="color:${col(res.delta)}">${res.result === 'blackjack' && bjMult === 2 ? 'Mega Blackjack! 💎' : RES_LBL[res.result]}</div>
+    <div class="result-sub" style="color:${col(res.delta)}">${sign(res.delta)} chips</div>
     <div style="display:flex;flex-direction:column;gap:16px;align-items:center;margin-bottom:14px">
       ${renderBJResultDealer(dv, 0)}
-      <div style="width:60%;height:1px;background:rgba(196,147,58,0.1)"></div>
+      <div class="gold-divider"></div>
       ${renderBJResultPlayer(pv, res.result)}
     </div>
-    <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
-    <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
+    ${runningTotalRow()}
+    ${nextBtn(btnAction, btnText)}
   </div>`;
 }
 
 function renderBJResultDealer(dv, dOff) {
   return `<div style="text-align:center">
-        <div class="sec" style="font-size:1rem">Dealer</div>
+        <div class="sec sec-sm">Dealer</div>
         <div class="hand">${S.bjDealer.map((c, i) => {
           const n = i >= S.bjDealerAnimFrom;
           return cardHTML(c, 'sm', '', n ? dOff + (i - S.bjDealerAnimFrom) * 0.75 + 0.05 : 0, n);
@@ -445,7 +442,7 @@ function renderBJResultDealer(dv, dOff) {
 
 function renderBJResultPlayer(pv, result) {
   return `<div style="text-align:center">
-        <div class="sec" style="font-size:1rem">You</div>
+        <div class="sec sec-sm">You</div>
         <div class="hand">${S.bjPlayer.map((c, i) => {
           return cardHTML(c, 'sm', '', 0, false);
         }).join('')}</div>

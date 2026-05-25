@@ -343,10 +343,7 @@ function screenPoker(){
       <div class="divider"></div>
       ${aios
         ?`<div class="sec">All In or Skip · Wins Pay 2×</div>
-          <div style="display:flex;gap:10px;margin-top:8px">
-            <button class="btn-gold" style="flex:2" onclick="allIn();pkDeal()">All In (${fmt(S.chips)}) →</button>
-            <button class="ch-clear" style="flex:1;padding:17px" onclick="pkSkip()">Skip Hand</button>
-          </div>`
+          ${aiosRow('allIn();pkDeal()', 'pkSkip()')}`
         :`<div class="sec">Place Your Bet</div>
           ${chipSel(S.chips,S.pkBet)}
           <button id="db" class="btn-gold" style="margin-top:12px" onclick="pkDeal()" ${S.pkBet===0?'disabled':''}>Deal →</button>
@@ -401,15 +398,15 @@ function screenPoker(){
   <div class="panel" style="text-align:center">
     ${gameDots(S.pkHistory,S.pkHand,S.pkPhase)}
     <div class="divider"></div>
-    <div style="font-family:var(--btn-f);font-size:3rem;color:${col(h.delta)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${h.delta>0?'You Win!':h.delta<0?'You Lose!':'Push'}</div>
+    <div class="result-hl" style="color:${col(h.delta)}">${h.delta>0?'You Win!':h.delta<0?'You Lose!':'Push'}</div>
     <div style="font-family:var(--btn-f);font-size:1.1rem;color:var(--gold);margin-bottom:2px">${res.n}</div>
-    <div style="font-family:var(--btn-f);font-size:2rem;color:${col(h.delta)};margin-bottom:14px">${sign(h.delta)} chips</div>
-    <div class="sec" style="font-size:1rem">Your Hand</div>
+    <div class="result-sub" style="color:${col(h.delta)}">${sign(h.delta)} chips</div>
+    <div class="sec sec-sm">Your Hand</div>
     <div class="hand" style="margin-bottom:12px">
       ${S.pkFinal.map((c,i)=>{const isNew=!S.pkHeld.has(i);return cardHTML(c,'md',isNew?'box-shadow:0 0 0 2px var(--gold-hi),2px 3px 10px rgba(0,0,0,.5)':'',isNew?0.04+i*0.05:0);}).join('')}
     </div>
-    <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
-    <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
+    ${runningTotalRow()}
+    ${nextBtn(btnAction, btnText)}
   </div>`;
 }
 
@@ -426,10 +423,7 @@ function screenUTH(){
       <div class="divider"></div>
       ${aios
         ?`<div class="sec">All In or Skip · Wins Pay 2×</div>
-          <div style="display:flex;gap:10px;margin-top:8px">
-            <button class="btn-gold" style="flex:2" onclick="S.uthAnte=S.chips;uthDeal()">All In (${fmt(S.chips)}) →</button>
-            <button class="ch-clear" style="flex:1;padding:17px" onclick="uthSkip()">Skip Hand</button>
-          </div>`
+          ${aiosRow('S.uthAnte=S.chips;uthDeal()', 'uthSkip()')}`
         :`<div class="sec" style="text-align:center">Place Bet (Ante + Blind)</div>
           ${chipSel(maxAnte,S.uthAnte,[10,50,100,250,500,1000])}
           <div id="uth-summary" class="uth-summary" style="text-align:center;margin:10px 0;color:var(--cream)">
@@ -554,18 +548,18 @@ function screenUTH(){
       <div class="divider"></div>
       <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px">
         <div>
-          <div class="sec" style="font-size:1rem">Dealer</div>
+          <div class="sec sec-sm">Dealer</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.9+0.1)).join('')}</div>
         </div>
         ${commRow()}
-        <div style="width:60%;height:1px;background:rgba(196,147,58,0.1)"></div>
+        <div class="gold-divider"></div>
         <div>
-          <div class="sec" style="font-size:1rem">Your Hand</div>
+          <div class="sec sec-sm">Your Hand</div>
           <div class="hand" style="justify-content:center">${S.uthHole.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
         </div>
       </div>
       ${betChips()}
-      <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
+      ${runningTotalRow()}
     </div>`;
   }
 
@@ -584,24 +578,24 @@ function screenUTH(){
     <div class="panel" style="text-align:center">
       ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
       <div class="divider"></div>
-      <div style="font-family:var(--btn-f);font-size:3rem;color:var(--lose);margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">You Folded</div>
-      <div style="font-family:var(--btn-f);font-size:2rem;color:var(--lose);margin-bottom:14px">${sign(hist.delta)} chips</div>
+      <div class="result-hl" style="color:var(--lose)">You Folded</div>
+      <div class="result-sub" style="color:var(--lose)">${sign(hist.delta)} chips</div>
       <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin:12px 0">
         <div>
-          <div class="sec" style="font-size:1rem">Dealer's Hand</div>
+          <div class="sec sec-sm">Dealer's Hand</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
           <div style="font-size:1.3rem;color:var(--gold-hi);margin-top:3px">${CAT_NAMES[dealerBest.cat]}</div>
         </div>
         ${commRow()}
-        <div style="width:60%;height:1px;background:rgba(196,147,58,0.1)"></div>
+        <div class="gold-divider"></div>
         <div>
-          <div class="sec" style="font-size:1rem">Your Hand</div>
+          <div class="sec sec-sm">Your Hand</div>
           <div class="hand" style="justify-content:center">${S.uthHole.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
         </div>
       </div>
       <div class="divider"></div>
-      <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
-      <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
+      ${runningTotalRow()}
+      ${nextBtn(btnAction, btnText)}
     </div>`;
   }
 
@@ -616,22 +610,22 @@ function screenUTH(){
     ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
     <div class="divider"></div>
     <div style="text-align:center;margin-bottom:10px">
-      <div style="font-family:var(--btn-f);font-size:3rem;color:${col(hist.delta)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${resLabel}</div>
-      <div style="font-family:var(--btn-f);font-size:2rem;color:${col(hist.delta)};margin-bottom:14px">${sign(hist.delta)} chips</div>
+      <div class="result-hl" style="color:${col(hist.delta)}">${resLabel}</div>
+      <div class="result-sub" style="color:${col(hist.delta)}">${sign(hist.delta)} chips</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px;margin-top:12px">
         <div style="text-align:center">
-          <div class="sec" style="font-size:1rem">Dealer${hist.dealerQualifies?' (Qualifies)':' (No Qualify)'}</div>
+          <div class="sec sec-sm">Dealer${hist.dealerQualifies?' (Qualifies)':' (No Qualify)'}</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map(c=>cardHTML(c,'md',hl(c),0,false)).join('')}</div>
           <div style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[db2.cat]}</div>
         </div>
         <div style="text-align:center">
-          <div class="sec" style="font-size:1rem">Community</div>
+          <div class="sec sec-sm">Community</div>
           <div class="hand" style="justify-content:center">${S.uthComm.map((c,i)=>cardHTML(c,'sm',hl(c),i*0.08+0.05)).join('')}</div>
         </div>
-        <div style="width:60%;height:1px;background:rgba(196,147,58,0.1)"></div>
+        <div class="gold-divider"></div>
         <div style="text-align:center">
-          <div class="sec" style="font-size:1rem">You</div>
+          <div class="sec sec-sm">You</div>
           <div class="hand" style="justify-content:center">${S.uthHole.map((c,i)=>cardHTML(c,'md',hl(c),i*0.15+0.05)).join('')}</div>
           <div style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[pb.cat]}</div>
         </div>
@@ -640,7 +634,7 @@ function screenUTH(){
     <div style="display:grid;grid-template-columns:1fr auto;gap:3px 14px;margin-bottom:10px">
       ${[['Ante',hist.anteDelta],['Blind',hist.blindDelta],...(hist.play>0?[['Play ('+hist.playMult+'×)',hist.playDelta]]:[])].map(([lbl,d])=>`<span class="pname">${lbl}</span><span class="ppay" style="color:${col(d)}">${sign(d)}</span>`).join('')}
     </div>
-    <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
-    <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
+    ${runningTotalRow()}
+    ${nextBtn(btnAction, btnText)}
   </div>`;
 }

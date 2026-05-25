@@ -547,6 +547,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 .ik { font-size: 1.4rem; color: var(--shadow); letter-spacing: 0.04em; }
 .iv { font-family: var(--btn-f); font-size: 1.35rem; color: var(--ink); }
+.sec-sm { font-size: 1rem; }
+.gold-divider { width: 60%; height: 1px; background: rgba(196,147,58,0.1); align-self: center; }
+.result-hl { font-family: var(--btn-f); font-size: 3rem; margin-bottom: 4px; text-shadow: 2px 2px 0 rgba(0,0,0,0.4); }
+.result-sub { font-family: var(--btn-f); font-size: 2rem; margin-bottom: 14px; }
+.bj-celebrate-txt { font-family: var(--btn-f); font-size: 2.8rem; color: var(--gold-hi); letter-spacing: 0.04em; margin-top: 14px; text-shadow: 0 0 28px rgba(196,147,58,0.55); }
 
 /* ── Game manifest tile (intro screen) ──────────────────── */
 .game-manifest {

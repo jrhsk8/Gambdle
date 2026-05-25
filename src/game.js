@@ -263,7 +263,7 @@ function updateChipDisplay() {
 
 function goTo(s){S.screen=s;render();}
 // Plays a transition sound scaled to how well the player is doing.
-function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('sounds/mediumbet.mp3');else playMp3('sounds/smallbet.mp3');}
+function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('assets/sounds/mediumbet.mp3');else playMp3('assets/sounds/smallbet.mp3');}
 // Navigates between games; redirects to results early if the player is busted (<10 chips).
 function advanceTo(s){sndAdvance();if(s!=='results'&&isChipBusted())s='results';goTo(s);}
 function startGame(){sndChip('allin');S.screen=GAME1;S.bjPhase='bet';render();}
