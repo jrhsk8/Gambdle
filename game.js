@@ -80,7 +80,7 @@ function screenResults(){
     <div style="color:var(--cream);opacity:0.7;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;margin-top:2px;margin-bottom:4px">chips</div>
     <div style="font-size:1.05rem;margin-bottom:8px;color:var(--cream)">${msg}</div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
-      ${[['🃏 Blackjack',bjNet],[g2Label,g2Net],['🎡 Roulette',rNet]].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep"></div>':''}
+      ${[['🃏 Blackjack',bjNet],[g2Label,g2Net],['🎡 Roulette',rNet]].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
       <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
         <span style="font-size:1rem">${lbl}</span>
         <span style="font-family:var(--btn-f);font-size:1.35rem;color:${col(net)}">${sign(net)}</span>

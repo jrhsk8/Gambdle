@@ -317,32 +317,35 @@ function screenRouletteResult(){
   if(res.skipped){
     return `${hdr('Roulette · Skipped')}
     <div class="panel" style="text-align:center">
-      ${gameDots([res], 0, 'result', 2)}
-      <div class="divider"></div>
       <div style="font-size:1.75rem;font-weight:700;color:var(--shadow);margin-bottom:12px">Spin Skipped</div>
-      <div class="irow"><span class="ik">Chips</span><span class="iv">${fmt(S.chips)}</span></div>
-      <button class="btn-gold" style="margin-top:12px" onclick="advanceTo('results')">See Final Results →</button>
+      <div class="game-manifest" style="text-align:left;margin-bottom:6px">
+        <div class="irow"><span class="ik">Final chip total</span><span class="iv">${fmt(S.chips)}</span></div>
+      </div>
+      <button class="btn-gold" onclick="advanceTo('results')">See Final Results →</button>
     </div>`;
   }
   const bets=res.bets||[{pick:S.rPick,won:res.won,delta:res.delta,pay:R_BETS[S.rPick]?.pay}];
-  const betRows=bets.map(b=>{const d=R_BETS[b.pick];return`<div class="irow" style="margin-bottom:4px">
-    <span class="ik">${d?d.type==='num'?'#'+d.lbl:d.lbl:'?'} · Pays ${b.pay}:1</span>
-    <span style="font-family:var(--btn-f);font-size:1.2rem;color:${col(b.delta)}">${sign(b.delta)}</span>
-  </div>`;}).join('');
+  const betRows=bets.map((b,i)=>{const d=R_BETS[b.pick];return`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
+      <span style="font-size:1rem">${d?d.type==='num'?'#'+d.lbl:d.lbl:'?'} · Pays ${b.pay}:1</span>
+      <span style="font-family:var(--btn-f);font-size:1.35rem;color:${col(b.delta)}">${sign(b.delta)}</span>
+    </div>`;}).join('');
   return `${hdr('Roulette · Result')}
   <div class="panel" style="text-align:center">
-    ${gameDots([res], 1, 'result', 2)}
-    <div class="divider"></div>
     <div style="display:flex;justify-content:center;margin-bottom:4px">
       <div class="r-res-num ${rCls(n)}">${n}</div>
     </div>
     <div style="font-size:.88rem;color:var(--shadow);margin-bottom:6px">${rName(n)}</div>
     <div style="font-size:2.2rem;font-weight:700;color:${col(res.delta)};margin-bottom:2px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${res.delta>0?'You Win! 🎉':res.delta===0?'No change':'You Lose! 💸'}</div>
     <div style="font-size:1.6rem;font-weight:700;color:${col(res.delta)};margin-bottom:8px">${sign(res.delta)} chips</div>
-    <div class="divider"></div>
-    ${betRows}
-    <div class="irow" style="margin-top:8px"><span class="ik">Chips after</span><span class="iv">${fmt(S.chips)}</span></div>
-    <button class="btn-gold" style="margin-top:12px" onclick="advanceTo('results')">See Final Results →</button>
+    <div class="game-manifest" style="text-align:left;margin-bottom:6px">
+      ${betRows}
+      <div class="gm-sep" style="opacity:0.35"></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
+        <span class="ik">Final chip total</span><span class="iv">${fmt(S.chips)}</span>
+      </div>
+    </div>
+    <button class="btn-gold" onclick="advanceTo('results')">See Final Results →</button>
   </div>`;
 }
 

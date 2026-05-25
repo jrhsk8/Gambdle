@@ -534,13 +534,13 @@ function screenUTH(){
       <div class="divider"></div>
       <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px">
         <div>
-          <div class="sec" style="font-size:.62rem">Dealer</div>
+          <div class="sec" style="font-size:1rem">Dealer</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.9+0.1)).join('')}</div>
         </div>
         ${commRow()}
         <div style="width:60%;height:1px;background:rgba(196,147,58,0.1)"></div>
         <div>
-          <div class="sec" style="font-size:.62rem">Your Hand</div>
+          <div class="sec" style="font-size:1rem">Your Hand</div>
           <div class="hand" style="justify-content:center">${S.uthHole.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
         </div>
       </div>
@@ -568,14 +568,14 @@ function screenUTH(){
       <div class="divider"></div>
       <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin:12px 0">
         <div>
-          <div class="sec" style="font-size:.62rem">Dealer's Hand</div>
+          <div class="sec" style="font-size:1rem">Dealer's Hand</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
-          <div style="font-size:1.05rem;color:var(--gold-hi);margin-top:3px">${CAT_NAMES[dealerBest.cat]}</div>
+          <div style="font-size:1.3rem;color:var(--gold-hi);margin-top:3px">${CAT_NAMES[dealerBest.cat]}</div>
         </div>
         ${commRow()}
         <div style="width:60%;height:1px;background:rgba(196,147,58,0.1)"></div>
         <div>
-          <div class="sec" style="font-size:.62rem">Your Hand</div>
+          <div class="sec" style="font-size:1rem">Your Hand</div>
           <div class="hand" style="justify-content:center">${S.uthHole.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
         </div>
       </div>
@@ -602,19 +602,19 @@ function screenUTH(){
     <div class="divider"></div>
     <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px;margin-top:12px">
         <div style="text-align:center">
-          <div class="sec" style="font-size:.62rem">Dealer${hist.dealerQualifies?' (Qualifies)':' (No Qualify)'}</div>
+          <div class="sec" style="font-size:1rem">Dealer${hist.dealerQualifies?' (Qualifies)':' (No Qualify)'}</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map(c=>cardHTML(c,'md',hl(c),0,false)).join('')}</div>
-          <div style="font-size:1.05rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[db2.cat]}</div>
+          <div style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[db2.cat]}</div>
         </div>
         <div style="text-align:center">
-          <div class="sec" style="font-size:.62rem">Community</div>
+          <div class="sec" style="font-size:1rem">Community</div>
           <div class="hand" style="justify-content:center">${S.uthComm.map((c,i)=>cardHTML(c,'sm',hl(c),i*0.08+0.05)).join('')}</div>
         </div>
         <div style="width:60%;height:1px;background:rgba(196,147,58,0.1)"></div>
         <div style="text-align:center">
-          <div class="sec" style="font-size:.62rem">You</div>
+          <div class="sec" style="font-size:1rem">You</div>
           <div class="hand" style="justify-content:center">${S.uthHole.map((c,i)=>cardHTML(c,'md',hl(c),i*0.15+0.05)).join('')}</div>
-          <div style="font-size:1.05rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[pb.cat]}</div>
+          <div style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[pb.cat]}</div>
         </div>
     </div>
     <div class="divider"></div>
