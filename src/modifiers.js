@@ -94,6 +94,8 @@ const DAILY_MODIFIERS = {
   // Add overrides here as needed, e.g.:
   // 20260704: 'all_in_or_skip',
   20260524: 'bj_double_bonus',
+  20260526: 'r_hot_numbers',
+  20260527: 'easy_dealer',
 };
 
 // Validate CYCLE_ORDER entries at load time
