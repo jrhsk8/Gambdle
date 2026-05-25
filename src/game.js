@@ -68,27 +68,25 @@ function screenResults(){
 
   const high = parseInt(_ls.getItem('gambdle_highscore') || '0');
   const {emoji,label}=getTier(S.chips);const tier=`${emoji} ${label}`;
-  const msg = S.chips >= 1000 ? '📈 Excellent run!' : S.chips > 0 ? '📉 Tough session' : 'Better luck tomorrow';
 
   return `${hdr('Daily Results')}
   <div class="panel" style="text-align:center">
     <div style="font-size:1.05rem;color:var(--cream);text-transform:uppercase;letter-spacing:0.16em;margin-bottom:2px">${tier}</div>
     <div class="big-chips" style="font-family:var(--btn-f);font-size:5rem;line-height:1;letter-spacing:.04em;color:var(--gold-hi);text-shadow:2px 2px 0 rgba(0,0,0,0.45)">${fmt(S.chips)}</div>
-    <div style="color:var(--cream);opacity:0.7;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;margin-top:2px;margin-bottom:4px">chips</div>
-    <div style="font-size:1.05rem;margin-bottom:8px;color:var(--cream)">${msg}</div>
+    <div style="color:var(--cream);opacity:0.7;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;margin-top:2px;margin-bottom:6px">chips</div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
       ${[[g1Label,g1Net],[g2Label,g2Net],['🎡 Roulette',rNet]].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
-      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
+      <div class="res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
         <span style="font-size:1rem">${lbl}</span>
         <span style="font-family:var(--btn-f);font-size:1.35rem;color:${col(net)}">${sign(net)}</span>
       </div>`).join('')}
       <div class="gm-sep" style="opacity:0.35"></div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
+      <div class="res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
         <span class="ik">All-time high</span><span class="iv">${fmt(Math.max(S.chips, high))}</span>
       </div>
       <div id="lb-stat">
         <div class="gm-sep" style="opacity:0.35"></div>
-        <div class="lb-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
+        <div class="lb-row res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
           <span class="ik">Today's ranking</span><span class="iv" style="color:var(--ink)">Loading…</span>
         </div>
       </div>
@@ -211,7 +209,7 @@ const STATUS_HINT = {
   uth:      "Hold'em — choose action.",
   poker:    'Poker — choose action.',
   roulette: 'Roulette — place a bet.',
-  results:  '<span class="sb-prefix">Game complete · </span>New game at midnight Arizona time daily.',
+  results:  '<span class="sb-prefix">Game complete · </span>New game at midnight<span class="sb-suffix"> · Arizona time</span>',
 };
 
 function statusBar(){
@@ -240,7 +238,7 @@ function render(){
     </div>
   </div>`;
   const _panel = document.querySelector('.panel');
-  const _mod = modBannerHTML();
+  const _mod = modBannerHTML(S.screen === 'results');
   // Inject the modifier banner at the top of the panel after the screen HTML is in place.
   if (_panel && _mod) _panel.insertAdjacentHTML('afterbegin', _mod);
   _reapplyDragPos();

@@ -793,12 +793,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .menu-bar .mb-item { padding: 2px 6px; }
   .chip-badge { font-size: 1.15rem; padding: 0 6px; }
   .mod-banner { padding: 6px 10px; gap: 2px; margin-bottom: 6px; flex-direction: column; align-items: stretch; }
+  .mod-banner-slim .mod-banner-r { display: none; }
   .mod-banner-l { display: flex; flex-direction: row; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; }
   .mod-banner-label { font-size: 0.85rem; letter-spacing: 0.08em; flex-shrink: 0; }
   .mod-banner-title { font-size: 1.25rem; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .mod-banner-r { font-size: 1.05rem; text-align: left; text-wrap: balance; }
   .tb-detail, .btn-detail, .dot-detail { display: none; }
-  .sb-prefix { display: none; }
+  .sb-prefix, .sb-suffix { display: none; }
   /* Section labels */
   .sec { font-size: 1.2rem; margin-bottom: 3px; }
   /* Progress dots */
@@ -850,7 +851,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .act-btn { font-size: 1.1rem; padding: 12px 5px; white-space: normal; }
   /* Results screen */
   .big-chips { font-size: 3.2rem !important; line-height: 1; }
-  .chart-wrap { height: 45px; margin: 4px 4px 20px; }
+  .res-row { padding: 4px 10px !important; }
+  .chart-wrap { height: 45px; margin: 4px 4px 16px; }
   .share-box { padding: 8px 10px; font-size: 1.1rem; line-height: 1.4; }
   /* Split hands */
   .bj-split-lbl { font-size: 1.6rem; }

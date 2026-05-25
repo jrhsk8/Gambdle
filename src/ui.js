@@ -75,11 +75,11 @@ function hdr(sub){
 
 // Returns the gold modifier banner HTML, or '' if no modifier is active today.
 // Injected into .panel by render() after the screen HTML is built, not part of any screenX() call.
-function modBannerHTML(){
+function modBannerHTML(slim=false){
   const modTitle = getMod('title');
   const modDesc = getMod('desc');
   if (!modTitle) return '';
-  return `<div class="mod-banner">
+  return `<div class="mod-banner${slim?' mod-banner-slim':''}">
     <div class="mod-banner-l">
       <div class="mod-banner-label">TODAY'S MODIFIER</div>
       <div class="mod-banner-title">✨ ${modTitle}</div>
@@ -195,9 +195,10 @@ function buildShareText(){
   const rNet=S.rResult?.delta||0;
   const g1=GAME_META[GAME1],g2=GAME_META[GAME2];
   const trophy=getTier(S.chips).emoji;
+  const modTitle = getMod('title');
   return [
     `🎰 Gambdle #${S.day}`,
-    ``,
+    modTitle ? `Daily modifier: ${modTitle}` : ``,
     `${g1.icon} ${g1.short} (${sign(g1Net)})`,
     `${g2.icon} ${g2.short} (${sign(g2Net)})`,
     `🎡 Roulette (${sign(rNet)})`,
@@ -233,7 +234,7 @@ const INFO_SECTIONS = {
   overview: {
     title: 'How to Play',
     body: `<div><b>🎰 Gambdle</b> is a daily casino game. Everyone plays the exact same hands — you start with <b>1,000 chips</b>, play two card games back to back, then finish with one spin of the roulette wheel. Your final chip count is your score.</div>
-      <div>A new game drops every day at midnight. Compare your score on the leaderboard.</div>
+      <div>A new game drops every day at midnight <b>Arizona time</b> (MST — no daylight saving). Compare your score on the leaderboard.</div>
       <div><b>✨ Daily Modifier</b> — every day has a special rule that changes the game for everyone, like boosted payouts or extra betting options. Look for the gold banner at the top of each game screen.</div>`
   },
   bj: {
@@ -316,6 +317,7 @@ function closeDropdowns() {
 
 // Mobile: inlines submenus directly below the trigger item instead of floating them.
 function _showInlineSub(trigger, html, level) {
+  const wasOpen = trigger.classList.contains(`dd-item--open-${level}`);
   // Close level-2 subs always; also close level-1 when opening a new level-1
   document.querySelectorAll('.dd-inline-sub.dd-level-2').forEach(el => el.remove());
   document.querySelectorAll('.dd-item--open-2').forEach(el => {
@@ -329,8 +331,7 @@ function _showInlineSub(trigger, html, level) {
       const a = el.querySelector('.dd-key'); if (a) a.textContent = '►';
     });
   }
-  // Toggle closed if already open
-  if (trigger.classList.contains(`dd-item--open-${level}`)) return;
+  if (wasOpen) return;
   trigger.classList.add(`dd-item--open-${level}`);
   const a = trigger.querySelector('.dd-key'); if (a) a.textContent = '▼';
   const sub = document.createElement('div');
