@@ -72,6 +72,8 @@ function bestOf7(cards){
 }
 
 function uthBlindDelta(cat,blind){
+  const extended=getMod('uth_blind_extended');
+  const boost=getMod('uth_blind_boost')||1;
   let base=0;
   if(cat===9)base=blind*500;
   else if(cat===8)base=blind*50;
@@ -79,9 +81,8 @@ function uthBlindDelta(cat,blind){
   else if(cat===6)base=blind*3;
   else if(cat===5)base=Math.floor(blind*1.5);
   else if(cat===4)base=blind;
-  else if(getMod('uth_blind_extended')&&cat===3)base=blind;
-  else if(getMod('uth_blind_extended')&&cat===2)base=Math.floor(blind*0.5);
-  const boost=getMod('uth_blind_boost')||1;
+  else if(extended&&cat===3)base=blind;
+  else if(extended&&cat===2)base=Math.floor(blind*0.5);
   return Math.floor(base*boost);
 }
 

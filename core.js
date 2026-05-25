@@ -94,6 +94,44 @@ const TEST_CARD_OVERRIDE = {
   rSpin: 0,
 };
 
+// Splices override cards to the front of the shoe, preserving remaining cards in order.
+function _applyBjShoeOverride(shoe, cards) {
+  if (!cards || !cards.length) return shoe;
+  const pool = [...shoe];
+  for (const oc of cards) {
+    const i = pool.findIndex(c => c.r === oc.r && c.s === oc.s);
+    if (i !== -1) pool.splice(i, 1);
+  }
+  return [...cards, ...pool];
+}
+
+// Places override hands at their fixed offsets in the UTH deck (9 cards per hand).
+function _applyUthDeckOverride(deck, hands) {
+  if (!hands || !hands.length) return deck;
+  const placed = new Map();
+  const pool = [...deck];
+  for (let h = 0; h < 3; h++) {
+    const spec = hands[h];
+    if (!spec) continue;
+    const off = h * 9;
+    const slots = [
+      ...(spec.hole   || []).slice(0, 2),
+      ...(spec.dealer || []).slice(0, 2),
+      ...(spec.comm   || []).slice(0, 5),
+    ];
+    for (let i = 0; i < slots.length; i++) {
+      if (!slots[i]) continue;
+      placed.set(off + i, slots[i]);
+      const pi = pool.findIndex(c => c.r === slots[i].r && c.s === slots[i].s);
+      if (pi !== -1) pool.splice(pi, 1);
+    }
+  }
+  const newDeck = [];
+  let pi = 0;
+  for (let i = 0; i < 52; i++) newDeck.push(placed.has(i) ? placed.get(i) : pool[pi++]);
+  return newDeck;
+}
+
 // Pre-generates all cards and spin data for the daily run.
 function genGame(){
   const rng=mkRng(getRngSeed());
@@ -102,12 +140,14 @@ function genGame(){
   const pokerDecks=Array.from({length:3},()=>shuffle(buildDeck(),rng));
   let uthDeck=shuffle(buildDeck(),rng);
   let rSpinOverride=null;
+
   if(_testActive()){
     const ov=TEST_CARD_OVERRIDE;
-    if(ov.bjShoe&&ov.bjShoe.length){const pool=[...bjShoe];for(const oc of ov.bjShoe){const i=pool.findIndex(c=>c.r===oc.r&&c.s===oc.s);if(i!==-1)pool.splice(i,1);}bjShoe=[...ov.bjShoe,...pool];}
-    if(ov.uthHands&&ov.uthHands.length){const placed=new Map();const pool=[...uthDeck];for(let h=0;h<3;h++){const spec=ov.uthHands[h];if(!spec)continue;const off=h*9;const slots=[...(spec.hole||[]).slice(0,2),...(spec.dealer||[]).slice(0,2),...(spec.comm||[]).slice(0,5)];for(let i=0;i<slots.length;i++){if(!slots[i])continue;placed.set(off+i,slots[i]);const pi=pool.findIndex(c=>c.r===slots[i].r&&c.s===slots[i].s);if(pi!==-1)pool.splice(pi,1);}}const newDeck=[];let pi=0;for(let i=0;i<52;i++)newDeck.push(placed.has(i)?placed.get(i):pool[pi++]);uthDeck=newDeck;}
+    bjShoe = _applyBjShoeOverride(bjShoe, ov.bjShoe);
+    uthDeck = _applyUthDeckOverride(uthDeck, ov.uthHands);
     if(ov.rSpin!=null)rSpinOverride=ov.rSpin;
   }
+
   if(ENABLE_CARD_SEEDING){
     const CARD_SEED_OVERRIDE = {
       bjShoe: [
@@ -124,35 +164,11 @@ function genGame(){
       ],
       rSpin: null,
     };
-    if(CARD_SEED_OVERRIDE.bjShoe && CARD_SEED_OVERRIDE.bjShoe.length){
-      const pool=[...bjShoe];
-      for(const oc of CARD_SEED_OVERRIDE.bjShoe){
-        const i=pool.findIndex(c=>c.r===oc.r&&c.s===oc.s);
-        if(i!==-1)pool.splice(i,1);
-      }
-      bjShoe=[...CARD_SEED_OVERRIDE.bjShoe,...pool];
-    }
-    if(CARD_SEED_OVERRIDE.uthHands && CARD_SEED_OVERRIDE.uthHands.length){
-      const placed=new Map();
-      const pool=[...uthDeck];
-      for(let h=0;h<3;h++){
-        const spec=CARD_SEED_OVERRIDE.uthHands[h];
-        if(!spec)continue;
-        const off=h*9;
-        const slots=[...(spec.hole||[]).slice(0,2),...(spec.dealer||[]).slice(0,2),...(spec.comm||[]).slice(0,5)];
-        for(let i=0;i<slots.length;i++){
-          if(!slots[i])continue;
-          placed.set(off+i,slots[i]);
-          const pi=pool.findIndex(c=>c.r===slots[i].r&&c.s===slots[i].s);
-          if(pi!==-1)pool.splice(pi,1);
-        }
-      }
-      const newDeck=[];let pi=0;
-      for(let i=0;i<52;i++) newDeck.push(placed.has(i)?placed.get(i):pool[pi++]);
-      uthDeck=newDeck;
-    }
+    bjShoe = _applyBjShoeOverride(bjShoe, CARD_SEED_OVERRIDE.bjShoe);
+    uthDeck = _applyUthDeckOverride(uthDeck, CARD_SEED_OVERRIDE.uthHands);
     if(CARD_SEED_OVERRIDE.rSpin != null) rSpinOverride=CARD_SEED_OVERRIDE.rSpin;
   }
+
   return{bjShoe,pokerDecks,uthDeck,rSpinOverride};
 }
 const G=genGame();

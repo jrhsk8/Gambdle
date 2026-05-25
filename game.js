@@ -1,7 +1,5 @@
 
 // ─── APP SHELL ───────────────────────────────────────────────────────────
-// Sets browser tab title
-document.title = "♠️ Gambdle";
 
 let _noAnim=false;
 
@@ -169,7 +167,7 @@ function devApplyMod(k) {
 function devSpin(){
   S.screen='roulette';S.rPhase='bet';
   if(S.rBets.length===0&&S.chips>=10){S.chips-=10;S.rBets=[{pick:45,bet:10}];}
-  document.querySelectorAll('.dropdown').forEach(d=>d.remove());
+  closeDropdowns();
   saveState();
   if(S.rBets.length>0)rSpin();else render();
 }

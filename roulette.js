@@ -31,24 +31,27 @@ const R_GROUP_INFO={
   '19_36': {nums:new Set([19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36]),bannedIdx:48},
 };
 
+// Lookup table for getRBetNums (indices 37-48).
+const R_BET_NUMS_MAP = {
+  37: [3,6,9,12,15,18,21,24,27,30,33,36],
+  38: [2,5,8,11,14,17,20,23,26,29,32,35],
+  39: [1,4,7,10,13,16,19,22,25,28,31,34],
+  40: [1,2,3,4,5,6,7,8,9,10,11,12],
+  41: [13,14,15,16,17,18,19,20,21,22,23,24],
+  42: [25,26,27,28,29,30,31,32,33,34,35,36],
+  43: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
+  44: [2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36],
+  45: [...REDS],
+  46: Array.from({length:36},(_,n)=>n+1).filter(n=>!REDS.has(n)),
+  47: [1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35],
+  48: [19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36],
+};
+
 // Returns the 1-36 numbers covered by a given R_BETS index.
 function getRBetNums(i){
   if(i===0)return[];
   if(i<=36)return[i];
-  return({
-    37:[3,6,9,12,15,18,21,24,27,30,33,36],
-    38:[2,5,8,11,14,17,20,23,26,29,32,35],
-    39:[1,4,7,10,13,16,19,22,25,28,31,34],
-    40:[1,2,3,4,5,6,7,8,9,10,11,12],
-    41:[13,14,15,16,17,18,19,20,21,22,23,24],
-    42:[25,26,27,28,29,30,31,32,33,34,35,36],
-    43:[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
-    44:[2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36],
-    45:[...REDS],
-    46:Array.from({length:36},(_,n)=>n+1).filter(n=>!REDS.has(n)),
-    47:[1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35],
-    48:[19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36],
-  }[i]||[]);
+  return R_BET_NUMS_MAP[i]||[];
 }
 
 // Returns true if R_BETS[idx] wins for the given spin result.
@@ -63,6 +66,9 @@ function evalBet(idx,result){
   if(b.type==='col'){if(b.val===0)return result%3===1;if(b.val===1)return result%3===2;return result%3===0;}
   return false;
 }
+
+// Formats a chip amount as a short label for the board overlay (e.g. 1200 → "1K").
+const chipLbl = amt => amt >= 1000 ? Math.floor(amt / 1000) + 'K' : String(amt);
 
 // ─── ROULETTE BOARD ──────────────────────────────────────────────────────
 
@@ -82,7 +88,6 @@ function rBoard(){
     return'r-group-partial';
   };
   const placedTotals=S.rBets.reduce((m,b)=>{m.set(b.pick,(m.get(b.pick)||0)+b.bet);return m;},new Map());
-  const chipLbl=amt=>amt>=1000?Math.floor(amt/1000)+'K':String(amt);
   const chip=i=>{
     if(placedTotals.has(i))return`<span class="r-chip r-chip-placed">${chipLbl(placedTotals.get(i))}</span>`;
     return'';
@@ -418,7 +423,6 @@ function rAddBet(){
   boardBtn.classList.remove('r-sel');
   boardBtn.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
   const total=S.rBets.filter(b=>b.pick===prevPick).reduce((s,b)=>s+b.bet,0);
-  const chipLbl=amt=>amt>=1000?Math.floor(amt/1000)+'K':String(amt);
   const existingChip=boardBtn.querySelector('.r-chip-placed');
   if(existingChip)existingChip.textContent=chipLbl(total);
   else boardBtn.insertAdjacentHTML('beforeend',`<span class="r-chip r-chip-placed">${chipLbl(total)}</span>`);
@@ -471,14 +475,17 @@ function rSpin(){
   setTimeout(startWheelAnim,60);
 }
 function _evalBets(bets, spin) {
+  const multMod = getMod('r_payout_mult');
+  const numPayMod = getMod('r_number_pay');
+  const colorDoubleMod = getMod('r_color_double');
   return bets.map(b => {
     const bDef = R_BETS[b.pick];
     const won = evalBet(b.pick, spin);
     let pay = bDef.pay;
     if (won) {
-      if (getMod('r_payout_mult')) pay *= getMod('r_payout_mult');
-      else if (getMod('r_number_pay') && bDef.type === 'num') pay = getMod('r_number_pay');
-      else if (getMod('r_color_double') && bDef.type === 'col2') pay *= 2;
+      if (multMod) pay *= multMod;
+      else if (numPayMod && bDef.type === 'num') pay = numPayMod;
+      else if (colorDoubleMod && bDef.type === 'col2') pay *= 2;
     }
     const delta = won ? b.bet * pay : -b.bet;
     return {...b, won, delta, pay};

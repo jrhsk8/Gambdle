@@ -294,6 +294,10 @@ function showInfo(section) {
 // ─── MENUS ────────────────────────────────────────────────────
 const _isMobile = () => window.innerWidth <= 480;
 
+function closeDropdowns() {
+  document.querySelectorAll('.dropdown, .dd-submenu').forEach(d => d.remove());
+}
+
 function _showInlineSub(trigger, html, level) {
   // Close level-2 subs always; also close level-1 when opening a new level-1
   document.querySelectorAll('.dd-inline-sub.dd-level-2').forEach(el => el.remove());
@@ -372,7 +376,7 @@ function showModTypeSubmenu(type, trigger, action) {
 }
 
 function showModifierPopup(key) {
-  document.querySelectorAll('.dropdown, .dd-submenu').forEach(d => d.remove());
+  closeDropdowns();
   const m = PRESET_MODIFIERS[key];
   if (!m) return;
   const existing = document.getElementById('info-modal');
@@ -396,7 +400,7 @@ function toggleMenu(which, trigger) {
   const existing = document.querySelector('.dropdown');
   if (existing) {
     const wasThis = existing.dataset.menu === which;
-    document.querySelectorAll('.dropdown, .dd-submenu').forEach(d => d.remove());
+    closeDropdowns();
     if (wasThis) return;
   }
   const rect = trigger.getBoundingClientRect();
@@ -405,16 +409,16 @@ function toggleMenu(which, trigger) {
 
   if (which === 'dev') {
     el.innerHTML = `
-      <div class="dd-item" onclick="devReset();document.querySelectorAll('.dropdown').forEach(d=>d.remove())">↺ Reset Run</div>
+      <div class="dd-item" onclick="devReset();closeDropdowns()">↺ Reset Run</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="goTo('bj');document.querySelectorAll('.dropdown').forEach(d=>d.remove())">→ Blackjack</div>
-      <div class="dd-item" onclick="goTo('poker');document.querySelectorAll('.dropdown').forEach(d=>d.remove())">→ Hold'em</div>
-      <div class="dd-item" onclick="goTo('roulette');document.querySelectorAll('.dropdown').forEach(d=>d.remove())">→ Roulette</div>
+      <div class="dd-item" onclick="goTo('bj');closeDropdowns()">→ Blackjack</div>
+      <div class="dd-item" onclick="goTo('poker');closeDropdowns()">→ Hold'em</div>
+      <div class="dd-item" onclick="goTo('roulette');closeDropdowns()">→ Roulette</div>
       <div class="dd-item" onclick="devSpin()">🎡 Spin Wheel</div>
-      <div class="dd-item" onclick="goTo('results');document.querySelectorAll('.dropdown').forEach(d=>d.remove())">→ Results</div>
+      <div class="dd-item" onclick="goTo('results');closeDropdowns()">→ Results</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="S.chips+=500;render();updateChipDisplay();document.querySelectorAll('.dropdown').forEach(d=>d.remove())">+ 500 chips</div>
-      <div class="dd-item" onclick="S.chips+=10000;render();updateChipDisplay();document.querySelectorAll('.dropdown').forEach(d=>d.remove())">+ 10,000 chips</div>
+      <div class="dd-item" onclick="S.chips+=500;render();updateChipDisplay();closeDropdowns()">+ 500 chips</div>
+      <div class="dd-item" onclick="S.chips+=10000;render();updateChipDisplay();closeDropdowns()">+ 10,000 chips</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="toggleTestSeed();event.stopPropagation()" style="gap:12px">
         <span>Test Seed (reset to apply)</span>
@@ -431,18 +435,18 @@ function toggleMenu(which, trigger) {
     el.innerHTML = `
       <div class="dd-item dd-disabled">Gambdle #${S.day}</div>
       <div class="dd-sep"></div>
-      <div class="dd-item ${canShare?'':'dd-disabled'}" onclick="${canShare?`doShare();document.querySelector('.dropdown')?.remove()`:''}">📋 Copy &amp; Share</div>
+      <div class="dd-item ${canShare?'':'dd-disabled'}" onclick="${canShare?'doShare();closeDropdowns()':''}">📋 Copy &amp; Share</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showPrefsSubmenu(this);event.stopPropagation()">Preferences <span class="dd-key">►</span></div>`;
   } else {
     el.innerHTML = `
-      <div class="dd-item" onclick="showInfo('overview');document.querySelector('.dropdown')?.remove()">How to Play</div>
+      <div class="dd-item" onclick="showInfo('overview');closeDropdowns()">How to Play</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showInfo('bj');document.querySelector('.dropdown')?.remove()">🃏 Blackjack</div>
-      <div class="dd-item" onclick="showInfo('uth');document.querySelector('.dropdown')?.remove()">♠ Ultimate Hold'em</div>
-      <div class="dd-item" onclick="showInfo('roulette');document.querySelector('.dropdown')?.remove()">🎡 Roulette</div>
+      <div class="dd-item" onclick="showInfo('bj');closeDropdowns()">🃏 Blackjack</div>
+      <div class="dd-item" onclick="showInfo('uth');closeDropdowns()">♠ Ultimate Hold'em</div>
+      <div class="dd-item" onclick="showInfo('roulette');closeDropdowns()">🎡 Roulette</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showInfo('hands');document.querySelector('.dropdown')?.remove()">🂡 Poker Hands</div>
+      <div class="dd-item" onclick="showInfo('hands');closeDropdowns()">🂡 Poker Hands</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showModSubmenu(this,'showModifierPopup');event.stopPropagation()">✨ Daily Modifiers <span class="dd-key">►</span></div>`;
   }
@@ -451,7 +455,7 @@ function toggleMenu(which, trigger) {
   el.style.left = left + 'px';
   el.style.top = rect.bottom + 'px';
   document.body.appendChild(el);
-  setTimeout(() => document.addEventListener('click', () => { el.remove(); document.querySelectorAll('.dd-submenu').forEach(d=>d.remove()); }, {once:true}), 0);
+  setTimeout(() => document.addEventListener('click', closeDropdowns, {once:true}), 0);
 }
 
 // ─── PREFERENCES ─────────────────────────────────────────────

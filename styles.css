@@ -68,7 +68,7 @@ body {
 /* ── Window chrome (XP-style) ───────────────────────────── */
 .window {
   background: var(--panel);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: inset 1px 1px 0 var(--highlight), inset -2px -2px 0 var(--shadow);
   display: flex; flex-direction: column;
   min-height: calc(100svh - 44px);
@@ -80,7 +80,7 @@ body {
   font-size: 24px;
   font-family: var(--btn-f);
   letter-spacing: 0.02em;
-  border-bottom: 2px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
   display: flex; justify-content: space-between; align-items: center;
   line-height: 1; gap: 8px;
   text-shadow: 1px 1px 0 rgba(0,0,0,0.35);
@@ -91,7 +91,7 @@ body {
   background: var(--panel); color: var(--ink);
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 14px; line-height: 1; text-shadow: none;
-  border: 1.5px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: var(--raised-sm);
 }
 .tb-btns { display: flex; gap: 3px; flex-shrink: 0; }
@@ -100,7 +100,7 @@ body {
   background: var(--panel); color: var(--ink);
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 14px; line-height: 1; text-shadow: none;
-  border: 1.5px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: var(--raised-sm);
   cursor: pointer;
 }
@@ -112,7 +112,7 @@ body {
   font-size: 1.05rem;
   font-family: var(--btn-f);
   display: flex; gap: 2px; align-items: stretch;
-  border-bottom: 2px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
   white-space: nowrap; color: var(--ink);
 }
 .menu-bar .mb-item { cursor: pointer; flex-shrink: 0; padding: 4px 8px; border-radius: 2px; display: flex; align-items: center; }
@@ -131,7 +131,7 @@ body {
 .status-bar {
   background: var(--panel);
   padding: 3px 6px;
-  border-top: 2px solid var(--ink);
+  border-top: 1px solid var(--ink);
   font-size: 0.95rem;
   font-family: var(--btn-f);
   color: var(--shadow);
@@ -185,7 +185,7 @@ body {
 
 /* ── Daily modifier banner ──────────────────────────────── */
 .mod-banner {
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   background: #f3e2b8;
   box-shadow: inset 1px 1px 0 var(--highlight), inset -2px -2px 0 var(--shadow);
   padding: 8px 12px;
@@ -202,7 +202,7 @@ body {
 /* ── Sunken readout box (stack, bet etc.) ───────────────── */
 .readout {
   background: var(--panel2); color: var(--ink);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
   padding: 5px 12px; flex: 1; min-width: 0;
   font-family: var(--btn-f);
@@ -227,7 +227,7 @@ body {
   display: block; width: 100%;
   padding: 14px 16px;
   background: var(--gold); color: var(--ink);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2.5px -2.5px 0 var(--gold-lo);
   font-family: var(--btn-f); font-size: 1.3rem; font-weight: 700;
   letter-spacing: 0.04em; cursor: pointer;
@@ -241,7 +241,7 @@ body {
 .act-btn {
   flex: 1; padding: 14px 12px;
   background: var(--panel); color: var(--ink);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: inset 1.5px 1.5px 0 var(--highlight), inset -2.5px -2.5px 0 var(--shadow);
   font-family: var(--btn-f); font-size: 1.45rem; font-weight: 700;
   letter-spacing: 0.04em; cursor: pointer;
@@ -257,11 +257,11 @@ body {
   background: var(--cream);
   background-image:
     radial-gradient(ellipse 75% 50% at 50% 28%, rgba(255,255,255,0.55), transparent 70%);
-  border: 2px solid var(--ink); border-radius: 5px;
+  border: 1px solid var(--ink); border-radius: 5px;
   /* 0.5px spread shadow acts as a 'sealant' for sub-pixel gaps on mobile */
-  box-shadow: 
-    0 0 0 0.5px var(--ink), 
-    0 2px 0 rgba(0,0,0,0.20), 
+  box-shadow:
+    0 0 0 0.5px var(--ink),
+    0 2px 0 rgba(0,0,0,0.20),
     0 4px 8px rgba(0,0,0,0.25);
   user-select: none; line-height: 1; overflow: hidden;
   font-family: var(--f);
@@ -321,7 +321,7 @@ body.four-color .sym-c { color: #1a7a3a; }
 }
 .card.back::after {
   content: ''; position: absolute; inset: 9px;
-  border: 1.5px dashed rgba(251,245,220,0.30); border-radius: 3px;
+  border: 1px dashed rgba(251,245,220,0.30); border-radius: 3px;
 }
 .card.back::before {
   content: 'G'; position: absolute; inset: 0;
@@ -487,7 +487,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .bet-amt {
   flex: 1 1 auto; min-width: 0;
   padding: 8px 14px;
-  background: var(--panel); border: 2px solid var(--ink);
+  background: var(--panel); border: 1px solid var(--ink);
   box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
   display: flex; flex-direction: column; align-items: center;
 }
@@ -498,7 +498,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   padding: 8px 14px; cursor: pointer;
   font-family: var(--btn-f); font-size: 1.05rem;
   background: var(--panel); color: var(--ink);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: var(--raised);
   white-space: nowrap;
 }
@@ -511,7 +511,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .hdot {
   flex: 1; padding: 4px 10px;
   background: var(--panel); color: var(--shadow);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: var(--raised);
   font-family: var(--btn-f);
   font-size: 1.4rem; text-align: center; line-height: 1.1;
@@ -532,7 +532,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   display: flex; justify-content: space-between; align-items: baseline;
   padding: 6px 12px;
   background: var(--panel); color: var(--ink);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: var(--raised-sm);
 }
 .ik { font-size: 1.4rem; color: var(--shadow); letter-spacing: 0.04em; }
@@ -541,7 +541,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* ── Game manifest tile (intro screen) ──────────────────── */
 .game-manifest {
   background: var(--panel); color: var(--ink);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: var(--raised-sm);
 }
 .gm-row {
@@ -557,7 +557,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* ── Pay table ──────────────────────────────────────────── */
 .ptable { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px;
   background: var(--panel); padding: 10px 12px;
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: var(--raised-sm);
 }
 .pname { font-size: 1.65rem; color: var(--ink); }
@@ -573,7 +573,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .rboard { grid-template-rows: 42px 42px 42px; margin-top: 2px; }
 .rboard-sub { grid-auto-rows: 34px; }
 .rn {
-  border: 2px solid var(--ink); cursor: pointer;
+  border: 1px solid var(--ink); cursor: pointer;
   font-family: var(--btn-f); font-size: 1.15rem;
   color: var(--cream); padding: 0; position: relative;
   display: flex; align-items: center; justify-content: center;
@@ -586,7 +586,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .rn-grn { background: #156c3a; }
 .r2to1 {
   background: var(--panel); color: var(--ink);
-  border: 2px solid var(--ink); cursor: pointer; padding: 0;
+  border: 1px solid var(--ink); cursor: pointer; padding: 0;
   font-family: var(--btn-f); font-size: 1.45rem; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   box-shadow: var(--raised); letter-spacing: 0.02em;
@@ -595,7 +595,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .r2to1.r-sel { background: var(--gold); color: var(--ink); box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2px -2px 0 var(--gold-lo); }
 .rout {
   background: var(--panel); color: var(--ink);
-  border: 2px solid var(--ink); cursor: pointer;
+  border: 1px solid var(--ink); cursor: pointer;
   font-family: var(--btn-f); font-size: 1.45rem; font-weight: 700;
   padding: 0; position: relative;
   display: flex; align-items: center; justify-content: center;
@@ -626,10 +626,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 .r-chip-placed {
   background: var(--gold); color: var(--ink);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2px -2px 0 var(--gold-lo);
 }
-.r-chip-sel { background: rgba(196,147,58,0.25); border: 2px dashed var(--gold); }
+.r-chip-sel { background: rgba(196,147,58,0.25); border: 1px dashed var(--gold); }
 .r-pay-lbl {
   position: absolute; bottom: -22px; left: 0; right: 0;
   font-size: 0.75rem; font-weight: 700; color: var(--gold-hi);
@@ -643,7 +643,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   width: 96px; height: 96px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--btn-f); font-size: 2.4rem;
-  border: 3px solid var(--ink);
+  border: 2px solid var(--ink);
   box-shadow: inset 0 0 0 2px rgba(255,255,255,0.25), 0 4px 0 rgba(0,0,0,0.3), 0 8px 16px rgba(0,0,0,0.4);
   animation: popIn 0.5s cubic-bezier(.34,1.56,.64,1) both;
 }
@@ -653,12 +653,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .score-row {
   display: flex; justify-content: space-between; align-items: baseline;
   padding: 10px 14px; background: var(--panel);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: var(--raised-sm);
 }
 .share-box {
   background: var(--cream); color: var(--ink);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
   padding: 12px 14px;
   font-family: var(--btn-f); font-size: 1.4rem;
@@ -674,7 +674,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   margin: 6px 4px 28px;
 }
 .chart-bar { flex: 1; max-width: 36px; background: var(--shadow);
-  border: 1.5px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.15), inset -1px -1px 0 rgba(0,0,0,0.3);
   position: relative;
 }
@@ -696,7 +696,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   position: fixed; top: 18px; left: 50%;
   transform: translateX(-50%) translateY(-80px);
   background: var(--gold); color: var(--ink);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2px -2px 0 var(--gold-lo), 0 6px 14px rgba(0,0,0,0.4);
   padding: 10px 22px; font-family: var(--btn-f); font-size: 1.5rem; font-weight: 700;
   z-index: 200; transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
@@ -716,7 +716,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 .info-box {
   background: var(--panel); color: var(--ink);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: inset 1px 1px 0 var(--highlight), inset -2px -2px 0 var(--shadow), 0 16px 40px rgba(0,0,0,0.6);
   max-width: 560px; width: 100%; max-height: 80vh; overflow-y: auto;
 }
@@ -725,7 +725,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .dropdown {
   position: fixed; z-index: 400;
   background: var(--panel);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: var(--raised-sm), 3px 3px 0 rgba(0,0,0,0.5);
   min-width: 190px; padding: 2px 0;
   font-family: var(--btn-f);
@@ -742,14 +742,14 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .dd-key { font-size: 0.8rem; color: var(--shadow); }
 .dd-sep { height: 0; margin: 3px 2px; border-top: 1px solid var(--shadow); border-bottom: 1px solid var(--highlight); }
 .dd-submenu { z-index: 401; }
-.dd-inline-sub { border-left: 2px solid var(--shadow); margin: 1px 0 1px 14px; }
+.dd-inline-sub { border-left: 1px solid var(--shadow); margin: 1px 0 1px 14px; }
 .dd-inline-sub.dd-level-2 { margin-left: 28px; }
 
 /* ── Mod-badge (small inline) ───────────────────────────── */
 .mod-badge {
   display: inline-block; padding: 4px 10px;
   background: #f3e2b8; color: var(--ink);
-  border: 1.5px solid var(--ink);
+  border: 1px solid var(--ink);
   box-shadow: var(--raised-sm);
   font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em;
 }
