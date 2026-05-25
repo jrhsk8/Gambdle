@@ -392,7 +392,7 @@ function screenPoker(){
   }
   // result
   const h=S.pkHistory[S.pkHand-1], res=rankPoker(S.pkFinal), isLast=S.pkHand>=3;
-  const isBusted=S.chips<10;
+  const isBusted=isChipBusted();
   const _pkNext=NEXT_SCREEN['poker'];
   const btnText=isBusted?'Game Over 💀':(isLast?(_pkNext==='roulette'?'Final Round: Roulette →':`Round 2: ${GAME_META[_pkNext].name} →`):'Next Hand →');
   const btnAction=isBusted?"advanceTo('results')":(isLast?`advanceTo('${_pkNext}')`:'pkNext()');
@@ -573,7 +573,7 @@ function screenUTH(){
   const hist=S.uthHistory[S.uthHand-1];
   if(!hist)return'';
   const isLast=S.uthHand>=3;
-  const isBusted=S.chips<10;
+  const isBusted=isChipBusted();
   const _uthNext=NEXT_SCREEN['uth'];
   const btnText=isBusted?'Game Over 💀':(isLast?(_uthNext==='roulette'?'Final Round: Roulette →':`Round 2: ${GAME_META[_uthNext].name} →`):'Next Hand →');
   const btnAction=isBusted?"advanceTo('results')":(isLast?`advanceTo('${_uthNext}')`:'uthNext()');

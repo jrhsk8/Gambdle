@@ -8,7 +8,7 @@ function resetBJHand(){
   S.bjSplitBets=[]; S.bjSplitResults=[]; S.bjSplitDone=[];
   S.bjDoubled=false; S.bjSplitDoubled=[];
   S.bjAnimFrom=0; S.bjDealerAnimFrom=0; S.bjSplitAnimFrom=[];
-  S.bjResultAnimPlayer=false; S.bjDealerReveal=false; S.bjCelebrating=false;
+  S.bjDealerReveal=false; S.bjCelebrating=false;
   _bjResolving=false;
 }
 
@@ -25,7 +25,7 @@ function bjSkip(){
 function bjDeal(){
   if(!S.bjBet)return;
   S.chips-=S.bjBet;
-  S.bjAnimFrom=0;S.bjDealerAnimFrom=0;S.bjResultAnimPlayer=false;
+  S.bjAnimFrom=0;S.bjDealerAnimFrom=0;
   S.bjPlayer=[G.bjShoe[S.bjIdx++],G.bjShoe[S.bjIdx++]];
   S.bjDealer=[G.bjShoe[S.bjIdx++],G.bjShoe[S.bjIdx++]];
   const db=document.getElementById('db');if(db)db.disabled=true;
@@ -381,7 +381,7 @@ function screenBJ(){
   }
   // result
   const res=S.bjResult, isLast=S.bjHand>=3;
-  const isBusted=S.chips<10;
+  const isBusted=isChipBusted();
   const btnText=isBusted?'Game Over 💀':(isLast?`Round 2: ${GAME_META[GAME2].name} →`:'Next Hand →');
   const btnAction=isBusted?"advanceTo('results')":(isLast?`advanceTo('${GAME2}')`:'bjNext()');
 
@@ -416,8 +416,6 @@ function screenBJ(){
   const dv=hVal(S.bjDealer), pv=hVal(S.bjPlayer);
   const bjMult = getMod('bj_payout') || 1.5;
   const RES_LBL={win:'You Win!',blackjack:'Blackjack! 🂡',push:'Push',bust:'You Bust!',lose:'You Lose!'};
-  const pAnimN=S.bjResultAnimPlayer?S.bjPlayer.length:0;
-  const dOff=pAnimN>0?(pAnimN-1)*0.4+0.85:0;
   return `${hdr('Blackjack · Result')}
   <div class="panel" style="text-align:center">
     ${gameDots(S.bjHistory, S.bjHand, S.bjPhase)}
@@ -425,7 +423,7 @@ function screenBJ(){
     <div style="font-family:var(--btn-f);font-size:3rem;color:${col(res.delta)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${res.result === 'blackjack' && bjMult === 2 ? 'Mega Blackjack! 💎' : RES_LBL[res.result]}</div>
     <div style="font-family:var(--btn-f);font-size:2rem;color:${col(res.delta)};margin-bottom:14px">${sign(res.delta)} chips</div>
     <div style="display:flex;flex-direction:column;gap:16px;align-items:center;margin-bottom:14px">
-      ${renderBJResultDealer(dv, dOff)}
+      ${renderBJResultDealer(dv, 0)}
       <div style="width:60%;height:1px;background:rgba(196,147,58,0.1)"></div>
       ${renderBJResultPlayer(pv, res.result)}
     </div>
@@ -449,8 +447,7 @@ function renderBJResultPlayer(pv, result) {
   return `<div style="text-align:center">
         <div class="sec" style="font-size:1rem">You</div>
         <div class="hand">${S.bjPlayer.map((c, i) => {
-          const n = S.bjResultAnimPlayer;
-          return cardHTML(c, 'sm', '', n ? i * 0.4 + 0.1 : 0, n);
+          return cardHTML(c, 'sm', '', 0, false);
         }).join('')}</div>
         <div class="hand-val ${pv > 21 ? 'bust' : result === 'blackjack' ? 'bj' : ''}" style="font-size:1.6rem">${pv}${pv > 21 ? ' BUST' : result === 'blackjack' ? ' BJ!' : ''}</div>
       </div>`;

@@ -303,7 +303,6 @@ body {
   display: flex; align-items: center; justify-content: center;
   pointer-events: none;
 }
-.cbody .crank { display: none; }
 .cbody .csuit { font-family: var(--f); line-height: 1; }
 .card.lg .csuit { font-size: 3.4rem; }
 .card.md .csuit { font-size: 2.8rem; }
@@ -537,7 +536,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   box-shadow: inset 1.5px 1.5px 0 var(--lose-hi), inset -2px -2px 0 var(--lose-lo); }
 .hdot.push { background: var(--panel); color: var(--shadow); }
 .hdot.pend { background: var(--panel); color: var(--shadow); opacity: 0.6; }
-.hdot::before { display: none; }
 
 /* ── Info row (label / value pair) ──────────────────────── */
 .irow {

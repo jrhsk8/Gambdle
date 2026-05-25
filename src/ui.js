@@ -190,9 +190,9 @@ function buildShareText(){
   return [
     `🎰 Gambdle #${S.day}`,
     ``,
-    `${g1.icon} ${g1.short.padEnd(14)} (${sign(g1Net)})`,
-    `${g2.icon} ${g2.short.padEnd(14)} (${sign(g2Net)})`,
-    `🎡 Roulette      (${sign(rNet)})`,
+    `${g1.icon} ${g1.short} (${sign(g1Net)})`,
+    `${g2.icon} ${g2.short} (${sign(g2Net)})`,
+    `🎡 Roulette (${sign(rNet)})`,
     ``,
     `${trophy} Finished with ${fmt(S.chips)} chips`,
     `gambdle.net`
@@ -255,15 +255,6 @@ const INFO_SECTIONS = {
       <div><b>Dozens</b> — 1–12, 13–24, or 25–36. Pays <b>2:1</b>.</div>
       <div><b>Outside bets</b> — Red/Black, Odd/Even, or Low/High (1–18 / 19–36). Pays <b>1:1</b>. Safest option.</div>
       <div>On some modifier days you can place multiple bets before spinning.</div>`
-  },
-  modifiers: {
-    title: '✨ Daily Modifiers',
-    body: `<div>Every day a special rule kicks in that changes the game for everyone. The gold banner at the top of each screen tells you what it is.</div>
-      <div><b>Blackjack</b> — examples: Blackjacks pay 2:1 · Dealer stands on 15 · Doubles pay 2× profit · One free dealer peek.</div>
-      <div><b>Hold'em</b> — examples: Blind payouts doubled · Blind pays on two pair · Raises pay 2:1 · Dealer needs two pair to qualify.</div>
-      <div><b>Roulette</b> — examples: All wins doubled · Number bets pay 50:1 · Red/Black pays 2:1 · Place up to 10 bets · Free re-spin.</div>
-      <div><b>Cross-game</b> — example: All In or Skip — each hand you go all-in or skip it. Wins pay 2×.</div>
-      <div>Modifiers rotate on a fixed cycle so the same modifier comes around again every few weeks.</div>`
   },
   hands: {
     title: '🃏 Poker Hands',
@@ -489,9 +480,9 @@ function toggleMenu(which, trigger) {
 
 // ─── PREFERENCES ─────────────────────────────────────────────
 const PREFS_KEY='gambdle_prefs';
-function getPrefs(){try{return JSON.parse(localStorage.getItem(PREFS_KEY)||'{}');}catch{return{};}}
+function getPrefs(){try{return JSON.parse(_ls.getItem(PREFS_KEY)||'{}');}catch{return{};}}
 function getPref(k){return getPrefs()[k];}
-function setPref(k,v){const p=getPrefs();p[k]=v;localStorage.setItem(PREFS_KEY,JSON.stringify(p));}
+function setPref(k,v){const p=getPrefs();p[k]=v;_ls.setItem(PREFS_KEY,JSON.stringify(p));}
 function applyPrefs(){
   const p=getPrefs();
   document.body.classList.toggle('four-color', !!p.four_color);

@@ -2,6 +2,13 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
+// Storage wrapper: tries _ls, falls back to sessionStorage (private browsing).
+// State survives tab refreshes in either case; sessionStorage clears when the tab closes.
+const _ls = (() => {
+  try { _ls.setItem('_g','1'); _ls.removeItem('_g'); return _ls; }
+  catch { return sessionStorage; }
+})();
+
 // SplitMix32-style seeded PRNG — returns a function that yields floats in [0, 1).
 // The magic constant (0x6d2b79f5), Math.imul (32-bit integer multiply), and >>>0
 // (coerce to unsigned 32-bit) are all required for correct avalanche behavior.
@@ -13,23 +20,26 @@ function mkRng(seed) {
     return ((s ^ (s >>> 14)) >>> 0) / 0x100000000; // 0x100000000 = 2^32, normalizes to [0,1)
   };
 }
-// Returns today as a YYYYMMDD integer — used as both the RNG seed and the localStorage key.
-const getDailySeed = () => { const d=new Date(); return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); };
-const _testActive = () => !!localStorage.getItem('gambdle_use_test_seed');
+// Returns today as a YYYYMMDD integer in Phoenix time (MST, UTC-7, no DST).
+// Used as both the RNG seed and the _ls key — everyone resets at midnight Arizona.
+const _PHOENIX_OFFSET_MS = 7 * 60 * 60 * 1000;
+const getDailySeed = () => { const d=new Date(Date.now()-_PHOENIX_OFFSET_MS); return d.getUTCFullYear()*10000+(d.getUTCMonth()+1)*100+d.getUTCDate(); };
+const _testActive = () => !!_ls.getItem('gambdle_use_test_seed');
 function getRngSeed() { return _testActive()?1:getDailySeed(); }
 function getStateKey() { return _testActive()?'gambdle_test_state':STORAGE_KEY+getDailySeed(); }
 
 /** Start of the daily Gambdle run (May 5th, 2026) used for consistent day numbering. */
 const START_DATE_UTC = Date.UTC(2026, 4, 5);
 
-const getDayNum = () => { const n=new Date(); n.setUTCHours(0,0,0,0); return Math.floor((n - START_DATE_UTC) / 86400000) + 1; };
+// Derives day number from getDailySeed so both are always in sync.
+const getDayNum = () => { const s=getDailySeed(); const y=Math.floor(s/10000),m=Math.floor((s%10000)/100)-1,d=s%100; return Math.floor((Date.UTC(y,m,d)-START_DATE_UTC)/86400000)+1; };
 
 // Creates a card object; s accepts shorthand ('s','h','d','c') or a direct suit symbol.
 function card(r,s){return{r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]||s};}
 
 // Dev overrides (set by devSetGame); fall back to configured defaults.
-const GAME1 = localStorage.getItem('gambdle_dev_game1') || 'bj';
-const GAME2 = localStorage.getItem('gambdle_dev_game2') || 'uth';
+const GAME1 = _ls.getItem('gambdle_dev_game1') || 'bj';
+const GAME2 = _ls.getItem('gambdle_dev_game2') || 'uth';
 
 // Metadata for every available game — add new games here.
 // short: label used in dev menu buttons and share text.
@@ -218,7 +228,7 @@ let S={
   bjPlayer:[], bjDealer:[], bjResult:null,
   bjHistory:[], bjIdx:0,
   bjSplit:false, bjSplitHands:[], bjSplitActive:0, bjSplitBets:[], bjSplitResults:[], bjSplitDone:[], bjDoubled:false, bjSplitDoubled:[],
-  bjAnimFrom:0, bjDealerAnimFrom:0, bjSplitAnimFrom:[], bjResultAnimPlayer:false, bjDealerReveal:false, bjCelebrating:false,
+  bjAnimFrom:0, bjDealerAnimFrom:0, bjSplitAnimFrom:[], bjDealerReveal:false, bjCelebrating:false,
   pkHand:0, pkPhase:'bet', pkBet:0,
   pkCards:[], pkHeld:new Set(), pkFinal:[], pkHistory:[], pkRevealStep:0,
   uthHand:0, uthPhase:'bet', uthAnte:0, uthPlay:0, uthPlayMult:0,
@@ -232,6 +242,13 @@ let S={
   peekUsed: false,  // whether the one-time dealer peek has been used this game
 };
 
+/** True when the player can no longer place a valid bet (< 10 chips, or below the min_chips modifier floor). */
+function isChipBusted() {
+  if (S.chips < 10) return true;
+  const minC = getMod('min_chips') || 0;
+  return minC > 0 && S.chips < minC;
+}
+
 /** Returns 2 when the all_in_or_skip or comeback modifier is active (wins are doubled), else 1. */
 function winMult(){
   if(getMod('all_in_or_skip'))return 2;
@@ -239,13 +256,14 @@ function winMult(){
   return 1;
 }
 
-/** Writes the current run state to localStorage for persistence. */
+/** Writes the current run state to _ls for persistence. */
 function saveState() {
-  localStorage.setItem(getStateKey(), JSON.stringify(S));
+  const toSave = { ...S, pkHeld: [...S.pkHeld] };
+  _ls.setItem(getStateKey(), JSON.stringify(toSave));
   if (S.screen === 'results' && !_testActive()) {
-    const high = parseInt(localStorage.getItem('gambdle_highscore') || '0');
+    const high = parseInt(_ls.getItem('gambdle_highscore') || '0');
     if (S.chips > high) {
-      localStorage.setItem('gambdle_highscore', S.chips.toString());
+      _ls.setItem('gambdle_highscore', S.chips.toString());
       let unlockMsg = null;
       for (const [min, key, txt] of [
         [1500,  'orange_back_unlocked', '🟠 Orange Card Back unlocked! Check Preferences.'],
@@ -256,25 +274,26 @@ function saveState() {
       ]) if (S.chips >= min && !getPref(key)) { setPref(key, true); unlockMsg = txt; }
       if (unlockMsg) setTimeout(()=>toast(unlockMsg), 1200);
     }
-    const history = JSON.parse(localStorage.getItem('gambdle_history') || '{}');
+    const history = JSON.parse(_ls.getItem('gambdle_history') || '{}');
     history[getDailySeed()] = S.chips;
-    localStorage.setItem('gambdle_history', JSON.stringify(history));
+    _ls.setItem('gambdle_history', JSON.stringify(history));
   }
 }
 
 /** Loads any existing saved progress for the current day. */
 function loadState() {
-  const saved = localStorage.getItem(getStateKey());
+  const saved = _ls.getItem(getStateKey());
   if (saved) {
     const parsed = JSON.parse(saved);
+    if (Array.isArray(parsed.pkHeld)) parsed.pkHeld = new Set(parsed.pkHeld);
     S = { ...S, ...parsed, day: getDayNum() };
     // Migrate: old saves used 'poker' as a generic game-2 screen key; now it means 5-card poker specifically.
     if (S.screen === 'poker' && GAME2 !== 'poker') S.screen = GAME2;
   }
-  const forced = localStorage.getItem('gambdle_forced_mod');
+  const forced = _ls.getItem('gambdle_forced_mod');
   if (forced) {
     S.forcedMod = forced;
-    localStorage.removeItem('gambdle_forced_mod');
+    _ls.removeItem('gambdle_forced_mod');
     saveState();
   }
 }

@@ -19,7 +19,11 @@
       "Bash(Select-Object -ExpandProperty Lines)",
       "Bash(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\styles.css)",
       "Bash(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\modifiers.js)",
-      "PowerShell(\\(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\game.js | Measure-Object -Line\\).Lines; \\(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\styles.css | Measure-Object -Line\\).Lines; \\(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\modifiers.js | Measure-Object -Line\\).Lines)"
+      "PowerShell(\\(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\game.js | Measure-Object -Line\\).Lines; \\(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\styles.css | Measure-Object -Line\\).Lines; \\(Get-Content c:\\\\Users\\\\Jack\\\\Documents\\\\GitHub\\\\Gambdle\\\\modifiers.js | Measure-Object -Line\\).Lines)",
+      "Bash(ls \"/c/Program Files/Google/Chrome/Application/chrome.exe\" 2>/dev/null && echo \"found\" || echo \"not found\")",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Bash(npm install *)",
+      "Bash(git mv *)"
     ]
   },
   "enabledMcpjsonServers": [

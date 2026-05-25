@@ -49,8 +49,8 @@ function screenResults(){
   const rNet=S.rResult?.delta||0;
   const shareText=buildShareText();
 
-  // Past performance bars — keyed by YYYYMMDD seed in localStorage, sorted oldest-first.
-  const histData = JSON.parse(localStorage.getItem('gambdle_history') || '{}');
+  // Past performance bars — keyed by YYYYMMDD seed in _ls, sorted oldest-first.
+  const histData = JSON.parse(_ls.getItem('gambdle_history') || '{}');
   const historySorted = Object.entries(histData).sort((a,b) => parseInt(a[0]) - parseInt(b[0])).slice(-7);
   const maxScore = Math.max(...historySorted.map(h => h[1]), 1000);
   const chartHtml = historySorted.length > 0 ? `
@@ -66,7 +66,7 @@ function screenResults(){
       }).join('')}
     </div>` : '';
 
-  const high = parseInt(localStorage.getItem('gambdle_highscore') || '0');
+  const high = parseInt(_ls.getItem('gambdle_highscore') || '0');
   const {emoji,label}=getTier(S.chips);const tier=`${emoji} ${label}`;
   const msg = S.chips >= 1000 ? '📈 Excellent run!' : S.chips > 0 ? '📉 Tough session' : 'Better luck tomorrow';
 
@@ -114,14 +114,14 @@ async function submitAndFetchLeaderboard() {
     'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
   };
 
-  if (!localStorage.getItem(subKey) && !DEV_OVERRIDE && !_testActive()) {
+  if (!_ls.getItem(subKey) && !DEV_OVERRIDE && !_testActive()) {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/scores`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-score`, {
         method: 'POST',
-        headers: { ...headers, 'Prefer': 'return=minimal' },
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
         body: JSON.stringify({ seed, chips: S.chips })
       });
-      if (res.ok || res.status === 201) localStorage.setItem(subKey, '1');
+      if (res.ok) _ls.setItem(subKey, '1');
     } catch(e) {
       if (DEV_OVERRIDE) console.error("Leaderboard submission failed:", e);
     }
@@ -154,13 +154,13 @@ async function submitAndFetchLeaderboard() {
 // ─── DEV TOOLS ───────────────────────────────────────────────────────────
 
 function devReset() {
-  localStorage.removeItem(getStateKey());
+  _ls.removeItem(getStateKey());
   location.reload();
 }
 
 function devSetGame(slot, value) {
-  localStorage.setItem('gambdle_dev_game' + slot, value);
-  localStorage.removeItem(getStateKey());
+  _ls.setItem('gambdle_dev_game' + slot, value);
+  _ls.removeItem(getStateKey());
   location.reload();
 }
 
@@ -193,11 +193,11 @@ function devToggleUnlocks(){
 
 function toggleTestSeed() {
   if (_testActive()) {
-    localStorage.removeItem('gambdle_use_test_seed');
-    localStorage.removeItem('gambdle_test_state');
+    _ls.removeItem('gambdle_use_test_seed');
+    _ls.removeItem('gambdle_test_state');
   } else {
-    localStorage.setItem('gambdle_use_test_seed', '1');
-    localStorage.removeItem('gambdle_test_state');
+    _ls.setItem('gambdle_use_test_seed', '1');
+    _ls.removeItem('gambdle_test_state');
   }
   const cb = document.getElementById('dev-test-seed-cb');
   if (cb) cb.checked = _testActive();
@@ -211,7 +211,7 @@ const STATUS_HINT = {
   uth:      "Hold'em — choose action.",
   poker:    'Poker — choose action.',
   roulette: 'Roulette — place a bet.',
-  results:  '<span class="sb-prefix">Game complete · </span>New game at midnight PST daily.',
+  results:  '<span class="sb-prefix">Game complete · </span>New game at midnight Arizona time daily.',
 };
 
 function statusBar(){
@@ -265,7 +265,7 @@ function goTo(s){S.screen=s;render();}
 // Plays a transition sound scaled to how well the player is doing.
 function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('sounds/mediumbet.mp3');else playMp3('sounds/smallbet.mp3');}
 // Navigates between games; redirects to results early if the player is busted (<10 chips).
-function advanceTo(s){sndAdvance();if(s!=='results'&&S.chips<10)s='results';goTo(s);}
+function advanceTo(s){sndAdvance();if(s!=='results'&&isChipBusted())s='results';goTo(s);}
 function startGame(){sndChip('allin');S.screen=GAME1;S.bjPhase='bet';render();}
 
 // ─── DRAGGABLE WINDOW (desktop only) ─────────────────────────────────────

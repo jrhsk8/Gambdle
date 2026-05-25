@@ -16,13 +16,15 @@
 |------|---------|
 | `index.html` | Shell only — links CSS, JS, fonts |
 | `styles.css` | All CSS |
-| `modifiers.js` | Daily modifier config (separate so it's easy to edit) |
-| `core.js` | State, RNG/seeding, constants, card utils, save/load, Supabase config |
-| `ui.js` | UI helpers, card/chip HTML, audio, sharing, menus, preferences |
-| `bj.js` | Blackjack game logic |
-| `uth.js` | UTH & 5-card poker hand evaluation + game logic |
-| `roulette.js` | Roulette constants, board, spin logic |
-| `game.js` | App shell: screen renderers (intro, results), leaderboard, dev tools, `render()`, boot |
+| `src/modifiers.js` | Daily modifier config (separate so it's easy to edit) |
+| `src/core.js` | State, RNG/seeding, constants, card utils, save/load, Supabase config |
+| `src/ui.js` | UI helpers, card/chip HTML, audio, sharing, menus, preferences |
+| `src/bj.js` | Blackjack game logic |
+| `src/uth.js` | UTH & 5-card poker hand evaluation + game logic |
+| `src/roulette.js` | Roulette constants, board, spin logic |
+| `src/game.js` | App shell: screen renderers (intro, results), leaderboard, dev tools, `render()`, boot |
+| `assets/og-image.png` | Social preview image (1200×630) |
+| `assets/og-image.html` | Design template for regenerating og-image.png |
 
 No build steps. Pure vanilla JS/CSS/HTML. Load order: `modifiers.js` → `core.js` → `ui.js` → `bj.js` → `uth.js` → `roulette.js` → `game.js`.
 

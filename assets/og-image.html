@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gambdle OG Image</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --panel:     #dcd2b6;
+  --shadow:    #5a5238;
+  --highlight: #fbf5dc;
+  --ink:       #1a1814;
+  --felt:      #1d6e4d;
+  --felt-light:#2b8c66;
+  --felt-dark: #134b35;
+  --felt-edge: #0b2e21;
+  --gold:      #c4933a;
+  --gold-hi:   #dfb95e;
+  --gold-lo:   #7a5a18;
+  --red:       #c43030;
+  --cream:     #fbf5dc;
+}
+
+html, body { width: 1200px; height: 630px; overflow: hidden; font-family: 'VT323', 'Courier New', monospace; }
+
+.og {
+  width: 1200px; height: 630px;
+  position: relative; overflow: hidden;
+}
+
+/* Felt background */
+.felt-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 30%, var(--felt-light) 0%, var(--felt) 60%, var(--felt-dark) 100%);
+}
+
+/* Two-column layout */
+.layout {
+  position: relative; z-index: 2;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  height: 100%;
+  align-items: stretch;
+  padding: 28px 50px 36px;
+  gap: 36px;
+}
+
+/* Left column */
+.left {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Top group: mod-banner + logo (centered) + divider */
+.top-group {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Modifier banner */
+.mod-banner {
+  flex: 0 0 auto;
+  border: 1px solid var(--ink);
+  background: linear-gradient(180deg, #f5eabc 0%, #ead89a 100%);
+  box-shadow: inset 1.5px 1.5px 0 var(--highlight), inset -2px -2px 0 var(--shadow);
+  padding: 8px 14px;
+  color: var(--ink);
+}
+.mod-banner .lbl {
+  font-size: 17px; color: var(--shadow);
+  letter-spacing: 0.16em; line-height: 1;
+}
+.mod-banner .ttl {
+  font-size: 30px; line-height: 1.05;
+  color: var(--ink); margin-top: 3px;
+  display: flex; align-items: center; gap: 8px;
+}
+.mod-banner .spark { color: var(--gold); }
+
+/* Logo — fills remaining space between mod-banner and divider */
+.brand-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.logo {
+  font-size: 108px; line-height: 0.92;
+  letter-spacing: 0.04em; color: var(--ink);
+  display: flex; align-items: flex-start;
+}
+.logo .sp { margin-right: 12px; line-height: 0.92; }
+.logo .wm-col {
+  display: flex; flex-direction: column; align-items: center;
+}
+.logo .word { display: block; line-height: 0.92; }
+.logo-sub {
+  font-size: 28px; color: var(--shadow);
+  letter-spacing: 0.22em; text-transform: uppercase;
+  margin-top: 6px;
+}
+
+/* Divider */
+.divider {
+  flex: 0 0 auto;
+  height: 0;
+  border-top: 1px solid rgba(0,0,0,0.35);
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  margin: 4px 0 14px;
+}
+
+/* Body copy */
+.lede {
+  flex: 0 0 auto;
+  color: var(--cream);
+  font-size: 30px; line-height: 1.2;
+  letter-spacing: 0.01em;
+  margin-bottom: 14px;
+}
+.lede b { color: var(--gold-hi); font-weight: 400; }
+
+/* CTA button */
+.cta {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  background: var(--gold); color: var(--ink);
+  border: 1px solid var(--ink);
+  box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2.5px -2.5px 0 var(--gold-lo);
+  padding: 14px 28px;
+  font-size: 30px; letter-spacing: 0.04em;
+  display: inline-flex; align-items: center; gap: 12px;
+  white-space: nowrap; line-height: 1;
+  font-family: 'VT323', monospace;
+}
+.cta .play {
+  width: 0; height: 0;
+  border-left: 14px solid var(--ink);
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  flex-shrink: 0;
+}
+
+/* Right column — card fan */
+.right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cards {
+  position: relative;
+  width: 100%;
+  height: 460px;
+}
+
+/* Cards */
+.gcard {
+  position: absolute;
+  width: 168px; height: 236px;
+  background: var(--cream);
+  background-image: radial-gradient(ellipse 75% 50% at 50% 28%, rgba(255,255,255,0.55), transparent 70%);
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  box-shadow: 0 0 0 0.5px var(--ink), 0 3px 0 rgba(0,0,0,0.20), 0 8px 20px rgba(0,0,0,0.35);
+  overflow: hidden;
+  font-family: 'Tahoma', 'Segoe UI', sans-serif;
+}
+.gcard .ctl, .gcard .cbr {
+  position: absolute;
+  display: flex; flex-direction: column;
+  align-items: center; line-height: 0.95;
+}
+.gcard .ctl { top: 10px; left: 14px; }
+.gcard .cbr { bottom: 10px; right: 14px; transform: rotate(180deg); }
+.gcard .ct-r { font-size: 36px; font-weight: 700; line-height: 0.95; }
+.gcard .ct-s { font-size: 28px; line-height: 1; margin-top: 2px; }
+.gcard .cbody {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.gcard .csuit { font-size: 96px; line-height: 1; }
+
+.gcard.red, .gcard.red .ct-r, .gcard.red .ct-s, .gcard.red .csuit { color: var(--red); }
+.gcard.blk, .gcard.blk .ct-r, .gcard.blk .ct-s, .gcard.blk .csuit { color: var(--ink); }
+
+.gcard.back {
+  background: #8b2820;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(251,245,220,0.10) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(-45deg, rgba(251,245,220,0.10) 0 1px, transparent 1px 5px),
+    radial-gradient(ellipse at center, #a13428 0%, #8b2820 75%);
+}
+.gcard.back::after {
+  content: ''; position: absolute; inset: 14px;
+  border: 1px dashed rgba(251,245,220,0.30);
+  border-radius: 4px;
+}
+.gcard.back::before {
+  content: 'G'; position: absolute; inset: 0;
+  font-family: 'VT323', monospace; font-size: 88px; font-weight: 700;
+  color: #fbf5dc;
+  text-shadow: 3px 3px 0 rgba(0,0,0,0.40);
+  letter-spacing: 0.02em;
+  text-align: center;
+  line-height: 236px;
+}
+
+/* Fan positions */
+.c1 { left: 6px;   top: 130px; transform: rotate(-10deg); z-index: 1; }
+.c2 { left: 130px; top: 78px;  transform: rotate(-3deg);  z-index: 2; }
+.c3 { left: 254px; top: 60px;  transform: rotate(5deg);   z-index: 3; }
+.c4 { left: 378px; top: 92px;  transform: rotate(13deg);  z-index: 4; }
+</style>
+</head>
+<body>
+<div class="og">
+  <div class="felt-bg"></div>
+  <div class="layout">
+
+    <!-- Left column -->
+    <div class="left">
+      <div class="top-group">
+        <div class="mod-banner">
+          <div class="lbl">TODAY'S MODIFIER</div>
+          <div class="ttl"><span class="spark">✨</span> Second Chance</div>
+        </div>
+        <div class="brand-wrap">
+          <div class="logo">
+            <span class="sp">♠</span>
+            <span class="wm-col">
+              <span class="word">GAMBDLE</span>
+              <span class="logo-sub">Daily Game</span>
+            </span>
+          </div>
+        </div>
+        <div class="divider"></div>
+      </div>
+      <div class="lede">You start with <b>1,000 chips</b>. Your final stack is your leaderboard score.</div>
+      <div class="cta"><span class="play"></span>Start new game</div>
+    </div>
+
+    <!-- Right column — card fan -->
+    <div class="right">
+      <div class="cards">
+        <!-- 8 of diamonds -->
+        <div class="gcard red c1">
+          <div class="ctl"><div class="ct-r">8</div><div class="ct-s">♦</div></div>
+          <div class="cbody"><div class="csuit">♦</div></div>
+          <div class="cbr"><div class="ct-r">8</div><div class="ct-s">♦</div></div>
+        </div>
+        <!-- 7 of clubs -->
+        <div class="gcard blk c2">
+          <div class="ctl"><div class="ct-r">7</div><div class="ct-s">♣</div></div>
+          <div class="cbody"><div class="csuit">♣</div></div>
+          <div class="cbr"><div class="ct-r">7</div><div class="ct-s">♣</div></div>
+        </div>
+        <!-- face-down -->
+        <div class="gcard back c3"></div>
+        <!-- A of hearts -->
+        <div class="gcard red c4">
+          <div class="ctl"><div class="ct-r">A</div><div class="ct-s">♥</div></div>
+          <div class="cbody"><div class="csuit">♥</div></div>
+          <div class="cbr"><div class="ct-r">A</div><div class="ct-s">♥</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
