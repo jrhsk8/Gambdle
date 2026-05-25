@@ -1,4 +1,5 @@
 // ─── BLACKJACK LOGIC ──────────────────────────────────────────
+// Mutex flag — prevents double-actions while cards are mid-animation.
 let _bjResolving=false;
 
 function resetBJHand(){
@@ -15,7 +16,7 @@ function resetBJHand(){
 function bjSkip(){
   S.bjHistory.push({bet:0,result:'skip',delta:0,player:[],dealer:[]});
   S.bjHand++;
-  if(S.bjHand>=3){advanceTo('poker');return;}
+  if(S.bjHand>=3){advanceTo(GAME2);return;}
   resetBJHand();
   render();
 }
@@ -55,6 +56,7 @@ function bjHit(){
   hand.push(G.bjShoe[S.bjIdx++]);
   sndCard(100);
   const pv=hVal(hand);
+  // At 21+ the player can't act; auto-advance after a short delay so the card is visible.
   if(pv>=21){_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;isSplit?bjAdvanceSplit():bjRevealDealer();},700);}
   else{
     const handEl=document.getElementById(isSplit?'bj-active-hand':'bj-player-hand');
@@ -132,6 +134,7 @@ function bjSplit(){
   bjCheckSplitHand();
 }
 
+// After a split hand gets its second card, check if it's already at 21/BJ before the player acts.
 function bjCheckSplitHand(){
   const hand=S.bjSplitHands[S.bjSplitActive];
   if(hVal(hand)>=21){
@@ -160,10 +163,10 @@ function bjAdvanceSplit(){
   else bjRevealDealer();
 }
 
-/** Animate the dealer's cards until they reach at least 17. */
+/** Reveals the dealer's hole card, then hits recursively every 800ms until standing (17+). */
 function bjRevealDealer(){
   S.bjDealerReveal=true;
-  S.bjDealerAnimFrom=1;
+  S.bjDealerAnimFrom=1; // animate the hole card reveal
   S.bjAnimFrom=ANIM_NONE;S.bjSplitAnimFrom=S.bjSplitAnimFrom.map(()=>ANIM_NONE);
   _noAnim=true;render();
   sndCard(100);
@@ -171,7 +174,7 @@ function bjRevealDealer(){
     if(hVal(S.bjDealer)<(getMod('bj_dealer_stand')||17)){
       const at=S.bjDealer.length;
       S.bjDealer.push(G.bjShoe[S.bjIdx++]);
-      S.bjDealerAnimFrom=at;
+      S.bjDealerAnimFrom=at; // only animate the new card
       _noAnim=true;render();
       sndCard(100);
       setTimeout(step,800);
@@ -182,7 +185,7 @@ function bjRevealDealer(){
   setTimeout(step,800);
 }
 
-/** Final payout calculation for Blackjack, handling both standard and split hands. */
+/** Settles all bets and records history. dealerDrawn=true means the dealer already animated; false means we skip straight to resolve (e.g. player blackjack). */
 function bjResolve(dealerDrawn=false){
   if(!dealerDrawn){S.bjDealerAnimFrom=1;}
   while(hVal(S.bjDealer)<(getMod('bj_dealer_stand')||17))S.bjDealer.push(G.bjShoe[S.bjIdx++]);
@@ -192,7 +195,7 @@ function bjResolve(dealerDrawn=false){
     let totalDelta=0;
     const handResults=S.bjSplitHands.map((hand,i)=>{
       const bet=S.bjSplitBets[i],pv=hVal(hand);
-      const ddm=getMod('bj_double_bonus')&&S.bjSplitDoubled[i]?2:1;
+      const ddm=getMod('bj_double_bonus')&&S.bjSplitDoubled[i]?2:1; // double-down profit multiplier
       let result,delta;
       if(pv>21){result='bust';delta=-bet;}
       else if(dv>21||pv>dv){result='win';delta=bet*wm*ddm;S.chips+=bet+delta;}
@@ -206,7 +209,7 @@ function bjResolve(dealerDrawn=false){
   }else{
     const pv=hVal(S.bjPlayer),pBJ=isBJ(S.bjPlayer);
     const bjMult = getMod('bj_payout') || 1.5;
-    const ddm=getMod('bj_double_bonus')&&S.bjDoubled?2:1;
+    const ddm=getMod('bj_double_bonus')&&S.bjDoubled?2:1; // double-down profit multiplier
     let result,delta;
     if(pBJ&&dBJ){result='push';delta=0;S.chips+=S.bjBet;}
     else if(pBJ){result='blackjack';delta=Math.floor(S.bjBet*bjMult*wm);S.chips+=S.bjBet+delta;}
@@ -379,8 +382,8 @@ function screenBJ(){
   // result
   const res=S.bjResult, isLast=S.bjHand>=3;
   const isBusted=S.chips<10;
-  const btnText=isBusted?'Game Over 💀':(isLast?`Round 2: ${GAME2==='uth'?"Texas Hold'em":'5 Card Poker'} →`:'Next Hand →');
-  const btnAction=isBusted?"advanceTo('results')":(isLast?`advanceTo('poker')`:'bjNext()');
+  const btnText=isBusted?'Game Over 💀':(isLast?`Round 2: ${GAME_META[GAME2].name} →`:'Next Hand →');
+  const btnAction=isBusted?"advanceTo('results')":(isLast?`advanceTo('${GAME2}')`:'bjNext()');
 
   if(S.bjSplit){
     const dv=hVal(S.bjDealer);
@@ -393,7 +396,7 @@ function screenBJ(){
       <div style="font-family:var(--btn-f);font-size:3rem;color:${col(splitNet)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${splitNet>0?'You Win!':splitNet<0?'You Lose!':'Push'}</div>
       <div style="font-family:var(--btn-f);font-size:2rem;color:${col(splitNet)};margin-bottom:14px">${sign(splitNet)} chips</div>
       <div style="margin-bottom:20px">
-        <div class="sec">Dealer</div>
+        <div class="sec" style="font-size:1rem">Dealer</div>
         <div class="hand" style="justify-content:center">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'sm','',n?(i-S.bjDealerAnimFrom)*0.75+0.15:0,n);}).join('')}</div>
         <div class="hand-val ${dv>21?'bust':''}" style="font-size:1.6rem">${dv}${dv>21?' BUST':''}</div>
       </div>
@@ -433,7 +436,7 @@ function screenBJ(){
 
 function renderBJResultDealer(dv, dOff) {
   return `<div style="text-align:center">
-        <div class="sec">Dealer</div>
+        <div class="sec" style="font-size:1rem">Dealer</div>
         <div class="hand">${S.bjDealer.map((c, i) => {
           const n = i >= S.bjDealerAnimFrom;
           return cardHTML(c, 'sm', '', n ? dOff + (i - S.bjDealerAnimFrom) * 0.75 + 0.05 : 0, n);
@@ -444,7 +447,7 @@ function renderBJResultDealer(dv, dOff) {
 
 function renderBJResultPlayer(pv, result) {
   return `<div style="text-align:center">
-        <div class="sec">You</div>
+        <div class="sec" style="font-size:1rem">You</div>
         <div class="hand">${S.bjPlayer.map((c, i) => {
           const n = S.bjResultAnimPlayer;
           return cardHTML(c, 'sm', '', n ? i * 0.4 + 0.1 : 0, n);

@@ -1,9 +1,10 @@
 
 // ─── ROULETTE CONSTANTS ──────────────────────────────────────────────────
 
+// Standard European roulette red numbers (18 of them; everything else non-zero is black).
 const REDS=new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
-const rCls=n=>n===0?'rn-grn':REDS.has(n)?'rn-red':'rn-blk';
-const rName=n=>n===0?'Green':REDS.has(n)?'Red':'Black';
+const rCls=n=>n===0?'rn-grn':REDS.has(n)?'rn-red':'rn-blk'; // CSS class for a pocket
+const rName=n=>n===0?'Green':REDS.has(n)?'Red':'Black';       // display name for a pocket
 
 // R_BETS: 0-36 = numbers, 37-39 = column 2:1, 40-42 = dozens, 43-48 = outside
 const R_BETS=[
@@ -47,7 +48,8 @@ const R_BET_NUMS_MAP = {
   48: [19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36],
 };
 
-// Returns the 1-36 numbers covered by a given R_BETS index.
+// Returns the winning numbers (1-36) for a given R_BETS index.
+// Index 0 (green zero) returns [] because outside bets all lose on zero.
 function getRBetNums(i){
   if(i===0)return[];
   if(i<=36)return[i];
@@ -55,6 +57,7 @@ function getRBetNums(i){
 }
 
 // Returns true if R_BETS[idx] wins for the given spin result.
+// All non-number bets lose on zero (standard European rules).
 function evalBet(idx,result){
   const b=R_BETS[idx];
   if(b.type==='num') return result===b.val;
@@ -62,8 +65,8 @@ function evalBet(idx,result){
   if(b.type==='col2') return b.val==='red'?REDS.has(result):!REDS.has(result);
   if(b.type==='oe') return b.val==='even'?result%2===0:result%2===1;
   if(b.type==='hl') return b.val==='low'?result<=18:result>=19;
-  if(b.type==='doz'){if(b.val===0)return result>=1&&result<=12;if(b.val===1)return result>=13&&result<=24;return result>=25&&result<=36;}
-  if(b.type==='col'){if(b.val===0)return result%3===1;if(b.val===1)return result%3===2;return result%3===0;}
+  if(b.type==='doz') return result>=b.val*12+1&&result<=b.val*12+12;
+  if(b.type==='col') return result%3===(b.val+1)%3;
   return false;
 }
 
@@ -134,7 +137,10 @@ function rBoard(){
 
 // ─── ROULETTE WHEEL CANVAS ────────────────────────────────────────────────
 
-// Standard European wheel layout (0-36).
+// Holds the preloaded Audio object for the current spin; null when muted.
+let _rouletteAudio = null;
+
+// Standard European single-zero wheel pocket sequence (clockwise from 0).
 const WO=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
 
 function drawWheel(cnv,wAngle,bAngle,bR){
@@ -186,7 +192,7 @@ function drawWheel(cnv,wAngle,bAngle,bR){
   ctx.strokeStyle='#7a5a18';ctx.lineWidth=1;ctx.stroke();
 }
 
-/** Animates the wheel and ball until they reach the daily result. */
+// Plays the roulette ball audio and animates the wheel for exactly the same duration.
 function startWheelAnim(){
   const cnv=document.getElementById('rwheel');
   if(!cnv)return;
@@ -196,6 +202,7 @@ function startWheelAnim(){
   const N=37,seg=2*Math.PI/N;
   const tidx=WO.indexOf(S.rSpin);
 
+  // rawFinal aligns the target pocket to the top pointer (-π/2); wFinal adds full rotations.
   const rawFinal=-Math.PI/2-(tidx+0.5)*seg;
   const numSpins=7;
   const wFinal=rawFinal+Math.ceil(-rawFinal/(2*Math.PI))*2*Math.PI+numSpins*2*Math.PI;
@@ -206,16 +213,35 @@ function startWheelAnim(){
   const R=size/2-6;
   const bRi=R*0.91,bRf=R*0.68;
 
-  const DUR=4600,t0=performance.now();
-  function ease(t){return 1-Math.pow(1-t,4);}
+  function ease(t){return 1-Math.pow(1-t,4);} // quartic ease-out
 
-  function frame(now){
-    const t=Math.min((now-t0)/DUR,1),e=ease(t);
-    drawWheel(cnv,wFinal*e,bStartA-(bStartA-bFinalA)*e,bRi+(bRf-bRi)*e);
-    if(t<1)requestAnimationFrame(frame);
-    else setTimeout(rFinish,900);
+  function runAnim(DUR, onDone){
+    const t0=performance.now();
+    function frame(now){
+      const t=Math.min((now-t0)/DUR,1),e=ease(t);
+      drawWheel(cnv,wFinal*e,bStartA-(bStartA-bFinalA)*e,bRi+(bRf-bRi)*e);
+      if(t<1)requestAnimationFrame(frame);
+      else onDone();
+    }
+    requestAnimationFrame(frame);
   }
-  requestAnimationFrame(frame);
+
+  const audio=_rouletteAudio;
+  if(audio){
+    const go=()=>{
+      const DUR=Math.round(audio.duration*1000);
+      audio.play().catch(()=>{});
+      audio.onended=()=>setTimeout(rFinish,1000); // 1s pause after ball stops before resolving
+      runAnim(DUR, ()=>{}); // animation ends with the audio; rFinish handles the transition
+    };
+    if(audio.readyState>=1) go(); // metadata (duration) already available
+    else{
+      audio.addEventListener('loadedmetadata',go,{once:true});
+      audio.addEventListener('error',()=>runAnim(4600,()=>setTimeout(rFinish,900)),{once:true});
+    }
+  } else {
+    runAnim(4600,()=>setTimeout(rFinish,900)); // muted fallback: 4.6s + 900ms settle
+  }
 }
 
 // ─── ROULETTE SCREENS ────────────────────────────────────────────────────
@@ -250,9 +276,9 @@ function screenRouletteRespin(){
     ${betRows}
     <div class="divider"></div>
     <div style="font-size:.9rem;color:var(--cream);margin-bottom:10px">Keep this result, or use your one re-spin?</div>
-    <div style="display:flex;gap:10px;justify-content:center">
-      <button class="act-btn" onclick="rKeepSpin()">Keep Result</button>
-      <button class="btn-gold" onclick="rDoRespin()">Re-spin 🎡</button>
+    <div style="display:flex;gap:10px">
+      <button class="act-btn" style="flex:1" onclick="rKeepSpin()">Keep Result</button>
+      <button class="btn-gold" style="flex:2" onclick="rDoRespin()">Re-spin 🎡</button>
     </div>
   </div>`;
 }
@@ -341,8 +367,8 @@ function screenRouletteResult(){
       <div class="r-res-num ${rCls(n)}">${n}</div>
     </div>
     <div style="font-size:.88rem;color:var(--shadow);margin-bottom:6px">${rName(n)}</div>
-    <div style="font-size:2.2rem;font-weight:700;color:${col(res.delta)};margin-bottom:2px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${res.delta>0?'You Win! 🎉':res.delta===0?'No change':'You Lose! 💸'}</div>
-    <div style="font-size:1.6rem;font-weight:700;color:${col(res.delta)};margin-bottom:8px">${sign(res.delta)} chips</div>
+    <div style="font-family:var(--btn-f);font-size:3rem;color:${col(res.delta)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${res.delta>0?'You Win!':res.delta===0?'Push':'You Lose!'}</div>
+    <div style="font-family:var(--btn-f);font-size:2rem;color:${col(res.delta)};margin-bottom:14px">${sign(res.delta)} chips</div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
       ${betRows}
       <div class="gm-sep" style="opacity:0.35"></div>
@@ -460,20 +486,24 @@ function rAllIn(){
   S.chips=0;
   rSpin();
 }
-/** Initiates the Roulette spin animation. */
+// Determines the winning number (using Math.random, not the seeded PRNG) then kicks off the animation.
 function rSpin(){
   if(S.rBets.length===0)return;
   const zb=getMod('r_zero_boost');
   const fg=getMod('r_force_group');
   if(G.rSpinOverride!=null){S.rSpin=G.rSpinOverride;}
   else if(fg&&R_GROUP_INFO[fg]){const ns=[...R_GROUP_INFO[fg].nums];S.rSpin=ns[Math.floor(Math.random()*ns.length)];}
+  // r_zero_boost: expand pool by zb slots, all mapped to 0, so zero hits zb/(36+zb) of the time.
   else if(zb){const r=Math.floor(Math.random()*(36+zb));S.rSpin=r<zb?0:r-zb+1;}
   else{S.rSpin=Math.floor(Math.random()*37);}
   S.rPhase='spinning';
   render();updateChipDisplay();
-  sndSpin(4.6);
+  // Preload the audio now so its duration is available by the time startWheelAnim runs.
+  _rouletteAudio = getPref('mute') ? null : new Audio('sounds/roulette ball.mp3');
+  if (_rouletteAudio) { _rouletteAudio.volume = 0.5; _rouletteAudio.load(); }
   setTimeout(startWheelAnim,60);
 }
+// Evaluates all placed bets and applies any active payout modifiers, returning enriched bet objects.
 function _evalBets(bets, spin) {
   const multMod = getMod('r_payout_mult');
   const numPayMod = getMod('r_number_pay');
@@ -491,20 +521,21 @@ function _evalBets(bets, spin) {
     return {...b, won, delta, pay};
   });
 }
-/** Final result calculation for Roulette after the animation. */
+// Settles all bets: returns stake + profit for winners, then applies win multiplier on top.
 function _resolveRoulette(){
   const betResults = _evalBets(S.rBets, S.rSpin);
   let totalDelta = betResults.reduce((s,b) => s + b.delta, 0);
-  betResults.forEach(b => { if (b.won) S.chips += b.bet * (1 + b.pay); });
+  betResults.forEach(b => { if (b.won) S.chips += b.bet * (1 + b.pay); }); // return stake + profit
   const wm=winMult();
-  if(wm>1&&totalDelta>0){S.chips+=totalDelta;totalDelta*=wm;}
+  if(wm>1&&totalDelta>0){S.chips+=totalDelta;totalDelta*=wm;} // apply win multiplier bonus on top
   S.rResult={delta:totalDelta,bets:betResults};
   S.rPhase='result';render();updateChipDisplay();
   if(totalDelta>0)setTimeout(sndBigWin,400);
 }
+// Called when the wheel animation finishes — goes to respin phase if unused, otherwise resolves.
 function rFinish(){
   if(getMod('r_respin')&&!S.rReSpun){S.rPhase='respin';render();return;}
   _resolveRoulette();
 }
-function rKeepSpin(){_resolveRoulette();}
+function rKeepSpin(){_resolveRoulette();} // player chose to keep the respin result
 function rDoRespin(){S.rReSpun=true;rSpin();}

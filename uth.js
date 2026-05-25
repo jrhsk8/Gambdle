@@ -20,10 +20,10 @@ function rankPoker(cs){
   return{n:'High Card',p:0};
 }
 
-// UTH hand evaluation
+// Numeric rank value for UTH hand comparison (Ace is always 14 here, unlike BJ where it flexes).
 function cardNum(r){return({'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14})[r];}
 
-// Weighted hand scorer for UTH (cat * 1e12 + rank tiebreakers).
+// Scores a 5-card hand as (category * 1e12 + rank tiebreakers), so category always beats kickers.
 function handScore(cs){
   const ns=cs.map(c=>cardNum(c.r)),ss=cs.map(c=>c.s);
   const rc={};for(const n of ns)rc[n]=(rc[n]||0)+1;
@@ -60,7 +60,7 @@ function handScore(cs){
   return{cat,score};
 }
 
-/** Brute-force checks all 21 possible 5-card combinations from a set of 7. */
+// Checks all C(7,5)=21 five-card combinations by dropping each pair (i,j), returns the best.
 function bestOf7(cards){
   let best=null,bs=-1,bc=0;
   for(let i=0;i<7;i++)for(let j=i+1;j<7;j++){
@@ -71,18 +71,20 @@ function bestOf7(cards){
   return{cards:best,score:bs,cat:bc,rank:rankPoker(best)};
 }
 
+// Blind bonus payout: cat is the hand category (9=Royal Flush … 0=High Card).
+// Base amounts match the standard UTH blind paytable; boost/extended come from modifiers.
 function uthBlindDelta(cat,blind){
   const extended=getMod('uth_blind_extended');
   const boost=getMod('uth_blind_boost')||1;
   let base=0;
-  if(cat===9)base=blind*500;
-  else if(cat===8)base=blind*50;
-  else if(cat===7)base=blind*10;
-  else if(cat===6)base=blind*3;
-  else if(cat===5)base=Math.floor(blind*1.5);
-  else if(cat===4)base=blind;
-  else if(extended&&cat===3)base=blind;
-  else if(extended&&cat===2)base=Math.floor(blind*0.5);
+  if(cat===9)base=blind*500;       // Royal Flush
+  else if(cat===8)base=blind*50;   // Straight Flush
+  else if(cat===7)base=blind*10;   // Four of a Kind
+  else if(cat===6)base=blind*3;    // Full House
+  else if(cat===5)base=Math.floor(blind*1.5); // Flush
+  else if(cat===4)base=blind;      // Straight
+  else if(extended&&cat===3)base=blind;          // Three of a Kind (extended only)
+  else if(extended&&cat===2)base=Math.floor(blind*0.5); // Two Pair (extended only)
   return Math.floor(base*boost);
 }
 
@@ -99,8 +101,17 @@ function resetUTHHand(){
 function uthSkip(){
   S.uthHistory.push({ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0});
   S.uthHand++;
-  if(S.uthHand>=3){advanceTo('roulette');return;}
+  if(S.uthHand>=3){advanceTo(NEXT_SCREEN['uth']);return;}
   resetUTHHand();
+  render();
+}
+
+/** Skip the current poker hand (all_in_or_skip modifier). Records delta 0 and advances. */
+function pkSkip(){
+  S.pkHistory.push({bet:0,result:'skip',pts:0,delta:0});
+  S.pkHand++;
+  if(S.pkHand>=3){advanceTo(NEXT_SCREEN['poker']);return;}
+  S.pkBet=0;S.pkPhase='bet';
   render();
 }
 
@@ -138,7 +149,8 @@ function pkDraw(){
   const draw=G.pokerDecks[S.pkHand].slice(5);let di=0;
   S.pkFinal=S.pkCards.map((c,i)=>S.pkHeld.has(i)?c:draw[di++]);
   const res=rankPoker(S.pkFinal);
-  const profit=res.p>0?S.pkBet*res.p:0;
+  const wm=winMult();
+  const profit=res.p>0?S.pkBet*res.p*wm:0;
   const delta=res.p>0?profit:-S.pkBet;
   if(res.p>0)S.chips+=S.pkBet+profit;
   S.pkHistory.push({bet:S.pkBet,result:res.n,pts:res.p,delta});
@@ -179,32 +191,32 @@ function uthDeal(){
     sndCard(40);sndCard(100);sndCard(160);sndCard(220);
   });
 }
+// Reveal the first 3 community cards (flop). Sounds staggered to match card-flip animation.
+function _uthDealFlop(){
+  S.uthPrevRevealComm=0;S.uthRevealComm=3;S.uthPhase='flop';
+  updateUthCommunityCards();sndCard(50);sndCard(150);sndCard(250);
+}
+// Reveal community cards 4 and 5 (turn + river combined).
+function _uthDealTurn(){
+  S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';
+  updateUthCommunityCards();sndCard(50);sndCard(200);
+}
 function uthRaise(mult){
   const bet=(S.uthAnte/2)*mult;
   if(S.chips<bet)return;
   S.chips-=bet;S.uthPlay=bet;S.uthPlayMult=mult;S.uthRaised=true;
   sndChip();
-  if(S.uthPhase==='preflop'){
-    S.uthPrevRevealComm=0;S.uthRevealComm=3;S.uthPhase='flop';updateUthCommunityCards();updateChipDisplay();sndCard(50);sndCard(150);sndCard(250);
-  }else if(S.uthPhase==='flop'){
-    S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';updateUthCommunityCards();updateChipDisplay();sndCard(50);sndCard(200);
-  }else if(S.uthPhase==='turn'){
-    uthResolve();
-  }
+  if(S.uthPhase==='preflop'){_uthDealFlop();updateChipDisplay();}
+  else if(S.uthPhase==='flop'){_uthDealTurn();updateChipDisplay();}
+  else if(S.uthPhase==='turn'){uthResolve();}
 }
 function uthCheck(){
-  if(S.uthPhase==='preflop'){
-    S.uthPrevRevealComm=0;S.uthRevealComm=3;S.uthPhase='flop';updateUthCommunityCards();sndCard(50);sndCard(150);sndCard(250);
-  }else if(S.uthPhase==='flop'){
-    S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';updateUthCommunityCards();sndCard(50);sndCard(200);
-  }
+  if(S.uthPhase==='preflop') _uthDealFlop();
+  else if(S.uthPhase==='flop') _uthDealTurn();
 }
 function uthNextStreet(){
-  if(S.uthPhase==='flop') {
-    S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';updateUthCommunityCards();sndCard(50);sndCard(200);
-  }else if(S.uthPhase==='turn'){
-    uthResolve();
-  }
+  if(S.uthPhase==='flop') _uthDealTurn();
+  else if(S.uthPhase==='turn') uthResolve();
 }
 function uthFold(){
   S.uthFolded=true;
@@ -214,12 +226,8 @@ function uthFold(){
   updateUthCommunityCards();
   setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();},2300);
 }
-/**
- * Calculates the complex UTH showdown.
- * Play bet pays 1:1 if player wins.
- * Blind bet pays according to paytable if player wins with a Straight or better.
- * Ante bet pays 1:1 if player wins AND dealer qualifies (Pair or better).
- */
+// Settles the UTH hand: three independent payouts (play, ante, blind) each have their own rules.
+// Play: 1:1 if player wins. Ante: 1:1 only if dealer qualifies. Blind: paytable if Straight+.
 function uthResolve(){
   const ante=S.uthAnte/2,play=S.uthPlay;
   const pb=bestOf7([...S.uthHole,...S.uthComm]);
@@ -254,6 +262,8 @@ function uthNext(){
   if(S.chips<10){S.screen='results';render();}else render();
 }
 
+// Surgically animates only the newly revealed community cards (uthPrevRevealComm → uthRevealComm).
+// Also updates the action UI and progress dots after the animation finishes.
 function updateUthCommunityCards() {
   const commHand = document.getElementById('uth-community-hand');
   const dealerHand = document.getElementById('uth-dealer-hand');
@@ -326,16 +336,23 @@ function updateUthCommunityCards() {
 function screenPoker(){
   const ph=S.pkPhase;
   if(ph==='bet'){
+    const aios=getMod('all_in_or_skip');
     return `${hdr('5 Card Poker · Hand '+(S.pkHand+1)+' of 3')}
     <div class="panel">
       ${gameDots(S.pkHistory,S.pkHand,S.pkPhase)}
       <div class="divider"></div>
-      <div class="sec">Place Your Bet</div>
-      ${chipSel(S.chips,S.pkBet)}
-      <button id="db" class="btn-gold" style="margin-top:12px" onclick="pkDeal()" ${S.pkBet===0?'disabled':''}>Deal →</button>
-      <div class="divider"></div>
-      <div class="sec">Paytable</div>
-      <div class="ptable">${[['Royal Flush','800x'],['Straight Flush','50x'],['Four of a Kind','25x'],['Full House','9x'],['Flush','6x'],['Straight','4x'],['Three of a Kind','3x'],['Two Pair','2x'],['Jacks or Better','1x']].map(([n,p])=>`<span class="pname">${n}</span><span class="ppay">${p}</span>`).join('')}</div>
+      ${aios
+        ?`<div class="sec">All In or Skip · Wins Pay 2×</div>
+          <div style="display:flex;gap:10px;margin-top:8px">
+            <button class="btn-gold" style="flex:2" onclick="allIn();pkDeal()">All In (${fmt(S.chips)}) →</button>
+            <button class="ch-clear" style="flex:1;padding:17px" onclick="pkSkip()">Skip Hand</button>
+          </div>`
+        :`<div class="sec">Place Your Bet</div>
+          ${chipSel(S.chips,S.pkBet)}
+          <button id="db" class="btn-gold" style="margin-top:12px" onclick="pkDeal()" ${S.pkBet===0?'disabled':''}>Deal →</button>
+          <div class="divider"></div>
+          <div class="sec">Paytable</div>
+          <div class="ptable">${[['Royal Flush','800x'],['Straight Flush','50x'],['Four of a Kind','25x'],['Full House','9x'],['Flush','6x'],['Straight','4x'],['Three of a Kind','3x'],['Two Pair','2x'],['Jacks or Better','1x']].map(([n,p])=>`<span class="pname">${n}</span><span class="ppay">${p}</span>`).join('')}</div>`}
     </div>`;
   }
   if(ph==='hold'){
@@ -348,7 +365,7 @@ function screenPoker(){
           ${cardHTML(c,'md',`transition:transform .2s,box-shadow .2s;transform:${h?'translateY(-10px)':'translateY(0)'};box-shadow:${h?'0 8px 20px rgba(196,147,58,.5),0 0 0 2px var(--gold)':'2px 3px 10px rgba(0,0,0,.5),0 0 0 2px rgba(196,48,48,.65)'}`,0.04+i*0.06)}
           <div class="hold-tag" style="${h?'':'color:var(--red)'}">${h?'HOLD':'REPLACE'}</div></div>`;}).join('')}
       </div>
-      <button class="btn-gold" onclick="pkDraw()">Draw Cards →</button>
+      <button class="btn-gold" style="margin-top:12px" onclick="pkDraw()">Draw Cards →</button>
       <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${fmt(S.pkBet)} chips</span></div>
     </div>`;
   }
@@ -369,26 +386,28 @@ function screenPoker(){
           return`<div class="hold-wrap">${cardHTML('back','md','box-shadow:2px 3px 10px rgba(0,0,0,.5),0 0 0 2px rgba(196,48,48,.65)')}<div class="hold-tag" style="color:var(--red)">REPLACE</div></div>`;
         }).join('')}
       </div>
-      <button class="btn-gold" disabled style="opacity:.35">Drawing…</button>
+      <button class="btn-gold" style="margin-top:12px;opacity:.35" disabled>Drawing…</button>
       <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${fmt(S.pkBet)} chips</span></div>
     </div>`;
   }
   // result
   const h=S.pkHistory[S.pkHand-1], res=rankPoker(S.pkFinal), isLast=S.pkHand>=3;
   const isBusted=S.chips<10;
-  const btnText=isBusted?'Game Over 💀':(isLast?'Final Round: Roulette →':'Next Hand →');
-  const btnAction=isBusted?"advanceTo('results')":(isLast?"advanceTo('roulette')":'pkNext()');
+  const _pkNext=NEXT_SCREEN['poker'];
+  const btnText=isBusted?'Game Over 💀':(isLast?(_pkNext==='roulette'?'Final Round: Roulette →':`Round 2: ${GAME_META[_pkNext].name} →`):'Next Hand →');
+  const btnAction=isBusted?"advanceTo('results')":(isLast?`advanceTo('${_pkNext}')`:'pkNext()');
 
   return `${hdr('5 Card Poker · Result')}
   <div class="panel" style="text-align:center">
+    ${gameDots(S.pkHistory,S.pkHand,S.pkPhase)}
+    <div class="divider"></div>
     <div style="font-family:var(--btn-f);font-size:3rem;color:${col(h.delta)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${h.delta>0?'You Win!':h.delta<0?'You Lose!':'Push'}</div>
     <div style="font-family:var(--btn-f);font-size:1.1rem;color:var(--gold);margin-bottom:2px">${res.n}</div>
     <div style="font-family:var(--btn-f);font-size:2rem;color:${col(h.delta)};margin-bottom:14px">${sign(h.delta)} chips</div>
-    <div class="sec">Your Hand</div>
+    <div class="sec" style="font-size:1rem">Your Hand</div>
     <div class="hand" style="margin-bottom:12px">
       ${S.pkFinal.map((c,i)=>{const isNew=!S.pkHeld.has(i);return cardHTML(c,'md',isNew?'box-shadow:0 0 0 2px var(--gold-hi),2px 3px 10px rgba(0,0,0,.5)':'',isNew?0.04+i*0.05:0);}).join('')}
     </div>
-    ${gameDots(S.pkHistory,S.pkHand,S.pkPhase)}
     <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
     <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
   </div>`;
@@ -555,8 +574,9 @@ function screenUTH(){
   if(!hist)return'';
   const isLast=S.uthHand>=3;
   const isBusted=S.chips<10;
-  const btnText=isBusted?'Game Over 💀':(isLast?'Final Round: Roulette →':'Next Hand →');
-  const btnAction=isBusted?"advanceTo('results')":(isLast?"advanceTo('roulette')":'uthNext()');
+  const _uthNext=NEXT_SCREEN['uth'];
+  const btnText=isBusted?'Game Over 💀':(isLast?(_uthNext==='roulette'?'Final Round: Roulette →':`Round 2: ${GAME_META[_uthNext].name} →`):'Next Hand →');
+  const btnAction=isBusted?"advanceTo('results')":(isLast?`advanceTo('${_uthNext}')`:'uthNext()');
 
   if(hist.result==='fold'){
     const dealerBest=bestOf7([...S.uthDealer,...S.uthComm]);
@@ -564,9 +584,8 @@ function screenUTH(){
     <div class="panel" style="text-align:center">
       ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
       <div class="divider"></div>
-      <div style="font-size:1.65rem;font-weight:700;color:var(--lose);margin-bottom:2px">You Folded</div>
-      <div style="font-size:1.3rem;color:var(--lose);margin-bottom:14px">${sign(hist.delta)} chips</div>
-      <div class="divider"></div>
+      <div style="font-family:var(--btn-f);font-size:3rem;color:var(--lose);margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">You Folded</div>
+      <div style="font-family:var(--btn-f);font-size:2rem;color:var(--lose);margin-bottom:14px">${sign(hist.delta)} chips</div>
       <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin:12px 0">
         <div>
           <div class="sec" style="font-size:1rem">Dealer's Hand</div>
@@ -597,10 +616,9 @@ function screenUTH(){
     ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
     <div class="divider"></div>
     <div style="text-align:center;margin-bottom:10px">
-      <div style="font-size:1.4rem;font-weight:700;color:${col(hist.delta)}">${resLabel}</div>
-      <div style="font-size:1.1rem;font-weight:700;color:${col(hist.delta)}">${sign(hist.delta)} chips</div>
+      <div style="font-family:var(--btn-f);font-size:3rem;color:${col(hist.delta)};margin-bottom:4px;text-shadow:2px 2px 0 rgba(0,0,0,0.4)">${resLabel}</div>
+      <div style="font-family:var(--btn-f);font-size:2rem;color:${col(hist.delta)};margin-bottom:14px">${sign(hist.delta)} chips</div>
     </div>
-    <div class="divider"></div>
     <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px;margin-top:12px">
         <div style="text-align:center">
           <div class="sec" style="font-size:1rem">Dealer${hist.dealerQualifies?' (Qualifies)':' (No Qualify)'}</div>
@@ -622,7 +640,7 @@ function screenUTH(){
     <div style="display:grid;grid-template-columns:1fr auto;gap:3px 14px;margin-bottom:10px">
       ${[['Ante',hist.anteDelta],['Blind',hist.blindDelta],...(hist.play>0?[['Play ('+hist.playMult+'×)',hist.playDelta]]:[])].map(([lbl,d])=>`<span class="pname">${lbl}</span><span class="ppay" style="color:${col(d)}">${sign(d)}</span>`).join('')}
     </div>
-    <div class="irow" style="margin-top:8px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
+    <div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>
     <button class="btn-gold" style="margin-top:12px" onclick="${btnAction}">${btnText}</button>
   </div>`;
 }

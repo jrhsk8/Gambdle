@@ -3,6 +3,7 @@ const fmt=n=>n.toLocaleString();
 const sign=n=>n>=0?'+'+fmt(n):fmt(n);
 const col=n=>n>0?'#1fa845':n<0?'#e03535':'#cabd9a';
 
+// Maps suit symbols to CSS classes for coloring (red suits get a different color than black).
 const SUIT_CLS={'♠':'suit-s','♥':'suit-h','♦':'suit-d','♣':'suit-c'};
 function cardHTML(c,sz='md',ex='',dl=0,anim=true){
   if(c==='back')return`<div class="card ${sz} back" style="${ex}"></div>`;
@@ -30,6 +31,7 @@ function chipSel(maxC,curBet,denoms,extraBtn=''){
   </div>`;
 }
 
+// Renders the hand-progress pill row. count=2 triggers roulette mode (2 dots: Last Spin + Results).
 function gameDots(history, hand, phase, count = 3){
   const isR = count <= 2;
   return`<div class="dots-row">${Array.from({length:count},(_,i)=>{
@@ -71,6 +73,8 @@ function hdr(sub){
   <div id="hdr-sub" style="display:none">${sub||''}</div>`;
 }
 
+// Returns the gold modifier banner HTML, or '' if no modifier is active today.
+// Injected into .panel by render() after the screen HTML is built, not part of any screenX() call.
 function modBannerHTML(){
   const modTitle = getMod('title');
   const modDesc = getMod('desc');
@@ -87,6 +91,7 @@ function modBannerHTML(){
 // ─── AUDIO SYSTEM ─────────────────────────────────────────────
 function playMp3(src,ms=0){if(getPref('mute'))return;if(ms){setTimeout(()=>playMp3(src),ms);return;}new Audio(src).play().catch(()=>{});}
 function sndCard(ms=0){playMp3(`sounds/card${Math.ceil(Math.random()*3)}.mp3`,ms);}
+// d = chip denomination (or 'allin'); selects the appropriate sound effect.
 function sndChip(d){playMp3(d==='allin'?'sounds/allin.mp3':d<=25?'sounds/smallbet.mp3':'sounds/mediumbet.mp3');}
 function sndShuffle(cb){
   if(getPref('mute')){if(cb)setTimeout(cb,0);return;}
@@ -103,9 +108,11 @@ function sndShuffle(cb){
 function sndBigWin(){playMp3('sounds/bigwin.mp3');}
 
 let _ac=null;
+// Returns the shared AudioContext, creating or resuming it on first use.
 function getAC(){if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();return _ac;}
 
-/** Synthesized sound for the Roulette ball rattle. */
+// Synthesized ball-rattle using Web Audio oscillators — no audio file required.
+// Clicks get slower and further apart as the ball decelerates over `dur` seconds.
 function sndSpin(dur){
   if(getPref('mute'))return;
   try{
@@ -133,10 +140,14 @@ function sndSpin(dur){
 }
 
 // ─── CHIP & BETTING ───────────────────────────────────────────
-const BET_REF={bj:'bjBet',roulette:'rBet'};
-function curBetRef(){return BET_REF[S.screen]??(GAME2==='uth'?'uthAnte':'pkBet');}
-function maxBet(){return(S.screen==='poker'&&GAME2==='uth')?Math.floor(S.chips*2/3):S.chips;}
+// Maps screen name to the S field that holds the current bet amount.
+const BET_REF={bj:'bjBet',uth:'uthAnte',poker:'pkBet',roulette:'rBet'};
+// Returns the state key for the active screen's bet (e.g. 'bjBet', 'uthAnte').
+function curBetRef(){return BET_REF[S.screen]??'pkBet';}
+// UTH caps at 2/3 of chips so the player always has enough left for a 1× raise.
+function maxBet(){return S.screen==='uth'?Math.floor(S.chips*2/3):S.chips;}
 
+// Updates chip buttons, bet display, and action button states without a full re-render.
 function patchBetUI() {
   const k = curBetRef();
   const bet = S[k];
@@ -152,6 +163,7 @@ function patchBetUI() {
   const db=document.getElementById('db');
   if(db){
     const maxBets=getMod('r_max_bets')||5;
+    // Roulette uses the S.rBets array, not the scalar rBet; Spin button enables when any bet is placed.
     db.disabled=(k==='rBet'?S.rBets.length===0:(bet===0||!isBetValid));
     const pba=document.getElementById('pb-add');
     if(pba){const pickAlreadyBet=S.rPick!==null&&S.rBets.some(b=>b.pick===S.rPick);pba.disabled=!((S.rBets.length<maxBets||pickAlreadyBet)&&S.rPick!==null&&bet>0);}
@@ -170,17 +182,16 @@ function allIn(){S[curBetRef()]=maxBet();sndChip();patchBetUI();}
 
 // ─── SHARING & UTILS ──────────────────────────────────────────
 function buildShareText(){
-  const bjNet=S.bjHistory.reduce((a,h)=>a+h.delta,0);
-  const g2Hist=GAME2==='uth'?S.uthHistory:S.pkHistory;
-  const g2Net=g2Hist.reduce((a,h)=>a+h.delta,0);
+  const g1Net=gameNet(GAME1);
+  const g2Net=gameNet(GAME2);
   const rNet=S.rResult?.delta||0;
-  const g2Name=GAME2==='uth'?"Ultimate Texas Hold'em":'5 Card Poker';
+  const g1=GAME_META[GAME1],g2=GAME_META[GAME2];
   const trophy=getTier(S.chips).emoji;
   return [
     `🎰 Gambdle #${S.day}`,
     ``,
-    `🃏 Blackjack     (${sign(bjNet)})`,
-    `♠️  ${g2Name.padEnd(14)} (${sign(g2Net)})`,
+    `${g1.icon} ${g1.short.padEnd(14)} (${sign(g1Net)})`,
+    `${g2.icon} ${g2.short.padEnd(14)} (${sign(g2Net)})`,
     `🎡 Roulette      (${sign(rNet)})`,
     ``,
     `${trophy} Finished with ${fmt(S.chips)} chips`,
@@ -273,22 +284,26 @@ const INFO_SECTIONS = {
   }
 };
 
-function showInfo(section) {
-  const existing = document.getElementById('info-modal');
-  if (existing) existing.remove();
-  const {title, body} = INFO_SECTIONS[section] || INFO_SECTIONS.overview;
+// Shared factory for both help-section modals and modifier popups.
+function _openInfoModal(title, content) {
+  document.getElementById('info-modal')?.remove();
   const el = document.createElement('div');
   el.id = 'info-modal'; el.className = 'info-modal';
-  el.onclick = e => { if(e.target===el) el.remove(); };
+  el.onclick = e => { if (e.target === el) el.remove(); };
   el.innerHTML = `<div class="info-box" style="padding:18px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div style="font-family:var(--btn-f);color:var(--ink);font-size:1.7rem">${title}</div>
       <button onclick="document.getElementById('info-modal').remove()" style="background:none;border:none;color:var(--shadow);font-size:1.6rem;cursor:pointer;padding:4px 8px;line-height:1">✕</button>
     </div>
     <div class="divider" style="margin-bottom:14px"></div>
-    <div style="display:flex;flex-direction:column;gap:14px;font-size:1.15rem;color:var(--ink);line-height:1.55">${body}</div>
+    ${content}
   </div>`;
   document.body.appendChild(el);
+}
+
+function showInfo(section) {
+  const {title, body} = INFO_SECTIONS[section] || INFO_SECTIONS.overview;
+  _openInfoModal(title, `<div style="display:flex;flex-direction:column;gap:14px;font-size:1.15rem;color:var(--ink);line-height:1.55">${body}</div>`);
 }
 
 // ─── MENUS ────────────────────────────────────────────────────
@@ -298,6 +313,7 @@ function closeDropdowns() {
   document.querySelectorAll('.dropdown, .dd-submenu').forEach(d => d.remove());
 }
 
+// Mobile: inlines submenus directly below the trigger item instead of floating them.
 function _showInlineSub(trigger, html, level) {
   // Close level-2 subs always; also close level-1 when opening a new level-1
   document.querySelectorAll('.dd-inline-sub.dd-level-2').forEach(el => el.remove());
@@ -338,6 +354,30 @@ function _positionSubmenu(sub, trigger) {
     sub.style.top = Math.max(4, window.innerHeight - sr.height - 4) + 'px';
 }
 
+// Opens a first-level floating submenu (or inline on mobile). Toggling re-click closes it.
+function _openSub1(html, trigger) {
+  if (_isMobile()) { _showInlineSub(trigger, html, 1); return; }
+  if (document.querySelector('.dd-sub1')) { document.querySelectorAll('.dd-submenu').forEach(d=>d.remove()); return; }
+  document.querySelectorAll('.dd-submenu').forEach(d=>d.remove());
+  const sub = document.createElement('div');
+  sub.className = 'dropdown dd-submenu dd-sub1';
+  sub.innerHTML = html;
+  _positionSubmenu(sub, trigger);
+}
+
+// Opens a second-level floating submenu keyed by `key`; clicking the same key again closes it.
+function _openSub2(key, html, trigger) {
+  if (_isMobile()) { _showInlineSub(trigger, html, 2); return; }
+  const existing = document.querySelector('.dd-sub2');
+  if (existing?.dataset.key === key) { existing.remove(); return; }
+  existing?.remove();
+  const sub = document.createElement('div');
+  sub.className = 'dropdown dd-submenu dd-sub2';
+  sub.dataset.key = key;
+  sub.innerHTML = html;
+  _positionSubmenu(sub, trigger);
+}
+
 function showModSubmenu(trigger, action) {
   action = action || 'devApplyMod';
   const cats = [
@@ -349,13 +389,7 @@ function showModSubmenu(trigger, action) {
   const html = cats.map(c =>
     `<div class="dd-item" onclick="showModTypeSubmenu('${c.key}',this,'${action}');event.stopPropagation()">${c.label} <span class="dd-key">►</span></div>`
   ).join('');
-  if (_isMobile()) { _showInlineSub(trigger, html, 1); return; }
-  if (document.querySelector('.dd-sub1')) { document.querySelectorAll('.dd-submenu').forEach(d=>d.remove()); return; }
-  document.querySelectorAll('.dd-submenu').forEach(d => d.remove());
-  const sub = document.createElement('div');
-  sub.className = 'dropdown dd-submenu dd-sub1';
-  sub.innerHTML = html;
-  _positionSubmenu(sub, trigger);
+  _openSub1(html, trigger);
 }
 
 function showModTypeSubmenu(type, trigger, action) {
@@ -364,36 +398,16 @@ function showModTypeSubmenu(type, trigger, action) {
   const html = mods.map(([k, m]) =>
     `<div class="dd-item" onclick="${action}('${k}')">${m.title}</div>`
   ).join('');
-  if (_isMobile()) { _showInlineSub(trigger, html, 2); return; }
-  const existing = document.querySelector('.dd-sub2');
-  if (existing?.dataset.key === type) { existing.remove(); return; }
-  existing?.remove();
-  const sub = document.createElement('div');
-  sub.className = 'dropdown dd-submenu dd-sub2';
-  sub.dataset.key = type;
-  sub.innerHTML = html;
-  _positionSubmenu(sub, trigger);
+  _openSub2(type, html, trigger);
 }
 
 function showModifierPopup(key) {
   closeDropdowns();
   const m = PRESET_MODIFIERS[key];
   if (!m) return;
-  const existing = document.getElementById('info-modal');
-  if (existing) existing.remove();
-  const el = document.createElement('div');
-  el.id = 'info-modal'; el.className = 'info-modal';
-  el.onclick = e => { if (e.target === el) el.remove(); };
-  el.innerHTML = `<div class="info-box" style="padding:18px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-family:var(--btn-f);color:var(--ink);font-size:1.7rem">✨ ${m.title}</div>
-      <button onclick="document.getElementById('info-modal').remove()" style="background:none;border:none;color:var(--shadow);font-size:1.6rem;cursor:pointer;padding:4px 8px;line-height:1">✕</button>
-    </div>
-    <div class="divider" style="margin-bottom:14px"></div>
-    <div style="font-size:1.15rem;color:var(--ink);line-height:1.55">${m.desc}</div>
-    ${m.devNote ? `<div class="divider" style="margin:14px 0 10px"></div><div style="font-size:1rem;color:var(--shadow);line-height:1.5"><b>Dev Note:</b> ${m.devNote}</div>` : ''}
-  </div>`;
-  document.body.appendChild(el);
+  const content = `<div style="font-size:1.15rem;color:var(--ink);line-height:1.55">${m.desc}</div>` +
+    (m.devNote ? `<div class="divider" style="margin:14px 0 10px"></div><div style="font-size:1rem;color:var(--shadow);line-height:1.5"><b>Dev Note:</b> ${m.devNote}</div>` : '');
+  _openInfoModal(`✨ ${m.title}`, content);
 }
 
 function toggleMenu(which, trigger) {
@@ -408,14 +422,27 @@ function toggleMenu(which, trigger) {
   el.className = 'dropdown'; el.dataset.menu = which;
 
   if (which === 'dev') {
+    const _gName = (opts, val) => opts.find(o=>o.value===val)?.label || val;
+    const _gameSlots = [
+      { slot:1, current:GAME1, opts:GAME1_OPTIONS.filter(o=>o.value!==GAME2), label:'Game 1' },
+      { slot:2, current:GAME2, opts:GAME2_OPTIONS.filter(o=>o.value!==GAME1), label:'Game 2' },
+    ];
+    const _gameConfigHTML = _gameSlots.map(({slot,current,opts,label}) =>
+      `<div class="dd-game-lbl">${label}</div>
+      <div class="dd-game-row">${opts.map(({value,label:l}) =>
+        `<button class="dd-game-btn${current===value?' active':''}" onclick="devSetGame(${slot},'${value}')">${l}</button>`
+      ).join('')}</div>`
+    ).join('');
     el.innerHTML = `
       <div class="dd-item" onclick="devReset();closeDropdowns()">↺ Reset Run</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="goTo('bj');closeDropdowns()">→ Blackjack</div>
-      <div class="dd-item" onclick="goTo('poker');closeDropdowns()">→ Hold'em</div>
+      <div class="dd-item" onclick="goTo(GAME1);closeDropdowns()">→ ${_gName(GAME1_OPTIONS,GAME1)}</div>
+      <div class="dd-item" onclick="goTo(GAME2);closeDropdowns()">→ ${_gName(GAME2_OPTIONS,GAME2)}</div>
       <div class="dd-item" onclick="goTo('roulette');closeDropdowns()">→ Roulette</div>
       <div class="dd-item" onclick="devSpin()">🎡 Spin Wheel</div>
       <div class="dd-item" onclick="goTo('results');closeDropdowns()">→ Results</div>
+      <div class="dd-sep"></div>
+      ${_gameConfigHTML}
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="S.chips+=500;render();updateChipDisplay();closeDropdowns()">+ 500 chips</div>
       <div class="dd-item" onclick="S.chips+=10000;render();updateChipDisplay();closeDropdowns()">+ 10,000 chips</div>
@@ -464,15 +491,14 @@ function getPrefs(){try{return JSON.parse(localStorage.getItem(PREFS_KEY)||'{}')
 function getPref(k){return getPrefs()[k];}
 function setPref(k,v){const p=getPrefs();p[k]=v;localStorage.setItem(PREFS_KEY,JSON.stringify(p));}
 function applyPrefs(){
-  document.body.classList.toggle('four-color',!!getPref('four_color'));
-  const cb=getPref('cardback')||'default';
-  document.body.classList.toggle('cardback-gold',   cb==='gold'   && !!getPref('golden_back_unlocked'));
-  document.body.classList.toggle('cardback-orange', cb==='orange' && !!getPref('orange_back_unlocked'));
-  document.body.classList.toggle('cardback-whale',  cb==='whale'  && !!getPref('whale_back_unlocked'));
-  const felt=getPref('felt')||'default';
-  document.body.classList.toggle('felt-maroon', felt==='maroon' && !!getPref('maroon_felt_unlocked'));
-  const deck=getPref('deck')||'default';
-  document.body.classList.toggle('deck-emoji', deck==='emoji' && !!getPref('deck_emoji_unlocked'));
+  const p=getPrefs();
+  document.body.classList.toggle('four-color', !!p.four_color);
+  const cb=p.cardback||'default';
+  document.body.classList.toggle('cardback-gold',   cb==='gold'   && !!p.golden_back_unlocked);
+  document.body.classList.toggle('cardback-orange', cb==='orange' && !!p.orange_back_unlocked);
+  document.body.classList.toggle('cardback-whale',  cb==='whale'  && !!p.whale_back_unlocked);
+  document.body.classList.toggle('felt-maroon', (p.felt||'default')==='maroon' && !!p.maroon_felt_unlocked);
+  document.body.classList.toggle('deck-emoji',  (p.deck||'default')==='emoji'  && !!p.deck_emoji_unlocked);
 }
 
 function _prefItem(key,id,label){
@@ -488,13 +514,7 @@ function showPrefsSubmenu(trigger){
              `<div class="dd-item" data-picker="deck"     onclick="_showPickerSub('deck',this);event.stopPropagation()">Deck <span class="dd-key">►</span></div>`+
              `<div class="dd-item" data-picker="cardback" onclick="_showPickerSub('cardback',this);event.stopPropagation()">Card Back <span class="dd-key">►</span></div>`+
              `<div class="dd-item" data-picker="felt"     onclick="_showPickerSub('felt',this);event.stopPropagation()">Felt <span class="dd-key">►</span></div>`;
-  if (_isMobile()) { _showInlineSub(trigger, html, 1); return; }
-  if (document.querySelector('.dd-sub1')) { document.querySelectorAll('.dd-submenu').forEach(d=>d.remove()); return; }
-  document.querySelectorAll('.dd-submenu').forEach(d=>d.remove());
-  const sub=document.createElement('div');
-  sub.className='dropdown dd-submenu dd-sub1';
-  sub.innerHTML=html;
-  _positionSubmenu(sub,trigger);
+  _openSub1(html, trigger);
 }
 const PICKER_ITEMS = {
   deck:     { pref:'deck',     options:[{val:'default',label:'Default'},{val:'emoji',label:'Emoji',lock:'deck_emoji_unlocked',hint:'🔒 3500+'}]},
@@ -509,15 +529,7 @@ function _showPickerSub(pickerKey,trigger){
     ?`<div class="dd-item dd-disabled" style="gap:12px"><span>${o.label}</span><span style="font-size:.8rem;opacity:.55">${o.hint}</span></div>`
     :`<div class="dd-item" onclick="setPick('${pickerKey}','${o.val}');event.stopPropagation()" style="gap:12px"><span>${o.label}</span><input type="checkbox" ${cur===o.val?'checked':''} style="${cbStyle}"></div>`
   ).join('');
-  if (_isMobile()) { _showInlineSub(trigger, html, 2); return; }
-  const existing=document.querySelector('.dd-sub2');
-  if (existing?.dataset.key === pickerKey) { existing.remove(); return; }
-  existing?.remove();
-  const sub=document.createElement('div');
-  sub.className='dropdown dd-submenu dd-sub2';
-  sub.dataset.key=pickerKey;
-  sub.innerHTML=html;
-  _positionSubmenu(sub,trigger);
+  _openSub2(pickerKey, html, trigger);
 }
 function setPick(pickerKey,val){
   setPref(PICKER_ITEMS[pickerKey].pref,val);
@@ -531,11 +543,12 @@ function setPick(pickerKey,val){
     if(t)_showPickerSub(pickerKey,t);
   }
 }
+// Maps preference key to the checkbox element ID so togglePref can sync the checkbox state.
+const PREF_CB_IDS={four_color:'pref-4color',mute:'pref-mute'};
 function togglePref(k){
   document.querySelector('.dd-sub2')?.remove();
   setPref(k,!getPref(k));
   applyPrefs();
-  const idMap={four_color:'pref-4color',mute:'pref-mute'};
-  const cb=document.getElementById(idMap[k]);
+  const cb=document.getElementById(PREF_CB_IDS[k]);
   if(cb)cb.checked=!!getPref(k);
 }

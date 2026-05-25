@@ -74,7 +74,9 @@ body {
   min-height: calc(100svh - 44px);
 }
 .title-bar {
-  background: var(--title-grad);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 1px),
+    var(--title-grad);
   color: var(--title-text);
   padding: 5px 6px;
   font-size: 24px;
@@ -151,6 +153,7 @@ body {
 .panel {
   background: var(--felt);
   background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
     radial-gradient(ellipse at 50% 30%, var(--felt-light) 0%, var(--felt) 60%, var(--felt-dark) 100%);
   padding: 14px;
   flex: 1;
@@ -186,7 +189,7 @@ body {
 /* ── Daily modifier banner ──────────────────────────────── */
 .mod-banner {
   border: 1px solid var(--ink);
-  background: #f3e2b8;
+  background: linear-gradient(180deg, #f5eabc 0%, #ead89a 100%);
   box-shadow: inset 1px 1px 0 var(--highlight), inset -2px -2px 0 var(--shadow);
   padding: 8px 12px;
   margin: 0 0 14px 0;
@@ -437,7 +440,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .chbtn {
   position: relative; width: 60px; height: 60px;
   border-radius: 50%;
-  border: 2.5px solid rgba(0,0,0,0.8);
+  border: 1.5px solid rgba(0,0,0,0.8);
   cursor: pointer; padding: 0;
   background:
     /* Top lighting/gloss */
@@ -744,6 +747,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .dd-submenu { z-index: 401; }
 .dd-inline-sub { border-left: 1px solid var(--shadow); margin: 1px 0 1px 14px; }
 .dd-inline-sub.dd-level-2 { margin-left: 28px; }
+.dd-game-lbl { padding: 4px 22px 1px; font-size: .8rem; color: var(--shadow); letter-spacing: .08em; text-transform: uppercase; }
+.dd-game-row { display: flex; gap: 4px; padding: 2px 8px 4px 22px; flex-wrap: wrap; }
+.dd-game-btn { font-family: var(--btn-f); font-size: .95rem; padding: 1px 8px; border: 1px solid var(--shadow); background: transparent; color: var(--ink); cursor: pointer; }
+.dd-game-btn.active { background: var(--gold); border-color: var(--gold-lo); }
+.dd-game-btn:hover:not(.active) { background: var(--highlight); }
 
 /* ── Mod-badge (small inline) ───────────────────────────── */
 .mod-badge {
@@ -807,6 +815,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Chip selector */
   .chip-row { flex-wrap: nowrap; gap: 6px; }
   .chbtn { width: 44px; height: 44px; }
+  .ch-1000 > span { font-size: 0.95rem; }
   /* Bet row */
   .bet-row { flex-wrap: wrap; gap: 8px; }
   .bet-amt { flex: 1 1 100%; }

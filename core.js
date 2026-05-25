@@ -2,15 +2,18 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-// SplitMix32-style seeded PRNG for deterministic daily hands.
+// SplitMix32-style seeded PRNG — returns a function that yields floats in [0, 1).
+// The magic constant (0x6d2b79f5), Math.imul (32-bit integer multiply), and >>>0
+// (coerce to unsigned 32-bit) are all required for correct avalanche behavior.
 function mkRng(seed) {
   let s = (seed ^ 0x6d2b79f5) >>> 0;
   return () => {
     s = Math.imul(s ^ (s >>> 15), s | 1);
     s ^= s + Math.imul(s ^ (s >>> 7), s | 61);
-    return ((s ^ (s >>> 14)) >>> 0) / 0x100000000;
+    return ((s ^ (s >>> 14)) >>> 0) / 0x100000000; // 0x100000000 = 2^32, normalizes to [0,1)
   };
 }
+// Returns today as a YYYYMMDD integer — used as both the RNG seed and the localStorage key.
 const getDailySeed = () => { const d=new Date(); return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); };
 const _testActive = () => !!localStorage.getItem('gambdle_use_test_seed');
 function getRngSeed() { return _testActive()?1:getDailySeed(); }
@@ -21,10 +24,31 @@ const START_DATE_UTC = Date.UTC(2026, 4, 5);
 
 const getDayNum = () => { const n=new Date(); n.setUTCHours(0,0,0,0); return Math.floor((n - START_DATE_UTC) / 86400000) + 1; };
 
+// Creates a card object; s accepts shorthand ('s','h','d','c') or a direct suit symbol.
 function card(r,s){return{r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]||s};}
 
-// 'uth' = Ultimate Texas Hold'em  |  'poker' = 5 Card Poker
-const GAME2 = 'uth';
+// Dev overrides (set by devSetGame); fall back to configured defaults.
+const GAME1 = localStorage.getItem('gambdle_dev_game1') || 'bj';
+const GAME2 = localStorage.getItem('gambdle_dev_game2') || 'uth';
+
+// Metadata for every available game — add new games here.
+// short: label used in dev menu buttons and share text.
+const GAME_META = {
+  bj:    { icon: '🃏', name: 'Blackjack',             short: 'Blackjack',    desc: '3 hands · Hit, Stand, Double, Split' },
+  uth:   { icon: '♠',  name: "Ultimate Texas Hold'em", short: "Hold'em",      desc: '3 hands · Ante, Blind & Play' },
+  poker: { icon: '♠',  name: '5 Card Poker',           short: '5 Card Poker', desc: '3 hands · Jacks or Better' },
+};
+
+// All games can occupy either slot; dev menu filters out the conflicting selection.
+const GAME1_OPTIONS = Object.entries(GAME_META).map(([value, m]) => ({ value, label: m.short }));
+const GAME2_OPTIONS = GAME1_OPTIONS;
+
+// Navigation sequence: after each game advance to the next, roulette is always last.
+const NEXT_SCREEN = { [GAME1]: GAME2, [GAME2]: 'roulette' };
+
+// Game-agnostic history and net helpers — used by results screen and share text.
+function gameHistory(g){ return g==='bj'?S.bjHistory:g==='uth'?S.uthHistory:S.pkHistory; }
+function gameNet(g){ return gameHistory(g).reduce((a,h)=>a+h.delta,0); }
 const STORAGE_KEY = 'gambdle_state_';
 const ANIM_NONE = 99; // sentinel: suppress card animation on this hand
 
@@ -52,9 +76,12 @@ function getMod(key) {
 const SUITS=['♠','♥','♦','♣'], RANKS=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const RED_S=new Set(['♥','♦']);
 const buildDeck=()=>SUITS.flatMap(s=>RANKS.map(r=>({s,r})));
+// Fisher-Yates shuffle — returns a new shuffled array, leaves the original unchanged.
 function shuffle(d,rng){const a=[...d];for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function cVal(r){return 'JQK'.includes(r)?10:r==='A'?11:+r;}
+// Totals a hand; aces start as 11 and are downgraded to 1 one-at-a-time to avoid bust.
 function hVal(cs){let v=0,a=0;for(const c of cs){v+=cVal(c.r);if(c.r==='A')a++;}while(v>21&&a-- >0)v-=10;return v;}
+// Returns "8 / 18" for soft hands (ace still counted as 11), or a plain number string.
 function hValDisplay(cs){
   let v=0,aces=0;
   for(const c of cs){v+=cVal(c.r);if(c.r==='A')aces++;}
@@ -62,6 +89,7 @@ function hValDisplay(cs){
   if(aces-red>0&&v<=21){const hard=v-10*(aces-red);return`${hard} / ${v}`;}
   return String(v);
 }
+// True only for a two-card 21 (the deal); hitting to 21 does not count as blackjack.
 const isBJ=cs=>cs.length===2&&hVal(cs)===21;
 
 // ─── TEST & SEEDING ────────────────────────────────────────────
@@ -171,6 +199,7 @@ function genGame(){
 
   return{bjShoe,pokerDecks,uthDeck,rSpinOverride};
 }
+// G is generated once at page load — the same deal for everyone on the same calendar day.
 const G=genGame();
 
 // ─── GLOBAL STATE ───────────────────────────────────────────
@@ -196,9 +225,11 @@ let S={
   uthRaised:false, uthFolded:false,
   uthHole:[], uthDealer:[], uthComm:[],
   uthRevealComm:0, uthPrevRevealComm:0, uthHistory:[],
-  rPhase:'bet', rBets:[], rBet:0, rPick:null, rResult:null, rSpin:null, rReSpun:false,
-  forcedMod: null,
-  peekUsed: false,
+  rPhase:'bet', rBets:[], rBet:0, rPick:null, rResult:null,
+  rSpin:null,       // the winning number (set at spin time, null until first spin)
+  rReSpun:false,    // true once the player uses their free re-spin (r_respin modifier)
+  forcedMod: null,  // dev override — set by devApplyMod(), cleared on next loadState()
+  peekUsed: false,  // whether the one-time dealer peek has been used this game
 };
 
 /** Returns 2 when the all_in_or_skip or comeback modifier is active (wins are doubled), else 1. */
@@ -237,6 +268,8 @@ function loadState() {
   if (saved) {
     const parsed = JSON.parse(saved);
     S = { ...S, ...parsed, day: getDayNum() };
+    // Migrate: old saves used 'poker' as a generic game-2 screen key; now it means 5-card poker specifically.
+    if (S.screen === 'poker' && GAME2 !== 'poker') S.screen = GAME2;
   }
   const forced = localStorage.getItem('gambdle_forced_mod');
   if (forced) {

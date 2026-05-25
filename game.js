@@ -25,12 +25,11 @@ function screenIntro(){
 }
 
 function renderIntroGameRows() {
+  const g1 = GAME_META[GAME1], g2 = GAME_META[GAME2];
   const games = [
-    ['🃏', 'Blackjack',                '3 hands · Hit, Stand, Double, Split'],
-    GAME2 === 'uth'
-      ? ['♠', "Ultimate Hold'em",      '3 hands · Ante, Blind & Play']
-      : ['♠', '5 Card Poker',          '3 hands · Jacks or Better'],
-    ['🎡', 'Roulette',                 'One spin · Anything is possible'],
+    [g1.icon, g1.name, g1.desc],
+    [g2.icon, g2.name, g2.desc],
+    ['🎡', 'Roulette', 'One spin · Anything is possible'],
   ];
   const rows = games.map((g, i) => `
     <div class="gm-row">
@@ -44,18 +43,18 @@ function renderIntroGameRows() {
 }
 
 function screenResults(){
-  const bjNet=S.bjHistory.reduce((a,h)=>a+h.delta,0);
-  const g2Hist=GAME2==='uth'?S.uthHistory:S.pkHistory;
-  const g2Net=g2Hist.reduce((a,h)=>a+h.delta,0);
+  const g1Net=gameNet(GAME1), g2Net=gameNet(GAME2);
+  const g1Label=`${GAME_META[GAME1].icon} ${GAME_META[GAME1].name}`;
+  const g2Label=`${GAME_META[GAME2].icon} ${GAME_META[GAME2].name}`;
   const rNet=S.rResult?.delta||0;
-  const g2Label=GAME2==='uth'?"♠ Ultimate Texas Hold'em":'♠ 5 Card Poker';
   const shareText=buildShareText();
 
+  // Past performance bars — keyed by YYYYMMDD seed in localStorage, sorted oldest-first.
   const histData = JSON.parse(localStorage.getItem('gambdle_history') || '{}');
   const historySorted = Object.entries(histData).sort((a,b) => parseInt(a[0]) - parseInt(b[0])).slice(-7);
   const maxScore = Math.max(...historySorted.map(h => h[1]), 1000);
   const chartHtml = historySorted.length > 0 ? `
-    <div class="sec" style="margin-top:6px;margin-bottom:0">Past Performance</div>
+    <div class="sec" style="margin-top:6px;margin-bottom:6px">Past Performance</div>
     <div class="chart-wrap">
       ${historySorted.map(([seed, score]) => {
         const s = parseInt(seed);
@@ -78,7 +77,7 @@ function screenResults(){
     <div style="color:var(--cream);opacity:0.7;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;margin-top:2px;margin-bottom:4px">chips</div>
     <div style="font-size:1.05rem;margin-bottom:8px;color:var(--cream)">${msg}</div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
-      ${[['🃏 Blackjack',bjNet],[g2Label,g2Net],['🎡 Roulette',rNet]].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
+      ${[[g1Label,g1Net],[g2Label,g2Net],['🎡 Roulette',rNet]].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
       <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
         <span style="font-size:1rem">${lbl}</span>
         <span style="font-family:var(--btn-f);font-size:1.35rem;color:${col(net)}">${sign(net)}</span>
@@ -159,6 +158,12 @@ function devReset() {
   location.reload();
 }
 
+function devSetGame(slot, value) {
+  localStorage.setItem('gambdle_dev_game' + slot, value);
+  localStorage.removeItem(getStateKey());
+  location.reload();
+}
+
 function devApplyMod(k) {
   S.forcedMod = k;
   saveState();
@@ -203,7 +208,8 @@ function toggleTestSeed() {
 const STATUS_HINT = {
   intro:    'Idle — start a new game.',
   bj:       'Blackjack — choose action.',
-  poker:    "Hold'em — choose action.",
+  uth:      "Hold'em — choose action.",
+  poker:    'Poker — choose action.',
   roulette: 'Roulette — place a bet.',
   results:  '<span class="sb-prefix">Game complete · </span>New game at midnight PST daily.',
 };
@@ -223,8 +229,9 @@ function statusBar(){
 
 // ─── RENDER ──────────────────────────────────────────────────────────────
 
+// Full re-render — replaces all of #app. Use surgical DOM updates mid-hand to avoid flash.
 function render(){
-  const scr={intro:screenIntro,bj:screenBJ,poker:GAME2==='uth'?screenUTH:screenPoker,roulette:screenRoulette,results:screenResults};
+  const scr={intro:screenIntro,bj:screenBJ,uth:screenUTH,poker:screenPoker,roulette:screenRoulette,results:screenResults};
   const inner = (scr[S.screen]||screenIntro)();
   document.getElementById('app').innerHTML=`<div class="app">
     <div class="window">
@@ -234,6 +241,7 @@ function render(){
   </div>`;
   const _panel = document.querySelector('.panel');
   const _mod = modBannerHTML();
+  // Inject the modifier banner at the top of the panel after the screen HTML is in place.
   if (_panel && _mod) _panel.insertAdjacentHTML('afterbegin', _mod);
   if(_noAnim){
     _noAnim=false;
@@ -253,9 +261,11 @@ function updateChipDisplay() {
 // ─── NAVIGATION & ACTIONS ────────────────────────────────────────────────
 
 function goTo(s){S.screen=s;render();}
+// Plays a transition sound scaled to how well the player is doing.
 function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('sounds/mediumbet.mp3');else playMp3('sounds/smallbet.mp3');}
+// Navigates between games; redirects to results early if the player is busted (<10 chips).
 function advanceTo(s){sndAdvance();if(s!=='results'&&S.chips<10)s='results';goTo(s);}
-function startGame(){sndChip('allin');S.screen='bj';S.bjPhase='bet';render();}
+function startGame(){sndChip('allin');S.screen=GAME1;S.bjPhase='bet';render();}
 
 // ─── BOOT ────────────────────────────────────────────────────────────────
 loadState();
