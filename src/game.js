@@ -181,9 +181,11 @@ function devToggleUnlocks(){
   setPref('orange_back_unlocked', on);
   setPref('maroon_felt_unlocked', on);
   setPref('deck_emoji_unlocked', on);
+  setPref('green_theme_unlocked', on);
   if(!on && ['gold','whale','orange'].includes(getPref('cardback'))) setPref('cardback','default');
   if(!on && getPref('felt')==='maroon') setPref('felt','default');
   if(!on && getPref('deck')==='emoji') setPref('deck','default');
+  if(!on && getPref('theme')==='green') setPref('theme','default');
   applyPrefs();
   const cb=document.getElementById('dev-unlocks-cb');
   if(cb) cb.checked=on;
@@ -221,7 +223,7 @@ function statusBar(){
   const hint = STATUS_HINT[S.screen] || 'Ready.';
   return `<div class="status-bar">
     <span>${hint}</span>
-    <span>Gambdle #${S.day}  ·  ${tm}</span>
+    <span><span id="sb-mute-icon" onclick="togglePref('mute');event.stopPropagation()" style="cursor:pointer;font-size:0.85em" title="${getPref('mute')?'Unmute':'Mute'}">${getPref('mute')?'🔇':'🔊'}</span>Gambdle #${S.day}  ·  ${tm}</span>
   </div>`;
 }
 

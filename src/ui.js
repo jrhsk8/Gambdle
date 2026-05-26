@@ -463,10 +463,16 @@ function toggleMenu(which, trigger) {
       <div class="dd-item" id="dd-mod-trigger" onclick="showModSubmenu(this);event.stopPropagation()">Force Modifier <span class="dd-key">►</span></div>`;
   } else if (which === 'file') {
     const canShare = S.screen === 'results';
+    const cbStyle='width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0';
     el.innerHTML = `
       <div class="dd-item dd-disabled">Gambdle #${S.day}</div>
       <div class="dd-sep"></div>
       <div class="dd-item ${canShare?'':'dd-disabled'}" onclick="${canShare?'doShare();closeDropdowns()':''}">📋 Copy &amp; Share</div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="togglePref('mute');event.stopPropagation()" style="gap:12px">
+        <span>🔇 Mute Audio</span>
+        <input type="checkbox" id="file-mute-cb" ${getPref('mute')?'checked':''} onclick="togglePref('mute');event.stopPropagation()" style="${cbStyle}">
+      </div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showPrefsSubmenu(this);event.stopPropagation()">Preferences <span class="dd-key">►</span></div>`;
   } else {
@@ -503,6 +509,10 @@ function applyPrefs(){
   document.body.classList.toggle('cardback-whale',  cb==='whale'  && !!p.whale_back_unlocked);
   document.body.classList.toggle('felt-maroon', (p.felt||'default')==='maroon' && !!p.maroon_felt_unlocked);
   document.body.classList.toggle('deck-emoji',  (p.deck||'default')==='emoji'  && !!p.deck_emoji_unlocked);
+  const theme=p.theme||'default';
+  document.body.classList.toggle('theme-olive',  theme==='olive');
+  document.body.classList.toggle('theme-silver', theme==='silver');
+  document.body.classList.toggle('theme-green',  theme==='green' && !!p.green_theme_unlocked);
 }
 
 function _prefItem(key,id,label){
@@ -514,16 +524,26 @@ function _prefItem(key,id,label){
 }
 function showPrefsSubmenu(trigger){
   const html=_prefItem('four_color','pref-4color','Four Color Deck')+
-             _prefItem('mute','pref-mute','Mute Audio')+
              `<div class="dd-item" data-picker="deck"     onclick="_showPickerSub('deck',this);event.stopPropagation()">Deck <span class="dd-key">►</span></div>`+
              `<div class="dd-item" data-picker="cardback" onclick="_showPickerSub('cardback',this);event.stopPropagation()">Card Back <span class="dd-key">►</span></div>`+
-             `<div class="dd-item" data-picker="felt"     onclick="_showPickerSub('felt',this);event.stopPropagation()">Felt <span class="dd-key">►</span></div>`;
+             `<div class="dd-item" data-picker="felt"     onclick="_showPickerSub('felt',this);event.stopPropagation()">Felt <span class="dd-key">►</span></div>`+
+             `<div class="dd-item" data-picker="theme"    onclick="_showPickerSub('theme',this);event.stopPropagation()">Theme <span class="dd-key">►</span></div>`+
+             `<div class="dd-sep"></div>`+
+             `<div class="dd-item" onclick="resetAllPrefs();event.stopPropagation()" style="color:var(--red)">↺ Reset All</div>`;
   _openSub1(html, trigger);
+}
+function resetAllPrefs(){
+  const p=getPrefs();
+  ['four_color','mute','cardback','deck','felt','theme'].forEach(k=>delete p[k]);
+  _ls.setItem(PREFS_KEY,JSON.stringify(p));
+  applyPrefs();
+  closeDropdowns();
 }
 const PICKER_ITEMS = {
   deck:     { pref:'deck',     options:[{val:'default',label:'Default'},{val:'emoji',label:'Emoji',lock:'deck_emoji_unlocked',hint:'🔒 3500+'}]},
   cardback: { pref:'cardback', options:[{val:'default',label:'Default'},{val:'orange',label:'Orange',lock:'orange_back_unlocked',hint:'🔒 1500+'},{val:'whale',label:'Whale 🐋',lock:'whale_back_unlocked',hint:'🔒 5000+'},{val:'gold',label:'Golden',lock:'golden_back_unlocked',hint:'🔒 10000+'}]},
   felt:     { pref:'felt',     options:[{val:'default',label:'Green'},{val:'maroon',label:'Maroon',lock:'maroon_felt_unlocked',hint:'🔒 2500+'}]},
+  theme:    { pref:'theme',    options:[{val:'default',label:'Luna Blue'},{val:'olive',label:'Olive Green'},{val:'silver',label:'Silver'},{val:'green',label:'Luna Green',lock:'green_theme_unlocked',hint:'🔒 2000+'}]},
 };
 function _showPickerSub(pickerKey,trigger){
   const {pref,options}=PICKER_ITEMS[pickerKey];
@@ -548,11 +568,21 @@ function setPick(pickerKey,val){
   }
 }
 // Maps preference key to the checkbox element ID so togglePref can sync the checkbox state.
-const PREF_CB_IDS={four_color:'pref-4color',mute:'pref-mute'};
+const PREF_CB_IDS={four_color:'pref-4color',mute:'file-mute-cb'};
 function togglePref(k){
   document.querySelector('.dd-sub2')?.remove();
   setPref(k,!getPref(k));
   applyPrefs();
   const cb=document.getElementById(PREF_CB_IDS[k]);
   if(cb)cb.checked=!!getPref(k);
+  if(k==='mute'){
+    const icon=document.getElementById('sb-mute-icon');
+    if(icon){icon.textContent=getPref('mute')?'🔇':'🔊';icon.title=getPref('mute')?'Unmute':'Mute';}
+  }
 }
+
+// WinXP inactive title bar — dims chrome when tab loses focus
+window.addEventListener('blur', () => document.body.classList.add('win-inactive'));
+window.addEventListener('focus', () => document.body.classList.remove('win-inactive'));
+document.addEventListener('visibilitychange', () =>
+  document.body.classList.toggle('win-inactive', document.hidden));

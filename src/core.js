@@ -266,11 +266,12 @@ function saveState() {
       _ls.setItem('gambdle_highscore', S.chips.toString());
       let unlockMsg = null;
       for (const [min, key, txt] of [
-        [1500,  'orange_back_unlocked', '🟠 Orange Card Back unlocked! Check Preferences.'],
-        [2500,  'maroon_felt_unlocked', '🎱 Maroon Felt unlocked! Check Preferences.'],
-        [3500,  'deck_emoji_unlocked',  '🌱 Emoji Deck unlocked! Check Preferences.'],
-        [5000,  'whale_back_unlocked',  '🐋 Whale Card Back unlocked! Check Preferences.'],
-        [10000, 'golden_back_unlocked', '🏆 Golden Card Back unlocked! Check Preferences.'],
+        [1500,  'orange_back_unlocked',  '🟠 Orange Card Back unlocked! Check Preferences.'],
+        [2000,  'green_theme_unlocked',  '🌿 Luna Green theme unlocked! Check Preferences → Theme.'],
+        [2500,  'maroon_felt_unlocked',  '🎱 Maroon Felt unlocked! Check Preferences.'],
+        [3500,  'deck_emoji_unlocked',   '🌱 Emoji Deck unlocked! Check Preferences.'],
+        [5000,  'whale_back_unlocked',   '🐋 Whale Card Back unlocked! Check Preferences.'],
+        [10000, 'golden_back_unlocked',  '🏆 Golden Card Back unlocked! Check Preferences.'],
       ]) if (S.chips >= min && !getPref(key)) { setPref(key, true); unlockMsg = txt; }
       if (unlockMsg) setTimeout(()=>toast(unlockMsg), 1200);
     }
