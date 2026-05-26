@@ -46,7 +46,7 @@ const PRESET_MODIFIERS = {
   r_double_all:   { type: 'roulette', title: "Double Payout",        desc: "Roulette: All wins are doubled. One bet max.",    r_payout_mult: 2.0, r_max_bets: 1,          devNote: '' },
   r_hot_numbers:  { type: 'roulette', title: "Hot Numbers",          desc: "Roulette: Straight number bets pay 50:1",         r_number_pay: 50,                            devNote: '' },
   r_hot_zero:     { type: 'roulette', title: "Hot Zero",             desc: "Roulette: Zero is 10x more likely to hit",        r_zero_boost: 10,                            devNote: '' },
-  r_color_double: { type: 'roulette', title: "Color Bonus",          desc: "Roulette: Red and Black bets pay double. One bet max.", r_color_double: true, r_max_bets: 1,  devNote: '' },
+  r_color_double: { type: 'roulette', title: "Color Bonus",          desc: "Roulette: Red/Black bets pay double. One bet max.", r_color_double: true, r_max_bets: 1,  devNote: '' },
   r_multi_bet:    { type: 'roulette', title: "Multi Bet",            desc: "Roulette: Place up to 10 bets",                   r_max_bets: 10,                              devNote: '' },
   r_respin:       { type: 'roulette', title: "Second Chance",        desc: "Roulette: One free re-spin",                      r_respin: true,                              devNote: '' },
   r_group_1_12:   { type: 'roulette', title: "Dozen I",              desc: "Roulette: Winning number will be from 1-12.",     r_force_group: '1_12',  r_max_bets: 3,      devNote: '' },
@@ -94,7 +94,7 @@ const DAILY_MODIFIERS = {
   // Add overrides here as needed, e.g.:
   // 20260704: 'all_in_or_skip',
   20260524: 'bj_double_bonus',
-  20260526: 'r_hot_numbers',
+  20260526: 'r_group_1_12',
   20260527: 'easy_dealer',
 };
 
