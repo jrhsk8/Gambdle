@@ -588,7 +588,7 @@ function showFeedbackDialog() {
   document.getElementById('feedback-modal')?.remove();
   const el = document.createElement('div');
   el.id = 'feedback-modal'; el.className = 'info-modal';
-  el.onclick = e => { if (e.target === el) closeFeedbackDialog(); };
+  el.onclick = e => { if (e.target === el) document.getElementById('feedback-txt')?.blur(); };
   el.innerHTML = `
     <div class="info-box" style="padding:0;max-width:420px">
       <div class="title-bar" style="border-radius:0;flex-shrink:0">
@@ -596,12 +596,12 @@ function showFeedbackDialog() {
         <span class="tb-btns"><span class="tb-btn close" onclick="closeFeedbackDialog()">×</span></span>
       </div>
       <div style="padding:14px">
-        <div style="font-family:var(--f);font-size:1rem;margin-bottom:8px;color:var(--shadow)">What's on your mind? (bugs, ideas, anything)</div>
+        <div style="font-size:1rem;margin-bottom:8px;color:var(--shadow)">Send feedback to the developer</div>
         <textarea id="feedback-txt" class="feedback-textarea" maxlength="500" placeholder="Type here…"></textarea>
         <div id="feedback-char" style="font-size:0.8rem;color:var(--shadow);text-align:right;margin-top:2px">0 / 500</div>
-        <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
-          <button class="btn-gold" onclick="closeFeedbackDialog()">Cancel</button>
-          <button class="btn-gold" id="feedback-send-btn" onclick="submitFeedback()">Send</button>
+        <div class="act-btns" style="margin-top:10px">
+          <button class="act-btn" onclick="closeFeedbackDialog()">Cancel</button>
+          <button class="act-btn primary" id="feedback-send-btn" onclick="submitFeedback()">Send</button>
         </div>
       </div>
     </div>`;

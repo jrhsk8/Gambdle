@@ -17,7 +17,7 @@ function screenIntro(){
       <div style="font-size:1.8rem;color:var(--cream)">You start with <b style="color:var(--gold-hi)">${fmt(START)} chips</b>.</div>
       <div style="font-size:1.4rem;color:var(--cream);opacity:0.7;margin-top:4px">Your final stack is your leaderboard score.</div>
     </div>
-    <button class="btn-gold btn-lg" style="margin: 10px 0" onclick="startGame()">► Start new game<span class="btn-detail"> — $${fmt(START)}</span></button>
+    <button class="btn-gold btn-lg" style="margin: 10px 0" onclick="startGame()">► Start new game</button>
     <div class="divider"></div>
     <div style="font-size:1.4rem;color:var(--cream);opacity:0.7;letter-spacing:0.16em;text-transform:uppercase;margin:2px 2px 4px">Today's program:</div>
     ${renderIntroGameRows()}
