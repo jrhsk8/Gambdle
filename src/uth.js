@@ -463,10 +463,10 @@ function screenUTH(){
   const betChips=()=>{
     const rows=[['Ante',S.uthAnte/2],['Blind',S.uthAnte/2]];
     if(S.uthPlay>0)rows.push(['Play ('+S.uthPlayMult+'×)',S.uthPlay]);
-    return`<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0">
-      ${rows.map(([lbl,amt])=>`<div style="text-align:center;padding:7px 12px;background:rgba(0,0,0,.28);border-radius:8px;border:1px solid rgba(196,147,58,.12)">
-        <div style="font-size:.65rem;color:var(--shadow);text-transform:uppercase;letter-spacing:.12em">${lbl}</div>
-        <div style="font-family:var(--btn-f);color:var(--gold);font-size:1.05rem">${fmt(amt)}</div>
+    return`<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:10px 0">
+      ${rows.map(([lbl,amt])=>`<div style="text-align:center;padding:8px 16px;background:rgba(0,0,0,.28);border-radius:8px;border:1px solid rgba(196,147,58,.18)">
+        <div style="font-size:.82rem;color:var(--shadow);text-transform:uppercase;letter-spacing:.12em">${lbl}</div>
+        <div style="font-family:var(--btn-f);color:var(--gold);font-size:1.55rem;line-height:1.15">${fmt(amt)}</div>
       </div>`).join('')}
     </div>`;
   };
@@ -575,12 +575,12 @@ function screenUTH(){
   if(hist.result==='fold'){
     const dealerBest=bestOf7([...S.uthDealer,...S.uthComm]);
     return `${hdr("Ultimate Texas Hold'em · Folded")}
-    <div class="panel" style="text-align:center">
+    <div class="panel uth-result-panel" style="text-align:center">
       ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
       <div class="divider"></div>
       <div class="result-hl" style="color:var(--lose)">You Folded</div>
       <div class="result-sub" style="color:var(--lose)">${sign(hist.delta)} chips</div>
-      <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin:12px 0">
+      <div class="uth-cards-col">
         <div>
           <div class="sec sec-sm">Dealer's Hand</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
@@ -606,14 +606,14 @@ function screenUTH(){
   const hl=c=>hlCards.has(c)?hlStyle:'';
 
   return `${hdr("Ultimate Texas Hold'em · Showdown")}
-  <div class="panel">
+  <div class="panel uth-result-panel">
     ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
     <div class="divider"></div>
-    <div style="text-align:center;margin-bottom:10px">
+    <div class="uth-result-top" style="text-align:center">
       <div class="result-hl" style="color:${col(hist.delta)}">${resLabel}</div>
       <div class="result-sub" style="color:${col(hist.delta)}">${sign(hist.delta)} chips</div>
     </div>
-    <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px;margin-top:12px">
+    <div class="uth-cards-col">
         <div style="text-align:center">
           <div class="sec sec-sm">Dealer${hist.dealerQualifies?' (Qualifies)':' (No Qualify)'}</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map(c=>cardHTML(c,'md',hl(c),0,false)).join('')}</div>
@@ -631,7 +631,7 @@ function screenUTH(){
         </div>
     </div>
     <div class="divider"></div>
-    <div style="display:grid;grid-template-columns:1fr auto;gap:3px 14px;margin-bottom:10px">
+    <div class="uth-bets-grid">
       ${[['Ante',hist.anteDelta],['Blind',hist.blindDelta],...(hist.play>0?[['Play ('+hist.playMult+'×)',hist.playDelta]]:[])].map(([lbl,d])=>`<span class="pname">${lbl}</span><span class="ppay" style="color:${col(d)}">${sign(d)}</span>`).join('')}
     </div>
     ${runningTotalRow()}

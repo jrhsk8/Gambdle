@@ -64,6 +64,7 @@ const ANIM_NONE = 99; // sentinel: suppress card animation on this hand
 
 // ─── SUPABASE CONFIG ──────────────────────────────────
 const SUPABASE_URL = 'https://kxbteesmfozqzoxzktzv.supabase.co';
+const DISCORD_WEBHOOK_URL = 'YOUR_DISCORD_WEBHOOK_URL';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4YnRlZXNtZm96cXpveHprdHp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMDk3OTEsImV4cCI6MjA5Mzc4NTc5MX0.oiDpuibLU5zZWKjm5LEoXRJGyOLBWieSO5FhPl4I3UU';
 
 /** DEV_OVERRIDE enabled via ?dev=true in URL */

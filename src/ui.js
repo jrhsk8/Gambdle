@@ -474,6 +474,8 @@ function toggleMenu(which, trigger) {
         <input type="checkbox" id="file-mute-cb" ${getPref('mute')?'checked':''} onclick="togglePref('mute');event.stopPropagation()" style="${cbStyle}">
       </div>
       <div class="dd-sep"></div>
+      <div class="dd-item" onclick="showFeedbackDialog();closeDropdowns()">✉ Send Feedback</div>
+      <div class="dd-sep"></div>
       <div class="dd-item" onclick="showPrefsSubmenu(this);event.stopPropagation()">Preferences <span class="dd-key">►</span></div>`;
   } else {
     el.innerHTML = `
@@ -578,6 +580,61 @@ function togglePref(k){
   if(k==='mute'){
     const icon=document.getElementById('sb-mute-icon');
     if(icon){icon.textContent=getPref('mute')?'🔇':'🔊';icon.title=getPref('mute')?'Unmute':'Mute';}
+  }
+}
+
+// ── Feedback dialog ───────────────────────────────────────
+function showFeedbackDialog() {
+  document.getElementById('feedback-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'feedback-modal'; el.className = 'info-modal';
+  el.onclick = e => { if (e.target === el) closeFeedbackDialog(); };
+  el.innerHTML = `
+    <div class="info-box" style="padding:0;max-width:420px">
+      <div class="title-bar" style="border-radius:0;flex-shrink:0">
+        <span class="tb-title"><span class="tb-icon">✉</span>Send Feedback</span>
+        <span class="tb-btns"><span class="tb-btn close" onclick="closeFeedbackDialog()">×</span></span>
+      </div>
+      <div style="padding:14px">
+        <div style="font-family:var(--f);font-size:1rem;margin-bottom:8px;color:var(--shadow)">What's on your mind? (bugs, ideas, anything)</div>
+        <textarea id="feedback-txt" class="feedback-textarea" maxlength="500" placeholder="Type here…"></textarea>
+        <div id="feedback-char" style="font-size:0.8rem;color:var(--shadow);text-align:right;margin-top:2px">0 / 500</div>
+        <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+          <button class="btn-gold" onclick="closeFeedbackDialog()">Cancel</button>
+          <button class="btn-gold" id="feedback-send-btn" onclick="submitFeedback()">Send</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  const ta = document.getElementById('feedback-txt');
+  const counter = document.getElementById('feedback-char');
+  ta.addEventListener('input', () => { counter.textContent = `${ta.value.length} / 500`; });
+  setTimeout(() => ta.focus(), 50);
+}
+
+function closeFeedbackDialog() {
+  document.getElementById('feedback-modal')?.remove();
+}
+
+async function submitFeedback() {
+  const ta = document.getElementById('feedback-txt');
+  const msg = ta?.value.trim();
+  if (!msg) return;
+  if (DISCORD_WEBHOOK_URL === 'YOUR_DISCORD_WEBHOOK_URL') { toast('Feedback not configured.'); return; }
+  const btn = document.getElementById('feedback-send-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    const res = await fetch(DISCORD_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: `📬 **Gambdle Feedback** — Day #${S.day} · ${fmt(S.chips)} chips\n>>> ${msg}` })
+    });
+    if (!res.ok) throw new Error();
+    closeFeedbackDialog();
+    toast('Feedback sent! Thanks 🎲');
+  } catch {
+    toast('Failed to send — try again?');
+    if (btn) { btn.disabled = false; btn.textContent = 'Send'; }
   }
 }
 

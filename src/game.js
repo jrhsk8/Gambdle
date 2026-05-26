@@ -242,7 +242,17 @@ function render(){
   const _panel = document.querySelector('.panel');
   const _mod = modBannerHTML(S.screen === 'results');
   // Inject the modifier banner at the top of the panel after the screen HTML is in place.
-  if (_panel && _mod) _panel.insertAdjacentHTML('afterbegin', _mod);
+  if (_panel && _mod) {
+    _panel.insertAdjacentHTML('afterbegin', _mod);
+    if (window.innerWidth <= 480) {
+      const r = _panel.querySelector('.mod-banner-r');
+      if (r) {
+        r.style.whiteSpace = 'nowrap';
+        let fs = parseFloat(getComputedStyle(r).fontSize);
+        while (r.scrollWidth > r.clientWidth && fs > 11) { fs -= 0.5; r.style.fontSize = fs + 'px'; }
+      }
+    }
+  }
   _reapplyDragPos();
   if(_noAnim){
     _noAnim=false;

@@ -473,10 +473,14 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .bj-split-aside { display: flex; justify-content: space-evenly; margin-bottom: 10px; }
 .bj-split-lbl { font-size: 1.1rem; margin-bottom: 4px; }
 .bj-split-val { font-size: 1.4rem; font-weight: 700; margin-top: 2px; }
+.bj-active-lbl { font-size: 1.4rem; }
 
 /* ── Overlapping card fan (split hands) ─────────────────── */
 .hand-fan { flex-wrap: nowrap; gap: 0; }
 .hand-fan .card + .card { margin-left: -28px; }
+/* Auto-fan when 5+ cards would overflow */
+.hand:has(.card:nth-child(5)) { flex-wrap: nowrap; gap: 0; }
+.hand:has(.card:nth-child(5)) .card + .card { margin-left: -28px; }
 
 /* ── Chip selector ──────────────────────────────────────── */
 .chip-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
@@ -584,6 +588,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .gold-divider { width: 60%; height: 1px; background: rgba(196,147,58,0.1); align-self: center; }
 .result-hl { font-family: var(--btn-f); font-size: 3rem; margin-bottom: 4px; text-shadow: 2px 2px 0 rgba(0,0,0,0.4); }
 .result-sub { font-family: var(--btn-f); font-size: 2rem; margin-bottom: 14px; }
+.uth-result-top { margin-bottom: 10px; }
+.uth-cards-col { display:flex; flex-direction:column; gap:12px; align-items:center; margin:12px 0; }
+.uth-bets-grid { display:grid; grid-template-columns:1fr auto; gap:3px 14px; margin-bottom:10px; }
 .bj-celebrate-txt { font-family: var(--btn-f); font-size: 2.8rem; color: var(--gold-hi); letter-spacing: 0.04em; margin-top: 14px; text-shadow: 0 0 28px rgba(196,147,58,0.55); }
 
 /* ── Game manifest tile (intro screen) ──────────────────── */
@@ -769,6 +776,17 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   max-width: 560px; width: 100%; max-height: 80vh; overflow-y: auto;
 }
 
+.feedback-textarea {
+  width: 100%; min-height: 110px; resize: vertical;
+  background: var(--cream); color: var(--ink);
+  border: 1px solid var(--ink);
+  box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
+  padding: 6px 8px;
+  font-family: var(--f); font-size: 1rem; line-height: 1.4;
+  box-sizing: border-box;
+}
+.feedback-textarea:focus { outline: 2px solid #316AC5; outline-offset: -1px; }
+
 /* ── Dropdown menus (WinXP-style) ──────────────────────── */
 .dropdown {
   position: fixed; z-index: 400;
@@ -818,7 +836,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 @media (max-width: 480px) {
   body { font-size: 24px; }
   /* Reduce outer chrome — the 30px bottom padding was the biggest offender */
-  .app { padding: 5px 5px 5px; }
+  .app { padding: 5px 5px 5px; min-height: 100svh; display: flex; flex-direction: column; }
+  .window { overflow: hidden; flex: 1; min-height: 0; }
   .panel { padding: 8px; min-height: 0; gap: 6px; }
   .divider { margin: 2px 0; }
   .title-bar { font-size: 18px; }
@@ -830,7 +849,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .mod-banner-l { display: flex; flex-direction: row; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; }
   .mod-banner-label { font-size: 0.85rem; letter-spacing: 0.08em; flex-shrink: 0; }
   .mod-banner-title { font-size: 1.25rem; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .mod-banner-r { font-size: 1.05rem; text-align: left; text-wrap: balance; }
+  .mod-banner-r { font-size: 1.05rem; text-align: left; }
   .tb-detail, .btn-detail, .dot-detail { display: none; }
   .sb-prefix, .sb-suffix { display: none; }
   /* Section labels */
@@ -886,12 +905,38 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .big-chips { font-size: 3.2rem !important; line-height: 1; }
   .res-row { padding: 4px 10px !important; }
   .chart-wrap { height: 45px; margin: 4px 4px 16px; }
-  .share-box { padding: 8px 10px; font-size: 1.1rem; line-height: 1.4; }
+  .share-box { padding: 8px 10px; font-size: 1.0rem; line-height: 1.35; }
+  /* BJ split result */
+  .bj-split-result .result-hl { font-size: 1.8rem; margin-bottom: 0; }
+  .bj-split-result .result-sub { font-size: 1.2rem; margin-bottom: 0; }
+  .bj-sr-dealer { margin-bottom: 0; }
+  .bj-sr-dealer .hand-val { font-size: 1.2rem !important; }
+  .bj-sr-hands { margin-bottom: 0 !important; }
   /* Split hands */
-  .bj-split-lbl { font-size: 1.6rem; }
+  .bj-split-lbl { font-size: 0.78rem; white-space: nowrap; }
   .bj-split-val { font-size: 2rem; }
+  .bj-active-lbl { font-size: 1.4rem; }
+  .bj-split-active .card.lg { width: 62px; height: 88px; }
+  .bj-split-active .card.lg .csuit { font-size: 1.6rem; }
+  .bj-split-active .card.lg .ct-r { font-size: 1.1rem; }
+  .bj-split-active .card.lg .ct-s { font-size: 0.95rem; }
+  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 0.9rem !important; }
   /* UTH */
   .uth-summary { font-size: 0.9rem; }
+  /* UTH blind pay table */
+  .pname { font-size: 1.25rem; }
+  .ppay  { font-size: 1.15rem; }
+  /* UTH result screen */
+  .uth-result-panel .result-hl { font-size: 2rem; margin-bottom: 2px; }
+  .uth-result-panel .result-sub { font-size: 1.4rem; margin-bottom: 6px; }
+  .uth-result-top { margin-bottom: 4px; }
+  .uth-cards-col { gap: 6px; margin: 5px 0; }
+  .uth-result-panel .card.md { width: 50px; height: 70px; }
+  .uth-result-panel .card.md .csuit { font-size: 1.25rem; }
+  .uth-result-panel .card.md .ct-r { font-size: 0.9rem; }
+  .uth-result-panel .card.md .ct-s { font-size: 0.75rem; }
+  .uth-result-panel .card.md .ct-r[data-r="10"] { font-size: 0.72rem !important; }
+  .uth-bets-grid { display:flex; flex-wrap:wrap; justify-content:center; gap:2px 10px; margin-bottom:6px; }
   /* Emoji deck */
   body.deck-emoji .ct-s::after { font-size: 0.72em; }
 }
