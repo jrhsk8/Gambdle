@@ -620,13 +620,12 @@ async function submitFeedback() {
   const ta = document.getElementById('feedback-txt');
   const msg = ta?.value.trim();
   if (!msg) return;
-  if (DISCORD_WEBHOOK_URL === 'YOUR_DISCORD_WEBHOOK_URL') { toast('Feedback not configured.'); return; }
   const btn = document.getElementById('feedback-send-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   try {
-    const res = await fetch(DISCORD_WEBHOOK_URL, {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/rapid-service`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
       body: JSON.stringify({ content: `📬 **Gambdle Feedback** — Day #${S.day} · ${fmt(S.chips)} chips\n>>> ${msg}` })
     });
     if (!res.ok) throw new Error();
