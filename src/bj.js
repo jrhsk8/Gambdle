@@ -2,6 +2,27 @@
 // Mutex flag — prevents double-actions while cards are mid-animation.
 let _bjResolving=false;
 
+// Called once on boot — if the page was refreshed while the dealer was mid-reveal,
+// the saved state has bjDealerReveal=true but the setTimeout chain is gone.
+// Re-enter the step loop so the hand can resolve.
+function _bjResumeAfterRefresh(){
+  if(S.screen!=='bj'||S.bjPhase!=='play'||!S.bjDealerReveal)return;
+  const standAt=getMod('bj_dealer_stand')||17;
+  function step(){
+    if(hVal(S.bjDealer)<standAt){
+      const at=S.bjDealer.length;
+      S.bjDealer.push(G.bjShoe[S.bjIdx++]);
+      S.bjDealerAnimFrom=at;
+      _noAnim=true;render();
+      sndCard(100);
+      setTimeout(step,800);
+    }else{
+      setTimeout(()=>{S.bjDealerReveal=false;bjResolve(true);},1000);
+    }
+  }
+  setTimeout(step,300);
+}
+
 function resetBJHand(){
   S.bjBet=0; S.bjPhase='bet'; S.bjPlayer=[]; S.bjDealer=[];
   S.bjSplit=false; S.bjSplitHands=[]; S.bjSplitActive=0;

@@ -329,3 +329,4 @@ loadState();
 applyPrefs();
 render();
 initWindowDrag();
+_bjResumeAfterRefresh();
