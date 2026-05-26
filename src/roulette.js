@@ -1,4 +1,15 @@
 
+// ─── ROULETTE RESUME ─────────────────────────────────────────────────────
+
+// If refreshed during the spinning phase, rSpin is already set but startWheelAnim was lost.
+// Restart the audio + animation exactly as rSpin() does, so rFinish() fires naturally.
+function _rResumeAfterRefresh(){
+  if(S.screen!=='roulette'||S.rPhase!=='spinning')return;
+  _rouletteAudio=getPref('mute')?null:new Audio('assets/sounds/roulette ball.mp3');
+  if(_rouletteAudio){_rouletteAudio.volume=0.5;_rouletteAudio.load();}
+  setTimeout(startWheelAnim,60);
+}
+
 // ─── ROULETTE CONSTANTS ──────────────────────────────────────────────────
 
 // Standard European roulette red numbers (18 of them; everything else non-zero is black).

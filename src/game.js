@@ -330,3 +330,6 @@ applyPrefs();
 render();
 initWindowDrag();
 _bjResumeAfterRefresh();
+_uthResumeAfterRefresh();
+_pkResumeAfterRefresh();
+_rResumeAfterRefresh();

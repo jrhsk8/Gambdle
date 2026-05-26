@@ -937,6 +937,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .uth-result-panel .card.md .ct-s { font-size: 0.75rem; }
   .uth-result-panel .card.md .ct-r[data-r="10"] { font-size: 0.72rem !important; }
   .uth-bets-grid { display:flex; flex-wrap:wrap; justify-content:center; gap:2px 10px; margin-bottom:6px; }
+  /* UTH community cards — cancel auto-fan, keep all 5 on one row */
+  #uth-community-hand.hand:has(.card:nth-child(5)) { flex-wrap: nowrap; gap: 5px; }
+  #uth-community-hand.hand:has(.card:nth-child(5)) .card + .card { margin-left: 0; }
   /* Emoji deck */
   body.deck-emoji .ct-s::after { font-size: 0.72em; }
 }

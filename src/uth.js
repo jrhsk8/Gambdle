@@ -90,6 +90,20 @@ function uthBlindDelta(cat,blind){
 
 // ─── UTH / POKER STATE ───────────────────────────────────────────────────
 
+// UTH: if refreshed during the 2300ms dealer-reveal animation, jump straight to result.
+// History and uthHand are already incremented before updateUthCommunityCards saves state.
+function _uthResumeAfterRefresh(){
+  if(S.screen!=='uth'||S.uthPhase!=='reveal')return;
+  setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();},300);
+}
+
+// Poker: if refreshed during the card draw reveal animation, advance to result.
+// History and chips are already recorded; only pkHand++ and phase change are pending.
+function _pkResumeAfterRefresh(){
+  if(S.screen!=='poker'||S.pkPhase!=='draw')return;
+  setTimeout(()=>{S.pkHand++;S.pkPhase='result';render();},300);
+}
+
 function resetUTHHand(){
   S.uthAnte=0; S.uthPhase='bet'; S.uthPlay=0; S.uthPlayMult=0;
   S.uthRaised=false; S.uthFolded=false;
@@ -621,7 +635,7 @@ function screenUTH(){
         </div>
         <div style="text-align:center">
           <div class="sec sec-sm">Community</div>
-          <div class="hand" style="justify-content:center">${S.uthComm.map((c,i)=>cardHTML(c,'sm',hl(c),i*0.08+0.05)).join('')}</div>
+          <div id="uth-community-hand" class="hand" style="justify-content:center">${S.uthComm.map((c,i)=>cardHTML(c,'sm',hl(c),i*0.08+0.05)).join('')}</div>
         </div>
         <div class="gold-divider"></div>
         <div style="text-align:center">
