@@ -345,6 +345,25 @@ function updateUthCommunityCards() {
   saveState();
 }
 
+// Returns a parenthetical like "(Aces and Fives)" or "(Kings-high)" for same-category disambiguation.
+function handDetail(cards, cat) {
+  const PL={2:'Twos',3:'Threes',4:'Fours',5:'Fives',6:'Sixes',7:'Sevens',8:'Eights',9:'Nines',10:'Tens',11:'Jacks',12:'Queens',13:'Kings',14:'Aces'};
+  const SG={2:'Two',3:'Three',4:'Four',5:'Five',6:'Six',7:'Seven',8:'Eight',9:'Nine',10:'Ten',11:'Jack',12:'Queen',13:'King',14:'Ace'};
+  const ns=cards.map(c=>cardNum(c.r));
+  const rc={};for(const n of ns)rc[n]=(rc[n]||0)+1;
+  const grp=Object.entries(rc).map(([n,c])=>[+n,c]).sort((a,b)=>b[1]-a[1]||b[0]-a[0]);
+  const sv=[...ns].sort((a,b)=>a-b);
+  if(cat===7)return`(${PL[grp[0][0]]})`;
+  if(cat===6)return`(${PL[grp[0][0]]} full of ${PL[grp[1][0]]})`;
+  if(cat===5)return`(${SG[sv[4]]}-high)`;
+  if(cat===4){const sh=sv.join(',')===`2,3,4,5,14`?5:sv[4];return`(${SG[sh]}-high)`;}
+  if(cat===3)return`(${PL[grp[0][0]]})`;
+  if(cat===2)return`(${PL[grp[0][0]]} and ${PL[grp[1][0]]})`;
+  if(cat===1)return`(${PL[grp[0][0]]})`;
+  if(cat===0)return`(${SG[sv[4]]}-high)`;
+  return'';
+}
+
 // ─── SCREEN RENDERING ────────────────────────────────────────────────────
 
 function screenPoker(){
@@ -588,6 +607,10 @@ function screenUTH(){
 
   if(hist.result==='fold'){
     const dealerBest=bestOf7([...S.uthDealer,...S.uthComm]);
+    const playerBest=bestOf7([...S.uthHole,...S.uthComm]);
+    const foldSameRank=dealerBest.cat===playerBest.cat;
+    const foldDbDetail=foldSameRank?' '+handDetail(dealerBest.cards,dealerBest.cat):'';
+    const foldPbDetail=foldSameRank?' '+handDetail(playerBest.cards,playerBest.cat):'';
     return `${hdr("Ultimate Texas Hold'em · Folded")}
     <div class="panel uth-result-panel" style="text-align:center">
       ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
@@ -598,16 +621,17 @@ function screenUTH(){
         <div>
           <div class="sec sec-sm">Dealer's Hand</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
-          <div style="font-size:1.3rem;color:var(--gold-hi);margin-top:3px">${CAT_NAMES[dealerBest.cat]}</div>
+          <div style="font-size:1.3rem;color:var(--gold-hi);margin-top:3px">${CAT_NAMES[dealerBest.cat]}${foldDbDetail}</div>
         </div>
+        <div class="divider" style="width:100%;margin:10px 0"></div>
         ${commRow()}
-        <div class="gold-divider"></div>
+        <div class="divider" style="width:100%;margin:10px 0"></div>
         <div>
-          <div class="sec sec-sm">Your Hand</div>
+          <div class="sec sec-sm">Your Hand (Folded)</div>
           <div class="hand" style="justify-content:center">${S.uthHole.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
+          <div style="font-size:1.3rem;color:var(--shadow);margin-top:3px">${CAT_NAMES[playerBest.cat]}${foldPbDetail}</div>
         </div>
       </div>
-      <div class="divider"></div>
       ${runningTotalRow()}
       ${nextBtn(btnAction, btnText)}
     </div>`;
@@ -618,6 +642,9 @@ function screenUTH(){
   const hlCards=hist.result==='win'?new Set(pb?.cards):hist.result==='lose'?new Set(db2?.cards):new Set();
   const hlStyle=hist.result==='win'?'box-shadow:0 0 0 2px var(--gold),0 0 14px 4px rgba(196,147,58,0.55)':'box-shadow:0 0 0 2px var(--lose),0 0 14px 4px rgba(196,48,48,0.5)';
   const hl=c=>hlCards.has(c)?hlStyle:'';
+  const sameRank=pb&&db2&&pb.cat===db2.cat;
+  const pbDetail=sameRank?' '+handDetail(pb.cards,pb.cat):'';
+  const dbDetail=sameRank?' '+handDetail(db2.cards,db2.cat):'';
 
   return `${hdr("Ultimate Texas Hold'em · Showdown")}
   <div class="panel uth-result-panel">
@@ -631,20 +658,20 @@ function screenUTH(){
         <div style="text-align:center">
           <div class="sec sec-sm">Dealer${hist.dealerQualifies?' (Qualifies)':' (No Qualify)'}</div>
           <div class="hand" style="justify-content:center">${S.uthDealer.map(c=>cardHTML(c,'md',hl(c),0,false)).join('')}</div>
-          <div style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[db2.cat]}</div>
+          <div style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[db2.cat]}${dbDetail}</div>
         </div>
+        <div class="divider" style="width:100%;margin:10px 0"></div>
         <div style="text-align:center">
           <div class="sec sec-sm">Community</div>
           <div id="uth-community-hand" class="hand" style="justify-content:center">${S.uthComm.map((c,i)=>cardHTML(c,'sm',hl(c),i*0.08+0.05)).join('')}</div>
         </div>
-        <div class="gold-divider"></div>
+        <div class="divider" style="width:100%;margin:10px 0"></div>
         <div style="text-align:center">
           <div class="sec sec-sm">You</div>
           <div class="hand" style="justify-content:center">${S.uthHole.map((c,i)=>cardHTML(c,'md',hl(c),i*0.15+0.05)).join('')}</div>
-          <div style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[pb.cat]}</div>
+          <div style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[pb.cat]}${pbDetail}</div>
         </div>
     </div>
-    <div class="divider"></div>
     <div class="uth-bets-grid">
       ${[['Ante',hist.anteDelta],['Blind',hist.blindDelta],...(hist.play>0?[['Play ('+hist.playMult+'×)',hist.playDelta]]:[])].map(([lbl,d])=>`<span class="pname">${lbl}</span><span class="ppay" style="color:${col(d)}">${sign(d)}</span>`).join('')}
     </div>

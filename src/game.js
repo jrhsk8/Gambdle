@@ -49,22 +49,9 @@ function screenResults(){
   const rNet=S.rResult?.delta||0;
   const shareText=buildShareText();
 
-  // Past performance bars — keyed by YYYYMMDD seed in _ls, sorted oldest-first.
-  const histData = JSON.parse(_ls.getItem('gambdle_history') || '{}');
-  const historySorted = Object.entries(histData).sort((a,b) => parseInt(a[0]) - parseInt(b[0])).slice(-7);
-  const maxScore = Math.max(...historySorted.map(h => h[1]), 1000);
-  const chartHtml = historySorted.length > 0 ? `
-    <div class="sec" style="margin-top:6px;margin-bottom:6px">Past Performance</div>
-    <div class="chart-wrap">
-      ${historySorted.map(([seed, score]) => {
-        const s = parseInt(seed);
-        const y = Math.floor(s / 10000), m = Math.floor((s % 10000) / 100), d = s % 100;
-        const dayNum = Math.floor((Date.UTC(y, m - 1, d) - START_DATE_UTC) / 86400000) + 1;
-        return `<div class="chart-bar" style="height:${Math.max((score/maxScore)*100, 5)}%" data-v="${fmt(score)}">
-          <span class="chart-day">#${dayNum}</span>
-        </div>`;
-      }).join('')}
-    </div>` : '';
+  const chartHtml = `
+    <div id="dist-title" class="sec" style="margin-top:6px;margin-bottom:4px">Score Distribution</div>
+    <div id="dist-chart" class="dist-wrap"><div style="color:var(--shadow);font-size:0.9rem;padding:12px 0;text-align:center">Loading…</div></div>`;
 
   const high = parseInt(_ls.getItem('gambdle_highscore') || '0');
   const {emoji,label}=getTier(S.chips);const tier=`${emoji} ${label}`;
@@ -82,12 +69,12 @@ function screenResults(){
       </div>`).join('')}
       <div class="gm-sep" style="opacity:0.35"></div>
       <div class="res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
-        <span class="ik">All-time high</span><span class="iv">${fmt(Math.max(S.chips, high))}</span>
+        <span class="ik">Your all-time high</span><span class="iv">${fmt(Math.max(S.chips, high))}</span>
       </div>
       <div id="lb-stat">
         <div class="gm-sep" style="opacity:0.35"></div>
         <div class="lb-row res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
-          <span class="ik">Today's ranking</span><span class="iv" style="color:var(--ink)">Loading…</span>
+          <span class="ik">${_backlogSeed ? `Day #${S.day} Ranking` : "Today's ranking"}</span><span class="iv" style="color:var(--ink)">Loading…</span>
         </div>
       </div>
     </div>
@@ -104,12 +91,7 @@ function screenResults(){
  */
 async function submitAndFetchLeaderboard() {
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
-  if (_backlogSeed) {
-    const el = document.getElementById('lb-stat');
-    if (el) el.style.display = 'none';
-    return;
-  }
-  const seed = getDailySeed();
+  const seed = getActiveSeed();
   const subKey = `gambdle_submitted_${seed}`;
   const headers = {
     'Content-Type': 'application/json',
@@ -117,11 +99,11 @@ async function submitAndFetchLeaderboard() {
     'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
   };
 
-  if (!_ls.getItem(subKey) && !DEV_OVERRIDE && !_testActive()) {
+  if (!_backlogSeed && !_ls.getItem(subKey) && !DEV_OVERRIDE && !_testActive()) {
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-score`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        headers,
         body: JSON.stringify({ seed, chips: S.chips })
       });
       if (res.ok) _ls.setItem(subKey, '1');
@@ -141,16 +123,119 @@ async function submitAndFetchLeaderboard() {
     const row = Array.isArray(data) ? data[0] : data;
     const el = document.getElementById('lb-stat');
     if (!el) return;
-    if (!row || row.total < 1) { el.style.display = 'none'; return; }
-    const iv = row.total < 5
-      ? `Rank ${row.rank} of ${row.total} ${row.total === 1 ? 'player' : 'players'}`
-      : row.top_pct > 50
-        ? `Bottom ${100 - row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`
-        : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
+    if (!row || row.total < 10) { el.style.display = 'none'; return; }
+    const iv = row.top_pct > 50
+      ? `Bottom ${100 - row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`
+      : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
+    const lbl = _backlogSeed ? `Day #${S.day} Ranking` : "Today's Ranking";
     const lr = el.querySelector('.lb-row');
-    if (lr) lr.innerHTML = `<span class="ik">Today's Ranking</span><span class="iv" style="color:var(--ink)">${iv}</span>`;
+    if (lr) lr.innerHTML = `<span class="ik">${lbl}</span><span class="iv" style="color:var(--ink)">${iv}</span>`;
   } catch(e) {
     if (DEV_OVERRIDE) console.error("Leaderboard fetch failed:", e);
+  }
+}
+
+function _showHistoryChart(el) {
+  const titleEl = document.getElementById('dist-title');
+  const histData = JSON.parse(_ls.getItem('gambdle_history') || '{}');
+  const allSorted = Object.entries(histData).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+
+  const currentSeedStr = getActiveSeed().toString();
+  let idx = allSorted.findIndex(([s]) => s === currentSeedStr);
+
+  // If the viewed day isn't in history yet, find where it would be chronologically
+  if (idx === -1) {
+    idx = allSorted.findIndex(([s]) => parseInt(s) > getActiveSeed());
+    if (idx === -1) idx = allSorted.length;
+  }
+
+  // Aim for a window of 7, centering the current day if possible
+  let start = Math.max(0, idx - 3);
+  let end = Math.min(allSorted.length, start + 7);
+  const historySorted = allSorted.slice(Math.max(0, end - 7), end);
+
+  if (!historySorted.length) { el.style.display = 'none'; if (titleEl) titleEl.style.display = 'none'; return; }
+  if (titleEl) titleEl.textContent = 'Past Performance';
+  const maxScore = Math.max(...historySorted.map(h => parseInt(h[1])), 1);
+  const bars = historySorted.map(([seed, score]) => {
+    const s = parseInt(seed);
+    const y = Math.floor(s/10000), m = Math.floor((s%10000)/100), d = s%100;
+    const dayNum = Math.floor((Date.UTC(y, m-1, d) - START_DATE_UTC) / 86400000) + 1;
+    const h = Math.max((parseInt(score) / maxScore) * 100, 5);
+    const isCurrent = s === getActiveSeed();
+    return `<div class="dist-bar${isCurrent ? ' you' : ''}" style="height:${h}%">
+      <span class="dist-count">${fmt(parseInt(score))}</span>
+      <span class="dist-lbl">#${dayNum}</span>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="dist-bars">${bars}</div>`;
+}
+
+async function fetchScoreDistribution() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_score_distribution`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({ p_seed: getActiveSeed() }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    const el = document.getElementById('dist-chart');
+    if (!el) return;
+    if (!res.ok) { el.style.display = 'none'; document.getElementById('dist-title')?.style.setProperty('display','none'); return; }
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) { el.style.display = 'none'; document.getElementById('dist-title')?.style.setProperty('display','none'); return; }
+
+    const counts = data.map(b => parseInt(b.count));
+    const total = counts.reduce((a, c) => a + c, 0);
+
+    if (total < 10) {
+      _showHistoryChart(el);
+      return;
+    }
+
+    const sorted = [...counts].sort((a, b) => b - a);
+    const useLog = sorted[0] > 0 && sorted[1] > 0 && sorted[0] / sorted[1] > 3;
+    const scaled = counts.map(c => useLog ? Math.sqrt(c) : c);
+    const maxScaled = Math.max(...scaled, 1);
+    const playerBucket = S.chips <= 500 ? 0 : S.chips <= 999 ? 1 : S.chips <= 1999 ? 2 : S.chips <= 2999 ? 3 : S.chips <= 3999 ? 4 : S.chips <= 4999 ? 5 : 6;
+    const labels = ['0', '500', '1k', '2k', '3k', '4k', '5k+'];
+    const bucketBounds = [[0,500],[501,999],[1000,1999],[2000,2999],[3000,3999],[4000,4999],[5000,10000]];
+    const [bLo, bHi] = bucketBounds[playerBucket];
+    const posWithin = Math.min(Math.max((S.chips - bLo) / (bHi - bLo), 0), 1);
+    const youPct = (playerBucket + posWithin) / 7 * 100;
+    const youLblStyle = youPct > 50 ? 'right:4px' : 'left:4px';
+    const tallestBucket = counts.indexOf(Math.max(...counts));
+    const inTallest = playerBucket === tallestBucket;
+
+    const cols = data.map((b, i) => {
+      const cnt = parseInt(b.count);
+      const h = cnt > 0 ? Math.max((scaled[i] / maxScaled) * 100, 5) : 0;
+      const nearCenter = i === playerBucket && posWithin > 0.25 && posWithin < 0.75;
+      const nudge = nearCenter
+        ? (posWithin < 0.5 ? posWithin * 100 + 20 : posWithin * 100 - 20)
+        : 50;
+      const cntStyle = i === playerBucket ? `left:${Math.min(Math.max(nudge, 10), 90)}%;transform:translateX(-50%)` : '';
+      return `<div class="dist-bar${i === playerBucket ? ' you' : ''}" style="height:${h}%">
+        <span class="dist-count"${cntStyle ? ` style="${cntStyle}"` : ''}>${cnt}</span>
+        <span class="dist-lbl">${labels[i]}</span>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `<div class="dist-bars">
+      ${cols}
+      <div class="dist-you-line" style="left:${youPct.toFixed(1)}%;${inTallest ? 'top:-28px' : ''}">
+        <span class="dist-you-lbl" style="${youLblStyle}${inTallest ? ';top:0' : ''}">You (${fmt(S.chips)})</span>
+      </div>
+    </div>`;
+  } catch(e) {
+    clearTimeout(timer);
+    const el = document.getElementById('dist-chart');
+    if (!el) return;
+    _showHistoryChart(el);
+    if (DEV_OVERRIDE) console.error('Distribution fetch failed:', e);
   }
 }
 
@@ -169,7 +254,6 @@ function devSetGame(slot, value) {
 
 function devApplyMod(k) {
   S.forcedMod = k;
-  saveState();
   render();
 }
 function devSpin(){
@@ -265,7 +349,7 @@ function render(){
     document.querySelectorAll('.panel').forEach(el=>{el.style.animation='none';el.style.opacity='1';el.style.transform='none';});
   }
   saveState();
-  if (S.screen === 'results') submitAndFetchLeaderboard();
+  if (S.screen === 'results') { submitAndFetchLeaderboard(); fetchScoreDistribution(); }
 }
 
 function updateChipDisplay() {

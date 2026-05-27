@@ -1,7 +1,7 @@
 // ─── UI HELPERS ───────────────────────────────────────────
 const fmt=n=>n.toLocaleString();
 const sign=n=>n>=0?'+'+fmt(n):fmt(n);
-const col=n=>n>0?'#1fa845':n<0?'#e03535':'#cabd9a';
+const col=n=>n>0?'#1fa845':n<0?'#e03535':'#000';
 
 // Maps suit symbols to CSS classes for coloring (red suits get a different color than black).
 const SUIT_CLS={'♠':'suit-s','♥':'suit-h','♦':'suit-d','♣':'suit-c'};

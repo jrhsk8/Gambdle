@@ -2,25 +2,51 @@
 // Mutex flag — prevents double-actions while cards are mid-animation.
 let _bjResolving=false;
 
-// Called once on boot — if the page was refreshed while the dealer was mid-reveal,
-// the saved state has bjDealerReveal=true but the setTimeout chain is gone.
-// Re-enter the step loop so the hand can resolve.
+// Called once on boot — if the page was refreshed while cards were mid-animation,
+// the saved state has a resolved hand but the setTimeout chain is gone.
+// Re-enter the appropriate step so the hand can resolve.
 function _bjResumeAfterRefresh(){
-  if(S.screen!=='bj'||S.bjPhase!=='play'||!S.bjDealerReveal)return;
+  if(S.screen!=='bj'||S.bjPhase!=='play')return;
   const standAt=getMod('bj_dealer_stand')||17;
-  function step(){
-    if(hVal(S.bjDealer)<standAt){
-      const at=S.bjDealer.length;
-      S.bjDealer.push(G.bjShoe[S.bjIdx++]);
-      S.bjDealerAnimFrom=at;
-      _noAnim=true;render();
-      sndCard(100);
-      setTimeout(step,800);
-    }else{
-      setTimeout(()=>{S.bjDealerReveal=false;bjResolve(true);},1000);
+
+  if(S.bjDealerReveal){
+    // Interrupted mid-dealer-reveal; resume drawing cards.
+    function step(){
+      if(hVal(S.bjDealer)<standAt){
+        const at=S.bjDealer.length;
+        S.bjDealer.push(G.bjShoe[S.bjIdx++]);
+        S.bjDealerAnimFrom=at;
+        _noAnim=true;render();
+        sndCard(100);
+        setTimeout(step,800);
+      }else{
+        setTimeout(()=>{S.bjDealerReveal=false;bjResolve(true);},1000);
+      }
+    }
+    setTimeout(step,300);
+    return;
+  }
+
+  // Interrupted after player hand resolved but before dealer reveal started.
+  if(S.bjCelebrating){
+    // Player blackjack animation was cut off; jump straight to resolve.
+    setTimeout(()=>{S.bjCelebrating=false;bjResolve();},300);
+    return;
+  }
+  if(!S.bjSplit&&hVal(S.bjPlayer)>=21){
+    // Player busted or hit to 21; dealer reveal never fired.
+    setTimeout(bjRevealDealer,300);
+    return;
+  }
+  if(S.bjSplit){
+    if(S.bjSplitDone.length&&S.bjSplitDone.every(d=>d)){
+      // All split hands resolved; dealer reveal never fired.
+      setTimeout(bjRevealDealer,300);
+    } else {
+      const ai=S.bjSplitActive,hand=S.bjSplitHands[ai];
+      if(hand&&hVal(hand)>=21) setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},300);
     }
   }
-  setTimeout(step,300);
 }
 
 function resetBJHand(){
@@ -464,9 +490,7 @@ function renderBJResultDealer(dv, dOff) {
 function renderBJResultPlayer(pv, result) {
   return `<div style="text-align:center">
         <div class="sec sec-sm">You</div>
-        <div class="hand">${S.bjPlayer.map((c, i) => {
-          return cardHTML(c, 'sm', '', 0, false);
-        }).join('')}</div>
+        <div class="hand">${S.bjPlayer.map(c => cardHTML(c, 'sm', '', 0, false)).join('')}</div>
         <div class="hand-val ${pv > 21 ? 'bust' : result === 'blackjack' ? 'bj' : ''}" style="font-size:1.6rem">${pv}${pv > 21 ? ' BUST' : result === 'blackjack' ? ' BJ!' : ''}</div>
       </div>`;
 }

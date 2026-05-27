@@ -307,7 +307,6 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
   border: 1px solid var(--ink); border-radius: 5px;
   /* 0.5px spread shadow acts as a 'sealant' for sub-pixel gaps on mobile */
   box-shadow:
-    0 0 0 0.5px var(--ink),
     0 2px 0 rgba(0,0,0,0.20),
     0 4px 8px rgba(0,0,0,0.25);
   user-select: none; line-height: 1; overflow: hidden;
@@ -481,6 +480,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* Auto-fan when 5+ cards would overflow */
 .hand:has(.card:nth-child(5)) { flex-wrap: nowrap; gap: 0; }
 .hand:has(.card:nth-child(5)) .card + .card { margin-left: -28px; }
+/* UTH community cards — cancel auto-fan, keep all 5 evenly spaced */
+#uth-community-hand.hand:has(.card:nth-child(5)) { flex-wrap: nowrap; gap: 5px; }
+#uth-community-hand.hand:has(.card:nth-child(5)) .card + .card { margin-left: 0; }
 
 /* ── Chip selector ──────────────────────────────────────── */
 .chip-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
@@ -721,29 +723,36 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   white-space: pre-line; letter-spacing: 0.02em;
 }
 
-/* Past performance chart */
-.chart-wrap {
-  display: flex; align-items: flex-end; justify-content: center; gap: 8px;
-  height: 70px; padding: 0 8px;
+
+/* ── Score distribution chart ───────────────────────────── */
+.dist-bars {
+  display: flex; align-items: flex-end; gap: 4px;
+  height: 50px; padding: 0 4px;
   border-bottom: 1px solid var(--ink);
-  margin: 6px 4px 28px;
+  position: relative; margin: 18px 4px 24px;
 }
-.chart-bar { flex: 1; max-width: 36px; background: var(--gold);
-  border: 1px solid var(--ink);
-  box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -1px -1px 0 var(--gold-lo);
+.dist-bar {
+  flex: 1; background: var(--gold); border: 1px solid var(--ink);
   position: relative;
 }
-.chart-bar.today { background: var(--gold-hi);
-  box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.4), inset -1px -1px 0 var(--gold-lo);
+.dist-bar.you {
+  background: var(--gold-hi);
 }
-.chart-bar::after {
-  content: attr(data-v);
+.dist-count {
   position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
   font-size: 0.9rem; color: var(--gold-hi); white-space: nowrap;
 }
-.chart-day {
+.dist-lbl {
   position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
-  font-size: 1rem; color: var(--gold); letter-spacing: 0.04em;
+  font-size: 0.9rem; color: var(--gold); white-space: nowrap;
+}
+.dist-you-line {
+  position: absolute; top: -20px; bottom: 0; width: 0;
+  border-left: 2px dashed var(--ink); pointer-events: none; z-index: 1;
+}
+.dist-you-lbl {
+  position: absolute; top: 0;
+  font-size: 0.85rem; color: var(--ink); white-space: nowrap;
 }
 
 /* ── Toast ──────────────────────────────────────────────── */
@@ -857,6 +866,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .sb-prefix, .sb-suffix { display: none; }
   /* Section labels */
   .sec { font-size: 1.2rem; margin-bottom: 3px; }
+  .uth-result-panel .sec { font-size: 0.8rem; margin-bottom: 2px; }
   /* Progress dots */
   .dots-row { margin: 0; gap: 5px; }
   .hdot { padding: 2px 6px; font-size: 1.2rem; }
@@ -907,7 +917,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Results screen */
   .big-chips { font-size: 3.2rem !important; line-height: 1; }
   .res-row { padding: 4px 10px !important; }
-  .chart-wrap { height: 45px; margin: 4px 4px 16px; }
+  .dist-bars { height: 45px; margin-top: 16px; margin-bottom: 20px; }
   .share-box { padding: 8px 10px; font-size: 1.0rem; line-height: 1.35; }
   /* BJ split result */
   .bj-split-result .result-hl { font-size: 1.8rem; margin-bottom: 0; }
@@ -940,9 +950,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .uth-result-panel .card.md .ct-s { font-size: 0.75rem; }
   .uth-result-panel .card.md .ct-r[data-r="10"] { font-size: 0.72rem !important; }
   .uth-bets-grid { display:flex; flex-wrap:wrap; justify-content:center; gap:2px 10px; margin-bottom:6px; }
-  /* UTH community cards — cancel auto-fan, keep all 5 on one row */
-  #uth-community-hand.hand:has(.card:nth-child(5)) { flex-wrap: nowrap; gap: 5px; }
-  #uth-community-hand.hand:has(.card:nth-child(5)) .card + .card { margin-left: 0; }
   /* Emoji deck */
   body.deck-emoji .ct-s::after { font-size: 0.72em; }
 }
