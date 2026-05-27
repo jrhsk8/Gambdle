@@ -465,7 +465,8 @@ function toggleMenu(which, trigger) {
     const canShare = S.screen === 'results';
     const cbStyle='width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0';
     el.innerHTML = `
-      <div class="dd-item dd-disabled">Gambdle #${S.day}</div>
+      ${_backlogSeed ? `<div class="dd-item" onclick="exitBacklog()">↩ Return to Today (#${getDayNum()})</div><div class="dd-sep"></div>` : ''}
+      <div class="dd-item" onclick="showBacklogSubmenu(this);event.stopPropagation()">Gambdle #${S.day}${_backlogSeed?' · Archive':''} <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
       <div class="dd-item ${canShare?'':'dd-disabled'}" onclick="${canShare?'doShare();closeDropdowns()':''}">📋 Copy &amp; Share</div>
       <div class="dd-sep"></div>
@@ -495,6 +496,39 @@ function toggleMenu(which, trigger) {
   el.style.top = rect.bottom + 'px';
   document.body.appendChild(el);
   setTimeout(() => document.addEventListener('click', closeDropdowns, {once:true}), 0);
+}
+
+// ─── ARCHIVE (BACKLOG) ────────────────────────────────────────
+
+function enterBacklog(seed) {
+  _ls.setItem('gambdle_backlog_seed', seed);
+  location.reload();
+}
+
+function exitBacklog() {
+  _ls.removeItem('gambdle_backlog_seed');
+  location.reload();
+}
+
+// Returns the YYYYMMDD seed for a given 1-based day number.
+function _seedForDayNum(n) {
+  const d = new Date(START_DATE_UTC + (n - 1) * 86400000);
+  return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+}
+
+function showBacklogSubmenu(trigger) {
+  const todayNum = getDayNum();
+  const history = JSON.parse(_ls.getItem('gambdle_history') || '{}');
+  let rows = '';
+  for (let n = todayNum - 1; n >= 1; n--) {
+    const seed = _seedForDayNum(n);
+    const score = history[seed];
+    const active = _backlogSeed === seed;
+    const scoreStr = score !== undefined ? `<span class="dd-key">${fmt(score)}</span>` : '';
+    rows += `<div class="dd-item${active ? ' dd-active' : ''}" onclick="enterBacklog(${seed});event.stopPropagation()">Day #${n} ${scoreStr}</div>`;
+  }
+  if (!rows) rows = '<div class="dd-item dd-disabled">No past days yet</div>';
+  _openSub1(`<div class="dd-archive-list">${rows}</div>`, trigger);
 }
 
 // ─── PREFERENCES ─────────────────────────────────────────────

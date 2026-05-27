@@ -808,6 +808,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .dd-key { font-size: 0.8rem; color: var(--shadow); }
 .dd-sep { height: 0; margin: 3px 2px; border-top: 1px solid var(--shadow); border-bottom: 1px solid var(--highlight); }
 .dd-submenu { z-index: 401; }
+.dd-item.dd-active { background: var(--gold-lo); color: var(--cream); }
+.dd-item.dd-active .dd-key { color: rgba(255,255,255,0.6); }
+.dd-archive-list { max-height: 260px; overflow-y: auto; }
 .dd-inline-sub { border-left: 1px solid var(--shadow); margin: 1px 0 1px 14px; }
 .dd-inline-sub.dd-level-2 { margin-left: 28px; }
 .dd-game-lbl { padding: 4px 22px 1px; font-size: .8rem; color: var(--shadow); letter-spacing: .08em; text-transform: uppercase; }

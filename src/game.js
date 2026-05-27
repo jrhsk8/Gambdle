@@ -104,6 +104,11 @@ function screenResults(){
  */
 async function submitAndFetchLeaderboard() {
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
+  if (_backlogSeed) {
+    const el = document.getElementById('lb-stat');
+    if (el) el.style.display = 'none';
+    return;
+  }
   const seed = getDailySeed();
   const subKey = `gambdle_submitted_${seed}`;
   const headers = {
@@ -220,10 +225,11 @@ function statusBar(){
   const ampm = h>=12 ? 'PM' : 'AM';
   const hh = (h%12) || 12;
   const tm = `${hh}:${String(m).padStart(2,'0')} ${ampm}`;
-  const hint = STATUS_HINT[S.screen] || 'Ready.';
+  let hint = STATUS_HINT[S.screen] || 'Ready.';
+  if (_backlogSeed && S.screen === 'results') hint = `<span class="sb-prefix">Archive · </span>Day #${S.day} complete`;
   return `<div class="status-bar">
     <span>${hint}</span>
-    <span><span id="sb-mute-icon" onclick="togglePref('mute');event.stopPropagation()" style="cursor:pointer;font-size:0.85em" title="${getPref('mute')?'Unmute':'Mute'}">${getPref('mute')?'🔇':'🔊'}</span>Gambdle #${S.day}  ·  ${tm}</span>
+    <span><span id="sb-mute-icon" onclick="togglePref('mute');event.stopPropagation()" style="cursor:pointer;font-size:0.85em" title="${getPref('mute')?'Unmute':'Mute'}">${getPref('mute')?'🔇':'🔊'}</span>${_backlogSeed?'Archive':'Gambdle'} #${S.day}  ·  ${tm}</span>
   </div>`;
 }
 

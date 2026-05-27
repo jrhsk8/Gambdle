@@ -24,15 +24,18 @@ function mkRng(seed) {
 // Used as both the RNG seed and the _ls key — everyone resets at midnight Arizona.
 const _PHOENIX_OFFSET_MS = 7 * 60 * 60 * 1000;
 const getDailySeed = () => { const d=new Date(Date.now()-_PHOENIX_OFFSET_MS); return d.getUTCFullYear()*10000+(d.getUTCMonth()+1)*100+d.getUTCDate(); };
+let _backlogSeed = (() => { const v=parseInt(_ls.getItem('gambdle_backlog_seed')||'0'); return v||null; })();
+const getActiveSeed = () => _backlogSeed || getDailySeed();
 const _testActive = () => !!_ls.getItem('gambdle_use_test_seed');
-function getRngSeed() { return _testActive()?1:getDailySeed(); }
-function getStateKey() { return _testActive()?'gambdle_test_state':STORAGE_KEY+getDailySeed(); }
+function getRngSeed() { return _testActive()?1:getActiveSeed(); }
+function getStateKey() { return _testActive()?'gambdle_test_state':STORAGE_KEY+getActiveSeed(); }
 
 /** Start of the daily Gambdle run (May 5th, 2026) used for consistent day numbering. */
 const START_DATE_UTC = Date.UTC(2026, 4, 5);
 
 // Derives day number from getDailySeed so both are always in sync.
 const getDayNum = () => { const s=getDailySeed(); const y=Math.floor(s/10000),m=Math.floor((s%10000)/100)-1,d=s%100; return Math.floor((Date.UTC(y,m,d)-START_DATE_UTC)/86400000)+1; };
+const getActiveDayNum = () => { const s=getActiveSeed(); const y=Math.floor(s/10000),m=Math.floor((s%10000)/100)-1,d=s%100; return Math.floor((Date.UTC(y,m,d)-START_DATE_UTC)/86400000)+1; };
 
 // Creates a card object; s accepts shorthand ('s','h','d','c') or a direct suit symbol.
 function card(r,s){return{r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]||s};}
@@ -75,8 +78,8 @@ if(DEV_OVERRIDE) document.body.classList.add('dev-mode');
 const ENABLE_CARD_SEEDING = false; // Set to true to enable the overrides below
 
 function getMod(key) {
-  const cycled = CYCLE_ORDER[(getDayNum()-1) % CYCLE_ORDER.length];
-  const modRef = S.forcedMod || DAILY_MODIFIERS[getDailySeed()] || cycled;
+  const cycled = CYCLE_ORDER[(getActiveDayNum()-1) % CYCLE_ORDER.length];
+  const modRef = S.forcedMod || DAILY_MODIFIERS[getActiveSeed()] || cycled;
   if (!modRef) return null;
   let mod = typeof modRef === 'string' ? PRESET_MODIFIERS[modRef] : modRef;
   return (mod && mod[key] !== undefined) ? mod[key] : null;
@@ -223,7 +226,7 @@ const CHIP_TIERS=[
 ];
 function getTier(chips){return CHIP_TIERS.find(t=>chips>=t.min);}
 let S={
-  screen:'intro', chips:START, day:getDayNum(),
+  screen:'intro', chips:START, day:getActiveDayNum(),
   bjHand:0, bjPhase:'bet', bjBet:0,
   bjPlayer:[], bjDealer:[], bjResult:null,
   bjHistory:[], bjIdx:0,
@@ -260,7 +263,7 @@ function winMult(){
 function saveState() {
   const toSave = { ...S, pkHeld: [...S.pkHeld] };
   _ls.setItem(getStateKey(), JSON.stringify(toSave));
-  if (S.screen === 'results' && !_testActive()) {
+  if (S.screen === 'results' && !_testActive() && !_backlogSeed) {
     const high = parseInt(_ls.getItem('gambdle_highscore') || '0');
     if (S.chips > high) {
       _ls.setItem('gambdle_highscore', S.chips.toString());
@@ -287,7 +290,7 @@ function loadState() {
   if (saved) {
     const parsed = JSON.parse(saved);
     if (Array.isArray(parsed.pkHeld)) parsed.pkHeld = new Set(parsed.pkHeld);
-    S = { ...S, ...parsed, day: getDayNum() };
+    S = { ...S, ...parsed, day: getActiveDayNum() };
     // Migrate: old saves used 'poker' as a generic game-2 screen key; now it means 5-card poker specifically.
     if (S.screen === 'poker' && GAME2 !== 'poker') S.screen = GAME2;
   }
