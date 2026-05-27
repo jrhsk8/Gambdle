@@ -11,6 +11,7 @@
  * - bj_payout: 2.0          BJ payout multiplier (default 1.5)
  * - bj_dealer_stand: 15     Dealer stands on this value instead of 17
  * - bj_double_bonus: true   Successful double-downs pay 2× profit
+ * - bj_first_ace: true      Player's first card each BJ hand is always an Ace
  * - min_chips: 50           Minimum chip requirement
  * - peek: true              One free peek at dealer hole card
  * - comeback: true          Below starting chips (1000)? Wins pay 2×
@@ -18,6 +19,7 @@
  * - uth_blind_extended: true Blind pays on two pair and three of a kind
  * - uth_double_play: true   Raising pays 2:1 instead of 1:1
  * - uth_hard_qualify: true  Dealer needs two pair or better to qualify
+ * - uth_pocket_aces: true   Player hole cards are AA every round (fresh deck each hand)
  * - all_in_or_skip: true    Each hand/spin: go all in or skip. Wins pay 2×
  * - r_payout_mult: 2.0      All roulette wins pay this multiple
  * - r_number_pay: 50        Straight number bets pay this (default 35)
@@ -33,11 +35,13 @@ const PRESET_MODIFIERS = {
   easy_dealer:     { type: 'bj',      title: "Easy Dealer",          desc: "Blackjack: Dealer stands on 15 instead of 17",   bj_dealer_stand: 15,                         devNote: '' },
   bj_double_bonus: { type: 'bj',      title: "Quadruple Down",       desc: "Blackjack: Successful double downs pay 2x profit", bj_double_bonus: true,                     devNote: '' },
   high_stakes:     { type: 'bj',      title: "High Stakes",          desc: "Blackjack: Minimum chips requirement is 100",     min_chips: 100,                              devNote: '' },
+  bj_first_ace:    { type: 'bj',      title: "Ace Up Your Sleeve",   desc: "Blackjack: Your first card each hand is always an Ace", bj_first_ace: true,                  devNote: '' },
   // UTH
   uth_blind_boost:    { type: 'uth',  title: "Big Blind",            desc: "Hold'em: Blind payouts are doubled",              uth_blind_boost: 2.0,                        devNote: '' },
   uth_blind_extended: { type: 'uth',  title: "Loose Blind",          desc: "Hold'em: Blind pays on two pair and up",          uth_blind_extended: true,                    devNote: '' },
   uth_double_play:    { type: 'uth',  title: "Raise the Roof",       desc: "Hold'em: Raises pay double",                     uth_double_play: true,                       devNote: '' },
   uth_hard_qualify:   { type: 'uth',  title: "Tough Table",          desc: "Hold'em: Dealer needs two pair or better to win", uth_hard_qualify: true,                      devNote: '' },
+  uth_pocket_aces:    { type: 'uth',  title: "Pocket Aces",          desc: "Hold'em: Your hole cards are Aces every round",   uth_pocket_aces: true,                       devNote: '' },
   // Cross-game
   peek:            { type: 'cross',   title: "Dealer Peek",          desc: "One-time peek at any dealer card",                peek: true,                                  devNote: '' },
   comeback:        { type: 'cross',   title: "Comeback",             desc: "Wins pay 2x if you are below 1000 chips",         comeback: true,                              devNote: '' },
@@ -84,6 +88,8 @@ const CYCLE_ORDER = [
   'uth_double_play',    // Day 20 — uth
   'r_respin',           // Day 21 — roulette
   'all_in_or_skip',     // Day 22 — cross
+  'bj_first_ace',       // Day 23 — bj
+  'uth_pocket_aces',    // Day 24 — uth
 ];
 
 /**
@@ -91,11 +97,33 @@ const CYCLE_ORDER = [
  * Use a preset key string or a full modifier object for one-off rules.
  */
 const DAILY_MODIFIERS = {
-  // Add overrides here as needed, e.g.:
-  // 20260704: 'all_in_or_skip',
-  20260524: 'bj_double_bonus',
-  20260526: 'r_group_1_12',
-  20260527: 'easy_dealer',
+  // ── Historical days (frozen so future CYCLE_ORDER edits don't alter archives) ──
+  20260505: 'r_hot_numbers',      // Day 1
+  20260506: 'double_pay',         // Day 2
+  20260507: 'r_color_double',     // Day 3
+  20260508: 'uth_blind_boost',    // Day 4
+  20260509: 'r_multi_bet',        // Day 5
+  20260510: 'comeback',           // Day 6
+  20260511: 'r_double_all',       // Day 7
+  20260512: 'easy_dealer',        // Day 8
+  20260513: 'r_hot_zero',         // Day 9
+  20260514: 'uth_hard_qualify',   // Day 10
+  20260515: 'r_group_1_12',       // Day 11
+  20260516: 'peek',               // Day 12
+  20260517: 'r_group_13_24',      // Day 13
+  20260518: 'bj_double_bonus',    // Day 14
+  20260519: 'r_group_25_36',      // Day 15
+  20260520: 'uth_blind_extended', // Day 16
+  20260521: 'r_group_1_18',       // Day 17
+  20260522: 'high_stakes',        // Day 18
+  20260523: 'r_group_19_36',      // Day 19
+  20260524: 'bj_double_bonus',    // Day 20 — manual override
+  20260525: 'r_respin',           // Day 21
+  20260526: 'r_group_1_12',       // Day 22 — manual override
+  // ── Current / upcoming ──────────────────────────────────────────────────────
+  20260527: 'easy_dealer',        // Day 23 — manual override
+  20260528: 'uth_pocket_aces',    // Day 24
+  20260529: 'bj_first_ace',       // Day 25
 };
 
 // Validate CYCLE_ORDER entries at load time

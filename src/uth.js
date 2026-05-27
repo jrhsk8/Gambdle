@@ -81,11 +81,11 @@ function uthBlindDelta(cat,blind){
   else if(cat===8)base=blind*50;   // Straight Flush
   else if(cat===7)base=blind*10;   // Four of a Kind
   else if(cat===6)base=blind*3;    // Full House
-  else if(cat===5)base=Math.floor(blind*1.5); // Flush
+  else if(cat===5)base=blind*1.5;  // Flush
   else if(cat===4)base=blind;      // Straight
   else if(extended&&cat===3)base=blind;          // Three of a Kind (extended only)
-  else if(extended&&cat===2)base=Math.floor(blind*0.5); // Two Pair (extended only)
-  return Math.floor(base*boost);
+  else if(extended&&cat===2)base=blind*0.5;      // Two Pair (extended only)
+  return Math.ceil(base*boost);
 }
 
 // ─── UTH / POKER STATE ───────────────────────────────────────────────────
@@ -192,10 +192,20 @@ function pkNext(){sndAdvance();S.pkBet=0;S.pkPhase='bet';if(S.chips<10){S.screen
 function uthDeal(){
   if(!S.uthAnte)return;
   S.chips-=S.uthAnte;
-  const dk=G.uthDeck,off=S.uthHand*9;
-  S.uthHole=[dk[off],dk[off+1]];
-  S.uthDealer=[dk[off+2],dk[off+3]];
-  S.uthComm=[dk[off+4],dk[off+5],dk[off+6],dk[off+7],dk[off+8]];
+  if(getMod('uth_pocket_aces')){
+    const hr=mkRng(getRngSeed()+(S.uthHand+1)*97);
+    const d=shuffle(buildDeck(),hr);
+    const aces=[],rest=[];
+    for(const c of d)(c.r==='A'&&aces.length<2?aces:rest).push(c);
+    S.uthHole=aces;
+    S.uthDealer=[rest[0],rest[1]];
+    S.uthComm=rest.slice(2,7);
+  }else{
+    const dk=G.uthDeck,off=S.uthHand*9;
+    S.uthHole=[dk[off],dk[off+1]];
+    S.uthDealer=[dk[off+2],dk[off+3]];
+    S.uthComm=[dk[off+4],dk[off+5],dk[off+6],dk[off+7],dk[off+8]];
+  }
   S.uthRaised=false;S.uthFolded=false;S.uthPlay=0;S.uthPlayMult=0;
   S.uthRevealComm=0;S.uthPrevRevealComm=0;
   const db=document.getElementById('db');if(db)db.disabled=true;
@@ -216,7 +226,7 @@ function _uthDealTurn(){
   updateUthCommunityCards();
 }
 function uthRaise(mult){
-  const bet=(S.uthAnte/2)*mult;
+  const bet=Math.ceil((S.uthAnte/2)*mult);
   if(S.chips<bet)return;
   S.chips-=bet;S.uthPlay=bet;S.uthPlayMult=mult;S.uthRaised=true;
   sndChip();
@@ -337,7 +347,7 @@ function updateUthCommunityCards() {
         actionUi.innerHTML = `<button class="btn-gold" onclick="uthNextStreet()">${S.uthPhase==='flop'?'See Turn & River →':'→ Showdown'}</button>`;
       } else {
         if (S.uthPhase === 'flop') actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(2)" ${S.chips < S.uthAnte ? 'disabled' : ''}>Raise 2× (${fmt(S.uthAnte)})</button><button class="act-btn" onclick="uthCheck()">Check</button></div>`;
-        else if (S.uthPhase === 'turn') actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(1)" ${S.chips < S.uthAnte / 2 ? 'disabled' : ''}>Raise 1× (${fmt(S.uthAnte / 2)})</button><button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button></div>`;
+        else if (S.uthPhase === 'turn') actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(1)" ${S.chips < Math.ceil(S.uthAnte / 2) ? 'disabled' : ''}>Raise 1× (${fmt(Math.ceil(S.uthAnte / 2))})</button><button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button></div>`;
       }
     }
   }, finishDelay);
@@ -505,7 +515,7 @@ function screenUTH(){
   };
 
   if(ph==='preflop'){
-    const r4Cost=(S.uthAnte/2)*4, r3Cost=(S.uthAnte/2)*3;
+    const r4Cost=Math.ceil((S.uthAnte/2)*4), r3Cost=Math.ceil((S.uthAnte/2)*3);
     const canR4=S.chips>=r4Cost, canR3=S.chips>=r3Cost;
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
@@ -552,7 +562,7 @@ function screenUTH(){
   }
 
   if(ph==='turn'){
-    const canR1=S.chips>=S.uthAnte/2;
+    const canR1=S.chips>=Math.ceil(S.uthAnte/2);
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
@@ -567,7 +577,7 @@ function screenUTH(){
       <div id="uth-actions-ui">
         ${S.uthRaised ? `<button class="btn-gold" onclick="uthNextStreet()">→ Showdown</button>` : `
           <div id="uth-action-btns" class="act-btns">
-            <button class="act-btn" onclick="uthRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${fmt(S.uthAnte/2)})</button>
+            <button class="act-btn" onclick="uthRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${fmt(Math.ceil(S.uthAnte/2))})</button>
             <button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button>
           </div>`}
       </div>
@@ -639,9 +649,10 @@ function screenUTH(){
 
   const pb=hist.playerBest,db2=hist.dealerBest;
   const resLabel=hist.result==='win'?'You Win!':hist.result==='push'?'Push':'You Lose!';
-  const hlCards=hist.result==='win'?new Set(pb?.cards):hist.result==='lose'?new Set(db2?.cards):new Set();
+  const _ck=c=>c.r+c.s;
+  const hlKeys=hist.result==='win'?new Set(pb?.cards.map(_ck)):hist.result==='lose'?new Set(db2?.cards.map(_ck)):new Set();
   const hlStyle=hist.result==='win'?'box-shadow:0 0 0 2px var(--gold),0 0 14px 4px rgba(196,147,58,0.55)':'box-shadow:0 0 0 2px var(--lose),0 0 14px 4px rgba(196,48,48,0.5)';
-  const hl=c=>hlCards.has(c)?hlStyle:'';
+  const hl=c=>hlKeys.has(_ck(c))?hlStyle:'';
   const sameRank=pb&&db2&&pb.cat===db2.cat;
   const pbDetail=sameRank?' '+handDetail(pb.cards,pb.cat):'';
   const dbDetail=sameRank?' '+handDetail(db2.cards,db2.cat):'';

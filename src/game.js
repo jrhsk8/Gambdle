@@ -123,7 +123,14 @@ async function submitAndFetchLeaderboard() {
     const row = Array.isArray(data) ? data[0] : data;
     const el = document.getElementById('lb-stat');
     if (!el) return;
-    if (!row || row.total < 10) { el.style.display = 'none'; return; }
+    if (!row) { el.style.display = 'none'; return; }
+    if (row.total < 10) {
+      const rank = Math.ceil(row.top_pct / 100 * row.total);
+      const lbl = _backlogSeed ? `Day #${S.day} Ranking` : "Today's Ranking";
+      const lr = el.querySelector('.lb-row');
+      if (lr) lr.innerHTML = `<span class="ik">${lbl}</span><span class="iv" style="color:var(--ink)">Rank ${rank} of ${row.total}</span>`;
+      return;
+    }
     const iv = row.top_pct > 50
       ? `Bottom ${100 - row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`
       : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
@@ -365,7 +372,11 @@ function goTo(s){S.screen=s;render();}
 // Plays a transition sound scaled to how well the player is doing.
 function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('assets/sounds/mediumbet.mp3');else playMp3('assets/sounds/smallbet.mp3');}
 // Navigates between games; redirects to results early if the player is busted (<10 chips).
-function advanceTo(s){sndAdvance();if(s!=='results'&&isChipBusted())s='results';goTo(s);}
+function advanceTo(s){
+  if(s!=='results'&&isChipBusted())s='results';
+  if(s==='results')S.chips=START+gameNet(GAME1)+gameNet(GAME2)+(S.rResult?.delta||0);
+  sndAdvance();goTo(s);
+}
 function startGame(){sndChip('allin');S.screen=GAME1;S.bjPhase='bet';render();}
 
 // ─── DRAGGABLE WINDOW (desktop only) ─────────────────────────────────────

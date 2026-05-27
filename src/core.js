@@ -293,6 +293,12 @@ function loadState() {
     S = { ...S, ...parsed, day: getActiveDayNum() };
     // Migrate: old saves used 'poker' as a generic game-2 screen key; now it means 5-card poker specifically.
     if (S.screen === 'poker' && GAME2 !== 'poker') S.screen = GAME2;
+    // Guard: if no game has been started at all, chips must equal START regardless of saved value.
+    const _noProg = !S.bjHistory.length && !S.uthHistory.length && !S.pkHistory.length
+                 && S.rResult === null && S.bjBet === 0 && S.uthAnte === 0 && S.pkBet === 0 && !S.rBets.length;
+    if (_noProg) S.chips = START;
+    // Guard: for completed runs, recompute chips from recorded history so stale saves can't inflate scores.
+    if (S.screen === 'results') S.chips = START + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0);
   }
   const forced = _ls.getItem('gambdle_forced_mod');
   if (forced) {

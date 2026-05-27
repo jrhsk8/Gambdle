@@ -73,6 +73,10 @@ function bjDeal(){
   if(!S.bjBet)return;
   S.chips-=S.bjBet;
   S.bjAnimFrom=0;S.bjDealerAnimFrom=0;
+  if(getMod('bj_first_ace')&&G.bjShoe[S.bjIdx]?.r!=='A'){
+    const ai=G.bjShoe.findIndex((c,i)=>i>S.bjIdx&&c.r==='A');
+    if(ai!==-1)[G.bjShoe[S.bjIdx],G.bjShoe[ai]]=[G.bjShoe[ai],G.bjShoe[S.bjIdx]];
+  }
   S.bjPlayer=[G.bjShoe[S.bjIdx++],G.bjShoe[S.bjIdx++]];
   S.bjDealer=[G.bjShoe[S.bjIdx++],G.bjShoe[S.bjIdx++]];
   const db=document.getElementById('db');if(db)db.disabled=true;
@@ -130,19 +134,19 @@ function bjDouble(){
   if(S.bjSplit){
     const i=S.bjSplitActive;
     if(S.chips<S.bjSplitBets[i])return;
-    updateChipDisplay();
     S.bjSplitAnimFrom[i]=S.bjSplitHands[i].length;
     S.chips-=S.bjSplitBets[i];S.bjSplitBets[i]*=2;
     S.bjSplitDoubled[i]=true;
+    updateChipDisplay();
     S.bjSplitHands[i].push(G.bjShoe[S.bjIdx++]);
     sndCard(100);
     _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},700);
   }else{
     if(S.chips<S.bjBet)return;
     S.bjAnimFrom=S.bjPlayer.length;
-    updateChipDisplay();
     S.chips-=S.bjBet;S.bjBet*=2;
     S.bjDoubled=true;
+    updateChipDisplay();
     S.bjPlayer.push(G.bjShoe[S.bjIdx++]);
     _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjRevealDealer();},700);
   }
@@ -386,7 +390,7 @@ function screenBJ(){
         <div class="bj-split-active" style="text-align:center;flex:1;">
           <div class="sec bj-active-lbl">Hand ${ai+1}</div>
           <div id="bj-active-hand" class="hand">${activeHand.map((c,i)=>{const n=i>=af;return cardHTML(c,'lg','',n?(i-af)*0.4+0.1:0,n);}).join('')}</div>
-          ${S.bjCelebrating||done21
+          ${S.bjCelebrating||isBJ(activeHand)
             ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div class="bj-celebrate-txt">Blackjack!</div></div>`
             :`<div id="bj-active-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pvStr}${bust?' BUST':done21?' 21!':''}</div>`}
         </div>
@@ -410,7 +414,7 @@ function screenBJ(){
   <div style="text-align:center;flex:1;">
     <div class="sec">Your Hand</div>
     <div id="bj-player-hand" class="hand">${S.bjPlayer.map((c,i)=>{const n=i>=S.bjAnimFrom;return cardHTML(c,'lg','',n?(i-S.bjAnimFrom)*0.4+0.1:0,n);}).join('')}</div>
-    ${(S.bjCelebrating||done21)
+    ${(S.bjCelebrating||isBJ(S.bjPlayer))
       ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}">
           <div class="bj-celebrate-txt">Blackjack!</div>
           ${isBJ(S.bjPlayer)?`<div style="font-size:.72rem;color:var(--shadow);text-transform:uppercase;letter-spacing:.22em;margin-top:6px">Pays 3 · 2</div>`:''}
