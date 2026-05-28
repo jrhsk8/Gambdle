@@ -2,6 +2,8 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
+const GAME_VERSION = 'v1.1';
+
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
 const _ls = (() => {
@@ -79,7 +81,8 @@ const NEXT_SCREEN = { [GAME1]: GAME2, [GAME2]: 'roulette' };
 
 // Game-agnostic history and net helpers — used by results screen and share text.
 function gameHistory(g){ return g==='bj'?S.bjHistory:g==='uth'?S.uthHistory:S.pkHistory; }
-function gameNet(g){ return gameHistory(g).reduce((a,h)=>a+h.delta,0); }
+// Non-finite deltas (undefined, NaN) are skipped rather than poisoning the whole sum.
+function gameNet(g){ return gameHistory(g).reduce((a,h)=>a+(Number.isFinite(h.delta)?h.delta:0),0); }
 const STORAGE_KEY = 'gambdle_state_';
 const ANIM_NONE = 99; // sentinel: suppress card animation on this hand
 
@@ -196,6 +199,7 @@ function genDeal(){
   const rng=mkRng(getRngSeed());
   const shoe=[];for(let i=0;i<2;i++)shoe.push(...buildDeck());
   let bjShoe=shuffle(shoe,rng);
+  // One fresh 52-card deck per poker hand; each shuffle advances the shared RNG sequence.
   const pokerDecks=Array.from({length:3},()=>shuffle(buildDeck(),rng));
   let uthDeck=shuffle(buildDeck(),rng);
   let rSpinOverride=null;
@@ -242,7 +246,8 @@ const CHIP_TIERS=[
   {min:1,   emoji:'😢',label:'Survivor'},
   {min:0,   emoji:'🤡',label:'Bozo'},
 ];
-function getTier(chips){return CHIP_TIERS.find(t=>chips>=t.min);}
+// Always returns a tier — fallback to the last entry so NaN/negative chips never return undefined.
+function getTier(chips){return CHIP_TIERS.find(t=>chips>=t.min)||CHIP_TIERS[CHIP_TIERS.length-1];}
 let S={
   screen:'intro', chips:START_CHIPS, day:getActiveDayNum(),
   bjHand:0, bjPhase:'bet', bjBet:0,
@@ -296,9 +301,16 @@ function saveState() {
       ]) if (S.chips >= min && !getPref(key)) { setPref(key, true); unlockMsg = txt; }
       if (unlockMsg) setTimeout(()=>toast(unlockMsg), 1200);
     }
-    const history = JSON.parse(_ls.getItem('gambdle_history') || '{}');
-    history[getDailySeed()] = S.chips;
-    _ls.setItem('gambdle_history', JSON.stringify(history));
+    // Wrap in try/catch — a long-running player's gambdle_history can become corrupted JSON;
+    // if so, reset it to just today's entry rather than throwing and killing render().
+    try {
+      const history = JSON.parse(_ls.getItem('gambdle_history') || '{}');
+      history[getDailySeed()] = S.chips;
+      _ls.setItem('gambdle_history', JSON.stringify(history));
+    } catch (_e) {
+      const fresh = {}; fresh[getDailySeed()] = S.chips;
+      _ls.setItem('gambdle_history', JSON.stringify(fresh));
+    }
   }
 }
 
@@ -311,14 +323,16 @@ function loadState() {
     S = { ...S, ...parsed, day: getActiveDayNum() };
     // Migrate: old saves used 'poker' as a generic game-2 screen key; now it means 5-card poker specifically.
     if (S.screen === 'poker' && GAME2 !== 'poker') S.screen = GAME2;
-    // Dev-only screen — never persist as the restored screen.
-    if (S.screen === 'devstats') S.screen = 'intro';
     // Guard: if no game has been started at all, chips must equal START_CHIPS regardless of saved value.
     const _noProg = !S.bjHistory.length && !S.uthHistory.length && !S.pkHistory.length
                  && S.rResult === null && S.bjBet === 0 && S.uthAnte === 0 && S.pkBet === 0 && !S.rBets.length;
     if (_noProg) S.chips = START_CHIPS;
     // Guard: for completed runs, recompute chips from recorded history so stale saves can't inflate scores.
-    if (S.screen === 'results') S.chips = START_CHIPS + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0);
+    // Fall back to the saved value if the calculation is non-finite (corrupted history entries).
+    if (S.screen === 'results') {
+      const _calc = START_CHIPS + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0);
+      S.chips = Number.isFinite(_calc) ? _calc : S.chips;
+    }
   }
   const forced = _ls.getItem('gambdle_forced_mod');
   if (forced) {

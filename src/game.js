@@ -204,6 +204,7 @@ async function fetchScoreDistribution() {
     }
 
     const sorted = [...counts].sort((a, b) => b - a);
+    // Sqrt scaling when the tallest bucket is 3× the second-tallest, so one outlier doesn't flatten all other bars.
     const useLog = sorted[0] > 0 && sorted[1] > 0 && sorted[0] / sorted[1] > 3;
     const scaled = counts.map(c => useLog ? Math.sqrt(c) : c);
     const maxScaled = Math.max(...scaled, 1);
@@ -329,7 +330,7 @@ function statusBar(){
   let hint = STATUS_HINT[S.screen] || 'Ready.';
   if (_backlogSeed && S.screen === 'results') hint = `<span class="sb-prefix">${_modeLabel} · </span>Day #${S.day} complete`;
   return `<div class="status-bar">
-    <span>${hint}</span>
+    <span>${DEV_OVERRIDE ? `${GAME_VERSION} · ` : ''}${hint}</span>
     <span><span id="sb-mute-icon" onclick="togglePref('mute');event.stopPropagation()" style="cursor:pointer;font-size:0.85em" title="${getPref('mute')?'Unmute':'Mute'}">${getPref('mute')?'🔇':'🔊'}</span>${_modeLabel} #${S.day}  ·  ${tm}</span>
   </div>`;
 }
@@ -490,6 +491,7 @@ function render(){
     }
   }
   _reapplyDragPos();
+  _updateBalloonPosition();
   if(_noAnim){
     _noAnim=false;
     document.querySelectorAll('.panel').forEach(el=>{el.style.animation='none';el.style.opacity='1';el.style.transform='none';});
@@ -546,7 +548,11 @@ function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3(
 // Navigates between games; redirects to results early if the player is busted (<10 chips).
 function advanceTo(s){
   if(s!=='results'&&isChipBusted())s='results';
-  if(s==='results')S.chips=START_CHIPS+gameNet(GAME1)+gameNet(GAME2)+(S.rResult?.delta||0);
+  if(s==='results'){
+    const _calc=START_CHIPS+gameNet(GAME1)+gameNet(GAME2)+(S.rResult?.delta||0);
+    // Fall back to the current saved value if the recalculation is non-finite (corrupted history).
+    S.chips=Number.isFinite(_calc)?_calc:S.chips;
+  }
   sndAdvance();goTo(s);
 }
 function startGame(){sndChip('allin');S.screen=GAME1;S.bjPhase='bet';render();}
@@ -569,7 +575,7 @@ function snapWindowToOrigin() {
   if (!app) return;
   app.style.transition = 'transform 0.22s ease';
   app.style.transform = 'translate(0,0)';
-  setTimeout(() => { app.style.transition = ''; }, 220);
+  setTimeout(() => { app.style.transition = ''; _updateBalloonPosition(); }, 220);
 }
 
 function _winMousemove(e) {
@@ -578,6 +584,7 @@ function _winMousemove(e) {
   _winOffset.y = _winDragStart.oy + e.clientY - _winDragStart.my;
   const app = document.querySelector('.app');
   if (app) app.style.transform = `translate(${_winOffset.x}px,${_winOffset.y}px)`;
+  _updateBalloonPosition();
 }
 
 function _winMouseup() {
@@ -617,9 +624,18 @@ function _resumeAfterRefresh() {
   }
 }
 
+// Shows the welcome popup on first ever visit (only when POPUP_ENABLED is true).
+function _maybeShowWelcomePopup() {
+  if (!POPUP_ENABLED) return;
+  if (_ls.getItem('gambdle_popup_welcome_seen')) return;
+  _ls.setItem('gambdle_popup_welcome_seen', '1');
+  setTimeout(() => showPopup('welcome'), 1200);
+}
+
 loadState();
 applyPrefs();
 render();
 initWindowDrag();
 _bjResumeAfterRefresh();
 _resumeAfterRefresh();
+_maybeShowWelcomePopup();

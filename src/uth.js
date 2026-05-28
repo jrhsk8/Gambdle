@@ -172,6 +172,7 @@ function uthDeal(){
   if(!S.uthAnte)return;
   S.chips-=S.uthAnte;
   if(getMod('uth_pocket_aces')){
+    // +1 so hand 0 doesn't reuse the exact daily seed; *97 (prime) spaces hand seeds apart to avoid collisions.
     const hr=mkRng(getRngSeed()+(S.uthHand+1)*97);
     const d=shuffle(buildDeck(),hr);
     const aces=[],rest=[];

@@ -475,6 +475,7 @@ function toggleMenu(which, trigger) {
       <div class="dd-item" id="dd-future-trigger" onclick="showFutureSubmenu(this);event.stopPropagation()">Preview Future Day <span class="dd-key">►</span></div>
       <div class="dd-item" id="dd-mod-trigger" onclick="showModSubmenu(this);event.stopPropagation()">Force Modifier <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
+      <div class="dd-item" onclick="showPopup('welcome');closeDropdowns()">💬 Show Popup</div>
       <div class="dd-item" onclick="goTo('devstats');closeDropdowns()">📊 Player Stats</div>`;
   } else if (which === 'file') {
     const canShare = S.screen === 'results';
@@ -510,6 +511,7 @@ function toggleMenu(which, trigger) {
   el.style.left = left + 'px';
   el.style.top = rect.bottom + 'px';
   document.body.appendChild(el);
+  // Deferred so the click that opened the menu doesn't immediately trigger this and close it.
   setTimeout(() => document.addEventListener('click', closeDropdowns, {once:true}), 0);
 }
 
@@ -700,6 +702,63 @@ async function submitFeedback() {
     toast('Failed to send — try again?');
     if (btn) { btn.disabled = false; btn.textContent = 'Send'; }
   }
+}
+
+// ─── XP NOTIFICATION BALLOON ─────────────────────────────────────────────
+// Toggle this to enable the welcome popup for all first-time players.
+const POPUP_ENABLED = false;
+
+// Tutorial messages keyed by ID — add more here for future tutorial steps.
+const POPUP_MESSAGES = {
+  welcome: {
+    title: 'Welcome to Gambdle!',
+    body: "Everyone plays the same hands today. Start with 1,000 chips and play Blackjack → Hold'em → Roulette. Your final chip count is your score. Good luck!",
+  },
+};
+
+let _popupTimer = null;
+
+function showPopup(id, autoDismissMs = 9000) {
+  if (!POPUP_ENABLED && !DEV_OVERRIDE) return;
+  const msg = POPUP_MESSAGES[id];
+  if (!msg) return;
+  const el = document.getElementById('xp-balloon');
+  if (!el) return;
+  clearTimeout(_popupTimer);
+  el.innerHTML = `
+    <div class="xpb-inner">
+      <div class="xpb-header">
+        <div class="xpb-icon">i</div>
+        <div class="xpb-title">${msg.title}</div>
+        <button class="xpb-close" onclick="dismissPopup()" title="Close">✕</button>
+      </div>
+      <div class="xpb-body">${msg.body}</div>
+    </div>
+    <div class="xpb-tail"></div>`;
+  el.className = 'xpb-visible';
+  _updateBalloonPosition();
+  if (autoDismissMs > 0) _popupTimer = setTimeout(dismissPopup, autoDismissMs);
+}
+
+function dismissPopup() {
+  clearTimeout(_popupTimer);
+  const el = document.getElementById('xp-balloon');
+  if (!el || !el.classList.contains('xpb-visible')) return;
+  el.classList.remove('xpb-visible');
+  el.classList.add('xpb-hiding');
+  setTimeout(() => { el.className = ''; el.innerHTML = ''; }, 260);
+}
+
+// Anchors the balloon above the status bar at the window's right edge.
+// Called after render() and on drag so the balloon tracks the window.
+function _updateBalloonPosition() {
+  const el = document.getElementById('xp-balloon');
+  if (!el || !el.classList.contains('xpb-visible')) return;
+  const win = document.querySelector('.window');
+  if (!win) { el.style.bottom = '46px'; el.style.right = '8px'; return; }
+  const rect = win.getBoundingClientRect();
+  el.style.bottom = Math.max(4, window.innerHeight - rect.bottom + 32) + 'px';
+  el.style.right  = Math.max(4, window.innerWidth  - rect.right  + 8)  + 'px';
 }
 
 // WinXP inactive title bar — dims chrome when tab loses focus

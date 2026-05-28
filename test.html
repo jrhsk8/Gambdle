@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Gambdle Tests</title>
+  <title>♣ Gambdle Test Suite</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { font-family: monospace; background: #161616; color: #ccc; padding: 20px; margin: 0; }
@@ -104,6 +104,10 @@
 
   <script>section('State & Persistence');</script>
   <script src="tests/persistence.test.js"></script>
+  <script src="tests/results-navigation.test.js"></script>
+
+  <script>section('Render Smoke Tests');</script>
+  <script src="tests/render-smoke.test.js"></script>
 
   <script>section('Fingerprint');</script>
   <script src="tests/fingerprint.test.js"></script>

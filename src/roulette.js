@@ -74,6 +74,7 @@ function evalBet(idx,result){
   if(b.type==='oe') return b.val==='even'?result%2===0:result%2===1;
   if(b.type==='hl') return b.val==='low'?result<=18:result>=19;
   if(b.type==='doz') return result>=b.val*12+1&&result<=b.val*12+12;
+  // Columns: val 0/1/2 = bottom/middle/top row; (val+1)%3 maps to the n%3 remainder for each row (1/2/0).
   if(b.type==='col') return result%3===(b.val+1)%3;
   return false;
 }
@@ -213,6 +214,7 @@ function startWheelAnim(){
   // rawFinal aligns the target pocket to the top pointer (-π/2); wFinal adds full rotations.
   const rawFinal=-Math.PI/2-(tidx+0.5)*seg;
   const numSpins=7;
+  // The middle term adds the minimum whole rotations to make wFinal positive, so the ease always animates forward.
   const wFinal=rawFinal+Math.ceil(-rawFinal/(2*Math.PI))*2*Math.PI+numSpins*2*Math.PI;
 
   const bFinalA=-Math.PI/2;
