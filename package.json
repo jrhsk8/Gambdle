@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "node _run_tests.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}
