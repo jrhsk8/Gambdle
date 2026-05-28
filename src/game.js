@@ -57,15 +57,15 @@ function screenResults(){
   const {emoji,label}=getTier(S.chips);const tier=`${emoji} ${label}`;
 
   return `${hdr('Daily Results')}
-  <div class="panel" style="text-align:center">
-    <div style="font-size:1.05rem;color:var(--cream);text-transform:uppercase;letter-spacing:0.16em;margin-bottom:2px">${tier}</div>
+  <div class="panel results-panel" style="text-align:center">
+    <div class="results-tier" style="font-size:1.05rem;color:var(--cream);text-transform:uppercase;letter-spacing:0.16em;margin-bottom:2px">${tier}</div>
     <div class="big-chips" style="font-family:var(--btn-f);font-size:5rem;line-height:1;letter-spacing:.04em;color:var(--gold-hi);text-shadow:2px 2px 0 rgba(0,0,0,0.45)">${fmt(S.chips)}</div>
-    <div style="color:var(--cream);opacity:0.7;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;margin-top:2px;margin-bottom:6px">chips</div>
+    <div class="results-chips-lbl" style="color:var(--cream);opacity:0.7;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;margin-top:2px;margin-bottom:6px">chips</div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
       ${[[g1Label,g1Net],[g2Label,g2Net],['🎡 Roulette',rNet]].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
       <div class="res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
         <span style="font-size:1rem">${lbl}</span>
-        <span style="font-family:var(--btn-f);font-size:1.35rem;color:${col(net)}">${sign(net)}</span>
+        <span class="res-net" style="font-family:var(--btn-f);font-size:1.35rem;color:${col(net)}">${sign(net)}</span>
       </div>`).join('')}
       <div class="gm-sep" style="opacity:0.35"></div>
       <div class="res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
@@ -314,7 +314,7 @@ const STATUS_HINT = {
   uth:      "Hold'em — choose action.",
   poker:    'Poker — choose action.',
   roulette: 'Roulette — place a bet.',
-  results:  '<span class="sb-prefix">Game complete · </span>New game at midnight<span class="sb-suffix"> · Arizona time</span>',
+  results:  '<span class="sb-prefix">Game complete · </span>New game at midnight<span class="sb-suffix"> Arizona time</span>',
   devstats: 'Dev mode — player statistics.',
 };
 
@@ -357,7 +357,7 @@ async function fetchDevStats() {
   const seed = getActiveSeed();
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/scores?seed=eq.${seed}&select=chips,created_at&order=chips.desc`,
+      `${SUPABASE_URL}/rest/v1/scores?seed=eq.${seed}&select=chips,created_at,fingerprint&order=chips.desc`,
       { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -366,6 +366,7 @@ async function fetchDevStats() {
 
     const scores = rows.map(r => r.chips);
     const total  = scores.length;
+    const fingerprintedCount = rows.filter(r => r.fingerprint).length;
     const avg    = Math.round(scores.reduce((a, b) => a + b, 0) / total);
     const sorted = [...scores].sort((a, b) => a - b);
     const med    = sorted.length % 2 === 0
@@ -373,24 +374,22 @@ async function fetchDevStats() {
       : sorted[Math.floor(sorted.length/2)];
     const max    = scores[0];
     const bozos  = scores.filter(s => s === 0).length;
+    const inProfit = scores.filter(s => s > START_CHIPS).length;
+    const mean = scores.reduce((a, b) => a + b, 0) / total;
+    const stdDev = Math.round(Math.sqrt(scores.reduce((a, b) => a + (b - mean) ** 2, 0) / total));
+    const p75 = sorted[Math.floor(sorted.length * 0.75)];
+    const p25 = sorted[Math.floor(sorted.length * 0.25)];
 
-    // Distribution (8 buckets)
-    const maxScore = Math.max(max, 1);
-    const bSize = Math.ceil(maxScore / 8);
-    const buckets = Array(8).fill(0);
-    for (const s of scores) buckets[Math.min(Math.floor(s / bSize), 7)]++;
-    const maxB = Math.max(...buckets, 1);
-    const chartHTML = `<div style="display:flex;align-items:flex-end;gap:3px;height:48px;margin:8px 0 4px">
-      ${buckets.map((c, i) => {
-        const h = Math.max(Math.round((c / maxB) * 44), c > 0 ? 3 : 0);
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px" title="${c} scores">
-          <div style="background:rgba(196,147,58,.6);border-radius:2px 2px 0 0;width:100%;height:${h}px"></div>
-          <div style="font-size:.6rem;color:var(--shadow)">${fmt(i*bSize)}</div>
-        </div>`;
-      }).join('')}
-    </div>`;
+    // Hourly submission breakdown from created_at
+    const hourBuckets = Array(24).fill(0);
+    for (const r of rows) {
+      const h = new Date(r.created_at);
+      hourBuckets[(h.getUTCHours() + 17) % 24]++; // shift to Phoenix time (UTC-7)
+    }
+    const peakHour = hourBuckets.indexOf(Math.max(...hourBuckets));
+    const peakAMPM = peakHour === 0 ? '12am' : peakHour < 12 ? peakHour + 'am' : peakHour === 12 ? '12pm' : (peakHour - 12) + 'pm';
 
-    // New players today — first-time fingerprints (requires Step 5 RPC + fingerprint column)
+    // New players today — first-time fingerprints
     let newPlayers = null;
     try {
       const npr = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_new_player_count`, {
@@ -403,19 +402,62 @@ async function fetchDevStats() {
     const newPlayersVal = newPlayers !== null
       ? fmt(newPlayers)
       : `<span style="color:var(--shadow);font-size:.75rem">needs RPC</span>`;
+    const returningPlayers = newPlayers !== null ? fingerprintedCount - newPlayers : null;
+    const returningVal = returningPlayers !== null
+      ? fmt(returningPlayers)
+      : `<span style="color:var(--shadow);font-size:.75rem">needs RPC</span>`;
+
+    // Score distribution — same RPC as results screen, no "you" line
+    let distHTML = '';
+    try {
+      const dr = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_score_distribution`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({ p_seed: seed })
+      });
+      if (dr.ok) {
+        const dist = await dr.json();
+        if (Array.isArray(dist) && dist.length) {
+          const counts = dist.map(b => parseInt(b.count));
+          const sorted2 = [...counts].sort((a, b) => b - a);
+          const useLog = sorted2[0] > 0 && sorted2[1] > 0 && sorted2[0] / sorted2[1] > 3;
+          const scaled = counts.map(c => useLog ? Math.sqrt(c) : c);
+          const maxScaled = Math.max(...scaled, 1);
+          const labels = ['0','250','500','1k','2k','3k','4k'];
+          const cols = dist.map((b, i) => {
+            const cnt = parseInt(b.count);
+            const h = cnt > 0 ? Math.max((scaled[i] / maxScaled) * 100, 5) : 0;
+            const lblOffsets = [-3,-12,-9,-9,-9,-9,-9];
+            const endLbl = i === 6 ? '<span class="dist-lbl" style="right:-6px;left:auto;transform:none">5k+</span>' : '';
+            return `<div class="dist-bar" style="height:${h}%">
+              <span class="dist-count">${cnt}</span>
+              <span class="dist-lbl" style="left:${lblOffsets[i]}px;transform:none">${labels[i]}</span>
+              ${endLbl}
+            </div>`;
+          }).join('');
+          distHTML = `<div class="sec" style="margin-top:12px;margin-bottom:2px">Score Distribution</div><div class="dist-wrap"><div class="dist-bars">${cols}</div></div>`;
+        }
+      }
+    } catch(e) {}
 
     el.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px">
         ${[
-          ['Total players', fmt(total)],
-          ['New players',   newPlayersVal],
-          ['Average score', fmt(avg)],
-          ['Median score',  fmt(med)],
+          ['Total players',     fmt(total)],
+          ['New players',       newPlayersVal],
+          ['Returning players', returningVal],
+          ['Average',       fmt(avg)],
+          ['Median',        fmt(med)],
           ['High score',    fmt(max)],
           ['Went bust',     `<span style="color:${bozos>0?'var(--lose)':'inherit'}">${fmt(bozos)}</span>`],
+          ['In profit',     `${fmt(inProfit)} <span style="color:var(--shadow);font-size:.75rem">(${Math.round(inProfit/total*100)}%)</span>`],
+          ['Peak hour',     peakAMPM],
+          ['25th pct',      fmt(p25)],
+          ['75th pct',      fmt(p75)],
+          ['Std deviation', fmt(stdDev)],
         ].map(([k,v])=>`<div class="irow"><span class="ik">${k}</span><span class="iv">${v}</span></div>`).join('')}
       </div>
-      ${chartHTML}`;
+      ${distHTML}`;
   } catch (err) {
     if (el) el.innerHTML = `<div style="color:var(--lose);padding:10px 0">Error: ${err.message}</div>`;
   }

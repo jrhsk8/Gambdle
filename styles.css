@@ -977,6 +977,20 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bet-row > .ch-allin { order: 4; }
   .bj-split-lbl { font-size: 1.6rem; }
   .bj-split-val  { font-size: 2rem; }
+  /* Results screen — fit within natural window height */
+  .results-panel { padding: 16px 18px !important; }
+  .results-tier { font-size: 1.02rem !important; margin-bottom: 2px !important; }
+  .results-chips-lbl { margin-bottom: 2px !important; }
+  .big-chips { font-size: 3.2rem !important; transform: scale(1.2); }
+  .res-row { padding: 6px 10px !important; }
+  .res-net { font-size: 1.25rem !important; }
+  .results-panel .game-manifest { margin-bottom: 4px !important; }
+  .results-panel .ik { font-size: 1.2rem; }
+  .results-panel .iv { font-size: 1.2rem; }
+  #dist-title { font-size: 1.05rem !important; margin-top: 6px !important; margin-bottom: 4px !important; }
+  .dist-bars { height: 50px; margin-top: 13px; margin-bottom: 17px; }
+  .share-box { font-size: 0.67rem; padding: 6px 10px; line-height: 1.3; }
+  .results-panel > .btn-gold { padding: 14px 16px; }
   /* UTH result screen — compact sizing to stay inside the XP window on all desktop viewports */
   .uth-result-panel { min-height: 0 !important; padding: 10px 14px !important; }
   .uth-result-panel > .divider { margin: 4px 0; }
