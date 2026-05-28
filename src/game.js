@@ -14,7 +14,7 @@ function screenIntro(){
     </div>
     <div class="divider"></div>
     <div style="text-align:center;padding:4px 4px">
-      <div style="font-size:1.8rem;color:var(--cream)">You start with <b style="color:var(--gold-hi)">${fmt(START)} chips</b>.</div>
+      <div style="font-size:1.8rem;color:var(--cream)">You start with <b style="color:var(--gold-hi)">${fmt(START_CHIPS)} chips</b>.</div>
       <div style="font-size:1.4rem;color:var(--cream);opacity:0.7;margin-top:4px">Your final stack is your leaderboard score.</div>
     </div>
     <button class="btn-gold btn-lg" style="margin: 10px 0" onclick="startGame()">► Start new game</button>
@@ -104,7 +104,7 @@ async function submitAndFetchLeaderboard() {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-score`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ seed, chips: S.chips })
+        body: JSON.stringify({ seed, chips: S.chips, fingerprint: getDeviceId() })
       });
       if (res.ok) _ls.setItem(subKey, '1');
     } catch(e) {
@@ -252,15 +252,18 @@ async function fetchScoreDistribution() {
 
 // ─── DEV TOOLS ───────────────────────────────────────────────────────────
 
+// Thin wrapper so tests can override it without touching location directly.
+function _doReload() { location.reload(); }
+
 function devReset() {
   _ls.removeItem(getStateKey());
-  location.reload();
+  _doReload();
 }
 
 function devSetGame(slot, value) {
   _ls.setItem('gambdle_dev_game' + slot, value);
   _ls.removeItem(getStateKey());
-  location.reload();
+  _doReload();
 }
 
 function devApplyMod(k) {
@@ -312,6 +315,7 @@ const STATUS_HINT = {
   poker:    'Poker — choose action.',
   roulette: 'Roulette — place a bet.',
   results:  '<span class="sb-prefix">Game complete · </span>New game at midnight<span class="sb-suffix"> · Arizona time</span>',
+  devstats: 'Dev mode — player statistics.',
 };
 
 function statusBar(){
@@ -330,11 +334,98 @@ function statusBar(){
   </div>`;
 }
 
+// ─── DEV STATS SCREEN ────────────────────────────────────────────────────
+
+function screenDevStats() {
+  const seed = getActiveSeed();
+  return `${hdr('Dev Stats · Day #' + S.day)}
+  <div class="panel" style="text-align:center">
+    <div style="font-family:var(--btn-f);font-size:1.6rem;color:var(--gold-hi);margin-bottom:2px">Day #${S.day} Stats</div>
+    <div style="font-size:0.72rem;color:var(--shadow);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Seed ${seed}</div>
+    <div class="divider"></div>
+    <div id="devstats-body">
+      <div style="color:var(--shadow);padding:18px 0">Fetching…</div>
+    </div>
+    <div class="divider"></div>
+    <button class="btn-gold" onclick="goTo('intro')">← Close</button>
+  </div>`;
+}
+
+async function fetchDevStats() {
+  const el = document.getElementById('devstats-body');
+  if (!el) return;
+  const seed = getActiveSeed();
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/scores?seed=eq.${seed}&select=chips,created_at&order=chips.desc`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+    if (!rows.length) { el.innerHTML = `<div style="color:var(--shadow);padding:12px 0">No submissions yet for seed ${seed}.</div>`; return; }
+
+    const scores = rows.map(r => r.chips);
+    const total  = scores.length;
+    const avg    = Math.round(scores.reduce((a, b) => a + b, 0) / total);
+    const sorted = [...scores].sort((a, b) => a - b);
+    const med    = sorted.length % 2 === 0
+      ? Math.round((sorted[sorted.length/2-1] + sorted[sorted.length/2]) / 2)
+      : sorted[Math.floor(sorted.length/2)];
+    const max    = scores[0];
+    const bozos  = scores.filter(s => s === 0).length;
+
+    // Distribution (8 buckets)
+    const maxScore = Math.max(max, 1);
+    const bSize = Math.ceil(maxScore / 8);
+    const buckets = Array(8).fill(0);
+    for (const s of scores) buckets[Math.min(Math.floor(s / bSize), 7)]++;
+    const maxB = Math.max(...buckets, 1);
+    const chartHTML = `<div style="display:flex;align-items:flex-end;gap:3px;height:48px;margin:8px 0 4px">
+      ${buckets.map((c, i) => {
+        const h = Math.max(Math.round((c / maxB) * 44), c > 0 ? 3 : 0);
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px" title="${c} scores">
+          <div style="background:rgba(196,147,58,.6);border-radius:2px 2px 0 0;width:100%;height:${h}px"></div>
+          <div style="font-size:.6rem;color:var(--shadow)">${fmt(i*bSize)}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+    // New players today — first-time fingerprints (requires Step 5 RPC + fingerprint column)
+    let newPlayers = null;
+    try {
+      const npr = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_new_player_count`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({ p_seed: seed })
+      });
+      if (npr.ok) newPlayers = await npr.json();
+    } catch(e) {}
+    const newPlayersVal = newPlayers !== null
+      ? fmt(newPlayers)
+      : `<span style="color:var(--shadow);font-size:.75rem">needs RPC</span>`;
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:8px">
+        ${[
+          ['Total players', fmt(total)],
+          ['New players',   newPlayersVal],
+          ['Average score', fmt(avg)],
+          ['Median score',  fmt(med)],
+          ['High score',    fmt(max)],
+          ['Went bust',     `<span style="color:${bozos>0?'var(--lose)':'inherit'}">${fmt(bozos)}</span>`],
+        ].map(([k,v])=>`<div class="irow"><span class="ik">${k}</span><span class="iv">${v}</span></div>`).join('')}
+      </div>
+      ${chartHTML}`;
+  } catch (err) {
+    if (el) el.innerHTML = `<div style="color:var(--lose);padding:10px 0">Error: ${err.message}</div>`;
+  }
+}
+
 // ─── RENDER ──────────────────────────────────────────────────────────────
 
 // Full re-render — replaces all of #app. Use surgical DOM updates mid-hand to avoid flash.
 function render(){
-  const scr={intro:screenIntro,bj:screenBJ,uth:screenUTH,poker:screenPoker,roulette:screenRoulette,results:screenResults};
+  const scr={intro:screenIntro,bj:screenBJ,uth:screenUTH,poker:screenPoker,roulette:screenRoulette,results:screenResults,devstats:screenDevStats};
   const inner = (scr[S.screen]||screenIntro)();
   document.getElementById('app').innerHTML=`<div class="app">
     <div class="window">
@@ -363,6 +454,7 @@ function render(){
   }
   saveState();
   if (S.screen === 'results') { submitAndFetchLeaderboard(); fetchScoreDistribution(); }
+  if (S.screen === 'devstats') fetchDevStats();
 }
 
 function updateChipDisplay() {
@@ -385,12 +477,34 @@ function _skipHand(arr, entry, counterKey, nextScreen, resetFn) {
   render();
 }
 
+// Shared "next hand" flow: sound → reset → re-render (or go to results if busted).
+function _nextHand(resetFn) {
+  sndAdvance();
+  resetFn();
+  if (isChipBusted()) S.screen = 'results';
+  render();
+}
+
+// Produces the standard result panel used by BJ, UTH-fold, etc.
+// detailHTML is injected between the delta line and the running total.
+function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnText, panelCls='') {
+  return `<div class="panel ${panelCls}" style="text-align:center">
+    ${dotsHTML}
+    <div class="divider"></div>
+    <div class="result-hl" style="color:${col(delta)}">${headlineHTML}</div>
+    <div class="result-sub" style="color:${col(delta)}">${sign(delta)} chips</div>
+    ${detailHTML}
+    ${runningTotalRow()}
+    ${nextBtn(btnAction, btnText)}
+  </div>`;
+}
+
 // Plays a transition sound scaled to how well the player is doing.
 function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('assets/sounds/mediumbet.mp3');else playMp3('assets/sounds/smallbet.mp3');}
 // Navigates between games; redirects to results early if the player is busted (<10 chips).
 function advanceTo(s){
   if(s!=='results'&&isChipBusted())s='results';
-  if(s==='results')S.chips=START+gameNet(GAME1)+gameNet(GAME2)+(S.rResult?.delta||0);
+  if(s==='results')S.chips=START_CHIPS+gameNet(GAME1)+gameNet(GAME2)+(S.rResult?.delta||0);
   sndAdvance();goTo(s);
 }
 function startGame(){sndChip('allin');S.screen=GAME1;S.bjPhase='bet';render();}
@@ -442,11 +556,28 @@ function initWindowDrag() {
 }
 
 // ─── BOOT ────────────────────────────────────────────────────────────────
+
+// Handles mid-animation refreshes for UTH, Poker, and Roulette screens.
+// _bjResumeAfterRefresh is kept separate due to its additional complexity.
+function _resumeAfterRefresh() {
+  if (S.screen === 'uth' && S.uthPhase === 'reveal') {
+    setTimeout(() => {
+      _noAnim = true; S.uthPhase = 'result'; render(); updateChipDisplay();
+      const last = S.uthHistory[S.uthHistory.length - 1];
+      if (last && last.delta > 0) setTimeout(sndBigWin, UTH_CARD_INTERVAL_MS);
+    }, 300);
+  } else if (S.screen === 'poker' && S.pkPhase === 'draw') {
+    setTimeout(() => { S.pkHand++; S.pkPhase = 'result'; render(); }, 300);
+  } else if (S.screen === 'roulette' && S.rPhase === 'spinning') {
+    _rouletteAudio = getPref('mute') ? null : new Audio('assets/sounds/roulette ball.mp3');
+    if (_rouletteAudio) { _rouletteAudio.volume = 0.5; _rouletteAudio.load(); }
+    setTimeout(startWheelAnim, 60);
+  }
+}
+
 loadState();
 applyPrefs();
 render();
 initWindowDrag();
 _bjResumeAfterRefresh();
-_uthResumeAfterRefresh();
-_pkResumeAfterRefresh();
-_rResumeAfterRefresh();
+_resumeAfterRefresh();

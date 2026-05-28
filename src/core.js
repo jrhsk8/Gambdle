@@ -9,6 +9,22 @@ const _ls = (() => {
   catch { return sessionStorage; }
 })();
 
+// Persistent anonymous device ID stored in localStorage — used for fingerprinting submissions.
+// Generates a UUID once on first visit; same device gets the same ID across days.
+function getDeviceId() {
+  const KEY = 'gambdle_device_id';
+  let id = _ls.getItem(KEY);
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+    _ls.setItem(KEY, id);
+  }
+  return id;
+}
+
 // SplitMix32-style seeded PRNG — returns a function that yields floats in [0, 1).
 // The magic constant (0x6d2b79f5), Math.imul (32-bit integer multiply), and >>>0
 // (coerce to unsigned 32-bit) are all required for correct avalanche behavior.
@@ -26,6 +42,8 @@ const _PHOENIX_OFFSET_MS = 7 * 60 * 60 * 1000;
 const getDailySeed = () => { const d=new Date(Date.now()-_PHOENIX_OFFSET_MS); return d.getUTCFullYear()*10000+(d.getUTCMonth()+1)*100+d.getUTCDate(); };
 let _backlogSeed = (() => { const v=parseInt(_ls.getItem('gambdle_backlog_seed')||'0'); return v||null; })();
 const getActiveSeed = () => _backlogSeed || getDailySeed();
+// Test-only setter — lets dev-advanced.test.js override _backlogSeed without a page reload.
+function _setBacklogSeedForTest(v) { _backlogSeed = v; }
 const _testActive = () => !!_ls.getItem('gambdle_use_test_seed');
 function getRngSeed() { return _testActive()?1:(DAILY_SEED_OVERRIDES[getActiveSeed()]||getActiveSeed()); }
 function getStateKey() { return _testActive()?'gambdle_test_state':STORAGE_KEY+getActiveSeed(); }
@@ -174,7 +192,7 @@ function _applyUthDeckOverride(deck, hands) {
 }
 
 // Pre-generates all cards and spin data for the daily run.
-function genGame(){
+function genDeal(){
   const rng=mkRng(getRngSeed());
   const shoe=[];for(let i=0;i<2;i++)shoe.push(...buildDeck());
   let bjShoe=shuffle(shoe,rng);
@@ -212,11 +230,11 @@ function genGame(){
 
   return{bjShoe,pokerDecks,uthDeck,rSpinOverride};
 }
-// G is generated once at page load — the same deal for everyone on the same calendar day.
-const G=genGame();
+// DEAL is generated once at page load — the same cards for everyone on the same calendar day.
+const DEAL=genDeal();
 
 // ─── GLOBAL STATE ───────────────────────────────────────────
-const START=1000;
+const START_CHIPS=1000;
 const CHIP_TIERS=[
   {min:2500,emoji:'🐋',label:'Whale'},
   {min:1500,emoji:'💎',label:'High Roller'},
@@ -226,7 +244,7 @@ const CHIP_TIERS=[
 ];
 function getTier(chips){return CHIP_TIERS.find(t=>chips>=t.min);}
 let S={
-  screen:'intro', chips:START, day:getActiveDayNum(),
+  screen:'intro', chips:START_CHIPS, day:getActiveDayNum(),
   bjHand:0, bjPhase:'bet', bjBet:0,
   bjPlayer:[], bjDealer:[], bjResult:null,
   bjHistory:[], bjIdx:0,
@@ -293,12 +311,14 @@ function loadState() {
     S = { ...S, ...parsed, day: getActiveDayNum() };
     // Migrate: old saves used 'poker' as a generic game-2 screen key; now it means 5-card poker specifically.
     if (S.screen === 'poker' && GAME2 !== 'poker') S.screen = GAME2;
-    // Guard: if no game has been started at all, chips must equal START regardless of saved value.
+    // Dev-only screen — never persist as the restored screen.
+    if (S.screen === 'devstats') S.screen = 'intro';
+    // Guard: if no game has been started at all, chips must equal START_CHIPS regardless of saved value.
     const _noProg = !S.bjHistory.length && !S.uthHistory.length && !S.pkHistory.length
                  && S.rResult === null && S.bjBet === 0 && S.uthAnte === 0 && S.pkBet === 0 && !S.rBets.length;
-    if (_noProg) S.chips = START;
+    if (_noProg) S.chips = START_CHIPS;
     // Guard: for completed runs, recompute chips from recorded history so stale saves can't inflate scores.
-    if (S.screen === 'results') S.chips = START + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0);
+    if (S.screen === 'results') S.chips = START_CHIPS + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0);
   }
   const forced = _ls.getItem('gambdle_forced_mod');
   if (forced) {

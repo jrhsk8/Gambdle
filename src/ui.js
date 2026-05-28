@@ -9,11 +9,23 @@ function cardHTML(c,sz='md',ex='',dl=0,anim=true){
   if(c==='back')return`<div class="card ${sz} back" style="${ex}"></div>`;
   const cl=(RED_S.has(c.s)?'red':'blk')+' '+(SUIT_CLS[c.s]||'suit-s');
   const ds=anim&&dl?`animation-delay:${dl}s`:'';
-  return`<div class="card ${sz} ${cl}${anim?' adeal':''}" style="${ds}${ex?';'+ex:''}">
+  return`<div class="card ${sz} ${cl}${anim?' deal-anim':''}" style="${ds}${ex?';'+ex:''}">
     <div class="ctl"><span class="ct-r" data-r="${c.r}">${c.r}</span><span class="ct-s">${c.s}</span></div>
     <div class="cbody"><span class="csuit">${c.s}</span></div>
     <div class="cbr"><span class="ct-r" data-r="${c.r}">${c.r}</span><span class="ct-s">${c.s}</span></div>
   </div>`;
+}
+
+// Renders an array of cards with staggered deal-in animation.
+// animFrom=ANIM_NONE (default) suppresses all animation; 0 animates all cards.
+// delay formula for animated cards: (i - animFrom) * interval + base
+// ex: per-card extra style — string (shared) or function(card, idx) => string.
+function renderCards(cards, sz, animFrom=ANIM_NONE, interval=0, base=0, ex='') {
+  return cards.map((c, i) => {
+    const n = i >= animFrom;
+    const exStr = typeof ex === 'function' ? ex(c, i) : ex;
+    return cardHTML(c, sz, exStr, n ? (i - animFrom) * interval + base : 0, n);
+  }).join('');
 }
 
 function chipSel(maxC,curBet,denoms,extraBtn=''){
@@ -39,14 +51,14 @@ function gameDots(history, hand, phase, count = 3){
     const label = isR ? (i === 0 ? 'Last Spin' : 'Final Results') : `Hand ${i+1}`;
     const curIdx=phase==='result'?hand-1:hand;
     const isCur=i===curIdx;
-    if(h && !h.skipped && !isCur){const d=h.delta;return`<div class="hdot ${d>0?'won':d<0?'lost':'push'}">${label}<span class="dot-detail"> ${sign(d)}</span></div>`;}
+    if(h && !h.skipped && !isCur){const d=h.delta;return`<div class="hand-dot ${d>0?'won':d<0?'lost':'push'}">${label}<span class="dot-detail"> ${sign(d)}</span></div>`;}
 
     const cls=isCur?'cur':i<hand?'push':'pend';
     let txt = label;
     if(isCur && phase==='result') txt += `<span class="dot-detail"> · Results</span>`;
     else if(isCur && phase==='bet') txt += `<span class="dot-detail"> · Place bet</span>`;
     else if(isCur) txt += `<span class="dot-detail"> · Playing</span>`;
-    return`<div class="hdot ${cls}">${txt}</div>`;
+    return`<div class="hand-dot ${cls}">${txt}</div>`;
   }).join('')}</div>`;
 }
 
@@ -461,7 +473,9 @@ function toggleMenu(which, trigger) {
       </div>
       <div class="dd-sep"></div>
       <div class="dd-item" id="dd-future-trigger" onclick="showFutureSubmenu(this);event.stopPropagation()">Preview Future Day <span class="dd-key">►</span></div>
-      <div class="dd-item" id="dd-mod-trigger" onclick="showModSubmenu(this);event.stopPropagation()">Force Modifier <span class="dd-key">►</span></div>`;
+      <div class="dd-item" id="dd-mod-trigger" onclick="showModSubmenu(this);event.stopPropagation()">Force Modifier <span class="dd-key">►</span></div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="goTo('devstats');closeDropdowns()">📊 Player Stats</div>`;
   } else if (which === 'file') {
     const canShare = S.screen === 'results';
     const cbStyle='width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0';
@@ -503,12 +517,12 @@ function toggleMenu(which, trigger) {
 
 function enterBacklog(seed) {
   _ls.setItem('gambdle_backlog_seed', seed);
-  location.reload();
+  _doReload();
 }
 
 function exitBacklog() {
   _ls.removeItem('gambdle_backlog_seed');
-  location.reload();
+  _doReload();
 }
 
 // Returns the YYYYMMDD seed for a given 1-based day number.

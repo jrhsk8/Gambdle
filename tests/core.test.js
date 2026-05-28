@@ -1,0 +1,284 @@
+// ─── mkRng ───────────────────────────────────────────────────────────────────
+
+describe('mkRng', () => {
+  it('same seed produces identical sequence', () => {
+    const a = mkRng(42), b = mkRng(42);
+    for (let i = 0; i < 20; i++) {
+      const va = a(), vb = b();
+      assert(va === vb, `step ${i}: ${va} !== ${vb}`);
+    }
+  });
+
+  it('different seeds produce different sequences', () => {
+    const a = mkRng(1), b = mkRng(2);
+    let same = 0;
+    for (let i = 0; i < 20; i++) if (a() === b()) same++;
+    assert(same < 20, 'different seeds should not be identical');
+  });
+
+  it('output is always in [0, 1)', () => {
+    const rng = mkRng(99999);
+    for (let i = 0; i < 200; i++) {
+      const v = rng();
+      assert(v >= 0 && v < 1, `value ${v} out of [0,1)`);
+    }
+  });
+
+  it('seed 0 and seed 1 produce different output', () => {
+    const v0 = mkRng(0)();
+    const v1 = mkRng(1)();
+    assert(v0 !== v1, `seed 0 and seed 1 collide`);
+  });
+});
+
+// ─── cVal ────────────────────────────────────────────────────────────────────
+
+describe('cVal', () => {
+  it('numeric ranks 2-10', () => {
+    for (let n = 2; n <= 10; n++) assertEqual(cVal(String(n)), n, `rank ${n}`);
+  });
+
+  it('J, Q, K = 10', () => {
+    assertEqual(cVal('J'), 10);
+    assertEqual(cVal('Q'), 10);
+    assertEqual(cVal('K'), 10);
+  });
+
+  it('Ace = 11', () => {
+    assertEqual(cVal('A'), 11);
+  });
+});
+
+// ─── hVal ────────────────────────────────────────────────────────────────────
+
+describe('hVal', () => {
+  const c = (r, s) => ({ r, s });
+
+  it('basic two-card totals', () => {
+    assertEqual(hVal([c('7','♠'), c('8','♥')]), 15);
+    assertEqual(hVal([c('10','♠'), c('K','♥')]), 20);
+    assertEqual(hVal([c('5','♦'), c('4','♣')]), 9);
+  });
+
+  it('soft hand — Ace counts as 11 when safe', () => {
+    assertEqual(hVal([c('A','♠'), c('6','♥')]), 17);
+    assertEqual(hVal([c('A','♠'), c('9','♥')]), 20);
+    assertEqual(hVal([c('A','♠'), c('2','♥')]), 13);
+  });
+
+  it('Ace collapses to 1 to avoid bust', () => {
+    assertEqual(hVal([c('A','♠'), c('9','♥'), c('5','♦')]), 15);
+    assertEqual(hVal([c('A','♠'), c('7','♥'), c('6','♦')]), 14);
+    assertEqual(hVal([c('A','♠'), c('K','♥'), c('Q','♦')]), 21);
+  });
+
+  it('two Aces: one stays soft', () => {
+    assertEqual(hVal([c('A','♠'), c('A','♥')]), 12);
+  });
+
+  it('three Aces', () => {
+    assertEqual(hVal([c('A','♠'), c('A','♥'), c('A','♦')]), 13);
+  });
+
+  it('bust value is preserved exactly', () => {
+    assertEqual(hVal([c('K','♠'), c('Q','♥'), c('5','♦')]), 25);
+    assertEqual(hVal([c('9','♠'), c('8','♥'), c('7','♦')]), 24);
+  });
+
+  it('Ace + two 10-value cards = 21', () => {
+    assertEqual(hVal([c('A','♠'), c('K','♥'), c('10','♦')]), 21);
+  });
+
+  it('five-card hand', () => {
+    assertEqual(hVal([c('2','♠'), c('3','♥'), c('4','♦'), c('5','♣'), c('6','♠')]), 20);
+  });
+});
+
+// ─── hValDisplay ─────────────────────────────────────────────────────────────
+
+describe('hValDisplay', () => {
+  const c = (r, s) => ({ r, s });
+
+  it('hard hand returns plain number', () => {
+    assertEqual(hValDisplay([c('7','♠'), c('8','♥')]), '15');
+    assertEqual(hValDisplay([c('K','♠'), c('5','♥')]), '15');
+    assertEqual(hValDisplay([c('10','♠'), c('9','♥')]), '19');
+  });
+
+  it('soft hand shows "hard / soft" format', () => {
+    assertEqual(hValDisplay([c('A','♠'), c('6','♥')]), '7 / 17');
+    assertEqual(hValDisplay([c('A','♠'), c('4','♥')]), '5 / 15');
+    assertEqual(hValDisplay([c('A','♠'), c('9','♥')]), '10 / 20');
+    assertEqual(hValDisplay([c('A','♠'), c('2','♥')]), '3 / 13');
+  });
+
+  it('soft 21 (Ace + K) shows dual format', () => {
+    assertEqual(hValDisplay([c('A','♠'), c('K','♥')]), '11 / 21');
+  });
+
+  it('Ace collapses — shows hard total only', () => {
+    assertEqual(hValDisplay([c('A','♠'), c('9','♥'), c('5','♦')]), '15');
+    assertEqual(hValDisplay([c('A','♠'), c('K','♥'), c('Q','♦')]), '21');
+  });
+
+  it('bust shows bust value', () => {
+    assertEqual(hValDisplay([c('K','♠'), c('Q','♥'), c('5','♦')]), '25');
+  });
+});
+
+// ─── isBJ ────────────────────────────────────────────────────────────────────
+
+describe('isBJ', () => {
+  const c = (r, s) => ({ r, s });
+
+  it('Ace + face card is blackjack', () => {
+    assert(isBJ([c('A','♠'), c('K','♥')]), 'A+K');
+    assert(isBJ([c('A','♠'), c('Q','♥')]), 'A+Q');
+    assert(isBJ([c('A','♠'), c('J','♥')]), 'A+J');
+    assert(isBJ([c('A','♠'), c('10','♥')]), 'A+10');
+  });
+
+  it('Ace can be second card', () => {
+    assert(isBJ([c('K','♠'), c('A','♥')]), 'K+A');
+  });
+
+  it('21 from three cards is not blackjack', () => {
+    assert(!isBJ([c('A','♠'), c('5','♥'), c('5','♦')]), 'A+5+5 = 21, not BJ');
+    assert(!isBJ([c('7','♠'), c('7','♥'), c('7','♦')]), '7+7+7 = 21, not BJ');
+  });
+
+  it('two face cards (20) is not blackjack', () => {
+    assert(!isBJ([c('K','♠'), c('Q','♥')]), 'K+Q = 20');
+  });
+
+  it('pair of Aces (soft 12) is not blackjack', () => {
+    assert(!isBJ([c('A','♠'), c('A','♥')]), 'A+A = 12');
+  });
+});
+
+// ─── buildDeck ───────────────────────────────────────────────────────────────
+
+describe('buildDeck', () => {
+  it('has exactly 52 cards', () => {
+    assertEqual(buildDeck().length, 52);
+  });
+
+  it('contains all 4 suits × 13 ranks', () => {
+    const deck = buildDeck();
+    for (const s of ['♠','♥','♦','♣']) {
+      for (const r of ['2','3','4','5','6','7','8','9','10','J','Q','K','A']) {
+        assert(deck.some(c => c.s === s && c.r === r), `missing ${r}${s}`);
+      }
+    }
+  });
+
+  it('no duplicate cards', () => {
+    const deck = buildDeck();
+    const seen = new Set(deck.map(c => `${c.r}${c.s}`));
+    assertEqual(seen.size, 52, 'all 52 cards are unique');
+  });
+});
+
+// ─── shuffle ─────────────────────────────────────────────────────────────────
+
+describe('shuffle', () => {
+  it('same seed produces same order', () => {
+    const deck = buildDeck();
+    const a = shuffle(deck, mkRng(999));
+    const b = shuffle(deck, mkRng(999));
+    assertDeepEqual(a.map(c => c.r + c.s), b.map(c => c.r + c.s));
+  });
+
+  it('preserves all 52 cards', () => {
+    const deck = buildDeck();
+    const s = shuffle(deck, mkRng(1));
+    assertEqual(s.length, 52);
+    const origKeys = new Set(deck.map(c => c.r + c.s));
+    for (const c of s) assert(origKeys.has(c.r + c.s), `unexpected card ${c.r}${c.s}`);
+  });
+
+  it('different seeds produce different orders', () => {
+    const deck = buildDeck();
+    const a = shuffle(deck, mkRng(1)).map(c => c.r + c.s).join(',');
+    const b = shuffle(deck, mkRng(2)).map(c => c.r + c.s).join(',');
+    assert(a !== b, 'different seeds should produce different orderings');
+  });
+
+  it('does not mutate the input array', () => {
+    const deck = buildDeck();
+    const before = deck.map(c => c.r + c.s).join(',');
+    shuffle(deck, mkRng(42));
+    assertEqual(deck.map(c => c.r + c.s).join(','), before, 'original deck unchanged');
+  });
+});
+
+// ─── getTier ─────────────────────────────────────────────────────────────────
+
+describe('getTier', () => {
+  it('2500+ is Whale', () => {
+    assertEqual(getTier(2500).label, 'Whale');
+    assertEqual(getTier(9999).label, 'Whale');
+  });
+
+  it('1500–2499 is High Roller', () => {
+    assertEqual(getTier(1500).label, 'High Roller');
+    assertEqual(getTier(2499).label, 'High Roller');
+  });
+
+  it('1000–1499 is Apprentice', () => {
+    assertEqual(getTier(1000).label, 'Apprentice');
+    assertEqual(getTier(1499).label, 'Apprentice');
+  });
+
+  it('1–999 is Survivor', () => {
+    assertEqual(getTier(1).label, 'Survivor');
+    assertEqual(getTier(999).label, 'Survivor');
+  });
+
+  it('0 is Bozo', () => {
+    assertEqual(getTier(0).label, 'Bozo');
+  });
+
+  it('exact boundary 1500', () => {
+    assert(getTier(1499).label !== getTier(1500).label, 'boundary at 1500');
+  });
+});
+
+// ─── genDeal / DEAL ──────────────────────────────────────────────────────────
+
+describe('genDeal (DEAL)', () => {
+  it('DEAL.bjShoe has 104 cards (2 decks)', () => {
+    assertEqual(DEAL.bjShoe.length, 104);
+  });
+
+  it('DEAL.uthDeck has 52 cards', () => {
+    assertEqual(DEAL.uthDeck.length, 52);
+  });
+
+  it('DEAL.pokerDecks is 3 decks of 52', () => {
+    assertEqual(DEAL.pokerDecks.length, 3);
+    for (const d of DEAL.pokerDecks) assertEqual(d.length, 52, 'poker deck length');
+  });
+
+  it('same RNG seed always produces same first BJ card', () => {
+    const seed = 20260101;
+    const rng1 = mkRng(seed);
+    const rng2 = mkRng(seed);
+    const shoe = []; for (let i = 0; i < 2; i++) shoe.push(...buildDeck());
+    const s1 = shuffle([...shoe], rng1);
+    const s2 = shuffle([...shoe], rng2);
+    assertEqual(s1[0].r, s2[0].r, 'first card rank matches');
+    assertEqual(s1[0].s, s2[0].s, 'first card suit matches');
+  });
+
+  it('different seeds produce different first BJ cards (with very high probability)', () => {
+    const rng1 = mkRng(111), rng2 = mkRng(222);
+    const shoe = []; for (let i = 0; i < 2; i++) shoe.push(...buildDeck());
+    const s1 = shuffle([...shoe], rng1);
+    const s2 = shuffle([...shoe], rng2);
+    // Check at least one of the first 5 cards differs
+    const a5 = s1.slice(0,5).map(c=>c.r+c.s).join(',');
+    const b5 = s2.slice(0,5).map(c=>c.r+c.s).join(',');
+    assert(a5 !== b5, 'different seeds should produce different card sequences');
+  });
+});

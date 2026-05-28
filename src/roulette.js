@@ -1,15 +1,4 @@
 
-// ─── ROULETTE RESUME ─────────────────────────────────────────────────────
-
-// If refreshed during the spinning phase, rSpin is already set but startWheelAnim was lost.
-// Restart the audio + animation exactly as rSpin() does, so rFinish() fires naturally.
-function _rResumeAfterRefresh(){
-  if(S.screen!=='roulette'||S.rPhase!=='spinning')return;
-  _rouletteAudio=getPref('mute')?null:new Audio('assets/sounds/roulette ball.mp3');
-  if(_rouletteAudio){_rouletteAudio.volume=0.5;_rouletteAudio.load();}
-  setTimeout(startWheelAnim,60);
-}
-
 // ─── ROULETTE TIMING ─────────────────────────────────────────────────────
 const R_SPIN_MS         = 4600; // wheel animation duration (matches audio track length)
 const R_SETTLE_MS       = 1000; // pause after ball stops before resolving bets (with audio)
@@ -510,7 +499,7 @@ function rSpin(){
   if(S.rBets.length===0)return;
   const zb=getMod('r_zero_boost');
   const fg=getMod('r_force_group');
-  if(G.rSpinOverride!=null){S.rSpin=G.rSpinOverride;}
+  if(DEAL.rSpinOverride!=null){S.rSpin=DEAL.rSpinOverride;}
   else if(fg&&R_GROUP_INFO[fg]){const ns=[...R_GROUP_INFO[fg].nums];S.rSpin=ns[Math.floor(Math.random()*ns.length)];}
   // r_zero_boost: expand pool by zb slots, all mapped to 0, so zero hits zb/(36+zb) of the time.
   else if(zb){const r=Math.floor(Math.random()*(36+zb));S.rSpin=r<zb?0:r-zb+1;}

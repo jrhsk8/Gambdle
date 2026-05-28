@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gambdle Tests</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: monospace; background: #161616; color: #ccc; padding: 20px; margin: 0; }
+    h1 { color: #c49341; margin: 0 0 10px; font-size: .95rem; letter-spacing: .05em; }
+    #summary { display: inline-block; font-size: .85rem; font-weight: bold; padding: 5px 12px; border-radius: 4px; margin-bottom: 18px; }
+    #summary.all-pass { background: rgba(76,175,80,.1); color: #4caf50; border: 1px solid rgba(76,175,80,.3); }
+    #summary.has-fail { background: rgba(244,67,54,.1); color: #f44336; border: 1px solid rgba(244,67,54,.3); }
+    #groups-grid { max-width: 640px; }
+
+    /* Sections */
+    .section-block { margin-top: 14px; }
+    .section-block:first-child { margin-top: 0; }
+    .section-hdr { display: flex; justify-content: space-between; align-items: center; padding: 4px 0 5px; border-bottom: 1px solid #242424; cursor: pointer; user-select: none; }
+    .section-hdr:hover { border-bottom-color: #2e2e2e; }
+    .section-has-fail .section-hdr { border-bottom-color: rgba(200,60,60,.25); }
+    .section-arrow { color: #3a3a3a; font-size: .58rem; margin-right: 6px; }
+    .section-name { color: #555; font-size: .65rem; text-transform: uppercase; letter-spacing: .13em; }
+    .section-hdr:hover .section-name, .section-hdr:hover .section-arrow { color: #777; }
+    .section-has-fail .section-name { color: #744; }
+    .section-count { font-size: .68rem; font-weight: bold; }
+    .section-body { padding: 3px 0 6px; }
+    .section-block.collapsed .section-body { display: none; }
+    .section-block.collapsed .section-hdr { border-bottom-color: transparent; }
+
+    /* Group rows */
+    .group-row { padding: 1px 0; }
+    .group-row + .group-row { border-top: 1px solid #1c1c1c; }
+    .group-line { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0 2px 10px; }
+    .group-name { color: #666; font-size: .75rem; }
+    .group-row-fail .group-name { color: #a55; }
+    .group-count { font-size: .7rem; font-weight: bold; }
+
+    /* Inline failures */
+    .test-fail { display: flex; gap: 5px; padding: 1px 0 2px 18px; }
+    .fail-x { color: #c44; font-size: .7rem; flex-shrink: 0; }
+    .fail-body { font-size: .7rem; }
+    .fail-msg { color: #b66; }
+    .fail-err { display: block; color: #888; font-size: .67rem; margin-top: 1px; }
+
+    /* Shared pass/fail colours */
+    .cnt-pass { color: #4a9; }
+    .cnt-fail { color: #c44; }
+
+    #app { display: none; }
+  </style>
+</head>
+<body>
+  <h1>♠ Gambdle Test Suite</h1>
+  <div id="summary">Running…</div>
+  <div id="groups-grid"></div>
+
+  <!-- Hidden DOM anchor required by render() in game.js -->
+  <div id="app"></div>
+
+  <!-- Remove any dev game-slot overrides so GAME1/GAME2 always default to bj/uth.
+       Must run before core.js, which reads these keys as const values at load time. -->
+  <script>
+    try {
+      localStorage.removeItem('gambdle_dev_game1');
+      localStorage.removeItem('gambdle_dev_game2');
+    } catch(e) {}
+  </script>
+
+  <!-- Source files — full load order including ui.js and game.js -->
+  <script src="src/modifiers.js"></script>
+  <script src="src/core.js"></script>
+  <script src="src/uth.js"></script>
+  <script src="src/roulette.js"></script>
+  <script src="src/bj.js"></script>
+  <script src="src/ui.js"></script>
+  <script src="src/game.js"></script>
+
+  <!-- Override _doReload AFTER game.js so the function declaration doesn't overwrite it.
+       _doReload() is the seam game.js uses instead of calling location.reload() directly. -->
+  <script>
+    window._testReloadCount = 0;
+    _doReload = function() { window._testReloadCount++; };
+  </script>
+
+  <!-- Test runner must load before test files -->
+  <script src="tests/runner.js"></script>
+
+  <script>section('Core Utilities');</script>
+  <script src="tests/core.test.js"></script>
+
+  <script>section('RNG Sequence & Date Math');</script>
+  <script src="tests/rng-sequence.test.js"></script>
+  <script src="tests/day-number.test.js"></script>
+
+  <script>section('Games');</script>
+  <script src="tests/bj.test.js"></script>
+  <script src="tests/uth.test.js"></script>
+  <script src="tests/roulette.test.js"></script>
+  <script src="tests/roulette-payouts.test.js"></script>
+
+  <script>section('Modifiers');</script>
+  <script src="tests/modifiers.test.js"></script>
+  <script src="tests/modifiers-behavior.test.js"></script>
+
+  <script>section('State & Persistence');</script>
+  <script src="tests/persistence.test.js"></script>
+
+  <script>section('Fingerprint');</script>
+  <script src="tests/fingerprint.test.js"></script>
+
+  <script>section('Dev Functions');</script>
+  <script src="tests/dev.test.js"></script>
+
+  <script>section('Seed & Date Logic');</script>
+  <script src="tests/dev-advanced.test.js"></script>
+</body>
+</html>

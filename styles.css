@@ -445,7 +445,7 @@ body.cardback-whale .card.back {
 }
 body.cardback-whale .card.back::before { content: '🐋'; }
 
-.adeal {
+.deal-anim {
   animation: deal 0.55s cubic-bezier(.22,.61,.36,1) both;
   will-change: transform;
   backface-visibility: hidden;
@@ -560,7 +560,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
 /* ── Hand progress dots (pills) ─────────────────────────── */
 .dots-row { display: flex; gap: 8px; margin: 4px 0 4px; }
-.hdot {
+.hand-dot {
   flex: 1; padding: 4px 10px;
   background: var(--panel); color: var(--shadow);
   border: 1px solid var(--ink);
@@ -569,12 +569,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   font-size: 1.4rem; text-align: center; line-height: 1.1;
   letter-spacing: 0.06em;
 }
-.hdot.cur  { background: var(--gold); color: var(--ink); font-weight: 700;
+.hand-dot.cur  { background: var(--gold); color: var(--ink); font-weight: 700;
   box-shadow: inset 2px 2px 0 var(--gold-lo), inset -1px -1px 0 var(--gold-hi); }
-.hdot.won  { color: var(--ink); font-weight: 700; opacity: 0.6; }
-.hdot.lost { color: var(--lose); font-weight: 700; opacity: 0.6; }
-.hdot.push { color: var(--shadow); opacity: 0.6; }
-.hdot.pend { color: var(--shadow); opacity: 0.6; }
+.hand-dot.won  { color: var(--ink); font-weight: 700; opacity: 0.6; }
+.hand-dot.lost { color: var(--lose); font-weight: 700; opacity: 0.6; }
+.hand-dot.push { color: var(--shadow); opacity: 0.6; }
+.hand-dot.pend { color: var(--shadow); opacity: 0.6; }
 
 /* ── Info row (label / value pair) ──────────────────────── */
 .irow {
@@ -667,6 +667,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 @keyframes r-pulse { 50% { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 3px var(--gold); } }
 .r-boost-fire { box-shadow: inset 1.5px 1.5px 0 rgba(255,200,80,0.15), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px #e05500; animation: r-pulse-fire 1.1s ease-in-out infinite; }
 @keyframes r-pulse-fire { 50% { box-shadow: inset 1.5px 1.5px 0 rgba(255,200,80,0.15), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 3px #ff8c00; } }
+.btn-peek-glow { border-color: #e05500 !important; box-shadow: 0 0 0 1px #e05500, 0 0 10px 2px rgba(224,85,0,0.4); animation: btn-peek-pulse 1.1s ease-in-out infinite; }
+@keyframes btn-peek-pulse { 50% { box-shadow: 0 0 0 1px #ff8c00, 0 0 14px 4px rgba(255,140,0,0.55); border-color: #ff8c00 !important; } }
 .rn.r-group-win { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px #22c55e; }
 .rn.r-group-partial { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px #ca8a04; }
 .rout.r-group-win, .r2to1.r-group-win { box-shadow: var(--raised), 0 0 0 2px #22c55e; }
@@ -870,7 +872,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .uth-result-panel .sec { font-size: 0.8rem; margin-bottom: 2px; }
   /* Progress dots */
   .dots-row { margin: 0; gap: 5px; }
-  .hdot { padding: 2px 6px; font-size: 1.2rem; }
+  .hand-dot { padding: 2px 6px; font-size: 1.2rem; }
   /* Info rows */
   .ik { font-size: 1.2rem; }
   .iv { font-size: 1.15rem; }
@@ -975,4 +977,26 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bet-row > .ch-allin { order: 4; }
   .bj-split-lbl { font-size: 1.6rem; }
   .bj-split-val  { font-size: 2rem; }
+  /* UTH result screen — compact sizing to stay inside the XP window on all desktop viewports */
+  .uth-result-panel { min-height: 0 !important; padding: 10px 14px !important; }
+  .uth-result-panel > .divider { margin: 4px 0; }
+  .uth-result-panel .result-hl { font-size: 1.4rem; margin-bottom: 1px; }
+  .uth-result-panel .result-sub { font-size: 1.1rem; margin-bottom: 2px; }
+  .uth-result-top { margin-bottom: 2px; }
+  .uth-cards-col { gap: 4px; margin: 2px 0; }
+  .uth-result-panel .uth-cards-col .divider { margin: 3px 0 !important; }
+  .uth-result-panel .card.md { width: 48px; height: 68px; }
+  .uth-result-panel .card.md .csuit { font-size: 1.7rem; }
+  .uth-result-panel .card.md .ct-r { font-size: 0.85rem; }
+  .uth-result-panel .card.md .ct-s { font-size: 0.7rem; }
+  .uth-result-panel .card.md .ct-r[data-r="10"] { font-size: 0.67rem !important; }
+  .uth-result-panel .card.sm { width: 40px; height: 56px; }
+  .uth-result-panel .card.sm .csuit { font-size: 1.3rem; }
+  .uth-result-panel .card.sm .ct-r { font-size: 0.75rem; }
+  .uth-result-panel .card.sm .ct-s { font-size: 0.62rem; }
+  .uth-result-panel .sec { font-size: 0.75rem; margin-bottom: 1px; }
+  .uth-hand-name { font-size: 0.9rem !important; margin-top: 1px !important; }
+  .uth-result-panel .uth-bets-grid { gap: 1px 10px; margin-bottom: 4px; }
+  .uth-result-panel .irow { margin-top: 4px !important; padding: 3px 8px !important; }
+  .uth-result-panel .btn-gold { margin-top: 6px !important; padding: 8px 10px !important; }
 }

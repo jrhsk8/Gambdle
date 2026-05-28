@@ -3,7 +3,7 @@
 
 // Standard video poker hand evaluator (Jacks or Better threshold).
 function rankPoker(cs){
-  const rs=cs.map(c=>c.r),ss=cs.map(c=>c.s),vs=cs.map(c=>cVal(c.r));
+  const rs=cs.map(c=>c.r),ss=cs.map(c=>c.s),vs=cs.map(c=>cardNum(c.r));
   const rc={};for(const r of rs)rc[r]=(rc[r]||0)+1;
   const cts=Object.values(rc).sort((a,b)=>b-a);
   const flush=new Set(ss).size===1;
@@ -94,19 +94,6 @@ const UTH_CARD_INTERVAL_MS = 400;  // stagger between each community card
 // Total reveal duration: UTH_CARD_START_MS + (5 cards × UTH_CARD_INTERVAL_MS) = 2300ms
 const UTH_REVEAL_TOTAL_MS  = UTH_CARD_START_MS + 5 * UTH_CARD_INTERVAL_MS;
 
-// UTH: if refreshed during the reveal animation, jump straight to result.
-// History and uthHand are already incremented before updateUthCommunityCards saves state.
-function _uthResumeAfterRefresh(){
-  if(S.screen!=='uth'||S.uthPhase!=='reveal')return;
-  setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();},300);
-}
-
-// Poker: if refreshed during the card draw reveal animation, advance to result.
-// History and chips are already recorded; only pkHand++ and phase change are pending.
-function _pkResumeAfterRefresh(){
-  if(S.screen!=='poker'||S.pkPhase!=='draw')return;
-  setTimeout(()=>{S.pkHand++;S.pkPhase='result';render();},300);
-}
 
 function resetUTHHand(){
   S.uthAnte=0; S.uthPhase='bet'; S.uthPlay=0; S.uthPlayMult=0;
@@ -127,7 +114,7 @@ function pkSkip(){ _skipHand(S.pkHistory,{bet:0,result:'skip',pts:0,delta:0},'pk
 function pkDeal(){
   if(!S.pkBet)return;
   S.chips-=S.pkBet;
-  S.pkCards=G.pokerDecks[S.pkHand].slice(0,5);
+  S.pkCards=DEAL.pokerDecks[S.pkHand].slice(0,5);
   S.pkHeld=new Set();
   const db=document.getElementById('db');if(db)db.disabled=true;
   sndShuffle(()=>{
@@ -152,7 +139,7 @@ function toggleHold(i){
 }
 /** Discard unheld cards and draw new ones, then calculate final rank. */
 function pkDraw(){
-  const draw=G.pokerDecks[S.pkHand].slice(5);let di=0;
+  const draw=DEAL.pokerDecks[S.pkHand].slice(5);let di=0;
   S.pkFinal=S.pkCards.map((c,i)=>S.pkHeld.has(i)?c:draw[di++]);
   const res=rankPoker(S.pkFinal);
   const wm=winMult();
@@ -176,7 +163,7 @@ function pkDraw(){
   }
   setTimeout(revealNext,300);
 }
-function pkNext(){sndAdvance();S.pkBet=0;S.pkPhase='bet';if(S.chips<10){S.screen='results';render();}else render();}
+function pkNext(){ _nextHand(()=>{ S.pkBet=0; S.pkPhase='bet'; }); }
 
 // ─── ULTIMATE TEXAS HOLD'EM LOGIC ────────────────────────────────────────
 
@@ -193,7 +180,7 @@ function uthDeal(){
     S.uthDealer=[rest[0],rest[1]];
     S.uthComm=rest.slice(2,7);
   }else{
-    const dk=G.uthDeck,off=S.uthHand*9;
+    const dk=DEAL.uthDeck,off=S.uthHand*9;
     S.uthHole=[dk[off],dk[off+1]];
     S.uthDealer=[dk[off+2],dk[off+3]];
     S.uthComm=[dk[off+4],dk[off+5],dk[off+6],dk[off+7],dk[off+8]];
@@ -272,11 +259,7 @@ function uthResolve(){
   updateUthCommunityCards();
   setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();if(delta>0)setTimeout(sndBigWin,UTH_CARD_INTERVAL_MS);},UTH_REVEAL_TOTAL_MS);
 }
-function uthNext(){
-  sndAdvance();
-  resetUTHHand();
-  if(S.chips<10){S.screen='results';render();}else render();
-}
+function uthNext(){ _nextHand(resetUTHHand); }
 
 // Surgically animates only the newly revealed community cards (uthPrevRevealComm → uthRevealComm).
 // Also updates the action UI and progress dots after the animation finishes.
@@ -322,7 +305,7 @@ function updateUthCommunityCards() {
     if (dSec) dSec.textContent = 'Dealer';
     setTimeout(() => sndCard(), startDelay + 100);
     setTimeout(() => sndCard(), startDelay + 1000);
-    dealerHand.innerHTML = S.uthDealer.map((c, i) => cardHTML(c, 'md', '', i * 0.9 + 0.1)).join('');
+    dealerHand.innerHTML = renderCards(S.uthDealer,'md',0,0.9,0.1);
   }
 
   const finishDelay = startDelay + (revealedCount * interval);
@@ -485,13 +468,13 @@ function screenUTH(){
 
   const playerRow=(anim=false)=>`<div style="text-align:center">
     <div class="sec">Your Hand</div>
-    <div class="hand">${S.uthHole.map((c,i)=>cardHTML(c,'md','',anim?0.05+i*0.2:0,anim)).join('')}</div>
+    <div class="hand">${renderCards(S.uthHole,'md',anim?0:ANIM_NONE,0.2,0.05)}</div>
   </div>`;
 
   const dealerRow=(reveal=false)=>`<div id="uth-dealer-container" style="text-align:center">
     <div id="uth-dealer-sec" class="sec">${reveal?'Dealer':getMod('peek')&&S.peekUsed?'Dealer · <span style="color:var(--gold-hi);font-size:.7rem">👁 Peeked</span>':'Dealer (Face Down)'}</div>
     <div id="uth-dealer-hand" class="hand">${reveal
-      ?S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.9+0.1)).join('')
+      ?renderCards(S.uthDealer,'md',0,0.9,0.1)
       :[0,1].map((_,i)=>i===0&&getMod('peek')&&S.peekUsed?cardHTML(S.uthDealer[0],'md','box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px',0,false):cardHTML('back','md')).join('')}</div>
   </div>`;
 
@@ -584,13 +567,13 @@ function screenUTH(){
       <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px">
         <div>
           <div class="sec sec-sm">Dealer</div>
-          <div class="hand" style="justify-content:center">${S.uthDealer.map((c,i)=>cardHTML(c,'md','',i*0.9+0.1)).join('')}</div>
+          <div class="hand" style="justify-content:center">${renderCards(S.uthDealer,'md',0,0.9,0.1)}</div>
         </div>
         ${commRow()}
         <div class="gold-divider"></div>
         <div>
           <div class="sec sec-sm">Your Hand</div>
-          <div class="hand" style="justify-content:center">${S.uthHole.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
+          <div class="hand" style="justify-content:center">${renderCards(S.uthHole,'md')}</div>
         </div>
       </div>
       ${betChips()}
@@ -622,16 +605,16 @@ function screenUTH(){
       <div class="uth-cards-col">
         <div>
           <div class="sec sec-sm">Dealer's Hand</div>
-          <div class="hand" style="justify-content:center">${S.uthDealer.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
-          <div style="font-size:1.3rem;color:var(--gold-hi);margin-top:3px">${CAT_NAMES[dealerBest.cat]}${foldDbDetail}</div>
+          <div class="hand" style="justify-content:center">${renderCards(S.uthDealer,'md')}</div>
+          <div class="uth-hand-name" style="font-size:1.3rem;color:var(--gold-hi);margin-top:3px">${CAT_NAMES[dealerBest.cat]}${foldDbDetail}</div>
         </div>
         <div class="divider" style="width:100%;margin:10px 0"></div>
         ${commRow()}
         <div class="divider" style="width:100%;margin:10px 0"></div>
         <div>
           <div class="sec sec-sm">Your Hand (Folded)</div>
-          <div class="hand" style="justify-content:center">${S.uthHole.map(c=>cardHTML(c,'md','',0,false)).join('')}</div>
-          <div style="font-size:1.3rem;color:var(--shadow);margin-top:3px">${CAT_NAMES[playerBest.cat]}${foldPbDetail}</div>
+          <div class="hand" style="justify-content:center">${renderCards(S.uthHole,'md')}</div>
+          <div class="uth-hand-name" style="font-size:1.3rem;color:var(--shadow);margin-top:3px">${CAT_NAMES[playerBest.cat]}${foldPbDetail}</div>
         </div>
       </div>
       ${runningTotalRow()}
@@ -660,19 +643,19 @@ function screenUTH(){
     <div class="uth-cards-col">
         <div style="text-align:center">
           <div class="sec sec-sm">Dealer${hist.dealerQualifies?' (Qualifies)':' (No Qualify)'}</div>
-          <div class="hand" style="justify-content:center">${S.uthDealer.map(c=>cardHTML(c,'md',hl(c),0,false)).join('')}</div>
-          <div style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[db2.cat]}${dbDetail}</div>
+          <div class="hand" style="justify-content:center">${renderCards(S.uthDealer,'md',ANIM_NONE,0,0,hl)}</div>
+          <div class="uth-hand-name" style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[db2.cat]}${dbDetail}</div>
         </div>
         <div class="divider" style="width:100%;margin:10px 0"></div>
         <div style="text-align:center">
           <div class="sec sec-sm">Community</div>
-          <div id="uth-community-hand" class="hand" style="justify-content:center">${S.uthComm.map((c,i)=>cardHTML(c,'sm',hl(c),i*0.08+0.05)).join('')}</div>
+          <div id="uth-community-hand" class="hand" style="justify-content:center">${renderCards(S.uthComm,'sm',0,0.08,0.05,hl)}</div>
         </div>
         <div class="divider" style="width:100%;margin:10px 0"></div>
         <div style="text-align:center">
           <div class="sec sec-sm">You</div>
-          <div class="hand" style="justify-content:center">${S.uthHole.map((c,i)=>cardHTML(c,'md',hl(c),i*0.15+0.05)).join('')}</div>
-          <div style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[pb.cat]}${pbDetail}</div>
+          <div class="hand" style="justify-content:center">${renderCards(S.uthHole,'md',0,0.15,0.05,hl)}</div>
+          <div class="uth-hand-name" style="font-size:1.3rem;color:${hist.result==='win'?'var(--gold-hi)':'var(--shadow)'};margin-top:3px">${CAT_NAMES[pb.cat]}${pbDetail}</div>
         </div>
     </div>
     <div class="uth-bets-grid">
