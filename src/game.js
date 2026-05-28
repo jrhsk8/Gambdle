@@ -375,6 +375,16 @@ function updateChipDisplay() {
 // ─── NAVIGATION & ACTIONS ────────────────────────────────────────────────
 
 function goTo(s){S.screen=s;render();}
+// Shared skip logic for all_in_or_skip: push a skip entry, increment the hand counter,
+// advance to the next screen if done, otherwise reset and re-render.
+function _skipHand(arr, entry, counterKey, nextScreen, resetFn) {
+  arr.push(entry);
+  S[counterKey]++;
+  if (S[counterKey] >= 3) { advanceTo(nextScreen); return; }
+  resetFn();
+  render();
+}
+
 // Plays a transition sound scaled to how well the player is doing.
 function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('assets/sounds/mediumbet.mp3');else playMp3('assets/sounds/smallbet.mp3');}
 // Navigates between games; redirects to results early if the player is busted (<10 chips).

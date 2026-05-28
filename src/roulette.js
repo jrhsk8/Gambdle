@@ -10,6 +10,11 @@ function _rResumeAfterRefresh(){
   setTimeout(startWheelAnim,60);
 }
 
+// ─── ROULETTE TIMING ─────────────────────────────────────────────────────
+const R_SPIN_MS         = 4600; // wheel animation duration (matches audio track length)
+const R_SETTLE_MS       = 1000; // pause after ball stops before resolving bets (with audio)
+const R_SETTLE_MUTED_MS = 900;  // same settle pause when audio is muted
+
 // ─── ROULETTE CONSTANTS ──────────────────────────────────────────────────
 
 // Standard European roulette red numbers (18 of them; everything else non-zero is black).
@@ -58,6 +63,9 @@ const R_BET_NUMS_MAP = {
   47: [1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35],
   48: [19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36],
 };
+
+// Returns the display label for a bet slot (e.g. "#17", "Red", "1-12").
+const _rBetLabel = pick => { const d=R_BETS[pick]; return d?(d.type==='num'?'#'+d.lbl:d.lbl):'?'; };
 
 // Returns the winning numbers (1-36) for a given R_BETS index.
 // Index 0 (green zero) returns [] because outside bets all lose on zero.
@@ -242,16 +250,16 @@ function startWheelAnim(){
     const go=()=>{
       const DUR=Math.round(audio.duration*1000);
       audio.play().catch(()=>{});
-      audio.onended=()=>setTimeout(rFinish,1000); // 1s pause after ball stops before resolving
+      audio.onended=()=>setTimeout(rFinish,R_SETTLE_MS);
       runAnim(DUR, ()=>{}); // animation ends with the audio; rFinish handles the transition
     };
     if(audio.readyState>=1) go(); // metadata (duration) already available
     else{
       audio.addEventListener('loadedmetadata',go,{once:true});
-      audio.addEventListener('error',()=>runAnim(4600,()=>setTimeout(rFinish,900)),{once:true});
+      audio.addEventListener('error',()=>runAnim(R_SPIN_MS,()=>setTimeout(rFinish,R_SETTLE_MUTED_MS)),{once:true});
     }
   } else {
-    runAnim(4600,()=>setTimeout(rFinish,900)); // muted fallback: 4.6s + 900ms settle
+    runAnim(R_SPIN_MS,()=>setTimeout(rFinish,R_SETTLE_MUTED_MS));
   }
 }
 
@@ -270,10 +278,10 @@ function screenRouletteRespin(){
   const totalDelta=betPreviews.reduce((s,b)=>s+b.delta,0);
   const wm=winMult();
   const displayDelta=wm>1&&totalDelta>0?totalDelta*wm:totalDelta;
-  const betRows=betPreviews.map(b=>{const d=R_BETS[b.pick];return`<div class="irow" style="margin-bottom:4px">
-    <span class="ik">${d?d.type==='num'?'#'+d.lbl:d.lbl:'?'} · Pays ${b.pay}:1</span>
+  const betRows=betPreviews.map(b=>`<div class="irow" style="margin-bottom:4px">
+    <span class="ik">${_rBetLabel(b.pick)} · Pays ${b.pay}:1</span>
     <span style="font-family:var(--btn-f);font-size:1.2rem;color:${col(b.delta)}">${sign(b.delta)}</span>
-  </div>`;}).join('');
+  </div>`).join('');
   return `${hdr('Roulette · Second Chance')}
   <div class="panel" style="text-align:center">
     ${gameDots([], 0, 'spinning', 2)}
@@ -367,11 +375,11 @@ function screenRouletteResult(){
     </div>`;
   }
   const bets=res.bets||[{pick:S.rPick,won:res.won,delta:res.delta,pay:R_BETS[S.rPick]?.pay}];
-  const betRows=bets.map((b,i)=>{const d=R_BETS[b.pick];return`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
+  const betRows=bets.map((b,i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
     <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
-      <span style="font-size:1rem">${d?d.type==='num'?'#'+d.lbl:d.lbl:'?'} · Pays ${b.pay}:1</span>
+      <span style="font-size:1rem">${_rBetLabel(b.pick)} · Pays ${b.pay}:1</span>
       <span style="font-family:var(--btn-f);font-size:1.35rem;color:${col(b.delta)}">${sign(b.delta)}</span>
-    </div>`;}).join('');
+    </div>`).join('');
   return `${hdr('Roulette · Result')}
   <div class="panel" style="text-align:center">
     <div style="display:flex;justify-content:center;margin-bottom:4px">

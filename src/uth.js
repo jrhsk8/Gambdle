@@ -89,8 +89,12 @@ function uthBlindDelta(cat,blind){
 }
 
 // ─── UTH / POKER STATE ───────────────────────────────────────────────────
+const UTH_CARD_START_MS    = 300;  // delay before first community card animates in
+const UTH_CARD_INTERVAL_MS = 400;  // stagger between each community card
+// Total reveal duration: UTH_CARD_START_MS + (5 cards × UTH_CARD_INTERVAL_MS) = 2300ms
+const UTH_REVEAL_TOTAL_MS  = UTH_CARD_START_MS + 5 * UTH_CARD_INTERVAL_MS;
 
-// UTH: if refreshed during the 2300ms dealer-reveal animation, jump straight to result.
+// UTH: if refreshed during the reveal animation, jump straight to result.
 // History and uthHand are already incremented before updateUthCommunityCards saves state.
 function _uthResumeAfterRefresh(){
   if(S.screen!=='uth'||S.uthPhase!=='reveal')return;
@@ -112,22 +116,10 @@ function resetUTHHand(){
 }
 
 /** Skip the current UTH hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function uthSkip(){
-  S.uthHistory.push({ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0});
-  S.uthHand++;
-  if(S.uthHand>=3){advanceTo(NEXT_SCREEN['uth']);return;}
-  resetUTHHand();
-  render();
-}
+function uthSkip(){ _skipHand(S.uthHistory,{ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0},'uthHand',NEXT_SCREEN['uth'],resetUTHHand); }
 
 /** Skip the current poker hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function pkSkip(){
-  S.pkHistory.push({bet:0,result:'skip',pts:0,delta:0});
-  S.pkHand++;
-  if(S.pkHand>=3){advanceTo(NEXT_SCREEN['poker']);return;}
-  S.pkBet=0;S.pkPhase='bet';
-  render();
-}
+function pkSkip(){ _skipHand(S.pkHistory,{bet:0,result:'skip',pts:0,delta:0},'pkHand',NEXT_SCREEN['poker'],()=>{S.pkBet=0;S.pkPhase='bet';}); }
 
 // ─── 5-CARD POKER LOGIC ──────────────────────────────────────────────────
 
@@ -278,7 +270,7 @@ function uthResolve(){
   S.uthHand++;S.uthPhase='reveal';
   S.uthRevealComm=5;
   updateUthCommunityCards();
-  setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();if(delta>0)setTimeout(sndBigWin,400);},2300);
+  setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();if(delta>0)setTimeout(sndBigWin,UTH_CARD_INTERVAL_MS);},UTH_REVEAL_TOTAL_MS);
 }
 function uthNext(){
   sndAdvance();
@@ -308,8 +300,8 @@ function updateUthCommunityCards() {
     });
   }
 
-  const startDelay = 300;
-  const interval = 400;
+  const startDelay = UTH_CARD_START_MS;
+  const interval = UTH_CARD_INTERVAL_MS;
   let revealedCount = 0;
 
   for (let i = S.uthPrevRevealComm; i < S.uthRevealComm; i++) {

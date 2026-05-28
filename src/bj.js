@@ -1,4 +1,10 @@
 // ─── BLACKJACK LOGIC ──────────────────────────────────────────
+const BJ_RESUME_MS    = 300;   // minimum re-entry delay when resuming after a page refresh
+const BJ_ADVANCE_MS   = 700;   // delay after hitting 21 or doubling before advancing play
+const BJ_HIT_MS       = 800;   // interval between dealer hit steps
+const BJ_RESOLVE_MS   = 1000;  // delay after dealer finishes drawing before settling bets
+const BJ_CELEBRATE_MS = 1500;  // inner duration of the blackjack celebration animation
+
 // Mutex flag — prevents double-actions while cards are mid-animation.
 let _bjResolving=false;
 
@@ -18,33 +24,33 @@ function _bjResumeAfterRefresh(){
         S.bjDealerAnimFrom=at;
         _noAnim=true;render();
         sndCard(100);
-        setTimeout(step,800);
+        setTimeout(step,BJ_HIT_MS);
       }else{
-        setTimeout(()=>{S.bjDealerReveal=false;bjResolve(true);},1000);
+        setTimeout(()=>{S.bjDealerReveal=false;bjResolve(true);},BJ_RESOLVE_MS);
       }
     }
-    setTimeout(step,300);
+    setTimeout(step,BJ_RESUME_MS);
     return;
   }
 
   // Interrupted after player hand resolved but before dealer reveal started.
   if(S.bjCelebrating){
     // Player blackjack animation was cut off; jump straight to resolve.
-    setTimeout(()=>{S.bjCelebrating=false;bjResolve();},300);
+    setTimeout(()=>{S.bjCelebrating=false;bjResolve();},BJ_RESUME_MS);
     return;
   }
   if(!S.bjSplit&&hVal(S.bjPlayer)>=21){
     // Player busted or hit to 21; dealer reveal never fired.
-    setTimeout(bjRevealDealer,300);
+    setTimeout(bjRevealDealer,BJ_RESUME_MS);
     return;
   }
   if(S.bjSplit){
     if(S.bjSplitDone.length&&S.bjSplitDone.every(d=>d)){
       // All split hands resolved; dealer reveal never fired.
-      setTimeout(bjRevealDealer,300);
+      setTimeout(bjRevealDealer,BJ_RESUME_MS);
     } else {
       const ai=S.bjSplitActive,hand=S.bjSplitHands[ai];
-      if(hand&&hVal(hand)>=21) setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},300);
+      if(hand&&hVal(hand)>=21) setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_RESUME_MS);
     }
   }
 }
@@ -60,13 +66,7 @@ function resetBJHand(){
 }
 
 /** Skip the current BJ hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function bjSkip(){
-  S.bjHistory.push({bet:0,result:'skip',delta:0,player:[],dealer:[]});
-  S.bjHand++;
-  if(S.bjHand>=3){advanceTo(GAME2);return;}
-  resetBJHand();
-  render();
-}
+function bjSkip(){ _skipHand(S.bjHistory,{bet:0,result:'skip',delta:0,player:[],dealer:[]},'bjHand',NEXT_SCREEN['bj'],resetBJHand); }
 
 /** Handles the initial deal for a Blackjack hand. */
 function bjDeal(){
@@ -86,7 +86,7 @@ function bjDeal(){
       S.bjPhase='play';S.bjCelebrating=true;
       _noAnim=true;render();
       sndCard(100);sndCard(500);
-      setTimeout(()=>{sndBigWin();setTimeout(()=>{S.bjCelebrating=false;bjResolve();},1500);},1000);
+      setTimeout(()=>{sndBigWin();setTimeout(()=>{S.bjCelebrating=false;bjResolve();},BJ_CELEBRATE_MS);},1000);
       return;
     }
     S.bjPhase='play';
@@ -108,7 +108,7 @@ function bjHit(){
   sndCard(100);
   const pv=hVal(hand);
   // At 21+ the player can't act; auto-advance after a short delay so the card is visible.
-  if(pv>=21){_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;isSplit?bjAdvanceSplit():bjRevealDealer();},700);}
+  if(pv>=21){_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;isSplit?bjAdvanceSplit():bjRevealDealer();},BJ_ADVANCE_MS);}
   else{
     const handEl=document.getElementById(isSplit?'bj-active-hand':'bj-player-hand');
     const valEl=document.getElementById(isSplit?'bj-active-val':'bj-player-val');
@@ -124,8 +124,8 @@ function bjHit(){
 function bjStand(){
   if(_bjResolving)return;
   _bjResolving=true;
-  if(S.bjSplit)setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},300);
-  else setTimeout(()=>{_bjResolving=false;bjRevealDealer();},300);
+  if(S.bjSplit)setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_RESUME_MS);
+  else setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_RESUME_MS);
 }
 
 /** Double the bet and receive exactly one more card. */
@@ -140,7 +140,7 @@ function bjDouble(){
     updateChipDisplay();
     S.bjSplitHands[i].push(G.bjShoe[S.bjIdx++]);
     sndCard(100);
-    _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},700);
+    _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_ADVANCE_MS);
   }else{
     if(S.chips<S.bjBet)return;
     S.bjAnimFrom=S.bjPlayer.length;
@@ -148,7 +148,7 @@ function bjDouble(){
     S.bjDoubled=true;
     updateChipDisplay();
     S.bjPlayer.push(G.bjShoe[S.bjIdx++]);
-    _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjRevealDealer();},700);
+    _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_ADVANCE_MS);
   }
 }
 
@@ -192,8 +192,8 @@ function bjCheckSplitHand(){
     if(isBJ(hand)){
       _bjResolving=true;S.bjCelebrating=true;_noAnim=true;render();
       sndCard(100);sndCard(500);
-      setTimeout(()=>{sndBigWin();setTimeout(()=>{S.bjCelebrating=false;_bjResolving=false;bjAdvanceSplit();},1500);},1000);
-    }else{_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},700);}
+      setTimeout(()=>{sndBigWin();setTimeout(()=>{S.bjCelebrating=false;_bjResolving=false;bjAdvanceSplit();},BJ_CELEBRATE_MS);},1000);
+    }else{_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_ADVANCE_MS);}
   }else{_noAnim=true;render();}
 }
 
@@ -228,12 +228,12 @@ function bjRevealDealer(){
       S.bjDealerAnimFrom=at; // only animate the new card
       _noAnim=true;render();
       sndCard(100);
-      setTimeout(step,800);
+      setTimeout(step,BJ_HIT_MS);
     }else{
-      setTimeout(()=>{S.bjDealerReveal=false;bjResolve(true);},1000);
+      setTimeout(()=>{S.bjDealerReveal=false;bjResolve(true);},BJ_RESOLVE_MS);
     }
   }
-  setTimeout(step,800);
+  setTimeout(step,BJ_HIT_MS);
 }
 
 /** Settles all bets and records history. dealerDrawn=true means the dealer already animated; false means we skip straight to resolve (e.g. player blackjack). */
@@ -284,6 +284,10 @@ function bjNext(){
 }
 
 // ─── BLACKJACK RENDER ─────────────────────────────────────────
+// Renders the hand-val div for result screens. Handles bust class/text and the BJ case.
+function _handValDiv(val, style='', cls='') {
+  return `<div class="hand-val ${val>21?'bust':cls}"${style?` style="${style}"`:''}>${val}${val>21?' BUST':cls==='bj'?' BJ!':''}</div>`;
+}
 function bjDealerHTML(){
   const dv=hVal(S.bjDealer);
   const valHTML = S.bjDealerReveal
@@ -384,7 +388,7 @@ function screenBJ(){
           ${S.bjSplitHands.map((hand,i)=>{if(i===ai)return'';const hv=hVal(hand);const isDone=S.bjSplitDone[i];return`<div style="text-align:center;opacity:${isDone?0.55:0.8}">
             <div class="sec bj-split-lbl">Hand ${i+1} (${fmt(S.bjSplitBets[i])})</div>
             <div class="hand hand-fan" style="justify-content:center">${hand.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
-            <div class="bj-split-val" style="color:${hv>21?'var(--lose)':'var(--shadow)'}">${hv}${hv>21?' Bust':''}</div>
+            <div class="bj-split-val" style="color:${hv>21?'var(--lose)':'var(--shadow)'}">${hv}${hv>21?' BUST':''}</div>
           </div>`;}).join('')}
         </div>`:''}
         <div class="bj-split-active" style="text-align:center;flex:1;">
@@ -392,7 +396,7 @@ function screenBJ(){
           <div id="bj-active-hand" class="hand">${activeHand.map((c,i)=>{const n=i>=af;return cardHTML(c,'lg','',n?(i-af)*0.4+0.1:0,n);}).join('')}</div>
           ${S.bjCelebrating||isBJ(activeHand)
             ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div class="bj-celebrate-txt">Blackjack!</div></div>`
-            :`<div id="bj-active-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pvStr}${bust?' BUST':done21?' 21!':''}</div>`}
+            :`<div id="bj-active-val" class="hand-val ${bust?'bust':done21?'bj':''}">${bust?pvStr+' BUST':done21?'21!':pvStr}</div>`}
         </div>
         <div style="margin-top:auto;">
           ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canResplit)}
@@ -419,7 +423,7 @@ function screenBJ(){
           <div class="bj-celebrate-txt">Blackjack!</div>
           ${isBJ(S.bjPlayer)?`<div style="font-size:.72rem;color:var(--shadow);text-transform:uppercase;letter-spacing:.22em;margin-top:6px">Pays 3 · 2</div>`:''}
         </div>`
-      :`<div id="bj-player-val" class="hand-val ${bust?'bust':done21?'bj':''}">${pvStr}${bust?' BUST':done21?' 21!':''}</div>`}
+      :`<div id="bj-player-val" class="hand-val ${bust?'bust':done21?'bj':''}">${bust?pvStr+' BUST':done21?'21!':pvStr}</div>`}
   </div>
   <div style="margin-top:auto;">
     ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canSplit)}
@@ -446,7 +450,7 @@ function screenBJ(){
       <div class="bj-sr-dealer">
         <div class="sec sec-sm">Dealer</div>
         <div class="hand" style="justify-content:center">${S.bjDealer.map((c,i)=>{const n=i>=S.bjDealerAnimFrom;return cardHTML(c,'sm','',n?(i-S.bjDealerAnimFrom)*0.75+0.15:0,n);}).join('')}</div>
-        <div class="hand-val ${dv>21?'bust':''}" style="font-size:1.6rem">${dv}${dv>21?' BUST':''}</div>
+        ${_handValDiv(dv,'font-size:1.6rem')}
       </div>
       <div class="divider"></div>
       <div class="bj-sr-hands" style="display:flex;flex-wrap:${S.bjSplitHands.length===4?'wrap':'nowrap'};justify-content:space-evenly;gap:8px;margin-bottom:14px">
@@ -454,7 +458,7 @@ function screenBJ(){
           <div class="sec" style="font-size:.85rem">Hand ${i+1}: <span style="color:${col(r.delta)}">${RES_LBL2[r.result]||r.result}</span></div>
           <div style="font-size:1rem;color:${col(r.delta)};margin-bottom:4px">${sign(r.delta)}</div>
           <div class="hand hand-fan" style="justify-content:center">${hand.map(c=>cardHTML(c,'sm','',0,false)).join('')}</div>
-          <div class="hand-val ${hv>21?'bust':''}" style="font-size:1.4rem">${hv}${hv>21?' BUST':''}</div>
+          ${_handValDiv(hv,'font-size:1.4rem')}
         </div>`;}).join('')}
       </div>
       ${runningTotalRow()}
@@ -487,7 +491,7 @@ function renderBJResultDealer(dv, dOff) {
           const n = i >= S.bjDealerAnimFrom;
           return cardHTML(c, 'sm', '', n ? dOff + (i - S.bjDealerAnimFrom) * 0.75 + 0.05 : 0, n);
         }).join('')}</div>
-        <div class="hand-val ${dv > 21 ? 'bust' : ''}" style="font-size:1.6rem">${dv}${dv > 21 ? ' BUST' : ''}</div>
+        ${_handValDiv(dv, 'font-size:1.6rem')}
       </div>`;
 }
 
@@ -495,6 +499,6 @@ function renderBJResultPlayer(pv, result) {
   return `<div style="text-align:center">
         <div class="sec sec-sm">You</div>
         <div class="hand">${S.bjPlayer.map(c => cardHTML(c, 'sm', '', 0, false)).join('')}</div>
-        <div class="hand-val ${pv > 21 ? 'bust' : result === 'blackjack' ? 'bj' : ''}" style="font-size:1.6rem">${pv}${pv > 21 ? ' BUST' : result === 'blackjack' ? ' BJ!' : ''}</div>
+        ${_handValDiv(pv, 'font-size:1.6rem', result==='blackjack'?'bj':'')}
       </div>`;
 }
