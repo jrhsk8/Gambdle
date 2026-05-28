@@ -460,13 +460,14 @@ function toggleMenu(which, trigger) {
         <input type="checkbox" id="dev-unlocks-cb" ${getPref('golden_back_unlocked')?'checked':''} onclick="event.stopPropagation()" style="width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0">
       </div>
       <div class="dd-sep"></div>
+      <div class="dd-item" id="dd-future-trigger" onclick="showFutureSubmenu(this);event.stopPropagation()">Preview Future Day <span class="dd-key">►</span></div>
       <div class="dd-item" id="dd-mod-trigger" onclick="showModSubmenu(this);event.stopPropagation()">Force Modifier <span class="dd-key">►</span></div>`;
   } else if (which === 'file') {
     const canShare = S.screen === 'results';
     const cbStyle='width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0';
     el.innerHTML = `
       ${_backlogSeed ? `<div class="dd-item" onclick="exitBacklog()">↩ Return to Today (#${getDayNum()})</div><div class="dd-sep"></div>` : ''}
-      <div class="dd-item" onclick="showBacklogSubmenu(this);event.stopPropagation()">Gambdle #${S.day}${_backlogSeed?' · Archive':''} <span class="dd-key">►</span></div>
+      <div class="dd-item" onclick="showBacklogSubmenu(this);event.stopPropagation()">Gambdle #${S.day}${_backlogSeed?(_backlogSeed>getDailySeed()?' · Preview':' · Archive'):''} <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
       <div class="dd-item ${canShare?'':'dd-disabled'}" onclick="${canShare?'doShare();closeDropdowns()':''}">📋 Copy &amp; Share</div>
       <div class="dd-sep"></div>
@@ -528,6 +529,22 @@ function showBacklogSubmenu(trigger) {
     rows += `<div class="dd-item${active ? ' dd-active' : ''}" onclick="enterBacklog(${seed});event.stopPropagation()">Day #${n} ${scoreStr}</div>`;
   }
   if (!rows) rows = '<div class="dd-item dd-disabled">No past days yet</div>';
+  _openSub1(`<div class="dd-archive-list">${rows}</div>`, trigger);
+}
+
+function showFutureSubmenu(trigger) {
+  const todayNum = getDayNum();
+  let rows = '';
+  for (let n = todayNum + 1; n <= todayNum + 7; n++) {
+    const seed = _seedForDayNum(n);
+    const active = _backlogSeed === seed;
+    const cycled = CYCLE_ORDER[(n - 1) % CYCLE_ORDER.length];
+    const modRef = DAILY_MODIFIERS[seed] || cycled;
+    const mod = typeof modRef === 'string' ? PRESET_MODIFIERS[modRef] : modRef;
+    const modLabel = mod ? `<span class="dd-key">${mod.title}</span>` : '';
+    const seedNote = DAILY_SEED_OVERRIDES[seed] ? ' 🔀' : '';
+    rows += `<div class="dd-item${active ? ' dd-active' : ''}" onclick="enterBacklog(${seed});event.stopPropagation()">Day #${n}${seedNote} ${modLabel}</div>`;
+  }
   _openSub1(`<div class="dd-archive-list">${rows}</div>`, trigger);
 }
 

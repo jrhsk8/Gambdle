@@ -27,7 +27,7 @@ const getDailySeed = () => { const d=new Date(Date.now()-_PHOENIX_OFFSET_MS); re
 let _backlogSeed = (() => { const v=parseInt(_ls.getItem('gambdle_backlog_seed')||'0'); return v||null; })();
 const getActiveSeed = () => _backlogSeed || getDailySeed();
 const _testActive = () => !!_ls.getItem('gambdle_use_test_seed');
-function getRngSeed() { return _testActive()?1:getActiveSeed(); }
+function getRngSeed() { return _testActive()?1:(DAILY_SEED_OVERRIDES[getActiveSeed()]||getActiveSeed()); }
 function getStateKey() { return _testActive()?'gambdle_test_state':STORAGE_KEY+getActiveSeed(); }
 
 /** Start of the daily Gambdle run (May 5th, 2026) used for consistent day numbering. */

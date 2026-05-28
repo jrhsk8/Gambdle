@@ -207,9 +207,9 @@ async function fetchScoreDistribution() {
     const useLog = sorted[0] > 0 && sorted[1] > 0 && sorted[0] / sorted[1] > 3;
     const scaled = counts.map(c => useLog ? Math.sqrt(c) : c);
     const maxScaled = Math.max(...scaled, 1);
-    const playerBucket = S.chips <= 500 ? 0 : S.chips <= 999 ? 1 : S.chips <= 1999 ? 2 : S.chips <= 2999 ? 3 : S.chips <= 3999 ? 4 : S.chips <= 4999 ? 5 : 6;
-    const labels = ['0', '500', '1k', '2k', '3k', '4k', '5k+'];
-    const bucketBounds = [[0,500],[501,999],[1000,1999],[2000,2999],[3000,3999],[4000,4999],[5000,10000]];
+    const playerBucket = S.chips <= 249 ? 0 : S.chips <= 499 ? 1 : S.chips <= 999 ? 2 : S.chips <= 1999 ? 3 : S.chips <= 2999 ? 4 : S.chips <= 3999 ? 5 : 6;
+    const labels = ['0', '250', '500', '1k', '2k', '3k', '4k'];
+    const bucketBounds = [[0,249],[250,499],[500,999],[1000,1999],[2000,2999],[3000,3999],[4000,10000]];
     const [bLo, bHi] = bucketBounds[playerBucket];
     const posWithin = Math.min(Math.max((S.chips - bLo) / (bHi - bLo), 0), 1);
     const youPct = (playerBucket + posWithin) / 7 * 100;
@@ -225,9 +225,13 @@ async function fetchScoreDistribution() {
         ? (posWithin < 0.5 ? posWithin * 100 + 20 : posWithin * 100 - 20)
         : 50;
       const cntStyle = i === playerBucket ? `left:${Math.min(Math.max(nudge, 10), 90)}%;transform:translateX(-50%)` : '';
+      const lblOffsets = [-3, -12, -9, -9, -9, -9, -9];
+      const lblStyle = ` style="left:${lblOffsets[i]}px;transform:none"`;
+      const endLbl = i === 6 ? '<span class="dist-lbl" style="right:-6px;left:auto;transform:none">5k+</span>' : '';
       return `<div class="dist-bar${i === playerBucket ? ' you' : ''}" style="height:${h}%">
         <span class="dist-count"${cntStyle ? ` style="${cntStyle}"` : ''}>${cnt}</span>
-        <span class="dist-lbl">${labels[i]}</span>
+        <span class="dist-lbl"${lblStyle}>${labels[i]}</span>
+        ${endLbl}
       </div>`;
     }).join('');
 
@@ -316,11 +320,13 @@ function statusBar(){
   const ampm = h>=12 ? 'PM' : 'AM';
   const hh = (h%12) || 12;
   const tm = `${hh}:${String(m).padStart(2,'0')} ${ampm}`;
+  const _isFuture = _backlogSeed && _backlogSeed > getDailySeed();
+  const _modeLabel = _backlogSeed ? (_isFuture ? 'Preview' : 'Archive') : 'Gambdle';
   let hint = STATUS_HINT[S.screen] || 'Ready.';
-  if (_backlogSeed && S.screen === 'results') hint = `<span class="sb-prefix">Archive · </span>Day #${S.day} complete`;
+  if (_backlogSeed && S.screen === 'results') hint = `<span class="sb-prefix">${_modeLabel} · </span>Day #${S.day} complete`;
   return `<div class="status-bar">
     <span>${hint}</span>
-    <span><span id="sb-mute-icon" onclick="togglePref('mute');event.stopPropagation()" style="cursor:pointer;font-size:0.85em" title="${getPref('mute')?'Unmute':'Mute'}">${getPref('mute')?'🔇':'🔊'}</span>${_backlogSeed?'Archive':'Gambdle'} #${S.day}  ·  ${tm}</span>
+    <span><span id="sb-mute-icon" onclick="togglePref('mute');event.stopPropagation()" style="cursor:pointer;font-size:0.85em" title="${getPref('mute')?'Unmute':'Mute'}">${getPref('mute')?'🔇':'🔊'}</span>${_modeLabel} #${S.day}  ·  ${tm}</span>
   </div>`;
 }
 

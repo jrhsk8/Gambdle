@@ -749,6 +749,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .dist-you-line {
   position: absolute; top: -20px; bottom: 0; width: 0;
   border-left: 2px dashed var(--ink); pointer-events: none; z-index: 1;
+  margin-left: -1px;
 }
 .dist-you-lbl {
   position: absolute; top: 0;

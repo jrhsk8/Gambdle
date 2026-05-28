@@ -117,13 +117,24 @@ const DAILY_MODIFIERS = {
   20260521: 'r_group_1_18',       // Day 17
   20260522: 'high_stakes',        // Day 18
   20260523: 'r_group_19_36',      // Day 19
-  20260524: 'bj_double_bonus',    // Day 20 — manual override
+  20260524: 'bj_double_bonus',    // Day 20 
   20260525: 'r_respin',           // Day 21
-  20260526: 'r_group_1_12',       // Day 22 — manual override
-  // ── Current / upcoming ──────────────────────────────────────────────────────
-  20260527: 'easy_dealer',        // Day 23 — manual override
+  20260526: 'r_group_1_12',       // Day 22 
+  20260527: 'easy_dealer',        // Day 23 
   20260528: 'uth_pocket_aces',    // Day 24
   20260529: 'bj_first_ace',       // Day 25
+  20260530: 'r_hot_zero',         // Day 26
+};
+
+/**
+ * RNG seed overrides by date — maps a calendar date (YYYYMMDD) to a different seed.
+ * Only the card draw sequence changes; mods and save slots are unaffected.
+ * Add an entry here to swap tomorrow's cards before it goes live.
+ *
+ * Example: 20260528: 20260601  → May 28 uses June 1st's card draws
+ */
+const DAILY_SEED_OVERRIDES = {
+  // 20260528: 20260601,
 };
 
 // Validate CYCLE_ORDER entries at load time
