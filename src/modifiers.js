@@ -127,6 +127,8 @@ const DAILY_MODIFIERS = {
   20260528: 'uth_pocket_aces',    // Day 24
   20260529: 'bj_first_ace',       // Day 25
   20260530: 'r_hot_zero',         // Day 26
+  20260601: 'bj_wild_split',      // Day 27
+  20260602: 'peek',               // Day 28
 };
 
 /**

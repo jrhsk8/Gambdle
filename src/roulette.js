@@ -443,7 +443,7 @@ function rPlacedInner(bets,maxBets){
   return`<div class="divider" style="margin:10px 0"></div>
     <div class="sec">Placed Bets (${bets.length}/${maxBets})</div>
     ${bets.map((b,i)=>{const d=R_BETS[b.pick];return`<div class="irow" style="margin-bottom:4px">
-      <span class="ik">${d.type==='num'?'#'+d.lbl:d.lbl} · Pays ${d.pay}:1</span>
+      <span class="ik"><span style="font-weight:700;color:var(--ink)">${d.type==='num'?'#'+d.lbl:d.lbl}</span> · Pays ${d.pay}:1</span>
       <span style="display:flex;align-items:center;gap:8px"><span class="iv">${fmt(b.bet)}</span>
         <button onclick="rRemoveBet(${i})" style="background:none;border:none;color:var(--shadow);cursor:pointer;font-size:1rem;padding:2px 6px">×</button>
       </span></div>`;}).join('')}`;

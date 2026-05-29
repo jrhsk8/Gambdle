@@ -376,6 +376,13 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 .card.md .csuit { font-size: 2.8rem; }
 .card.sm .csuit { font-size: 2.2rem; }
 
+/* Tiniest cards (split aside/result hands + split result dealer): one centred
+   suit reads cleaner than three cramped pips. Drop the two corner suit glyphs,
+   keep the corner ranks + the single centre suit. */
+.bj-split-aside .ct-s,
+.bj-sr-hands .ct-s,
+.bj-sr-dealer .ct-s { display: none; }
+
 .card.red, .card.red .ct-r, .card.red .ct-s, .card.red .csuit { color: var(--red); }
 .card.blk, .card.blk .ct-r, .card.blk .ct-s, .card.blk .csuit { color: var(--ink); }
 body.four-color .card.suit-d .ct-r,
@@ -616,11 +623,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   padding: 0 14px;
   background: var(--panel); border: 1px solid var(--ink);
   box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: flex; flex-direction: row; align-items: baseline; justify-content: center; gap: 8px;
 }
-/* The bet box keeps its two-line label/value convention; the value tracks the
-   unified button font so the bet row reads as one consistent control strip. */
-.bet-amt span:first-child { font-family: var(--btn-f); font-size: 0.7em; color: var(--shadow); letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.1; }
+/* "Bet" label sits to the LEFT of the amount on one line. */
+.bet-amt span:first-child { font-family: var(--btn-f); font-size: 0.7em; color: var(--shadow); letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.05; }
 .bet-amt span:last-child { font-family: var(--btn-f); font-size: 1em; color: var(--gold); line-height: 1.05; }
 .ch-clear, .ch-allin {
   flex-shrink: 0;
@@ -1619,6 +1625,18 @@ body.cardback-whale .card.back::before { content: '🐋'; }
    always fits the narrow (1024 wide → 576px inner) panel without wrapping. */
 @media (min-width: 1024px) and (min-height: 880px) {
   :root { --btn-h: 50px; --btn-fs: 1.42rem; }
+  /* Split play leaves deep vertical slack on tall desktop (~160px at 1440×900) —
+     spend it on the active hand. Width tracks normal play's 118px ceiling so a
+     multi-card fan still fits the narrow 1024 panel. Aside hands grow modestly. */
+  .bj-split-active .card.lg { width: 108px; height: 152px; }
+  .bj-split-active .card.lg .csuit { font-size: 2.9rem; }
+  .bj-split-active .card.lg .ct-r { font-size: 1.45rem; }
+  .bj-split-active .card.lg .ct-s { font-size: 1.18rem; }
+  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.35rem !important; }
+  .bj-split-active .hand-val { font-size: 1.7rem !important; }
+  .bj-split-aside .card.sm { width: 48px; height: 67px; }
+  .bj-split-aside .card.sm .csuit { font-size: 1.5rem; }
+  .bj-split-aside .card.sm .ct-r { font-size: 0.85rem; }
   .panel:has(#uth-summary) .dots-row { gap: 10px; margin: 4px 0; }
   .panel:has(#uth-summary) .hand-dot { padding: 6px 14px; font-size: 1.4rem; }
   .panel:has(#uth-summary) #uth-summary { font-size: 1.5rem; margin: 4px 0 !important; }
@@ -1752,6 +1770,17 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#bj-player-hand) .card.lg .ct-s { font-size: 1.46rem; }
   .panel:has(#bj-player-hand) .card.lg .ct-r[data-r="10"] { font-size: 1.4rem !important; }
   .panel:has(#bj-player-hand) .card.lg.back::before { font-size: 4.3rem; }
+  /* Split play — ~250px of slack here; push the active hand close to normal-play
+     size (118px width ceiling for fan fit), and enlarge the aside hands too. */
+  .bj-split-active .card.lg { width: 118px; height: 166px; }
+  .bj-split-active .card.lg .csuit { font-size: 3.2rem; }
+  .bj-split-active .card.lg .ct-r { font-size: 1.65rem; }
+  .bj-split-active .card.lg .ct-s { font-size: 1.32rem; }
+  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.5rem !important; }
+  .bj-split-active .hand-val { font-size: 1.9rem !important; }
+  .bj-split-aside .card.sm { width: 54px; height: 76px; }
+  .bj-split-aside .card.sm .csuit { font-size: 1.75rem; }
+  .bj-split-aside .card.sm .ct-r { font-size: 0.95rem; }
   .panel:has(#bj-player-hand) .hand-val { font-size: 3.1rem; }
   .panel:has(#bj-player-hand) .act-btn { font-size: 1.9rem; padding: 20px 14px; }
 
