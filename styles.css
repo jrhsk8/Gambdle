@@ -1133,12 +1133,17 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Action buttons */
   .act-btns { gap: 6px; }
   .act-btn { font-size: 1.1rem; padding: 12px 5px; white-space: normal; }
-  /* Results screen — kept tight so the Copy & Share button clears the status bar
-     once the (async) score-distribution chart renders its full ~110px height. */
-  .big-chips { font-size: 3.2rem !important; line-height: 1; }
+  /* Results screen — even vertical rhythm. The mod banner stays pinned to the top,
+     so spare height collects at the bottom; use some of it to fill the page (larger
+     hero number, consistent section gaps) while staying clear of the status bar even
+     after the async ~110px distribution chart renders. */
+  .panel.results-panel { gap: 9px; }
+  .big-chips { font-size: 3.5rem !important; line-height: 1; }
   .res-row { padding: 4px 10px !important; }
-  .dist-bars { height: 45px; margin-top: 14px; margin-bottom: 14px; }
-  .share-box { padding: 7px 10px; font-size: 0.95rem; line-height: 1.25; }
+  .results-panel .game-manifest { margin-bottom: 2px !important; }
+  .results-panel #dist-title { margin-top: 2px !important; }
+  .dist-bars { height: 45px; margin-top: 12px; margin-bottom: 12px; }
+  .share-box { padding: 8px 10px; font-size: 0.96rem; line-height: 1.28; }
   /* BJ split result */
   .bj-split-result .result-hl { font-size: 1.8rem; margin-bottom: 0; }
   .bj-split-result .result-sub { font-size: 1.2rem; margin-bottom: 0; }
