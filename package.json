@@ -1,7 +1,9 @@
 {
   "private": true,
   "scripts": {
-    "test": "node tests/run.js"
+    "test": "node tests/run.js",
+    "test:webkit": "node tests/webkit-layout.js",
+    "screenshots": "node tests/screenshots.js"
   },
   "devDependencies": {
     "playwright": "^1.60.0"

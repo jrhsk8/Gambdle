@@ -392,6 +392,14 @@ describe('layout — devstats', () => {
   it('fits viewport', () => checkScreen('devstats', { screen:'devstats' }));
 });
 
+// ─── iOS safe-area insets ───────────────────────────────────────────────────────
+// Safe-area handling (viewport-fit=cover + env() padding + the dvh/scroll fallback for
+// phones smaller than a screen is designed for) is tested authoritatively in WebKit —
+// Safari's real engine — by `npm run test:webkit` (tests/webkit-layout.js). It simulates
+// realistic iPhone chrome and checks overlap, out-of-bounds, reachability, and that any
+// scrolling is vertical-only. That belongs in WebKit, not headless Chromium, which
+// reports env() as 0 and can't reproduce Safari's scroll/inset behaviour.
+
 // ─── Button uniformity ────────────────────────────────────────────────────────
 // Every in-game button (act-btn, btn-gold, clear/all-in, bet box) must share ONE
 // height and ONE font size per window size — the same control can't be a different
@@ -408,6 +416,7 @@ describe('layout — buttons share one height + font per window size', () => {
     'uth-bet':  { screen:'uth', uthPhase:'bet', chips:1000, uthAnte:50, uthHand:0, uthHistory:[] },
     'rlt-bet':  { screen:'roulette', rPhase:'bet', chips:500, rBet:50, rBets:[], rPick:17 },
     'rlt-res':  { screen:'roulette', rPhase:'result', chips:550, rSpin:45, rResult:{ delta:50, bets:[{pick:45,won:true,delta:50,pay:1,bet:50}] } },
+    'borrow':   { screen:'borrow', chips:0, borrowReturnScreen:'uth' }, // Accept-defeat (.ch-clear) must be --btn-h, not grow to fill the column
   };
 
   // Collect {label, sel, h, fs} for every visible button across all screens.

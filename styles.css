@@ -49,6 +49,13 @@ button { touch-action: manipulation; font-family: var(--btn-f); }
   --btn-h:  44px;
   --btn-fs: 1.3rem;
   --btn-px: 14px;
+  /* iOS Safari safe-area insets (Dynamic Island/status bar, home indicator, landscape
+     notch). Defaults to env() which is 0 off-iOS; declared as vars so the layout tests
+     can simulate non-zero insets in headless Chromium (where env() is always 0). */
+  --sa-t: env(safe-area-inset-top, 0px);
+  --sa-r: env(safe-area-inset-right, 0px);
+  --sa-b: env(safe-area-inset-bottom, 0px);
+  --sa-l: env(safe-area-inset-left, 0px);
 }
 
 /* ── Desktop background ─────────────────────────────────── */
@@ -108,8 +115,9 @@ body {
   line-height: 1; gap: 8px;
   text-shadow: 1px 1px 0 rgba(0,0,0,0.35);
   border-radius: 7px 7px 0 0;
+  overflow: hidden; /* a long title must never push the window wider than the viewport */
 }
-.tb-title { display: flex; align-items: center; gap: 8px; white-space: nowrap; min-width: 0; }
+.tb-title { display: flex; align-items: center; gap: 8px; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .tb-icon {
   width: 16px; height: 16px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -1048,8 +1056,27 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      must stay put). Content that would exceed it is handled by the inner
      overflow:hidden + the one designated scroll region (#r-placed), never by
      the window expanding. All non-roulette screens already fit within 100svh. */
-  .app { padding: 5px 5px 5px; min-height: 100svh; max-height: 100svh; display: flex; flex-direction: column; }
-  .window { overflow: hidden; flex: 1; min-height: 0; }
+  /* 100dvh (not svh) tracks the *currently visible* viewport, so the window never
+     hides under Safari's floating bottom toolbar; the safe-area padding keeps the
+     title bar clear of the Dynamic Island/status bar and the bottom clear of the
+     home indicator. Requires viewport-fit=cover (set in index.html). */
+  /* Vertical scrolling is the fallback when a phone is smaller than a screen is
+     designed for; horizontal scrolling is never allowed. */
+  html, body { overflow-x: hidden; }
+  body { min-height: 100vh; min-height: 100svh; min-height: 100dvh; }
+  .app {
+    padding: calc(5px + var(--sa-t)) calc(5px + var(--sa-r)) calc(5px + var(--sa-b)) calc(5px + var(--sa-l));
+    /* Fill the visible viewport (dvh excludes Safari's toolbar; vh/svh are fallbacks for
+       pre-iOS-15.4). NO max-height: if a screen's content is taller than the phone, the
+       app grows past the viewport and the page scrolls vertically so buttons stay reachable
+       — never clipped. On phones the content fits, this just fills the screen. */
+    min-height: 100vh; min-height: 100svh; min-height: 100dvh;
+    display: flex; flex-direction: column;
+  }
+  /* flex:1 0 auto + no overflow clip = fill the app when content is short, grow with the
+     content (scrolling into view) when it's tall. Never clips a button off-screen. */
+  .window { flex: 1 0 auto; min-height: 0; }
+  .panel { flex: 1 0 auto; }
   .panel { padding: 8px; min-height: 0; gap: 6px; }
   .divider { margin: 2px 0; }
   .title-bar { font-size: 18px; }
@@ -1063,6 +1090,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .mod-banner-title { font-size: 1.25rem; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .mod-banner-r { font-size: 1.05rem; text-align: left; }
   .tb-detail, .btn-detail, .dot-detail { display: none; }
+  .tb-prefix { display: none; } /* drop "Gambdle — " on mobile; the long game name then fits */
   .sb-prefix, .sb-suffix { display: none; }
   /* Section labels */
   .sec { font-size: 1.2rem; margin-bottom: 3px; }
@@ -1102,13 +1130,17 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Match the mobile chip cluster (40px chips → ~316px). */
   .panel:has(#r-placed) > #db,
   .panel:has(#r-placed) #r-bet-info { max-width: 316px; }
-  .panel:has(#r-placed) .chip-row { margin-bottom: 4px; }
+  .panel:has(#r-placed) { gap: 4px; }
+  .panel:has(#r-placed) .chip-row { margin-bottom: 2px; }
   .panel:has(#r-placed) > .divider { margin: 2px 0; }
   .panel:has(#r-placed) #r-placed .divider { margin: 2px 0 !important; }
   .panel:has(#r-placed) #r-placed .sec { font-size: 0.8rem; }
-  .panel:has(#r-placed) #r-placed .irow { padding: 1px 6px !important; }
+  .panel:has(#r-placed) #r-placed .irow { padding: 1px 6px !important; line-height: 1.05; }
+  .panel:has(#r-placed) .chbtn { width: 36px; height: 36px; }
   .panel:has(#r-placed) #r-placed .ik,
-  .panel:has(#r-placed) #r-placed .iv { font-size: 0.98rem; }
+  .panel:has(#r-placed) #r-placed .iv { font-size: 0.86rem; }
+  .panel:has(#r-placed) > .divider { margin: 1px 0; }
+  .r-board-wrap { padding-bottom: 1px; }
   .r-board-wrap { margin: 0 -8px; padding: 0 8px 4px; scrollbar-width: none; -ms-overflow-style: none; }
   .r-board-wrap::-webkit-scrollbar { display: none; }
   /* Chip selector */
@@ -1119,7 +1151,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bet-row { flex-wrap: wrap; gap: 8px; }
   .bet-amt { flex: 1 1 100%; }
   .bet-row:has(#pb-add) .bet-amt, #pb-add { flex: 1 1 45%; }
-  .ch-clear, .ch-allin { flex: 1; }
+  /* Scoped to the bet row: outside it (e.g. the borrow screen's full-width Accept-defeat
+     button in a column panel) flex:1 would make the button grow to fill leftover height. */
+  .bet-row .ch-clear, .bet-row .ch-allin { flex: 1; }
   /* BJ bet table — compact slots on mobile */
   .bj-bet-table { gap: 4px; padding: 2px 0; }
   .card-slot { width: 44px; height: 62px; border-width: 1.5px; }
@@ -1137,19 +1171,19 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      so spare height collects at the bottom; use some of it to fill the page (larger
      hero number, consistent section gaps) while staying clear of the status bar even
      after the async ~110px distribution chart renders. */
-  .panel.results-panel { gap: 9px; }
+  .panel.results-panel { gap: 8px; }
   .big-chips { font-size: 3.5rem !important; line-height: 1; }
-  .res-row { padding: 4px 10px !important; }
+  .res-row { padding: 3px 10px !important; }
   .results-panel .game-manifest { margin-bottom: 2px !important; }
   .results-panel #dist-title { margin-top: 2px !important; }
-  .dist-bars { height: 45px; margin-top: 12px; margin-bottom: 12px; }
-  .share-box { padding: 8px 10px; font-size: 0.96rem; line-height: 1.28; }
+  .dist-bars { height: 45px; margin-top: 11px; margin-bottom: 11px; }
+  .share-box { padding: 7px 10px; font-size: 0.94rem; line-height: 1.22; }
   /* BJ split result */
-  .bj-split-result .result-hl { font-size: 1.8rem; margin-bottom: 0; }
-  .bj-split-result .result-sub { font-size: 1.2rem; margin-bottom: 0; }
+  .bj-split-result .result-hl { font-size: 1.5rem; margin-bottom: 0; }
+  .bj-split-result .result-sub { font-size: 1.05rem; margin-bottom: 0; }
   .bj-sr-dealer { margin-bottom: 0; }
-  .bj-sr-dealer .hand-val { font-size: 1.2rem !important; }
-  .bj-sr-dealer .card.sm { width: 50px; height: 70px; }
+  .bj-sr-dealer .hand-val { font-size: 1.05rem !important; }
+  .bj-sr-dealer .card.sm { width: 38px; height: 53px; }
   .bj-sr-hands { margin-bottom: 0 !important; gap: 6px !important; }
   /* Split hands */
   .bj-split-lbl { font-size: 0.78rem; white-space: nowrap; }
@@ -1163,39 +1197,53 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* UTH */
   .uth-summary { font-size: 0.9rem; }
   /* UTH blind pay table */
-  .pname { font-size: 1.25rem; }
-  .ppay  { font-size: 1.15rem; }
+  .pname { font-size: 1.1rem; }
+  .ppay  { font-size: 1.0rem; }
   /* UTH result screen */
   .uth-result-panel .result-hl { font-size: 2rem; margin-bottom: 2px; }
   .uth-result-panel .result-sub { font-size: 1.4rem; margin-bottom: 2px; }
   .uth-result-top { margin-bottom: 2px; }
   .uth-cards-col { gap: 4px; margin: 2px 0; }
-  .uth-result-panel .card.md { width: 50px; height: 70px; }
-  .uth-result-panel .card.md .csuit { font-size: 1.25rem; }
-  .uth-result-panel .card.md .ct-r { font-size: 0.9rem; }
-  .uth-result-panel .card.md .ct-s { font-size: 0.75rem; }
-  .uth-result-panel .card.md .ct-r[data-r="10"] { font-size: 0.72rem !important; }
+  .uth-result-panel .card.md { width: 44px; height: 62px; }
+  .uth-result-panel .card.md .csuit { font-size: 1.1rem; }
+  .uth-result-panel .card.md .ct-r { font-size: 0.82rem; }
+  .uth-result-panel .card.md .ct-s { font-size: 0.68rem; }
+  .uth-result-panel .card.md .ct-r[data-r="10"] { font-size: 0.66rem !important; }
   .uth-bets-grid { display:flex; flex-wrap:wrap; justify-content:center; gap:2px 10px; margin-bottom:6px; }
   /* Keep tight screens' cards at original size — they have no room for growth */
   #bj-dealer-section .card.lg { width: 72px; height: 102px; }
-  .uth-result-panel .card.sm { width: 50px; height: 70px; }
+  .uth-result-panel .card.sm { width: 44px; height: 62px; }
   /* BJ 4-way split play — shrink aside cards + dealer spacing */
   #bj-dealer-section { margin-bottom: 6px !important; }
   .bj-split-aside { margin-bottom: 4px; }
   .bj-split-aside .card.sm { width: 40px; height: 56px; }
   .bj-split-aside .card.sm .csuit { font-size: 1.0rem; }
   /* BJ 4-way split result — compact result hand cards */
-  .bj-sr-hands .card.sm { width: 46px; height: 65px; }
-  .bj-sr-hands .card.sm .csuit { font-size: 1.1rem; }
+  .bj-sr-hands .card.sm { width: 36px; height: 50px; }
+  .bj-sr-hands .card.sm .csuit { font-size: 0.9rem; }
+  .bj-sr-hands .hand-val { font-size: 1.05rem !important; }
+  .bj-sr-hands .sec { font-size: 0.8rem !important; }
   /* UTH showdown — override inline divider margins */
-  .uth-result-panel .uth-cards-col .divider { margin: 3px 0 !important; }
+  .uth-result-panel .uth-cards-col .divider { margin: 2px 0 !important; }
+  .uth-result-panel .uth-hand-name { font-size: 1.05rem !important; margin-top: 1px !important; }
+  /* ── Short-screen button visibility ──────────────────────────────────────────
+     Keep bottom-anchored buttons (Next Hand, raises) above the status bar once iOS
+     chrome (Dynamic Island + Safari toolbar) shrinks the window. Tested in WebKit
+     via npm run test:webkit. */
+  /* BJ result (non-split): tighten the inline dealer/player stack + shrink result cards. */
+  .panel > div[style*="gap:16px"] { gap: 6px !important; margin-bottom: 4px !important; }
+  .panel > div[style*="gap:16px"] .card.sm { width: 48px; height: 68px; }
+  .panel > div[style*="gap:16px"] .hand-val { font-size: 1.4rem !important; }
+  /* UTH play (preflop/flop/turn): reclaim space around the bet chips. */
+  .uth-bet-chips { margin: 4px 0 !important; }
+  .uth-bet-chip { padding: 4px 14px !important; }
   /* Roulette placed bets — compact list and spin button */
-  #db { margin: 5px 0 !important; }
+  #db { margin: 3px 0 !important; }
   /* Hide the "Roulette · " / etc. prefix on mobile — title bar already shows the game */
   .sec-game-prefix { display: none; }
-  #r-placed .divider { margin: 3px 0 !important; }
+  #r-placed .divider { margin: 2px 0 !important; }
   #r-placed .sec { font-size: 0.85rem; margin-bottom: 1px; }
-  #r-placed .irow { padding: 2px 6px !important; margin-bottom: 1px !important; }
+  #r-placed .irow { padding: 1px 6px !important; margin-bottom: 0 !important; }
   /* Emoji deck */
   body.deck-emoji .ct-s::after { font-size: 0.72em; }
 }

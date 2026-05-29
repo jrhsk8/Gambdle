@@ -9,10 +9,14 @@ function cardHTML(c,sz='md',ex='',dl=0,anim=true){
   if(c==='back')return`<div class="card ${sz} back" style="${ex}"></div>`;
   const cl=(RED_S.has(c.s)?'red':'blk')+' '+(SUIT_CLS[c.s]||'suit-s');
   const ds=anim&&dl?`animation-delay:${dl}s`:'';
+  // U+FE0E forces text presentation so iOS renders the suit as a flat glyph that honors
+  // the card's red/black color, instead of a multicolor emoji. Display-only — the stored
+  // c.s stays a bare symbol for game logic (RED_S, evalBet, card matching).
+  const s=c.s+'︎';
   return`<div class="card ${sz} ${cl}${anim?' deal-anim':''}" style="${ds}${ex?';'+ex:''}">
-    <div class="ctl"><span class="ct-r" data-r="${c.r}">${c.r}</span><span class="ct-s">${c.s}</span></div>
-    <div class="cbody"><span class="csuit">${c.s}</span></div>
-    <div class="cbr"><span class="ct-r" data-r="${c.r}">${c.r}</span><span class="ct-s">${c.s}</span></div>
+    <div class="ctl"><span class="ct-r" data-r="${c.r}">${c.r}</span><span class="ct-s">${s}</span></div>
+    <div class="cbody"><span class="csuit">${s}</span></div>
+    <div class="cbr"><span class="ct-r" data-r="${c.r}">${c.r}</span><span class="ct-s">${s}</span></div>
   </div>`;
 }
 
@@ -68,7 +72,9 @@ function hdr(sub){
     const parts = sub.split(' · ');
     const main = parts[0];
     const detail = parts.length > 1 ? `<span class="tb-detail"> · ${parts[1]}</span>` : '';
-    titleText = `Gambdle — ${main}${detail}`;
+    // "Gambdle — " is hidden on mobile (the status bar already shows it) so the long
+    // game name fits the narrow title bar without overflowing horizontally.
+    titleText = `<span class="tb-prefix">Gambdle — </span>${main}${detail}`;
   }
   return`<div class="title-bar">
     <span class="tb-title"><span class="tb-icon">♠</span>${titleText}</span>
@@ -258,7 +264,7 @@ function _fallbackCopy(text){
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 const _SUIT_CLS_MAP={'♠':'sym-s','♥':'sym-h','♦':'sym-d','♣':'sym-c'};
-function suitSpans(s){return s.replace(/[♠♥♦♣]/g,m=>`<span class="${_SUIT_CLS_MAP[m]}">${m}</span>`);}
+function suitSpans(s){return s.replace(/[♠♥♦♣]/g,m=>`<span class="${_SUIT_CLS_MAP[m]}">${m}︎</span>`);}
 
 // ─── INFO SECTIONS ────────────────────────────────────────────
 const INFO_SECTIONS = {
