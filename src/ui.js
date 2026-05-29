@@ -186,7 +186,14 @@ function patchBetUI() {
   if(ai)ai.disabled=max===0 || max < minChipsMod;
   const us=document.getElementById('uth-summary');
   if(us) {
-    us.innerHTML = `Ante <b style="color:var(--gold)">${fmt(bet/2)}</b> + Blind <b style="color:var(--gold)">${fmt(bet/2)}</b> = <b style="color:var(--gold-hi)">${fmt(bet)}</b> chips total`;
+    // Match the render's split: ante rounds up, blind rounds down (see _uthAntePortion/_uthBlindPortion).
+    const ante=Math.ceil(bet/2), blind=Math.floor(bet/2);
+    us.innerHTML = `Ante <b style="color:var(--gold)">${fmt(ante)}</b> + Blind <b style="color:var(--gold)">${fmt(blind)}</b> = <b style="color:var(--gold-hi)">${fmt(bet)}</b> chips total`;
+    // Keep the blind pay table (and its header) in step with the staked blind.
+    const pt=document.getElementById('uth-ptable');
+    if(pt) pt.innerHTML = uthPayTableHTML(blind);
+    const pth=document.getElementById('uth-pt-head');
+    if(pth) pth.innerHTML = uthPayTableHead(blind);
   }
 }
 

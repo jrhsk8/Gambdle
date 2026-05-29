@@ -379,6 +379,155 @@ describe('peek — doPeek lifecycle', () => {
   });
 });
 
+// peek — reveal scoping. The peek is one-time per day, but the revealed hole card
+// must only show on the exact game + hand where it was used. Regression tests for:
+//   (a) peeking reveals the dealer on every later hand of every game,
+//   (b) peeking on BJ hand 2 also reveals the hole card on BJ hand 3,
+// plus other edge cases (cross-game leak, no-op guards, persistence, label scoping).
+describe('peek — reveal is scoped to the exact game + hand', () => {
+  const _snap = JSON.stringify({ ...S, pkHeld: [...S.pkHeld] });
+  const _restore = () => { const r = JSON.parse(_snap); r.pkHeld = new Set(r.pkHeld); Object.assign(S, r); };
+  // Put S into a peek-active state: modifier on, peek already used on the given game+hand.
+  const _peekedOn = (game, hand) => {
+    S.forcedMod = 'peek';
+    Object.assign(S, { peekUsed: true, peekAt: { game, hand } });
+    if (game === 'bj') { S.screen = 'bj'; S.bjHand = hand; }
+    else if (game === 'uth') { S.screen = 'uth'; S.uthHand = hand; }
+  };
+
+  it('doPeek records the game + hand it was used on (BJ hand index 1)', () => {
+    Object.assign(S, { screen: 'bj', bjHand: 1, peekUsed: false, peekAt: null,
+      bjDealer: [card('7', 'd'), card('K', 'c')] });
+    S.forcedMod = 'peek';
+    try {
+      doPeek();
+      assertEqual(S.peekUsed, true, 'peekUsed flips true');
+      assert(S.peekAt && S.peekAt.game === 'bj' && S.peekAt.hand === 1,
+        `peekAt should be {bj,1}, got ${JSON.stringify(S.peekAt)}`);
+    } finally { _restore(); }
+  });
+
+  it('peekRevealed() is true on the peeked hand', () => {
+    _peekedOn('bj', 1);
+    try { assertEqual(peekRevealed(), true, 'should reveal on the hand peek was used'); }
+    finally { _restore(); }
+  });
+
+  // Bug (b): peeking on BJ hand 2 (index 1) must NOT reveal on BJ hand 3 (index 2).
+  it('does NOT reveal on a later BJ hand (peek hand 2 → hand 3 stays hidden)', () => {
+    _peekedOn('bj', 1);
+    try {
+      S.bjHand = 2; // advanced to next hand, same game
+      assertEqual(peekRevealed(), false, 'later hand must not show the peeked card');
+    } finally { _restore(); }
+  });
+
+  it('does NOT reveal on an earlier BJ hand either', () => {
+    _peekedOn('bj', 1);
+    try {
+      S.bjHand = 0;
+      assertEqual(peekRevealed(), false, 'a different hand index must not reveal');
+    } finally { _restore(); }
+  });
+
+  // Bug (a): peeking in BJ must not bleed into UTH (or any other game) that day.
+  it('does NOT reveal in UTH after peeking in BJ (no cross-game leak)', () => {
+    _peekedOn('bj', 0);
+    try {
+      Object.assign(S, { screen: 'uth', uthHand: 0 });
+      assertEqual(peekRevealed(), false, 'UTH must not inherit a BJ peek');
+    } finally { _restore(); }
+  });
+
+  it('does NOT reveal in BJ after peeking in UTH', () => {
+    _peekedOn('uth', 0);
+    try {
+      Object.assign(S, { screen: 'bj', bjHand: 0 });
+      assertEqual(peekRevealed(), false, 'BJ must not inherit a UTH peek');
+    } finally { _restore(); }
+  });
+
+  it('reveals on the matching UTH hand only', () => {
+    _peekedOn('uth', 0);
+    try {
+      assertEqual(peekRevealed(), true, 'reveals on UTH hand it was used');
+      S.uthHand = 1;
+      assertEqual(peekRevealed(), false, 'later UTH hand stays hidden');
+    } finally { _restore(); }
+  });
+
+  it('peekRevealed() is false before any peek (button shown, card hidden)', () => {
+    S.forcedMod = 'peek';
+    Object.assign(S, { screen: 'bj', bjHand: 0, peekUsed: false, peekAt: null });
+    try {
+      assertEqual(peekRevealed(), false, 'unused peek must not reveal');
+      assert(peekBtnHTML() !== '', 'peek button should be offered while unused');
+    } finally { _restore(); }
+  });
+
+  it('peekRevealed() is false without the peek modifier even if peekAt is set', () => {
+    S.forcedMod = {}; // no peek key
+    Object.assign(S, { screen: 'bj', bjHand: 1, peekUsed: true, peekAt: { game: 'bj', hand: 1 } });
+    try { assertEqual(peekRevealed(), false, 'no modifier → never reveal'); }
+    finally { _restore(); }
+  });
+
+  it('peek button disappears on every later hand (one peek per day)', () => {
+    _peekedOn('bj', 1);
+    try {
+      S.bjHand = 2;
+      assertEqual(peekBtnHTML(), '', 'no second peek offered on a later hand');
+      Object.assign(S, { screen: 'uth', uthHand: 0 });
+      assertEqual(peekBtnHTML(), '', 'no second peek offered in the other game');
+    } finally { _restore(); }
+  });
+
+  it('doPeek is a no-op without the peek modifier (cannot set peekAt)', () => {
+    S.forcedMod = {};
+    Object.assign(S, { screen: 'bj', bjHand: 0, peekUsed: false, peekAt: null });
+    try {
+      doPeek();
+      assertEqual(S.peekUsed, false, 'peekUsed stays false without modifier');
+      assertEqual(S.peekAt, null, 'peekAt stays null without modifier');
+    } finally { _restore(); }
+  });
+
+  it('doPeek is a no-op once used — does not relocate the reveal to a new hand', () => {
+    _peekedOn('bj', 1);
+    try {
+      S.bjHand = 2;
+      doPeek(); // second call on a different hand
+      assert(S.peekAt.game === 'bj' && S.peekAt.hand === 1,
+        `peekAt must stay pinned to {bj,1}, got ${JSON.stringify(S.peekAt)}`);
+    } finally { _restore(); }
+  });
+
+  it('peekAt survives a state save round-trip', () => {
+    _peekedOn('bj', 1);
+    try {
+      const round = JSON.parse(JSON.stringify({ ...S, pkHeld: [...S.pkHeld] }));
+      assert(round.peekAt && round.peekAt.game === 'bj' && round.peekAt.hand === 1,
+        'peekAt must serialize so the reveal survives a refresh');
+    } finally { _restore(); }
+  });
+
+  // Render-level checks against bjDealerHTML (face-down card carries the "back" class).
+  it('bjDealerHTML shows the hole card + Peeked label only on the peeked hand', () => {
+    _peekedOn('bj', 1);
+    Object.assign(S, { bjDealer: [card('7', 'd'), card('K', 'c')], bjDealerReveal: false });
+    try {
+      const onHand = bjDealerHTML();
+      assert(onHand.includes('Peeked'), 'peeked hand shows the Peeked label');
+      assert(!onHand.includes('lg back'), 'peeked hand shows the real second card, not a face-down back');
+
+      S.bjHand = 2; // next hand
+      const laterHand = bjDealerHTML();
+      assert(!laterHand.includes('Peeked'), 'later hand has no Peeked label');
+      assert(laterHand.includes('lg back'), 'later hand keeps the second card face down');
+    } finally { _restore(); }
+  });
+});
+
 // r_multi_bet — max concurrent roulette bets is raised from default (5) to r_max_bets (10).
 describe('r_multi_bet — concurrent bet cap', () => {
   it('without modifier, default max is 5', () => {

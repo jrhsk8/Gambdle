@@ -91,6 +91,44 @@ describe('addChip — no-op outside bet phase', () => {
   });
 });
 
+// ─── UTH bet screen: blind pay table tracks the staked bet ───────────────────
+describe('UTH blind pay table — stays in sync with the bet box', () => {
+  it('switches from ratios to chip payouts and updates the header on chip insert', () => {
+    withState({ screen:'uth', uthPhase:'bet', uthAnte:0, chips:1000, uthHand:0, uthHistory:[] }, () => {
+      render();
+      const pt   = document.getElementById('uth-ptable');
+      const head = document.getElementById('uth-pt-head');
+      assert(pt && head, 'uth-ptable + uth-pt-head present on the bet screen');
+      const before = pt.textContent;
+      assert(/500x/.test(before), `expected ratio display before any bet, got: ${before}`);
+      addChip(100); // total 100 → blind 50 → Royal pays a chip amount, not "500x"
+      assert(pt.textContent !== before, 'pay table must re-render after a chip insert');
+      assert(!/500x/.test(pt.textContent) && !/3:2/.test(pt.textContent),
+        `ratios should be replaced by chip payouts once a blind is staked, got: ${pt.textContent}`);
+      assert(/Blind 50/.test(head.textContent), `header should show the staked blind, got: ${head.textContent}`);
+    });
+  });
+
+  it('clearing the bet reverts the pay table to ratios', () => {
+    withState({ screen:'uth', uthPhase:'bet', uthAnte:0, chips:1000, uthHand:0, uthHistory:[] }, () => {
+      render();
+      addChip(100);
+      clearBet();
+      const pt = document.getElementById('uth-ptable');
+      assert(/500x/.test(pt.textContent), `expected ratios after clearing the bet, got: ${pt.textContent}`);
+    });
+  });
+
+  it('odd bet total splits ante up / blind down in the summary', () => {
+    withState({ screen:'uth', uthPhase:'bet', uthAnte:0, chips:1000, uthHand:0, uthHistory:[] }, () => {
+      render();
+      addChip(25); // odd total → ante 13 / blind 12 (no fractional chips)
+      const s = document.getElementById('uth-summary').textContent;
+      assert(/Ante 13/.test(s) && /Blind 12/.test(s), `expected "Ante 13 + Blind 12", got: ${s}`);
+    });
+  });
+});
+
 describe('clearBet — no-op outside bet phase', () => {
   it('does not clear uthAnte during dealing phase', () => {
     withState({ screen:'uth', uthPhase:'dealing', uthAnte:300, chips:700 }, () => {

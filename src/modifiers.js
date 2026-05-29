@@ -37,7 +37,7 @@ const PRESET_MODIFIERS = {
   bj_double_bonus: { type: 'bj',      title: "Quadruple Down",       desc: "Blackjack: Successful double downs pay 2x profit", bj_double_bonus: true,                     devNote: '' },
   high_stakes:     { type: 'bj',      title: "High Stakes",          desc: "Blackjack: Minimum chips requirement is 100",     min_chips: 100,                              devNote: '' },
   bj_first_ace:    { type: 'bj',      title: "Ace Up Your Sleeve",   desc: "Blackjack: Your first card each hand is always an Ace", bj_first_ace: true,                  devNote: '' },
-  bj_wild_split:   { type: 'bj',      title: "Wild Split",           desc: "Blackjack: Split any two cards. Split wins pay double.", bj_wild_split: true,                 devNote: '' },
+  bj_wild_split:   { type: 'bj',      title: "Big Splitter",          desc: "Blackjack: Split any two cards. Split wins pay double.", bj_wild_split: true,                 devNote: '' },
   // UTH
   uth_blind_boost:    { type: 'uth',  title: "Big Blind",            desc: "Hold'em: Blind payouts are doubled",              uth_blind_boost: 2.0,                        devNote: '' },
   uth_blind_extended: { type: 'uth',  title: "Loose Blind",          desc: "Hold'em: Blind pays on two pair and up",          uth_blind_extended: true,                    devNote: '' },

@@ -279,6 +279,33 @@ describe('layout — roulette screens', () => {
     rBets:[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50}],
   }));
 
+  // A full set of bets is the binding case — the placed-bets list is at its
+  // tallest. The old 3-bet fixture fit fine while 5 bets overflowed, so adding
+  // bets could grow/clip the window. Always test the max.
+  const _rMaxBets = { screen:'roulette', rPhase:'bet', chips:1000, rBet:0, rPick:null,
+    rBets:[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}] };
+  it('bet phase — full set of bets fits viewport', () => checkScreen('roulette-bet-max', _rMaxBets));
+
+  // The betting board must NEVER scroll on any view. .r-board-wrap has
+  // overflow-x:auto, which makes overflow-y compute to `auto` too — so when the
+  // flex panel shrinks it (e.g. with a full bet list on a short window), the
+  // lower betting rows silently scroll out of reach. The panel-level scroll
+  // check can't see this nested scroll, so assert it directly, with max bets.
+  it('betting board never scrolls (tiles always reachable)', () => {
+    const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+    Object.assign(S, base, _rMaxBets);
+    render();
+    const wrap = document.querySelector('.r-board-wrap');
+    assert(wrap !== null, 'roulette-board: .r-board-wrap not found');
+    const overY = Math.round(wrap.scrollHeight - wrap.clientHeight);
+    const overX = Math.round(wrap.scrollWidth  - wrap.clientWidth);
+    assert(overY <= HORIZ_TOL,
+      `roulette-board: board scrolls vertically by ${overY}px — lower betting rows are hidden`);
+    assert(overX <= HORIZ_TOL,
+      `roulette-board: board scrolls horizontally by ${overX}px — tiles off-screen at this viewport`);
+    _ltRestore();
+  });
+
   it('spinning phase fits viewport', () => checkScreen('roulette-spinning', {
     screen:'roulette', rPhase:'spinning',
     chips:450, rSpin:36, rBets:[{pick:46,bet:50}],
@@ -322,6 +349,71 @@ describe('layout — final results', () => {
 // ─── Dev stats ────────────────────────────────────────────────────────────────
 describe('layout — devstats', () => {
   it('fits viewport', () => checkScreen('devstats', { screen:'devstats' }));
+});
+
+// ─── Button uniformity ────────────────────────────────────────────────────────
+// Every in-game button (act-btn, btn-gold, clear/all-in, bet box) must share ONE
+// height and ONE font size per window size — the same control can't be a different
+// size from one game to the next. Heights are checked against the --btn-h variable
+// across screens drawn from all three games.
+describe('layout — buttons share one height + font per window size', () => {
+  const HEIGHT_SEL = '.act-btn, .btn-gold:not(.btn-lg), .ch-clear, .ch-allin, .bet-amt';
+  const FONT_SEL   = '.act-btn, .btn-gold:not(.btn-lg), .ch-clear, .ch-allin';
+  // Screens chosen so the union surfaces every button type across BJ / UTH / Roulette.
+  const _btnScreens = {
+    'bj-play':  { screen:'bj', bjPhase:'play', chips:900, bjBet:100, bjHand:0, bjHistory:[], bjPlayer:_bjPair, bjDealer:_bjDealer },
+    'bj-bet':   { screen:'bj', bjPhase:'bet', chips:1000, bjBet:50, bjHand:0, bjHistory:[] },
+    'uth-flop': { screen:'uth', chips:800, uthAnte:100, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthPhase:'flop', uthRevealComm:3, uthRaised:false, uthHand:0, uthHistory:[] },
+    'uth-bet':  { screen:'uth', uthPhase:'bet', chips:1000, uthAnte:50, uthHand:0, uthHistory:[] },
+    'rlt-bet':  { screen:'roulette', rPhase:'bet', chips:500, rBet:50, rBets:[], rPick:17 },
+    'rlt-res':  { screen:'roulette', rPhase:'result', chips:550, rSpin:45, rResult:{ delta:50, bets:[{pick:45,won:true,delta:50,pay:1,bet:50}] } },
+  };
+
+  // Collect {label, sel, h, fs} for every visible button across all screens.
+  const _collect = (selector, withFont) => {
+    const out = [];
+    for (const [name, ov] of Object.entries(_btnScreens)) {
+      const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+      Object.assign(S, base, ov);
+      render();
+      for (const el of document.querySelectorAll(selector)) {
+        const h = el.getBoundingClientRect().height;
+        if (h <= 0) continue; // skip hidden
+        const cs = getComputedStyle(el);
+        out.push({ where: `${name}:${el.className.split(' ')[0]}`, h: Math.round(h),
+          fs: withFont ? Math.round(parseFloat(cs.fontSize)) : 0,
+          txt: (el.textContent || '').trim().slice(0, 14) });
+      }
+    }
+    _ltRestore();
+    return out;
+  };
+
+  it('all button heights equal --btn-h at this viewport', () => {
+    const expected = Math.round(parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--btn-h')));
+    assert(expected > 0, `--btn-h must resolve to a positive px value, got ${expected}`);
+    const btns = _collect(HEIGHT_SEL, false);
+    assert(btns.length >= 8, `expected to sample ≥8 buttons across games, got ${btns.length}`);
+    for (const b of btns) {
+      // 1px tolerance for sub-pixel rounding.
+      assert(Math.abs(b.h - expected) <= 1,
+        `button height drift: ${b.where} ("${b.txt}") is ${b.h}px, expected --btn-h ${expected}px`);
+    }
+  });
+
+  it('all single-text button fonts equal --btn-fs at this viewport', () => {
+    const root = getComputedStyle(document.documentElement);
+    // --btn-fs is in rem; resolve against the root font-size to get px.
+    const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const expected = Math.round(parseFloat(root.getPropertyValue('--btn-fs')) * rootPx);
+    const btns = _collect(FONT_SEL, true);
+    assert(btns.length >= 8, `expected ≥8 buttons, got ${btns.length}`);
+    for (const b of btns) {
+      assert(Math.abs(b.fs - expected) <= 1,
+        `button font drift: ${b.where} ("${b.txt}") is ${b.fs}px, expected --btn-fs ${expected}px`);
+    }
+  });
 });
 
 // ─── Teardown ─────────────────────────────────────────────────────────────────

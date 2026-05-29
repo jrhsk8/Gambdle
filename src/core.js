@@ -2,7 +2,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.6.7';
+const GAME_VERSION = 'v1.8';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -268,7 +268,8 @@ let S={
   rSpin:null,       // the winning number (set at spin time, null until first spin)
   rReSpun:false,    // true once the player uses their free re-spin (r_respin modifier)
   forcedMod: null,  // dev override — set by devApplyMod(), cleared on next loadState()
-  peekUsed: false,  // whether the one-time dealer peek has been used this game
+  peekUsed: false,  // whether the one-time daily dealer peek has been used
+  peekAt: null,     // {game, hand} the peek was used on — reveal only shows there, not on later hands/games
   borrowUsed: false,        // true once the daily borrow option has been taken or declined
   borrowAmount: 0,          // actual chips borrowed (may exceed BORROW_AMOUNT under min_chips modifier)
   borrowReturnScreen: null, // screen to navigate to after borrowing chips

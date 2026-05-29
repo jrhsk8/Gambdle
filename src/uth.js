@@ -88,6 +88,25 @@ function uthBlindDelta(cat,blind){
   return Math.ceil(base*boost);
 }
 
+// Blind pay-table rows: [name, hand-category (null = the "below" push row), fallback ratio].
+// Shared by the bet-screen render and the surgical chip-insert patch so both stay in sync.
+function _uthPayRows(){
+  const ext=getMod('uth_blind_extended');
+  // cat=9 Royal, 8 SF, 7 Quads, 6 Full, 5 Flush, 4 Straight; ext also 3 ToK, 2 TwoPair
+  const rows=[['Royal Flush',9,'500x'],['Straight Flush',8,'50x'],['Four of a Kind',7,'10x'],['Full House',6,'3x'],['Flush',5,'3:2'],['Straight',4,'1x']];
+  if(ext){rows.push(['Three of a Kind',3,'1:1']);rows.push(['Two Pair',2,'1:2']);}
+  rows.push(['< '+(ext?'Two Pair':'Straight'),null,'Push']);
+  return rows;
+}
+// Pay-table body: once a blind is staked, show the actual chip payout per hand; otherwise the ratio.
+function uthPayTableHTML(blind){
+  return _uthPayRows().map(([n,cat,ratio])=>{
+    const display=(blind>0&&cat!==null)?fmt(uthBlindDelta(cat,blind)):ratio;
+    return `<span class="pname">${n}</span><span class="ppay">${display}</span>`;
+  }).join('');
+}
+function uthPayTableHead(blind){ return `Blind Pay Table${blind>0?` · Blind ${fmt(blind)}`:''}`; }
+
 // ─── UTH / POKER STATE ───────────────────────────────────────────────────
 const UTH_CARD_START_MS    = 300;  // delay before first community card animates in
 const UTH_CARD_INTERVAL_MS = 400;  // stagger between each community card
@@ -459,19 +478,8 @@ function screenUTH(){
           <button id="db" class="btn-gold" style="margin-top:4px" onclick="uthDeal()" ${S.uthAnte===0?'disabled':''}>Deal →</button>`}
 
       <div class="divider"></div>
-      <div class="sec">Blind Pay Table${S.uthAnte>0?` · Blind ${fmt(_uthBlindPortion())}`:''}</div>
-      <div class="ptable">${(()=>{
-        const blind=_uthBlindPortion();
-        const ext=getMod('uth_blind_extended');
-        // cat=9 Royal, 8 SF, 7 Quads, 6 Full, 5 Flush, 4 Straight; ext also 3 ToK, 2 TwoPair
-        const rows=[['Royal Flush',9,'500x'],['Straight Flush',8,'50x'],['Four of a Kind',7,'10x'],['Full House',6,'3x'],['Flush',5,'3:2'],['Straight',4,'1x']];
-        if(ext){rows.push(['Three of a Kind',3,'1:1']);rows.push(['Two Pair',2,'1:2']);}
-        rows.push(['< '+(ext?'Two Pair':'Straight'),null,'Push']);
-        return rows.map(([n,cat,ratio])=>{
-          const display = (blind>0 && cat!==null) ? fmt(uthBlindDelta(cat,blind)) : ratio;
-          return `<span class="pname">${n}</span><span class="ppay">${display}</span>`;
-        }).join('');
-      })()}</div>
+      <div id="uth-pt-head" class="sec">${uthPayTableHead(_uthBlindPortion())}</div>
+      <div id="uth-ptable" class="ptable">${uthPayTableHTML(_uthBlindPortion())}</div>
     </div>`;
   }
 
@@ -492,10 +500,13 @@ function screenUTH(){
   </div>`;
 
   const dealerRow=(reveal=false)=>`<div id="uth-dealer-container" style="text-align:center">
-    <div id="uth-dealer-sec" class="sec">${reveal?'Dealer':getMod('peek')&&S.peekUsed?'Dealer · <span style="color:var(--gold-hi);font-size:.7rem">👁 Peeked</span>':'Dealer (Face Down)'}</div>
-    <div id="uth-dealer-hand" class="hand">${reveal
-      ?renderCards(S.uthDealer,'md',0,0.9,0.1)
-      :[0,1].map((_,i)=>i===0&&getMod('peek')&&S.peekUsed?cardHTML(S.uthDealer[0],'md','box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px',0,false):cardHTML('back','md')).join('')}</div>
+    <div id="uth-dealer-sec" class="sec">${reveal?'Dealer':peekRevealed()?'Dealer · <span style="color:var(--gold-hi);font-size:.7rem">👁 Peeked</span>':'Dealer (Face Down)'}</div>
+    <div class="dealer-hand-row">
+      <div id="uth-dealer-hand" class="hand">${reveal
+        ?renderCards(S.uthDealer,'md',0,0.9,0.1)
+        :[0,1].map((_,i)=>i===0&&peekRevealed()?cardHTML(S.uthDealer[0],'md','box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px',0,false):cardHTML('back','md')).join('')}</div>
+      ${reveal?'':peekBtnHTML()}
+    </div>
   </div>`;
 
   const betChips=()=>{
@@ -517,7 +528,6 @@ function screenUTH(){
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
       <div class="divider"></div>
       ${dealerRow(false)}
-      ${peekBtnHTML()}
       <div class="divider"></div>
       ${commRow()}
       <div class="divider"></div>
@@ -540,7 +550,6 @@ function screenUTH(){
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
       <div class="divider"></div>
       ${dealerRow(false)}
-      ${peekBtnHTML()}
       <div class="divider"></div>
       ${commRow()}
       <div class="divider"></div>
@@ -563,7 +572,6 @@ function screenUTH(){
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
       <div class="divider"></div>
       ${dealerRow(false)}
-      ${peekBtnHTML()}
       <div class="divider"></div>
       ${commRow()}
       <div class="divider"></div>

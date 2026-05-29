@@ -295,8 +295,11 @@ function bjDealerHTML(){
     ?`<div class="sec">Dealer${dv>21?' · BUST':''}</div>
       <div class="hand">${renderCards(S.bjDealer,'lg',S.bjDealerAnimFrom,0.85,0.1)}</div>
       ${valHTML}`
-    :`<div class="sec">Dealer Shows${getMod('peek')&&S.peekUsed?' · <span style="color:var(--gold-hi);font-size:.7rem">👁 Peeked</span>':''}</div>
-      <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${getMod('peek')&&S.peekUsed?cardHTML(S.bjDealer[1],'lg','box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px',0,false):cardHTML('back','lg')}</div>
+    :`<div class="sec">Dealer Shows${peekRevealed()?' · <span style="color:var(--gold-hi);font-size:.7rem">👁 Peeked</span>':''}</div>
+      <div class="dealer-hand-row">
+        <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${peekRevealed()?cardHTML(S.bjDealer[1],'lg','box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px',0,false):cardHTML('back','lg')}</div>
+        ${peekBtnHTML()}
+      </div>
       ${valHTML}`;
 }
 
@@ -314,11 +317,23 @@ function bjActionBtns(bust,done21,can2,canSplit){
 
 function peekBtnHTML(){
   if(!getMod('peek')||S.peekUsed) return '';
-  return `<div id="peek-btn-wrap" style="text-align:center;margin-top:8px"><button class="btn-peek-glow" onclick="doPeek()" style="background:rgba(196,147,58,.12);border:1.5px solid rgba(196,147,58,.5);color:var(--gold-hi);padding:6px 18px;border-radius:8px;font-size:.8rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.3">🔍 Peek<span style="display:block;font-size:.65rem;font-weight:400;opacity:.7;letter-spacing:.04em">1 remaining today</span></button></div>`;
+  return `<div id="peek-btn-wrap"><button class="btn-peek-glow" onclick="doPeek()" style="background:rgba(196,147,58,.12);border:1.5px solid rgba(196,147,58,.5);color:var(--gold-hi);padding:11px 20px;border-radius:8px;font-size:1.25rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.15;white-space:nowrap">🔍 Peek<span style="display:block;font-size:.78rem;font-weight:400;opacity:.7;letter-spacing:.04em">1 left today</span></button></div>`;
+}
+
+// The current hand index for the active dealer-card screen, or -1 if peek doesn't apply here.
+function _peekHand(){ return S.screen==='bj'?S.bjHand:S.screen==='uth'?S.uthHand:-1; }
+
+// True only when the peek was used on THIS exact game+hand. Keeps the revealed
+// hole card from leaking onto later hands or the other game.
+function peekRevealed(){
+  if(!getMod('peek')||!S.peekUsed||!S.peekAt) return false;
+  return S.peekAt.game===S.screen && S.peekAt.hand===_peekHand();
 }
 
 function doPeek(){
+  if(!getMod('peek')||S.peekUsed) return;
   S.peekUsed=true;
+  S.peekAt={game:S.screen,hand:_peekHand()};
   saveState();
   const btn=document.getElementById('peek-btn-wrap');
   if(btn) btn.style.display='none';
@@ -400,7 +415,6 @@ function screenBJ(){
         ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
         <div class="divider"></div>
         <div id="bj-dealer-section" style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
-        ${peekBtnHTML()}
         <div class="divider"></div>
         ${S.bjSplitHands.length>1?`<div class="bj-split-aside">
           ${S.bjSplitHands.map((hand,i)=>{if(i===ai)return'';const hv=hVal(hand);const isDone=S.bjSplitDone[i];return`<div style="text-align:center;opacity:${isDone?0.55:0.8}">
@@ -431,7 +445,6 @@ function screenBJ(){
   ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
   <div class="divider"></div>
   <div id="bj-dealer-section" style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
-  ${peekBtnHTML()}
   <div class="divider"></div>
   <div style="text-align:center;flex:1;">
     <div class="sec">Your Hand</div>
