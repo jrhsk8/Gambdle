@@ -400,15 +400,20 @@ describe('render — roulette spinning / result phases', () => {
     });
   });
 
-  it('spinning: multiple bets are summarized, not listed per-bet', () => {
+  it('spinning: multiple bets show a compact pill list (count summary + each tile), no payout rows', () => {
     withRender({
       screen:'roulette', rPhase:'spinning', chips:0, rSpin:17,
       rBets:[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}],
     }, html => {
-      assert(html.includes('5 Bets'),    'shows bet-count summary');
-      assert(html.includes('250 chips'), 'shows total wagered (5×50)');
-      // The per-bet "stake → payout" rows are what overflowed the fixed window.
-      assert(!html.includes('→'), 'individual per-bet payout rows are not listed');
+      assert(html.includes('5 Bets'),         'shows bet-count summary');
+      assert(html.includes('250 chips'),      'shows total wagered (5×50)');
+      assert(html.includes('r-spin-bets'),    'renders the pill list so you can see your bets');
+      // Each bet's tile name is listed (bold) so nothing is forgotten mid-spin.
+      assert(html.includes('Red'),  'lists Red (pick 45)');
+      assert(html.includes('#17'),  'lists #17 (pick 17)');
+      assert(html.includes('1-12'), 'lists 1-12 (pick 40)');
+      // Still terse — no full per-bet payout rows (those overflowed the window before).
+      assert(!html.includes('Pays'), 'no per-bet payout rows during the spin');
     });
   });
 

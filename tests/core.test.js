@@ -282,3 +282,75 @@ describe('genDeal (DEAL)', () => {
     assert(a5 !== b5, 'different seeds should produce different card sequences');
   });
 });
+
+describe('computeStreak', () => {
+  // Day-index → YYYYMMDD seed, so we can build histories relative to "today".
+  const idxToSeed = idx => { const d = new Date(START_DATE_UTC + idx * 86400000); return d.getUTCFullYear()*10000 + (d.getUTCMonth()+1)*100 + d.getUTCDate(); };
+  const TODAY = _seedDayIndex(getDailySeed());
+  // Runs fn with gambdle_history seeded from the given day-offsets (0 = today, -1 = yesterday…).
+  function withHistory(offsets, fn) {
+    const prev = _ls.getItem('gambdle_history');
+    const hist = {}; for (const off of offsets) hist[idxToSeed(TODAY + off)] = 1000;
+    _ls.setItem('gambdle_history', JSON.stringify(hist));
+    try { fn(); } finally { prev === null ? _ls.removeItem('gambdle_history') : _ls.setItem('gambdle_history', prev); }
+  }
+
+  it('no history → current 0, best 0', () => {
+    withHistory([], () => { const s = computeStreak(); assertEqual(s.current, 0, 'current'); assertEqual(s.best, 0, 'best'); });
+  });
+
+  it('includeEnd counts today even when not yet persisted', () => {
+    withHistory([], () => assertEqual(computeStreak(getDailySeed(), true).current, 1));
+  });
+
+  it('consecutive days ending today → current = run length', () => {
+    withHistory([-2, -1, 0], () => assertEqual(computeStreak().current, 3));
+  });
+
+  it('a missed day breaks the current run', () => {
+    // played today, yesterday, and 3 days ago — the 2-days-ago gap caps current at 2.
+    withHistory([-3, -1, 0], () => { const s = computeStreak(); assertEqual(s.current, 2, 'current'); assertEqual(s.best, 2, 'best'); });
+  });
+
+  it('current is 0 when the most recent played day is not today (and includeEnd off)', () => {
+    withHistory([-5, -4, -3], () => { const s = computeStreak(); assertEqual(s.current, 0, 'current'); assertEqual(s.best, 3, 'best'); });
+  });
+
+  it('best is the longest run anywhere in history', () => {
+    withHistory([-8, -7, -6, -5, -2, -1, 0], () => { const s = computeStreak(); assertEqual(s.current, 3, 'current'); assertEqual(s.best, 4, 'best'); });
+  });
+
+  it('ignores corrupt history JSON without throwing', () => {
+    const prev = _ls.getItem('gambdle_history');
+    _ls.setItem('gambdle_history', '{not valid');
+    try { assertEqual(computeStreak().current, 0); } finally { prev === null ? _ls.removeItem('gambdle_history') : _ls.setItem('gambdle_history', prev); }
+  });
+});
+
+describe('buildShareText — top-percentile line', () => {
+  function withTopPct(v, fn) { const prev = _lbTopPct; _lbTopPct = v; try { fn(); } finally { _lbTopPct = prev; } }
+
+  it('appends "(Top X%)" to the chips line when in the top half', () => {
+    withTopPct(12, () => assert(/Finished with [\d,]+ chips \(Top 12%\)/.test(buildShareText()), 'top-12% appended inline'));
+  });
+
+  it('is not added as a separate line', () => {
+    withTopPct(12, () => assert(!buildShareText().includes('🏆 Finished Top'), 'no standalone top-percentile line'));
+  });
+
+  it('omits the suffix outside the top half', () => {
+    withTopPct(75, () => assert(!buildShareText().includes('(Top'), 'no top suffix for bottom half'));
+  });
+
+  it('omits the suffix when the percentile is unknown', () => {
+    withTopPct(null, () => assert(!buildShareText().includes('(Top'), 'no top suffix before fetch'));
+  });
+
+  it('includes the suffix exactly at the 50% boundary', () => {
+    withTopPct(50, () => assert(buildShareText().includes('(Top 50%)'), 'top-50% is included'));
+  });
+
+  it('still ends with the gambdle.net footer', () => {
+    withTopPct(5, () => assert(buildShareText().trim().endsWith('gambdle.net'), 'footer stays last'));
+  });
+});

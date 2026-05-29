@@ -446,3 +446,38 @@ describe('_evalBets — result fields', () => {
     S.forcedMod = null;
   });
 });
+
+// ─── rBetLabel — clear, disambiguated bet names ───────────────────────────────
+describe('rBetLabel', () => {
+  it('numbers: "#17" compact, "Number 17" long', () => {
+    assertEqual(rBetLabel(17), '#17');
+    assertEqual(rBetLabel(17, true), 'Number 17');
+    assertEqual(rBetLabel(0), '#0', 'green zero');
+  });
+
+  it('the three 2:1 columns are named by their board row', () => {
+    // The board tiles stay "2:1"; the spin/result label says which row.
+    assertEqual(rBetLabel(37), 'Top Row');
+    assertEqual(rBetLabel(38), 'Middle Row');
+    assertEqual(rBetLabel(39), 'Bottom Row');
+    assert(new Set([rBetLabel(37), rBetLabel(38), rBetLabel(39)]).size === 3, 'columns are distinguishable');
+  });
+
+  it('column row names are the same in long form', () => {
+    assertEqual(rBetLabel(37, true), 'Top Row');
+    assertEqual(rBetLabel(39, true), 'Bottom Row');
+  });
+
+  it('dozens and even-money bets pass through their plain label', () => {
+    assertEqual(rBetLabel(40), '1-12');
+    assertEqual(rBetLabel(42), '25-36');
+    assertEqual(rBetLabel(45), 'Red');
+    assertEqual(rBetLabel(46), 'Black');
+    assertEqual(rBetLabel(44), 'Even');
+    assertEqual(rBetLabel(48), '19-36');
+  });
+
+  it('out-of-range index returns "?"', () => {
+    assertEqual(rBetLabel(99), '?');
+  });
+});

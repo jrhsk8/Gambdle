@@ -233,6 +233,10 @@ function buildShareText(){
   const g1=GAME_META[GAME1],g2=GAME_META[GAME2];
   const trophy=getTier(S.chips).emoji;
   const modTitle = getMod('title');
+  // Top-percentile brag, appended to the chip-total line only when the player landed in the
+  // top half. The percentile arrives async after the share box first renders, so the
+  // leaderboard fetch caches it (_lbTopPct) and re-renders the box — see _refreshShareBox.
+  const topSuffix = (_lbTopPct != null && _lbTopPct <= 50) ? ` (Top ${_lbTopPct}%)` : ``;
   return [
     `🎰 Gambdle #${S.day}`,
     modTitle ? `Daily modifier: ${modTitle}` : ``,
@@ -240,9 +244,15 @@ function buildShareText(){
     `${g2.icon} ${g2.short} (${sign(g2Net)})`,
     `🎡 Roulette (${sign(rNet)})`,
     ``,
-    `${trophy} Finished with ${fmt(S.chips)} chips`,
+    `${trophy} Finished with ${fmt(S.chips)} chips${topSuffix}`,
     `gambdle.net`
   ].join('\n');
+}
+// Re-renders the on-screen share box (the leaderboard fetch calls this once the
+// percentile is known so the displayed text matches what doShare() will copy).
+function _refreshShareBox(){
+  const box = document.querySelector('.share-box');
+  if (box) box.textContent = buildShareText();
 }
 function doShare(){
   const text = buildShareText();
@@ -478,7 +488,7 @@ function toggleMenu(which, trigger) {
       <div class="dd-item" onclick="goTo(GAME1);closeDropdowns()">→ ${_gName(GAME1_OPTIONS,GAME1)}</div>
       <div class="dd-item" onclick="goTo(GAME2);closeDropdowns()">→ ${_gName(GAME2_OPTIONS,GAME2)}</div>
       <div class="dd-item" onclick="goTo('roulette');closeDropdowns()">→ Roulette</div>
-      <div class="dd-item" onclick="devSpin()">🎡 Spin Wheel</div>
+      <div class="dd-item" onclick="devSpin()">🎡 Spin Wheel (5 bets)</div>
       <div class="dd-item" onclick="goTo('results');closeDropdowns()">→ Results</div>
       <div class="dd-sep"></div>
       ${_gameConfigHTML}
@@ -743,15 +753,12 @@ const POPUP_MESSAGES = {
   },
 };
 
-let _popupTimer = null;
-
-function showPopup(id, autoDismissMs = 9000) {
+function showPopup(id) {
   if (!POPUP_ENABLED && !DEV_OVERRIDE) return;
   const msg = POPUP_MESSAGES[id];
   if (!msg) return;
   const el = document.getElementById('xp-balloon');
   if (!el) return;
-  clearTimeout(_popupTimer);
   el.innerHTML = `
     <div class="xpb-inner">
       <div class="xpb-header">
@@ -764,11 +771,20 @@ function showPopup(id, autoDismissMs = 9000) {
     <div class="xpb-tail"></div>`;
   el.className = 'xpb-visible';
   _updateBalloonPosition();
-  if (autoDismissMs > 0) _popupTimer = setTimeout(dismissPopup, autoDismissMs);
+  // No auto-fade — the balloon stays until the X or a click outside it dismisses it.
+  // Defer attaching so the click that opened the popup doesn't immediately close it.
+  setTimeout(() => document.addEventListener('pointerdown', _popupOutsideClick), 0);
+}
+
+// Closes the balloon on any click/tap that isn't inside it.
+function _popupOutsideClick(e) {
+  const el = document.getElementById('xp-balloon');
+  if (el && el.contains(e.target)) return;
+  dismissPopup();
 }
 
 function dismissPopup() {
-  clearTimeout(_popupTimer);
+  document.removeEventListener('pointerdown', _popupOutsideClick);
   const el = document.getElementById('xp-balloon');
   if (!el || !el.classList.contains('xpb-visible')) return;
   el.classList.remove('xpb-visible');

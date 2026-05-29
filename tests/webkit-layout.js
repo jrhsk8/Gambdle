@@ -35,7 +35,7 @@ const INSETS = [
 const FIXTURES = [
   'intro', 'bj-bet', 'bj-play', 'bj-result', 'bj-result-split',
   'uth-bet', 'uth-preflop', 'uth-flop', 'uth-turn', 'uth-result',
-  'roulette-bet', 'roulette-bet-max', 'results', 'borrow',
+  'roulette-bet', 'roulette-bet-max', 'roulette-spinning-max', 'results', 'borrow',
 ];
 
 // ── In-page: build a screen's state (uses the page's own card()/bestOf7()/render()) ──
@@ -77,6 +77,7 @@ function buildFixture(label) {
     },
     'roulette-bet':     () => { S.screen = 'roulette'; S.rPhase = 'bet'; S.chips = 500; S.rBet = 50; S.rPick = 17; S.rBets = []; },
     'roulette-bet-max': () => { S.screen = 'roulette'; S.rPhase = 'bet'; S.chips = 1000; S.rBet = 0; S.rPick = null; S.rBets = [{ pick: 45, bet: 50 }, { pick: 17, bet: 50 }, { pick: 40, bet: 50 }, { pick: 2, bet: 50 }, { pick: 31, bet: 50 }]; },
+    'roulette-spinning-max': () => { S.screen = 'roulette'; S.rPhase = 'spinning'; S.chips = 0; S.rSpin = 17; S.rBets = [{ pick: 45, bet: 50 }, { pick: 17, bet: 50 }, { pick: 40, bet: 50 }, { pick: 37, bet: 50 }, { pick: 44, bet: 50 }]; },
     'results':          () => { S.screen = 'results'; S.chips = 1200; S.bjHand = 3; S.uthHand = 3; S.bjHistory = [{ delta: 200 }]; S.uthHistory = [{ delta: -50 }]; S.rResult = { delta: 0, skipped: true }; },
     'borrow':           () => { S.screen = 'borrow'; S.chips = 0; S.borrowReturnScreen = 'uth'; },
   };

@@ -2,7 +2,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.10';
+const GAME_VERSION = 'v1.11';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -45,6 +45,10 @@ const getDailySeed = () => { const d=new Date(Date.now()-_PHOENIX_OFFSET_MS); re
 // Returns the seed (YYYYMMDD) for the next Phoenix-time calendar day.
 const _nextDailySeed = () => { const d=new Date(Date.now()-_PHOENIX_OFFSET_MS); d.setUTCDate(d.getUTCDate()+1); return d.getUTCFullYear()*10000+(d.getUTCMonth()+1)*100+d.getUTCDate(); };
 let _backlogSeed = (() => { const v=parseInt(_ls.getItem('gambdle_backlog_seed')||'0'); return v||null; })();
+// Top-percentile (e.g. 12 = top 12%) for the current results run, filled in async by the
+// leaderboard fetch. null until known / when there aren't enough players to be meaningful.
+// buildShareText() reads it to add a "Finished Top X%" line once the rank comes back.
+let _lbTopPct = null;
 const getActiveSeed = () => _backlogSeed || getDailySeed();
 // Test-only setter — lets dev-advanced.test.js override _backlogSeed without a page reload.
 function _setBacklogSeedForTest(v) { _backlogSeed = v; }
@@ -58,6 +62,32 @@ const START_DATE_UTC = Date.UTC(2026, 4, 5);
 // Derives day number from getDailySeed so both are always in sync.
 const getDayNum = () => { const s=getDailySeed(); const y=Math.floor(s/10000),m=Math.floor((s%10000)/100)-1,d=s%100; return Math.floor((Date.UTC(y,m,d)-START_DATE_UTC)/86400000)+1; };
 const getActiveDayNum = () => { const s=getActiveSeed(); const y=Math.floor(s/10000),m=Math.floor((s%10000)/100)-1,d=s%100; return Math.floor((Date.UTC(y,m,d)-START_DATE_UTC)/86400000)+1; };
+
+// Absolute day index (days since START_DATE) for a YYYYMMDD seed — lets us tell whether
+// two played days are calendar-adjacent regardless of month boundaries.
+const _seedDayIndex = s => { const y=Math.floor(s/10000),m=Math.floor((s%10000)/100)-1,d=s%100; return Math.floor((Date.UTC(y,m,d)-START_DATE_UTC)/86400000); };
+
+/**
+ * Daily streak from the player's completed-day history (gambdle_history, keyed by seed).
+ * Returns { current, best }:
+ *   - current: consecutive days played ending at `endSeed` (today by default). Pass
+ *     includeEnd=true to count `endSeed` itself even if it isn't persisted yet — the
+ *     results screen renders before saveState() writes today's entry.
+ *   - best: longest consecutive run anywhere in history.
+ * A missed day breaks the run. Reads localStorage defensively (corrupt JSON → no streak).
+ */
+function computeStreak(endSeed = getDailySeed(), includeEnd = false) {
+  let hist = {};
+  try { hist = JSON.parse(_ls.getItem('gambdle_history') || '{}'); } catch (_e) {}
+  const days = new Set(Object.keys(hist).map(s => _seedDayIndex(parseInt(s))));
+  if (includeEnd) days.add(_seedDayIndex(endSeed));
+  let current = 0, i = _seedDayIndex(endSeed);
+  while (days.has(i)) { current++; i--; }
+  const sorted = [...days].sort((a, b) => a - b);
+  let best = sorted.length ? 1 : 0, run = 1;
+  for (let k = 1; k < sorted.length; k++) { run = sorted[k] === sorted[k-1] + 1 ? run + 1 : 1; if (run > best) best = run; }
+  return { current, best };
+}
 
 // Creates a card object; s accepts shorthand ('s','h','d','c') or a direct suit symbol.
 function card(r,s){return{r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]||s};}
@@ -347,7 +377,8 @@ function loadState() {
     // Guard: for completed runs, recompute chips from recorded history so stale saves can't inflate scores.
     // Fall back to the saved value if the calculation is non-finite (corrupted history entries).
     // Borrowed chips count as part of the effective starting stack for this calculation.
-    if (S.screen === 'results') {
+    // Skipped in dev mode so chips added via the dev menu aren't recomputed away.
+    if (S.screen === 'results' && !DEV_OVERRIDE) {
       const _calc = START_CHIPS + (S.borrowUsed ? (S.borrowAmount || BORROW_AMOUNT) : 0) + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0);
       S.chips = Number.isFinite(_calc) ? _calc : S.chips;
     }

@@ -98,12 +98,16 @@ function screenResults(){
 
   const high = parseInt(_ls.getItem('gambdle_highscore') || '0');
   const {emoji,label}=getTier(S.chips);const tier=`${emoji} ${label}`;
+  // Daily streak (today counts even though saveState hasn't persisted it yet). Only shown
+  // for the live day — a backlog/archive run shouldn't claim a current streak.
+  const streak = _backlogSeed ? 0 : computeStreak(getDailySeed(), true).current;
+  const streakHtml = streak >= 1 ? `<div class="results-streak">🔥 ${streak}-Day Streak</div>` : '';
 
   return `${hdr('Daily Results')}
   <div class="panel results-panel" style="text-align:center">
     <div class="results-tier" style="font-size:1.05rem;color:var(--cream);text-transform:uppercase;letter-spacing:0.16em;margin-bottom:2px">${tier}</div>
     <div class="big-chips" style="font-family:var(--btn-f);font-size:5rem;line-height:1;letter-spacing:.04em;color:var(--gold-hi);text-shadow:2px 2px 0 rgba(0,0,0,0.45)">${fmt(S.chips)}</div>
-    <div class="results-chips-lbl" style="color:var(--cream);opacity:0.7;letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;font-weight:600;margin-top:2px;margin-bottom:6px">chips</div>
+    ${streakHtml}
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
       ${[[g1Label,g1Net],[g2Label,g2Net],['🎡 Roulette',rNet]].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
       <div class="res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
@@ -155,6 +159,7 @@ async function submitAndFetchLeaderboard() {
     }
   }
 
+  _lbTopPct = null;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_percentile`, {
       method: 'POST',
@@ -174,6 +179,8 @@ async function submitAndFetchLeaderboard() {
       if (lr) lr.innerHTML = `<span class="ik">${lbl}</span><span class="iv" style="color:var(--ink)">Rank ${rank} of ${row.total}</span>`;
       return;
     }
+    _lbTopPct = row.top_pct;
+    _refreshShareBox(); // now that the percentile is known, fold "Finished Top X%" into the share text
     const iv = row.top_pct > 50
       ? `Bottom ${100 - row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`
       : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
@@ -257,7 +264,15 @@ async function fetchScoreDistribution() {
     const [bLo, bHi] = bucketBounds[playerBucket];
     const posWithin = Math.min(Math.max((S.chips - bLo) / (bHi - bLo), 0), 1);
     const youPct = (playerBucket + posWithin) / 7 * 100;
-    const youLblStyle = youPct > 50 ? 'right:4px' : 'left:4px';
+    // Label side: by default keep it inside the chart (left half → right of line, right half → left).
+    // For any interior bucket (not the 0 or 5k+ ends) put the label over the SHORTER of the two
+    // neighbouring bars instead, so it never crowds the count atop the taller bar — no longer gated
+    // on the You line being near a bucket border. (left:4px = label right of line; right:4px = left of line.)
+    let youLblStyle = youPct > 50 ? 'right:4px' : 'left:4px';
+    if (playerBucket >= 1 && playerBucket <= 5) {
+      const leftCnt = counts[playerBucket - 1], rightCnt = counts[playerBucket + 1];
+      if (leftCnt !== rightCnt) youLblStyle = leftCnt > rightCnt ? 'left:4px' : 'right:4px';
+    }
     const tallestBucket = counts.indexOf(Math.max(...counts));
     const inTallest = playerBucket === tallestBucket;
 
@@ -316,7 +331,11 @@ function devApplyMod(k) {
 }
 function devSpin(){
   S.screen='roulette';S.rPhase='bet';
-  if(S.rBets.length===0&&S.chips>=10){S.chips-=10;S.rBets=[{pick:45,bet:10}];}
+  // Place a fresh, varied 5-bet set so the multi-bet spin + result flow gets exercised across
+  // bet types: a straight number, a color, a 2:1 row (column), a dozen, and an even-money bet.
+  if(S.rBets.length===0){
+    for(const pick of [17,45,37,40,44]){ if(S.chips>=10){S.chips-=10;S.rBets.push({pick,bet:10});} }
+  }
   closeDropdowns();
   saveState();
   if(S.rBets.length>0)rSpin();else render();
@@ -755,9 +774,10 @@ function advanceTo(s){
     sndAdvance();goTo('borrow');return;
   }
   if(s!=='results'&&isChipBusted())s='results';
-  if(s==='results'){
+  if(s==='results'&&!DEV_OVERRIDE){
     const _calc=START_CHIPS+(S.borrowUsed?(S.borrowAmount||BORROW_AMOUNT):0)+gameNet(GAME1)+gameNet(GAME2)+(S.rResult?.delta||0);
     // Fall back to the current saved value if the recalculation is non-finite (corrupted history).
+    // Skipped in dev mode so dev-menu chip bonuses aren't recomputed away on the results screen.
     S.chips=Number.isFinite(_calc)?_calc:S.chips;
   }
   sndAdvance();goTo(s);

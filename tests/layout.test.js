@@ -336,9 +336,9 @@ describe('layout — roulette screens', () => {
     chips:450, rSpin:36, rBets:[{pick:46,bet:50}],
   }));
 
-  // Five bets is the binding case for the spinning screen — the per-bet list used
-  // to extend past the bottom of a mobile window (and under the status bar). The
-  // screen must summarize, not list every bet, so this fits like the 1-bet case.
+  // Five bets is the binding case for the spinning screen — the bets are now listed as
+  // compact pills below the wheel (bold tile + stake, no payout rows) so the full set must
+  // still fit without scrolling. This is why the pill list is kept terse.
   it('spinning phase with a full set of bets fits viewport', () => checkScreen('roulette-spinning-max', {
     screen:'roulette', rPhase:'spinning', chips:0, rSpin:17,
     rBets:[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}],
@@ -391,6 +391,25 @@ describe('layout — final results', () => {
     }));
     try {
       checkScreen('results-chart', { screen:'results', chips:1000, ..._fullHistory },
+        () => _showHistoryChart(document.getElementById('dist-chart')));
+    } finally {
+      if (_savedHist === null) _ls.removeItem('gambdle_history');
+      else _ls.setItem('gambdle_history', _savedHist);
+    }
+  });
+
+  // The streak tag renders inline on the "chips" label line, so it must not wrap to a
+  // new line or push content wider/taller. Seed a long consecutive run ENDING TODAY
+  // (relative to whatever date the suite runs on) so the tag actually shows, then check
+  // fit with the chart present — the realistic worst case for a returning player.
+  it('with a long daily streak fits viewport', () => {
+    const _savedHist = _ls.getItem('gambdle_history');
+    const idxToSeed = idx => { const d = new Date(START_DATE_UTC + idx * 86400000); return d.getUTCFullYear()*10000 + (d.getUTCMonth()+1)*100 + d.getUTCDate(); };
+    const today = _seedDayIndex(getDailySeed());
+    const hist = {}; for (let k = 0; k < 30; k++) hist[idxToSeed(today - k)] = 1200; // 30-day streak (2-digit)
+    _ls.setItem('gambdle_history', JSON.stringify(hist));
+    try {
+      checkScreen('results-streak', { screen:'results', chips:1200, ..._fullHistory },
         () => _showHistoryChart(document.getElementById('dist-chart')));
     } finally {
       if (_savedHist === null) _ls.removeItem('gambdle_history');

@@ -53,8 +53,19 @@ const R_BET_NUMS_MAP = {
   48: [19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36],
 };
 
-// Returns the display label for a bet slot (e.g. "#17", "Red", "1-12").
-const _rBetLabel = pick => { const d=R_BETS[pick]; return d?(d.type==='num'?'#'+d.lbl:d.lbl):'?'; };
+// The three column bets all read "2:1" on the board (and stay that way); name them by the
+// board row they sit on so the spin/result screens say which one — 37=top, 38=middle, 39=bottom.
+const _R_COL_ROW = { 37: 'Top Row', 38: 'Middle Row', 39: 'Bottom Row' };
+
+// Self-describing label for a bet slot. Columns become their row name; numbers, dozens and
+// the even-money bets are already clear. `long` only affects numbers ("#17" vs "Number 17").
+function rBetLabel(pick, long){
+  const d=R_BETS[pick];
+  if(!d) return '?';
+  if(d.type==='num') return long?'Number '+d.lbl:'#'+d.lbl;
+  if(d.type==='col') return _R_COL_ROW[pick]||d.lbl;
+  return d.lbl;
+}
 
 // Returns the winning numbers (1-36) for a given R_BETS index.
 // Index 0 (green zero) returns [] because outside bets all lose on zero.
@@ -270,7 +281,7 @@ function screenRouletteRespin(){
   const wm=winMult();
   const displayDelta=wm>1&&totalDelta>0?totalDelta*wm:totalDelta;
   const betRows=betPreviews.map(b=>`<div class="irow" style="margin-bottom:4px">
-    <span class="ik">${_rBetLabel(b.pick)} · Pays ${b.pay}:1</span>
+    <span class="ik"><b>${rBetLabel(b.pick)}</b> · Pays ${b.pay}:1</span>
     <span style="font-family:var(--btn-f);font-size:1.2rem;color:${col(b.delta)}">${sign(b.delta)}</span>
   </div>`).join('');
   return `${hdr('Roulette · Second Chance')}
@@ -301,8 +312,14 @@ function screenRouletteSpinning(){
   // fixed window (mobile and the short 1280×800 desktop); the full per-bet breakdown
   // is shown again on the result screen.
   const betLabel=bets.length===1
-    ?`Bet on <b style="color:var(--ink)">${R_BETS[bets[0].pick].type==='num'?'Number '+R_BETS[bets[0].pick].lbl:R_BETS[bets[0].pick].lbl}</b> &nbsp;·&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`
+    ?`Bet on <b style="color:var(--ink)">${rBetLabel(bets[0].pick,true)}</b> &nbsp;·&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`
     :`<b style="color:var(--ink)">${bets.length} Bets</b> &nbsp;·&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`;
+  // For multiple bets, list them as compact pills below the wheel so the player can see
+  // exactly what's riding on the spin (a single bet is already named in the line above).
+  // Kept terse (bold tile name + stake, no payout rows) so a full 5-bet set still fits.
+  const betPills=bets.length>1
+    ?`<div class="r-spin-bets">${bets.map(b=>`<span class="r-spin-bet"><b>${rBetLabel(b.pick)}</b><span class="r-spin-amt">${chipLbl(b.bet)}</span></span>`).join('')}</div>`
+    :'';
   return `${hdr('Roulette · Spinning!')}
   <div class="panel">
     ${gameDots([], 0, 'play', 2)}
@@ -312,6 +329,7 @@ function screenRouletteSpinning(){
       <canvas id="rwheel" width="300" height="300"></canvas>
     </div>
     <div style="text-align:center;font-size:1.8rem;color:var(--cream);margin-top:4px">${betLabel}</div>
+    ${betPills}
   </div>`;
 }
 
@@ -323,7 +341,7 @@ function screenRouletteBet(){
   const pb=S.rPick!==null?R_BETS[S.rPick]:null;
   const boardPad=getMod('r_color_double')||getMod('r_payout_mult')?'padding-bottom:28px':'';
   const board=`<div class="r-board-wrap" ${boardPad?`style="${boardPad}"`:''}>${rBoard()}</div>`;
-  const betInfo=`<div id="r-bet-info"><div class="irow">${pb?`<span class="ik">Bet on: <b style="color:var(--ink)">${pb.type==='num'?'Number '+pb.lbl:pb.lbl}</b></span><span class="iv">${pb.pay}:1 payout</span>`:`<span class="ik" style="color:var(--shadow)">Select a tile to bet on</span><span class="iv"></span>`}</div></div>`;
+  const betInfo=`<div id="r-bet-info"><div class="irow">${pb?`<span class="ik">Bet on: <b style="color:var(--ink)">${rBetLabel(S.rPick,true)}</b></span><span class="iv">${pb.pay}:1 payout</span>`:`<span class="ik" style="color:var(--shadow)">Select a tile to bet on</span><span class="iv"></span>`}</div></div>`;
 
   if(aios&&S.rBets.length===0){
     return `${hdr('Roulette · 1 Spin')}
@@ -331,7 +349,7 @@ function screenRouletteBet(){
       <div class="sec">The Table — select where to go all in</div>
       ${board}
       <div style="display:flex;gap:10px;margin:10px 0">
-        <button class="btn-gold" style="flex:2" onclick="rAllIn()" ${!pb?'disabled':''}>All In on ${pb?pb.lbl:'...'} (${fmt(S.chips)}) →</button>
+        <button class="btn-gold" style="flex:2" onclick="rAllIn()" ${!pb?'disabled':''}>All In on ${pb?rBetLabel(S.rPick):'...'} (${fmt(S.chips)}) →</button>
         <button class="ch-clear" style="flex:1;padding:17px" onclick="rSkip()">Skip Spin</button>
       </div>
       <div class="divider"></div>
@@ -372,7 +390,7 @@ function screenRouletteResult(){
   const bets=res.bets||[{pick:S.rPick,won:res.won,delta:res.delta,pay:R_BETS[S.rPick]?.pay}];
   const betRows=bets.map((b,i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
     <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
-      <span style="font-size:1rem">${_rBetLabel(b.pick)} · Pays ${b.pay}:1</span>
+      <span style="font-size:1rem"><b>${rBetLabel(b.pick)}</b> · Pays ${b.pay}:1</span>
       <span style="font-family:var(--btn-f);font-size:1.35rem;color:${col(b.delta)}">${sign(b.delta)}</span>
     </div>`).join('');
   return `${hdr('Roulette · Result')}
@@ -426,7 +444,7 @@ function pickBet(i){
   const irow = info.querySelector('.irow');
   if(irow){
     irow.style.visibility = '';
-    irow.querySelector('.ik').innerHTML = `Bet on: <b style="color:var(--ink)">${pb.type==='num'?'Number '+pb.lbl:pb.lbl}</b>`;
+    irow.querySelector('.ik').innerHTML = `Bet on: <b style="color:var(--ink)">${rBetLabel(i,true)}</b>`;
     irow.querySelector('.iv').textContent = pb.pay+':1 payout';
   }
 
@@ -438,7 +456,7 @@ function rPlacedInner(bets,maxBets){
   return`<div class="divider" style="margin:10px 0"></div>
     <div class="sec">Placed Bets (${bets.length}/${maxBets})</div>
     ${bets.map((b,i)=>{const d=R_BETS[b.pick];return`<div class="irow" style="margin-bottom:4px">
-      <span class="ik"><span style="font-weight:700;color:var(--ink)">${d.type==='num'?'#'+d.lbl:d.lbl}</span> · Pays ${d.pay}:1</span>
+      <span class="ik"><span style="font-weight:700;color:var(--ink)">${rBetLabel(b.pick)}</span> · Pays ${d.pay}:1</span>
       <span style="display:flex;align-items:center;gap:8px"><span class="iv">${fmt(b.bet)}</span>
         <button onclick="rRemoveBet(${i})" style="background:none;border:none;color:var(--shadow);cursor:pointer;font-size:1rem;padding:2px 6px">×</button>
       </span></div>`;}).join('')}`;

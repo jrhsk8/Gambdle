@@ -832,6 +832,28 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 @keyframes popIn { from { transform: scale(.5) rotate(-20deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
 
+/* During-spin bet list — compact pills under the wheel so you don't forget what's in play.
+   Each is a raised tan tag (tile name) with the stake on a small gold chip badge, echoing the
+   board's betting chips. Wrap and stay terse so a full 5-bet set fits without scrolling. */
+.r-spin-bets { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 7px; margin: 9px auto 0; max-width: 94%; }
+.r-spin-bet {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--panel2); color: var(--ink);
+  border: 1px solid var(--shadow); border-radius: 4px;
+  box-shadow: var(--raised-sm);
+  padding: 2px 3px 2px 9px; font-size: 1.05rem; line-height: 1.25; white-space: nowrap;
+}
+.r-spin-bet b { color: var(--ink); font-weight: 700; letter-spacing: 0.02em; }
+.r-spin-amt {
+  flex-shrink: 0;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--btn-f); font-weight: 700; font-size: 0.9rem; line-height: 1;
+  background: var(--gold); color: var(--ink);
+  border: 1px solid var(--ink);
+  box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2px -2px 0 var(--gold-lo);
+}
+
 /* ── Results screen ─────────────────────────────────────── */
 .score-row {
   display: flex; justify-content: space-between; align-items: baseline;
@@ -851,6 +873,15 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
 
 /* ── Score distribution chart ───────────────────────────── */
+/* Daily-streak line on the results screen — its own prominent gold line under the chip
+   total (the "chips" label was dropped; the big number reads as chips on its own). */
+.results-streak {
+  color: var(--gold-hi); font-weight: 700;
+  font-size: 1.5rem; line-height: 1.1; letter-spacing: 0.04em;
+  margin: 5px 0 9px; white-space: nowrap;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.4);
+}
+
 .dist-bars {
   display: flex; align-items: flex-end; gap: 4px;
   height: 50px; padding: 0 4px;
@@ -980,21 +1011,22 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   animation: xpb-out 0.22s ease forwards;
 }
 .xpb-inner {
-  background: var(--panel);
-  border: 1px solid var(--shadow);
-  border-radius: 8px;
-  overflow: hidden; position: relative;
+  background: #ffffe1;
+  border: 1px solid #b9a96a;
+  border-radius: 6px;
+  overflow: hidden; position: relative; z-index: 1;
 }
-/* Diamond tail below the balloon — z-index:-1 hides its top behind the body */
+/* Diamond tail below the balloon — sits in front so its fill hides the body's
+   bottom border across the base, leaving a clean point with no horizontal line */
 .xpb-tail {
   position: absolute;
-  bottom: -9px; right: 30px;
+  bottom: -8px; right: 30px;
   width: 16px; height: 16px;
-  background: var(--panel);
-  border-right: 1px solid var(--shadow);
-  border-bottom: 1px solid var(--shadow);
+  background: #ffffe1;
+  border-right: 1px solid #b9a96a;
+  border-bottom: 1px solid #b9a96a;
   transform: rotate(45deg);
-  z-index: -1;
+  z-index: 2;
 }
 .xpb-header {
   display: flex; align-items: center; gap: 7px;
@@ -1029,7 +1061,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .xpb-body {
   padding: 2px 10px 12px;
   font-family: 'Tahoma', 'Segoe UI', sans-serif;
-  font-size: 12px; color: var(--ink); line-height: 1.55;
+  font-size: 12px; color: #000; line-height: 1.45;
 }
 @keyframes xpb-in {
   from { opacity: 0; transform: translateY(10px) scale(0.96); }
@@ -1173,6 +1205,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      after the async ~110px distribution chart renders. */
   .panel.results-panel { gap: 8px; }
   .big-chips { font-size: 3.5rem !important; line-height: 1; }
+  .results-streak { font-size: 1.4rem; margin: 0; }
   .res-row { padding: 3px 10px !important; }
   .results-panel .game-manifest { margin-bottom: 2px !important; }
   .results-panel #dist-title { margin-top: 2px !important; }
@@ -1550,7 +1583,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .results-panel { padding: 5px 28px !important; gap: 2px !important; }
   .results-panel .big-chips { font-size: 2.8rem !important; }
   .results-panel .results-tier { font-size: 0.98rem; margin-bottom: 1px; }
-  .results-panel .results-chips-lbl { font-size: 0.68rem !important; margin-bottom: 2px !important; }
+  .results-panel .results-streak { font-size: 1.15rem; margin: 2px 0 4px; }
   .results-panel .game-manifest { margin-bottom: 2px; }
   .results-panel .res-row { padding: 3px 16px !important; }
   .results-panel .res-row span:first-child,
@@ -1749,7 +1782,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Final results — scale up on taller windows */
   .results-panel .big-chips { font-size: 3.3rem !important; }
   .results-panel .results-tier { font-size: 1.1rem; }
-  .results-panel .results-chips-lbl { font-size: 0.76rem !important; }
+  .results-panel .results-streak { font-size: 1.45rem; margin: 4px 0 7px; }
   .results-panel .res-row { padding: 5px 16px !important; }
   .results-panel .res-row span:first-child,
   .results-panel .res-row .ik,
