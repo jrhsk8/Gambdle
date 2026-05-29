@@ -67,13 +67,13 @@
   </script>
 
   <!-- Source files — full load order including ui.js and game.js -->
-  <script src="src/modifiers.js"></script>
-  <script src="src/core.js"></script>
-  <script src="src/uth.js"></script>
-  <script src="src/roulette.js"></script>
-  <script src="src/bj.js"></script>
-  <script src="src/ui.js"></script>
-  <script src="src/game.js"></script>
+  <script src="../src/modifiers.js"></script>
+  <script src="../src/core.js"></script>
+  <script src="../src/uth.js"></script>
+  <script src="../src/roulette.js"></script>
+  <script src="../src/bj.js"></script>
+  <script src="../src/ui.js"></script>
+  <script src="../src/game.js"></script>
 
   <!-- Override _doReload AFTER game.js so the function declaration doesn't overwrite it.
        _doReload() is the seam game.js uses instead of calling location.reload() directly. -->
@@ -83,39 +83,43 @@
   </script>
 
   <!-- Test runner must load before test files -->
-  <script src="tests/runner.js"></script>
+  <script src="runner.js"></script>
 
   <script>section('Core Utilities');</script>
-  <script src="tests/core.test.js"></script>
+  <script src="core.test.js"></script>
 
   <script>section('RNG Sequence & Date Math');</script>
-  <script src="tests/rng-sequence.test.js"></script>
-  <script src="tests/day-number.test.js"></script>
+  <script src="rng-sequence.test.js"></script>
+  <script src="day-number.test.js"></script>
 
   <script>section('Games');</script>
-  <script src="tests/bj.test.js"></script>
-  <script src="tests/uth.test.js"></script>
-  <script src="tests/roulette.test.js"></script>
-  <script src="tests/roulette-payouts.test.js"></script>
+  <script src="bj.test.js"></script>
+  <script src="uth.test.js"></script>
+  <script src="roulette.test.js"></script>
 
   <script>section('Modifiers');</script>
-  <script src="tests/modifiers.test.js"></script>
-  <script src="tests/modifiers-behavior.test.js"></script>
+  <script src="modifiers.test.js"></script>
 
   <script>section('State & Persistence');</script>
-  <script src="tests/persistence.test.js"></script>
-  <script src="tests/results-navigation.test.js"></script>
+  <script src="persistence.test.js"></script>
+  <script src="results-navigation.test.js"></script>
 
   <script>section('Render Smoke Tests');</script>
-  <script src="tests/render-smoke.test.js"></script>
+  <script src="render-smoke.test.js"></script>
 
   <script>section('Fingerprint');</script>
-  <script src="tests/fingerprint.test.js"></script>
+  <script src="fingerprint.test.js"></script>
 
   <script>section('Dev Functions');</script>
-  <script src="tests/dev.test.js"></script>
+  <script src="dev.test.js"></script>
 
-  <script>section('Seed & Date Logic');</script>
-  <script src="tests/dev-advanced.test.js"></script>
+  <script>section('Start Tracking');</script>
+  <script src="start-tracking.test.js"></script>
+
+  <script>section('Bet Guard');</script>
+  <script src="bet-guard.test.js"></script>
+
+  <script>section('Borrow Chips');</script>
+  <script src="borrow.test.js"></script>
 </body>
 </html>

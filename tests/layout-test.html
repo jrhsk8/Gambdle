@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>♣ Gambdle Layout Tests</title>
+  <!-- Real game font — must load for accurate text sizing -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=VT323&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap"></noscript>
+  <!-- Real game stylesheet — required so CSS media queries fire at the correct breakpoints -->
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    /* Test output overlay — position:fixed so it has zero effect on document flow/height */
+    #test-overlay {
+      position: fixed; bottom: 8px; right: 8px; z-index: 9999;
+      background: rgba(0,0,0,.82); color: #ccc;
+      font-family: monospace; font-size: 11px; line-height: 1.4;
+      padding: 8px 12px; border-radius: 4px;
+      max-width: 300px; max-height: 50vh; overflow-y: auto;
+      pointer-events: none;
+    }
+    #summary { font-weight: bold; margin-bottom: 4px; }
+    .section-name { color: #aaa; font-size: 10px; text-transform: uppercase; }
+    .group-name   { color: #777; }
+    .fail-msg     { color: #c44; }
+    .fail-err     { color: #888; font-size: 10px; display: block; margin-top: 1px; }
+    .cnt-pass     { color: #4a9; }
+    .cnt-fail     { color: #c44; }
+  </style>
+</head>
+<body>
+  <!-- Game renders here — must be visible for real layout measurements -->
+  <div id="app"></div>
+  <div id="toast"></div>
+  <div id="xp-balloon"></div>
+
+  <!-- Fixed test output overlay — does not affect document flow -->
+  <div id="test-overlay">
+    <div id="summary">Running…</div>
+    <div id="groups-grid"></div>
+  </div>
+
+  <script>
+    try {
+      localStorage.removeItem('gambdle_dev_game1');
+      localStorage.removeItem('gambdle_dev_game2');
+    } catch(e) {}
+  </script>
+
+  <script src="../src/modifiers.js"></script>
+  <script src="../src/core.js"></script>
+  <script src="../src/uth.js"></script>
+  <script src="../src/roulette.js"></script>
+  <script src="../src/bj.js"></script>
+  <script src="../src/ui.js"></script>
+  <script src="../src/game.js"></script>
+
+  <script>
+    window._testReloadCount = 0;
+    _doReload = function() { window._testReloadCount++; };
+  </script>
+
+  <script src="runner.js"></script>
+  <script src="layout.test.js"></script>
+</body>
+</html>

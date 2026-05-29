@@ -303,3 +303,197 @@ describe('uthBlindDelta', () => {
   // Restore modifier
   S.forcedMod = savedMod;
 });
+
+// ─── UTH game flow: uthFold / uthRaise / uthResolve ─────────────────────────
+// These exercise the state machine and chip math, not just hand evaluation.
+
+const _uthSnap = JSON.stringify({...S, pkHeld:[...S.pkHeld]});
+const _uthRestore = () => { const r=JSON.parse(_uthSnap); r.pkHeld=new Set(r.pkHeld); Object.assign(S,r); };
+
+function withUth(overrides, fn) {
+  Object.assign(S, overrides);
+  try { fn(); } finally { _uthRestore(); }
+}
+
+describe('uthFold — records loss and advances state', () => {
+  it('sets uthFolded and increments hand counter', () => {
+    withUth({
+      screen:'uth', uthPhase:'preflop', uthAnte:200, uthPlay:0,
+      uthHand:0, uthHistory:[], chips:800, forcedMod:{},
+    }, () => {
+      uthFold();
+      assertEqual(S.uthFolded, true);
+      assertEqual(S.uthHand, 1, 'uthHand should increment');
+      assertEqual(S.uthPhase, 'reveal', 'phase should transition to reveal');
+    });
+  });
+
+  it('history entry records ante×2 loss with -ante on each of ante/blind deltas', () => {
+    withUth({
+      screen:'uth', uthPhase:'preflop', uthAnte:200, uthPlay:0,
+      uthHand:0, uthHistory:[], chips:800, forcedMod:{},
+    }, () => {
+      uthFold();
+      const h = S.uthHistory[0];
+      assertEqual(h.result, 'fold');
+      assertEqual(h.ante, 100, 'ante half of uthAnte');
+      assertEqual(h.blind, 100, 'blind half of uthAnte');
+      assertEqual(h.anteDelta, -100);
+      assertEqual(h.blindDelta, -100);
+      assertEqual(h.playDelta, 0);
+      assertEqual(h.delta, -200, 'total fold loss = -(ante+blind)');
+    });
+  });
+});
+
+describe('uthRaise — deducts play bet and advances street', () => {
+  it('preflop 4× raise deducts 4×(ante/2) and moves to flop', () => {
+    withUth({
+      screen:'uth', uthPhase:'preflop', uthAnte:200, uthPlay:0, uthPlayMult:0,
+      uthRaised:false, chips:1000, forcedMod:{},
+      uthHole:[card('K','s'),card('K','h')],
+      uthDealer:[card('7','d'),card('2','c')],
+      uthComm:[card('3','s'),card('4','d'),card('5','c'),card('6','h'),card('8','d')],
+    }, () => {
+      uthRaise(4); // 4× ante/2 = 4×100 = 400
+      assertEqual(S.uthPlay, 400, 'play bet should equal 4×(ante/2)');
+      assertEqual(S.uthPlayMult, 4);
+      assertEqual(S.uthRaised, true);
+      assertEqual(S.chips, 600, '1000 - 400 = 600');
+      assertEqual(S.uthPhase, 'flop', 'should advance to flop');
+    });
+  });
+
+  it('rejects raise when chips insufficient', () => {
+    withUth({
+      screen:'uth', uthPhase:'preflop', uthAnte:200, uthPlay:0,
+      uthRaised:false, chips:50, forcedMod:{},
+    }, () => {
+      uthRaise(4); // would cost 400, only 50 available
+      assertEqual(S.uthPlay, 0, 'play should stay 0');
+      assertEqual(S.chips, 50, 'chips unchanged');
+      assertEqual(S.uthRaised, false);
+    });
+  });
+});
+
+describe('uthResolve — chip math', () => {
+  // Setup helper: dealer has pair (qualifies under default rules), player varies.
+  const _baseUth = (forcedMod = {}) => ({
+    screen:'uth', uthPhase:'turn', uthAnte:200, uthPlay:0, uthPlayMult:0,
+    uthHand:0, uthHistory:[], forcedMod,
+    uthDealer:[card('7','d'),card('2','c')],
+    uthComm:  [card('7','h'),card('3','s'),card('9','c'),card('J','d'),card('4','h')], // dealer pairs 7s
+  });
+
+  it('player win + dealer qualifies: chip math correct', () => {
+    withUth({
+      ..._baseUth(),
+      uthHole:[card('K','s'),card('K','h')], // pair of Kings beats pair of 7s
+      uthPlay:100,
+      chips:500, // after pre-deductions
+    }, () => {
+      uthResolve();
+      // win: play returns 200 (100 + 100), ante returns 200 (100 + 100), blind returns 100 + 0 (one pair pays nothing)
+      // chips: 500 + 200 + 200 + 100 = 1000
+      assertEqual(S.chips, 1000);
+      const h = S.uthHistory[0];
+      assertEqual(h.result, 'win');
+      assertEqual(h.dealerQualifies, true);
+      assertEqual(h.playDelta, 100);
+      assertEqual(h.anteDelta, 100);
+      assertEqual(h.blindDelta, 0, 'one pair pays no blind bonus');
+    });
+  });
+
+  it('player loses: chips unchanged (pre-deducted bets lost)', () => {
+    withUth({
+      ..._baseUth(),
+      uthHole:[card('2','s'),card('3','h')], // garbage vs pair of 7s
+      uthPlay:100,
+      chips:500,
+    }, () => {
+      uthResolve();
+      assertEqual(S.chips, 500, 'lose returns nothing');
+      const h = S.uthHistory[0];
+      assertEqual(h.result, 'lose');
+      assertEqual(h.playDelta, -100);
+      assertEqual(h.anteDelta, -100);
+      assertEqual(h.blindDelta, -100);
+      assertEqual(h.delta, -300);
+    });
+  });
+
+  it('push: all stakes returned', () => {
+    withUth({
+      ..._baseUth(),
+      // both make exactly the same hand. simplest setup: player & dealer hole = same ranks.
+      uthHole:[card('7','s'),card('2','h')], // makes pair of 7s using community
+      uthDealer:[card('7','d'),card('2','c')], // same hand (community pairs both)
+      uthComm:[card('K','h'),card('3','s'),card('9','c'),card('J','d'),card('4','h')],
+      uthPlay:100,
+      chips:500,
+    }, () => {
+      uthResolve();
+      // push: chips += ante (100) + ante (100) + play (100) = 800
+      assertEqual(S.chips, 800);
+      const h = S.uthHistory[0];
+      assertEqual(h.result, 'push');
+      assertEqual(h.delta, 0);
+    });
+  });
+
+  it('win but dealer does not qualify: ante stake returned, no ante bonus', () => {
+    withUth({
+      ..._baseUth(),
+      uthHole:[card('A','s'),card('K','h')], // high card vs dealer high card
+      uthDealer:[card('Q','d'),card('2','c')],
+      uthComm:[card('3','s'),card('4','d'),card('5','c'),card('9','d'),card('J','h')], // no pair anywhere
+      uthPlay:100,
+      chips:500,
+    }, () => {
+      uthResolve();
+      // win + no qualify: play returns 200, ante just returns stake (100), blind returns 100 + 0
+      // chips: 500 + 200 + 100 + 100 = 900
+      assertEqual(S.chips, 900);
+      const h = S.uthHistory[0];
+      assertEqual(h.result, 'win');
+      assertEqual(h.dealerQualifies, false);
+      assertEqual(h.anteDelta, 0, 'no ante bonus when dealer does not qualify');
+    });
+  });
+});
+
+// ─── Odd-bet split: ante = ceil(uthAnte/2), blind = floor(uthAnte/2) ────────
+// Ensures whole-chip totals when player bets odd amounts (e.g. 25-chip).
+
+describe('UTH odd-bet handling — ante=ceil, blind=floor', () => {
+  it('25-chip ante: uthFold splits 13+12, history reflects whole chips', () => {
+    withUth({
+      screen:'uth', uthPhase:'preflop', uthAnte:25, uthPlay:0,
+      uthHand:0, uthHistory:[], chips:1000, forcedMod:{},
+    }, () => {
+      uthFold();
+      const h = S.uthHistory[0];
+      assertEqual(h.ante, 13, 'ante portion is ceil(25/2)');
+      assertEqual(h.blind, 12, 'blind portion is floor(25/2)');
+      assertEqual(h.anteDelta, -13);
+      assertEqual(h.blindDelta, -12);
+      assertEqual(h.delta, -25, 'total fold loss equals uthAnte');
+    });
+  });
+
+  it('25-chip ante: 4× raise costs 4×13 = 52 (whole chips)', () => {
+    withUth({
+      screen:'uth', uthPhase:'preflop', uthAnte:25, uthPlay:0, uthPlayMult:0,
+      uthRaised:false, chips:1000, forcedMod:{},
+      uthHole:[card('K','s'),card('K','h')],
+      uthDealer:[card('7','d'),card('2','c')],
+      uthComm:[card('3','s'),card('4','d'),card('5','c'),card('6','h'),card('8','d')],
+    }, () => {
+      uthRaise(4);
+      assertEqual(S.uthPlay, 52, 'play bet = 4 × ante portion (13)');
+      assertEqual(S.chips, 948, '1000 - 52 = 948 (no partial chips)');
+    });
+  });
+});

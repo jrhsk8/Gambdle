@@ -14,7 +14,7 @@ function screenIntro(){
     </div>
     <div class="divider"></div>
     <div style="text-align:center;padding:4px 4px">
-      <div style="font-size:1.8rem;color:var(--cream)">You start with <b style="color:var(--gold-hi)">${fmt(START_CHIPS)} chips</b>.</div>
+      <div style="font-size:1.8rem;color:var(--cream)">You start with <b style="color:var(--gold-hi)">${fmt(S.chips)} chips</b>.</div>
       <div style="font-size:1.4rem;color:var(--cream);opacity:0.7;margin-top:4px">Your final stack is your leaderboard score.</div>
     </div>
     <button class="btn-gold btn-lg" style="margin: 10px 0" onclick="startGame()">► Start new game</button>
@@ -40,6 +40,49 @@ function renderIntroGameRows() {
       </div>
     </div>`).join('<div class="gm-sep"></div>');
   return `<div class="game-manifest">${rows}</div>`;
+}
+
+// ─── BORROW SCREEN ───────────────────────────────────────────────────────────
+
+function screenBorrow(){
+  const ret=S.borrowReturnScreen||GAME1;
+  const retLabel=ret==='roulette'?'Final Round: Roulette →'
+    :(GAME_META[ret]?`${GAME_META[ret].icon} ${GAME_META[ret].name} →`:ret+' →');
+  const amt=_effectiveBorrowAmount();
+  const minC=getMod('min_chips')||0;
+  const minNote=minC>BORROW_AMOUNT
+    ?`<span style="font-size:.95rem;opacity:0.55"> (min bet: ${fmt(minC)})</span>`:'';
+  return`${hdr('Busted!')}
+  <div class="panel" style="text-align:center">
+    <div style="font-size:2.5rem;margin:10px 0 4px">💸</div>
+    <div class="result-hl" style="color:var(--lose)">You're broke!</div>
+    <div class="result-sub" style="color:var(--shadow)">0 chips remaining</div>
+    <div class="divider" style="margin:10px 0"></div>
+    <div style="font-size:1.2rem;color:var(--cream);padding:0 8px 12px;line-height:1.55">
+      Borrow <b style="color:var(--gold-hi)">${fmt(amt)} chips</b>${minNote} to keep playing.<br>
+      <span style="font-size:1rem;opacity:0.7">Deducted from tomorrow's starting stack.</span>
+    </div>
+    <button class="btn-gold btn-lg" onclick="borrowChips()">💸 Borrow ${fmt(amt)} chips</button>
+    <button class="ch-clear" style="margin-top:12px;" onclick="declineBorrow()">✕ Accept defeat → Results</button>
+  </div>`;
+}
+
+function borrowChips(){
+  sndChip(5);
+  const amt=_effectiveBorrowAmount();
+  S.chips=amt;
+  S.borrowUsed=true;
+  S.borrowAmount=amt;
+  _ls.setItem('gambdle_borrow_debt',JSON.stringify({amount:amt,targetSeed:_nextDailySeed()}));
+  const ret=S.borrowReturnScreen||GAME1;
+  S.borrowReturnScreen=null;
+  goTo(ret);
+}
+
+function declineBorrow(){
+  S.borrowUsed=true;
+  S.borrowReturnScreen=null;
+  advanceTo('results');
 }
 
 function screenResults(){
@@ -315,6 +358,7 @@ const STATUS_HINT = {
   uth:      "Hold'em — choose action.",
   poker:    'Poker — choose action.',
   roulette: 'Roulette — place a bet.',
+  borrow:   'Broke — borrow chips to continue.',
   results:  '<span class="sb-prefix">Game complete · </span>New game at midnight<span class="sb-suffix"> Arizona time</span>',
   devstats: 'Dev mode — player statistics.',
 };
@@ -356,17 +400,61 @@ async function fetchDevStats() {
   const el = document.getElementById('devstats-body');
   if (!el) return;
   const seed = getActiveSeed();
+  const headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
+  // Renders a grouped 2-col grid with section labels spanning both columns.
+  const renderGroups = (groups) =>
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;text-align:left">` +
+    groups.map(([title, rows]) =>
+      `<div class="dvs-grp-lbl">${title}</div>` +
+      rows.map(([k, v]) => `<div class="irow"><span class="ik">${k}</span><span class="iv">${v}</span></div>`).join('')
+    ).join('') + `</div>`;
+  const warn = (txt) => `<span style="color:var(--shadow);font-size:.75rem">${txt}</span>`;
+  const pct  = (n, d) => d > 0 ? ` <span style="color:var(--shadow);font-size:.75rem">(${Math.round(n/d*100)}%)</span>` : '';
+
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/scores?seed=eq.${seed}&select=chips,created_at,fingerprint&order=chips.desc`,
-      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
-    );
+    // Fetch scores and starts count in parallel.
+    const [res, startsRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/scores?seed=eq.${seed}&select=chips,created_at,fingerprint&order=chips.desc`, { headers }),
+      fetch(`${SUPABASE_URL}/rest/v1/starts?seed=eq.${seed}&select=id`, {
+        headers: { ...headers, 'Prefer': 'count=exact', 'Range': '0-0', 'Range-Unit': 'items' },
+      }).catch(() => null),
+    ]);
+    // Parse start count from Content-Range header ("0-0/47" or "*/0").
+    const startsCount = (() => {
+      const cr = startsRes?.headers?.get('Content-Range');
+      const n = parseInt(cr?.split('/')[1]);
+      return Number.isFinite(n) ? n : null;
+    })();
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const rows = await res.json();
-    if (!rows.length) { el.innerHTML = `<div style="color:var(--shadow);padding:12px 0">No submissions yet for seed ${seed}.</div>`; return; }
+    const total = rows.length;
+
+    // Engagement values — computable even with zero completions.
+    const startedVal = startsCount !== null ? fmt(startsCount) : warn('needs table');
+    const dnfCount = startsCount !== null ? Math.max(startsCount - total, 0) : null;
+    const dnfVal = dnfCount !== null
+      ? `${fmt(dnfCount)}${pct(dnfCount, startsCount)}`
+      : warn('—');
+    const completionVal = startsCount !== null && startsCount > 0
+      ? `${Math.round(total / startsCount * 100)}%`
+      : startsCount === 0 ? warn('no starts yet') : warn('—');
+
+    const engagementGroup = ['Engagement', [
+      ['Started today',    startedVal],
+      ['Completed',        fmt(total)],
+      ['DNF',              dnfVal],
+      ['Completion rate',  completionVal],
+    ]];
+
+    // No completions yet → render engagement-only and bail.
+    if (total === 0) {
+      el.innerHTML = renderGroups([engagementGroup]) +
+        `<div style="color:var(--shadow);padding:14px 0;text-align:center">No completed runs yet for seed ${seed}.</div>`;
+      return;
+    }
 
     const scores = rows.map(r => r.chips);
-    const total  = scores.length;
     const fingerprintedCount = rows.filter(r => r.fingerprint).length;
     const avg    = Math.round(scores.reduce((a, b) => a + b, 0) / total);
     const sorted = [...scores].sort((a, b) => a - b);
@@ -376,10 +464,6 @@ async function fetchDevStats() {
     const max    = scores[0];
     const bozos  = scores.filter(s => s === 0).length;
     const inProfit = scores.filter(s => s > START_CHIPS).length;
-    const mean = scores.reduce((a, b) => a + b, 0) / total;
-    const stdDev = Math.round(Math.sqrt(scores.reduce((a, b) => a + (b - mean) ** 2, 0) / total));
-    const p75 = sorted[Math.floor(sorted.length * 0.75)];
-    const p25 = sorted[Math.floor(sorted.length * 0.25)];
 
     // Hourly submission breakdown from created_at
     const hourBuckets = Array(24).fill(0);
@@ -400,13 +484,11 @@ async function fetchDevStats() {
       });
       if (npr.ok) newPlayers = await npr.json();
     } catch(e) {}
-    const newPlayersVal = newPlayers !== null
-      ? fmt(newPlayers)
-      : `<span style="color:var(--shadow);font-size:.75rem">needs RPC</span>`;
+    const newPlayersVal = newPlayers !== null ? fmt(newPlayers) : warn('needs RPC');
     const returningPlayers = newPlayers !== null ? fingerprintedCount - newPlayers : null;
     const returningVal = returningPlayers !== null
-      ? fmt(returningPlayers)
-      : `<span style="color:var(--shadow);font-size:.75rem">needs RPC</span>`;
+      ? `${fmt(returningPlayers)}${pct(returningPlayers, fingerprintedCount)}`
+      : warn('needs RPC');
 
     // Score distribution — same RPC as results screen, no "you" line
     let distHTML = '';
@@ -436,29 +518,28 @@ async function fetchDevStats() {
               ${endLbl}
             </div>`;
           }).join('');
-          distHTML = `<div class="sec" style="margin-top:12px;margin-bottom:2px">Score Distribution</div><div class="dist-wrap"><div class="dist-bars">${cols}</div></div>`;
+          distHTML = `<div class="dvs-grp-lbl" style="margin-top:8px">Score Distribution</div><div class="dist-wrap"><div class="dist-bars">${cols}</div></div>`;
         }
       }
     } catch(e) {}
 
-    el.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px">
-        ${[
-          ['Total players',     fmt(total)],
-          ['New players',       newPlayersVal],
-          ['Returning players', returningVal],
-          ['Average',       fmt(avg)],
-          ['Median',        fmt(med)],
-          ['High score',    fmt(max)],
-          ['Went bust',     `<span style="color:${bozos>0?'var(--lose)':'inherit'}">${fmt(bozos)}</span>`],
-          ['In profit',     `${fmt(inProfit)} <span style="color:var(--shadow);font-size:.75rem">(${Math.round(inProfit/total*100)}%)</span>`],
-          ['Peak hour',     peakAMPM],
-          ['25th pct',      fmt(p25)],
-          ['75th pct',      fmt(p75)],
-          ['Std deviation', fmt(stdDev)],
-        ].map(([k,v])=>`<div class="irow"><span class="ik">${k}</span><span class="iv">${v}</span></div>`).join('')}
-      </div>
-      ${distHTML}`;
+    el.innerHTML = renderGroups([
+      engagementGroup,
+      ['Audience', [
+        ['New today',        newPlayersVal],
+        ['Returning',        returningVal],
+      ]],
+      ['Scores', [
+        ['Average',          fmt(avg)],
+        ['Median',           fmt(med)],
+        ['High score',       fmt(max)],
+      ]],
+      ['Outcomes', [
+        ['In profit',        `${fmt(inProfit)}${pct(inProfit, total)}`],
+        ['Went bust',        `<span style="color:${bozos>0?'var(--lose)':'inherit'}">${fmt(bozos)}</span>${pct(bozos, total)}`],
+        ['Peak hour',        peakAMPM],
+      ]],
+    ]) + distHTML;
   } catch (err) {
     if (el) el.innerHTML = `<div style="color:var(--lose);padding:10px 0">Error: ${err.message}</div>`;
   }
@@ -468,7 +549,7 @@ async function fetchDevStats() {
 
 // Full re-render — replaces all of #app. Use surgical DOM updates mid-hand to avoid flash.
 function render(){
-  const scr={intro:screenIntro,bj:screenBJ,uth:screenUTH,poker:screenPoker,roulette:screenRoulette,results:screenResults,devstats:screenDevStats};
+  const scr={intro:screenIntro,bj:screenBJ,uth:screenUTH,poker:screenPoker,roulette:screenRoulette,borrow:screenBorrow,results:screenResults,devstats:screenDevStats};
   const inner = (scr[S.screen]||screenIntro)();
   document.getElementById('app').innerHTML=`<div class="app">
     <div class="window">
@@ -488,6 +569,23 @@ function render(){
         let fs = parseFloat(getComputedStyle(r).fontSize);
         while (r.scrollWidth > r.clientWidth && fs > 11) { fs -= 0.5; r.style.fontSize = fs + 'px'; }
       }
+    } else {
+      // Desktop: if the description would wrap, shrink the title to free horizontal room.
+      // Falls back to shrinking the description if title can't go smaller. Keeps the banner
+      // at single-line height so every screen has a predictable vertical budget.
+      const r = _panel.querySelector('.mod-banner-r');
+      const t = _panel.querySelector('.mod-banner-title');
+      if (r && t) {
+        r.style.whiteSpace = 'nowrap';
+        let tfs = parseFloat(getComputedStyle(t).fontSize);
+        while (r.scrollWidth > r.clientWidth && tfs > 22) {
+          tfs -= 1; t.style.fontSize = tfs + 'px';
+        }
+        let rfs = parseFloat(getComputedStyle(r).fontSize);
+        while (r.scrollWidth > r.clientWidth && rfs > 15) {
+          rfs -= 0.5; r.style.fontSize = rfs + 'px';
+        }
+      }
     }
   }
   _reapplyDragPos();
@@ -499,7 +597,93 @@ function render(){
   saveState();
   if (S.screen === 'results') { submitAndFetchLeaderboard(); fetchScoreDistribution(); }
   if (S.screen === 'devstats') fetchDevStats();
+  _drawLayoutDebug();
 }
+
+// ─── DEV: Layout Debug Overlay ──────────────────────────────────────────
+// Toggleable visualizer that overlays red/cyan/yellow lines on the panel
+// showing the top of every direct child + the slack region at the bottom.
+// Activated from the dev dropdown ("📐 Layout Debug"). Persisted in _ls so
+// it survives renders, route changes, and reloads.
+function devToggleLayoutDebug() {
+  const on = !document.body.classList.contains('layout-debug');
+  document.body.classList.toggle('layout-debug', on);
+  try { _ls.setItem('gambdle_dev_layout_debug', on ? '1' : ''); } catch(e) {}
+  _drawLayoutDebug();
+}
+
+function _drawLayoutDebug() {
+  const existing = document.getElementById('layout-debug-overlay');
+  if (existing) existing.remove();
+  if (!document.body.classList.contains('layout-debug')) return;
+
+  const panel = document.querySelector('.panel');
+  if (!panel) return;
+  const pr = panel.getBoundingClientRect();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'layout-debug-overlay';
+  // overflow:visible so labels at y=0 / y=pr.height aren't clipped at the panel edges.
+  overlay.style.cssText = `position:fixed;left:${pr.left}px;top:${pr.top}px;width:${pr.width}px;height:${pr.height}px;pointer-events:none;z-index:9999;font:bold 14px 'Courier New',monospace;overflow:visible`;
+
+  // labelSide: 'below' (default) puts the label just below the line; 'above' puts it just above.
+  const addLine = (yRel, label, color, opts={}) => {
+    const { anchor='left', labelSide='below' } = opts;
+    const line = document.createElement('div');
+    line.style.cssText = `position:absolute;left:0;right:0;top:${yRel-1}px;height:2px;background:${color};box-shadow:0 0 6px ${color}`;
+    overlay.appendChild(line);
+    const lbl = document.createElement('div');
+    const side = anchor === 'right' ? 'right:4px' : 'left:4px';
+    const vert = labelSide === 'above' ? `bottom:${pr.height - yRel + 3}px` : `top:${yRel + 3}px`;
+    lbl.style.cssText = `position:absolute;${side};${vert};background:rgba(0,0,0,0.9);color:${color};padding:2px 7px;border-radius:3px;white-space:nowrap;letter-spacing:0.04em`;
+    lbl.textContent = label;
+    overlay.appendChild(lbl);
+  };
+
+  addLine(0, `▲ PANEL TOP  (h=${Math.round(pr.height)}, w=${Math.round(pr.width)})`, '#ff5555');
+  // Panel bottom label goes ABOVE its line so it stays inside the panel (and doesn't
+  // collide with the slack measurement, which also sits in that region).
+  addLine(pr.height, `▼ PANEL BOTTOM`, '#ff5555', { labelSide: 'above', anchor: 'right' });
+
+  const kids = [...panel.children].filter(c => c.getBoundingClientRect().height > 0);
+  let anchor = 'left';
+  kids.forEach((child) => {
+    const r = child.getBoundingClientRect();
+    const yTop = r.top - pr.top;
+    const tag = child.id ? '#' + child.id : '.' + ((child.className || '').toString().split(' ')[0] || child.tagName.toLowerCase());
+    addLine(yTop, `${tag}  y=${Math.round(yTop)}  h=${Math.round(r.height)}px`, '#22d3ee', { anchor });
+    anchor = anchor === 'left' ? 'right' : 'left';
+  });
+
+  const lastKid = kids[kids.length - 1];
+  if (lastKid) {
+    const lastBot = lastKid.getBoundingClientRect().bottom - pr.top;
+    const slack = Math.round(pr.height - lastBot);
+
+    // Translucent fill in the slack region so the measurement is unambiguous.
+    if (slack > 0) {
+      const fill = document.createElement('div');
+      fill.style.cssText = `position:absolute;left:0;right:0;top:${lastBot}px;height:${slack}px;background:rgba(250,204,21,0.18);border-top:1px dashed rgba(250,204,21,0.5);border-bottom:1px dashed rgba(250,204,21,0.5)`;
+      overlay.appendChild(fill);
+
+      // Big "SLACK = Npx" label centered vertically inside the slack zone.
+      const mid = document.createElement('div');
+      const midY = lastBot + slack / 2;
+      mid.style.cssText = `position:absolute;left:50%;top:${midY}px;transform:translate(-50%,-50%);background:#facc15;color:#000;padding:4px 12px;border-radius:4px;font-size:18px;border:2px solid #000;box-shadow:0 0 8px rgba(0,0,0,0.6)`;
+      mid.textContent = `↕ SLACK = ${slack}px`;
+      overlay.appendChild(mid);
+    }
+
+    addLine(lastBot, `◆ LAST CHILD BOTTOM  y=${Math.round(lastBot)}`, '#facc15');
+  }
+
+  document.body.appendChild(overlay);
+}
+
+if (_ls.getItem('gambdle_dev_layout_debug') === '1') {
+  document.body.classList.add('layout-debug');
+}
+window.addEventListener('resize', () => _drawLayoutDebug());
 
 function updateChipDisplay() {
   const el = document.getElementById('chip-badge');
@@ -521,11 +705,18 @@ function _skipHand(arr, entry, counterKey, nextScreen, resetFn) {
   render();
 }
 
-// Shared "next hand" flow: sound → reset → re-render (or go to results if busted).
+// Shared "next hand" flow: sound → reset → re-render (or go to results/borrow if busted).
 function _nextHand(resetFn) {
   sndAdvance();
   resetFn();
-  if (isChipBusted()) S.screen = 'results';
+  if (isChipBusted()) {
+    if (_canShowBorrow()) {
+      S.borrowReturnScreen = _borrowReturnScreen();
+      S.screen = 'borrow';
+    } else {
+      S.screen = 'results';
+    }
+  }
   render();
 }
 
@@ -546,16 +737,62 @@ function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnT
 // Plays a transition sound scaled to how well the player is doing.
 function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('assets/sounds/mediumbet.mp3');else playMp3('assets/sounds/smallbet.mp3');}
 // Navigates between games; redirects to results early if the player is busted (<10 chips).
+// If the borrow option is still available when a bust is detected, shows the borrow screen first.
 function advanceTo(s){
+  if(isChipBusted()&&_canShowBorrow()){
+    if(s!=='results'){
+      // Mid-game transition bust (e.g., would have gone to UTH/Roulette but broke).
+      S.borrowReturnScreen=s;
+    }else{
+      // Explicit "Game Over" bust from a result phase — determine where to return if they borrow.
+      const ret=_borrowReturnScreen();
+      // Reset the current game to bet phase so returning lands on a fresh hand.
+      if(ret==='bj') resetBJHand();
+      else if(ret==='uth') resetUTHHand();
+      else if(ret==='poker'){S.pkBet=0;S.pkPhase='bet';}
+      S.borrowReturnScreen=ret;
+    }
+    sndAdvance();goTo('borrow');return;
+  }
   if(s!=='results'&&isChipBusted())s='results';
   if(s==='results'){
-    const _calc=START_CHIPS+gameNet(GAME1)+gameNet(GAME2)+(S.rResult?.delta||0);
+    const _calc=START_CHIPS+(S.borrowUsed?(S.borrowAmount||BORROW_AMOUNT):0)+gameNet(GAME1)+gameNet(GAME2)+(S.rResult?.delta||0);
     // Fall back to the current saved value if the recalculation is non-finite (corrupted history).
     S.chips=Number.isFinite(_calc)?_calc:S.chips;
   }
   sndAdvance();goTo(s);
 }
-function startGame(){sndChip('allin');S.screen=GAME1;S.bjPhase='bet';render();}
+
+// Returns the screen to navigate to after a borrow, based on where the player is mid-run.
+function _borrowReturnScreen(){
+  if(S.screen==='bj')    return S.bjHand<3  ?'bj'    :NEXT_SCREEN['bj'];
+  if(S.screen==='uth')   return S.uthHand<3 ?'uth'   :NEXT_SCREEN['uth'];
+  if(S.screen==='poker') return S.pkHand<3  ?'poker' :NEXT_SCREEN['poker'];
+  return S.screen;
+}
+function startGame(){sndChip('allin');S.screen=GAME1;S.bjPhase='bet';render();_submitStart();}
+
+// Fire-and-forget: records that this device started today's game.
+// Skipped in dev/test/backlog modes; deduplicated per device per day via localStorage.
+// Requires a `starts` table in Supabase — see .claude/VERSIONS.md for setup SQL.
+async function _submitStart() {
+  const seed = getActiveSeed();
+  const key = `gambdle_started_${seed}`;
+  if (_ls.getItem(key) || DEV_OVERRIDE || _testActive() || _backlogSeed) return;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/starts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ seed, fingerprint: getDeviceId() }),
+    });
+    if (res.ok) _ls.setItem(key, '1');
+  } catch(e) {}
+}
 
 // ─── DRAGGABLE WINDOW (desktop only) ─────────────────────────────────────
 

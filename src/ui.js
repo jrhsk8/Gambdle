@@ -190,9 +190,19 @@ function patchBetUI() {
   }
 }
 
-function addChip(d){const k=curBetRef();S[k]=Math.min(S[k]+d,maxBet());sndChip();patchBetUI();}
-function clearBet(){S[curBetRef()]=0;patchBetUI();}
-function allIn(){S[curBetRef()]=maxBet();sndChip();patchBetUI();}
+// Returns true only when the current screen is in its initial bet phase.
+// 'dealing' is a transient lock set by *Deal() before sndShuffle fires; it is
+// never saved to localStorage, so a refresh during that window reloads cleanly.
+function _inBetPhase(){
+  if(S.screen==='bj')       return S.bjPhase  ==='bet';
+  if(S.screen==='uth')      return S.uthPhase ==='bet';
+  if(S.screen==='poker')    return S.pkPhase  ==='bet';
+  if(S.screen==='roulette') return S.rPhase   ==='bet';
+  return false;
+}
+function addChip(d){if(!_inBetPhase())return;const k=curBetRef();S[k]=Math.min(S[k]+d,maxBet());sndChip();patchBetUI();}
+function clearBet(){if(!_inBetPhase())return;S[curBetRef()]=0;patchBetUI();}
+function allIn(){if(!_inBetPhase())return;S[curBetRef()]=maxBet();sndChip();patchBetUI();}
 
 // ─── SHARED SNIPPET HELPERS ───────────────────────────────────
 const runningTotalRow = () => `<div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>`;
@@ -476,7 +486,11 @@ function toggleMenu(which, trigger) {
       <div class="dd-item" id="dd-mod-trigger" onclick="showModSubmenu(this);event.stopPropagation()">Force Modifier <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showPopup('welcome');closeDropdowns()">💬 Show Popup</div>
-      <div class="dd-item" onclick="goTo('devstats');closeDropdowns()">📊 Player Stats</div>`;
+      <div class="dd-item" onclick="goTo('devstats');closeDropdowns()">📊 Player Stats</div>
+      <div class="dd-item" onclick="devToggleLayoutDebug();event.stopPropagation()" style="gap:12px">
+        <span>📐 Layout Debug</span>
+        <input type="checkbox" id="dev-layout-debug-cb" ${document.body.classList.contains('layout-debug')?'checked':''} onclick="event.stopPropagation()" style="width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0">
+      </div>`;
   } else if (which === 'file') {
     const canShare = S.screen === 'results';
     const cbStyle='width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0';

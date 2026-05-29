@@ -1,6 +1,11 @@
 let _pass = 0, _fail = 0;
 let _currentGroup = null;
 const _groups = [];
+const _measurements = [];
+
+function measure(label, value) {
+  _measurements.push({ label, value });
+}
 
 function section(name) {
   _groups.push({ _section: true, name });
@@ -130,4 +135,18 @@ window.addEventListener('load', () => {
     : `❌ ${_fail} failed · ${_pass} passed`;
   summary.className = _fail === 0 ? 'all-pass' : 'has-fail';
   console.log(_fail === 0 ? `✅ All ${_pass} passed` : `❌ ${_fail} failed, ${_pass} passed`);
+
+  // Write measurements to a hidden DOM element so the CLI runner can query them.
+  if (_measurements.length) {
+    const mc = document.createElement('div');
+    mc.id = 'measure-data';
+    mc.style.display = 'none';
+    for (const m of _measurements) {
+      const d = document.createElement('div');
+      d.dataset.label = m.label;
+      d.dataset.value = String(m.value);
+      mc.appendChild(d);
+    }
+    document.body.appendChild(mc);
+  }
 });

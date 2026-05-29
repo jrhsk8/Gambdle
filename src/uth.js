@@ -112,7 +112,8 @@ function pkSkip(){ _skipHand(S.pkHistory,{bet:0,result:'skip',pts:0,delta:0},'pk
 
 /** Initial deal for 5-Card Draw Poker. */
 function pkDeal(){
-  if(!S.pkBet)return;
+  if(!S.pkBet||S.pkPhase!=='bet')return;
+  S.pkPhase='dealing'; // lock immediately
   S.chips-=S.pkBet;
   S.pkCards=DEAL.pokerDecks[S.pkHand].slice(0,5);
   S.pkHeld=new Set();
@@ -169,7 +170,8 @@ function pkNext(){ _nextHand(()=>{ S.pkBet=0; S.pkPhase='bet'; }); }
 
 /** Initial deal for UTH: Player cards, Dealer cards (hidden), and Community cards (hidden). */
 function uthDeal(){
-  if(!S.uthAnte)return;
+  if(!S.uthAnte||S.uthPhase!=='bet')return;
+  S.uthPhase='dealing'; // lock immediately so bet controls can't mutate S.uthAnte during sndShuffle
   S.chips-=S.uthAnte;
   if(getMod('uth_pocket_aces')){
     // +1 so hand 0 doesn't reuse the exact daily seed; *97 (prime) spaces hand seeds apart to avoid collisions.
@@ -205,8 +207,14 @@ function _uthDealTurn(){
   S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';
   updateUthCommunityCards();
 }
+// Split uthAnte into whole-chip portions. Ante gets the extra chip on odd totals
+// so a 25-chip ante becomes ante 13 + blind 12 (sum still 25), and no half-chips
+// ever surface in displays, multipliers, or settlement math.
+function _uthAntePortion(){  return Math.ceil(S.uthAnte/2); }
+function _uthBlindPortion(){ return Math.floor(S.uthAnte/2); }
+
 function uthRaise(mult){
-  const bet=Math.ceil((S.uthAnte/2)*mult);
+  const bet=_uthAntePortion()*mult;
   if(S.chips<bet)return;
   S.chips-=bet;S.uthPlay=bet;S.uthPlayMult=mult;S.uthRaised=true;
   sndChip();
@@ -224,8 +232,8 @@ function uthNextStreet(){
 }
 function uthFold(){
   S.uthFolded=true;
-  const ante=S.uthAnte/2;
-  S.uthHistory.push({ante,blind:ante,play:0,playMult:0,result:'fold',delta:-(ante*2),anteDelta:-ante,blindDelta:-ante,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false});
+  const ante=_uthAntePortion(),blind=_uthBlindPortion();
+  S.uthHistory.push({ante,blind,play:0,playMult:0,result:'fold',delta:-(ante+blind),anteDelta:-ante,blindDelta:-blind,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false});
   S.uthHand++;S.uthPhase='reveal';
   updateUthCommunityCards();
   setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();},2300);
@@ -233,7 +241,7 @@ function uthFold(){
 // Settles the UTH hand: three independent payouts (play, ante, blind) each have their own rules.
 // Play: 1:1 if player wins. Ante: 1:1 only if dealer qualifies. Blind: paytable if Straight+.
 function uthResolve(){
-  const ante=S.uthAnte/2,play=S.uthPlay;
+  const ante=_uthAntePortion(),blind=_uthBlindPortion(),play=S.uthPlay;
   const pb=bestOf7([...S.uthHole,...S.uthComm]);
   const db2=bestOf7([...S.uthDealer,...S.uthComm]);
   const dealerQualifies=db2.cat>=(getMod('uth_hard_qualify')?2:1);
@@ -245,16 +253,16 @@ function uthResolve(){
     playDelta=play*playMult*wm;S.chips+=play+playDelta;
     if(dealerQualifies){anteDelta=ante*wm;S.chips+=ante+anteDelta;}
     else{anteDelta=0;S.chips+=ante;}
-    const bd=uthBlindDelta(pb.cat,ante);
-    blindDelta=bd*wm;S.chips+=ante+blindDelta;
+    const bd=uthBlindDelta(pb.cat,blind);
+    blindDelta=bd*wm;S.chips+=blind+blindDelta;
   }else if(cmp===0){
     anteDelta=0;blindDelta=0;playDelta=0;
-    S.chips+=ante+ante+play;
+    S.chips+=ante+blind+play;
   }else{
-    playDelta=-play;anteDelta=-ante;blindDelta=-ante;
+    playDelta=-play;anteDelta=-ante;blindDelta=-blind;
   }
   const delta=anteDelta+blindDelta+playDelta;
-  S.uthHistory.push({ante,blind:ante,play,playMult:S.uthPlayMult,result:cmp>0?'win':cmp===0?'push':'lose',delta,anteDelta,blindDelta,playDelta,playerBest:pb,dealerBest:db2,dealerQualifies});
+  S.uthHistory.push({ante,blind,play,playMult:S.uthPlayMult,result:cmp>0?'win':cmp===0?'push':'lose',delta,anteDelta,blindDelta,playDelta,playerBest:pb,dealerBest:db2,dealerQualifies});
   S.uthHand++;S.uthPhase='reveal';
   S.uthRevealComm=5;
   updateUthCommunityCards();
@@ -322,8 +330,8 @@ function updateUthCommunityCards() {
       if (S.uthRaised) {
         actionUi.innerHTML = `<button class="btn-gold" onclick="uthNextStreet()">${S.uthPhase==='flop'?'See Turn & River →':'→ Showdown'}</button>`;
       } else {
-        if (S.uthPhase === 'flop') actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(2)" ${S.chips < S.uthAnte ? 'disabled' : ''}>Raise 2× (${fmt(S.uthAnte)})</button><button class="act-btn" onclick="uthCheck()">Check</button></div>`;
-        else if (S.uthPhase === 'turn') actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(1)" ${S.chips < Math.ceil(S.uthAnte / 2) ? 'disabled' : ''}>Raise 1× (${fmt(Math.ceil(S.uthAnte / 2))})</button><button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button></div>`;
+        if (S.uthPhase === 'flop') { const r2=_uthAntePortion()*2; actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(2)" ${S.chips < r2 ? 'disabled' : ''}>Raise 2× (${fmt(r2)})</button><button class="act-btn" onclick="uthCheck()">Check</button></div>`; }
+        else if (S.uthPhase === 'turn') { const r1=_uthAntePortion(); actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(1)" ${S.chips < r1 ? 'disabled' : ''}>Raise 1× (${fmt(r1)})</button><button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button></div>`; }
       }
     }
   }, finishDelay);
@@ -361,9 +369,9 @@ function screenPoker(){
       ${gameDots(S.pkHistory,S.pkHand,S.pkPhase)}
       <div class="divider"></div>
       ${aios
-        ?`<div class="sec">All In or Skip · Wins Pay 2×</div>
+        ?`<div class="sec" style="text-align:center"><span class="sec-game-prefix">5 Card Poker · </span>All In or Skip · Wins Pay 2×</div>
           ${aiosRow('allIn();pkDeal()', 'pkSkip()')}`
-        :`<div class="sec">Place Your Bet</div>
+        :`<div class="sec" style="text-align:center"><span class="sec-game-prefix">5 Card Poker · </span>Place Your Bet</div>
           ${chipSel(S.chips,S.pkBet)}
           <button id="db" class="btn-gold" style="margin-top:12px" onclick="pkDeal()" ${S.pkBet===0?'disabled':''}>Deal →</button>
           <div class="divider"></div>
@@ -441,18 +449,29 @@ function screenUTH(){
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
       <div class="divider"></div>
       ${aios
-        ?`<div class="sec">All In or Skip · Wins Pay 2×</div>
+        ?`<div class="sec" style="text-align:center"><span class="sec-game-prefix">Hold'em · </span>All In or Skip · Wins Pay 2×</div>
           ${aiosRow('S.uthAnte=S.chips;uthDeal()', 'uthSkip()')}`
-        :`<div class="sec" style="text-align:center">Place Bet (Ante + Blind)</div>
-          ${chipSel(maxAnte,S.uthAnte,[10,50,100,250,500,1000])}
+        :`<div class="sec" style="text-align:center"><span class="sec-game-prefix">Hold'em · </span>Place Bet (Ante + Blind)</div>
+          ${chipSel(maxAnte,S.uthAnte,[10,25,50,100,250,500,1000])}
           <div id="uth-summary" class="uth-summary" style="text-align:center;margin:10px 0;color:var(--cream)">
-            Ante <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> + Blind <b style="color:var(--gold)">${fmt(S.uthAnte/2)}</b> = <b style="color:var(--gold-hi)">${fmt(S.uthAnte)}</b> chips total
+            <span>Ante <b style="color:var(--gold)">${fmt(_uthAntePortion())}</b> + Blind <b style="color:var(--gold)">${fmt(_uthBlindPortion())}</b> = <b style="color:var(--gold-hi)">${fmt(S.uthAnte)}</b> chips total</span>
           </div>
           <button id="db" class="btn-gold" style="margin-top:4px" onclick="uthDeal()" ${S.uthAnte===0?'disabled':''}>Deal →</button>`}
 
       <div class="divider"></div>
-      <div class="sec">Blind Pay Table</div>
-      <div class="ptable">${[['Royal Flush','500x'],['Straight Flush','50x'],['Four of a Kind','10x'],['Full House','3x'],['Flush','3:2'],['Straight','1x'],['< Straight','Push']].map(([n,p])=>`<span class="pname">${n}</span><span class="ppay">${p}</span>`).join('')}</div>
+      <div class="sec">Blind Pay Table${S.uthAnte>0?` · Blind ${fmt(_uthBlindPortion())}`:''}</div>
+      <div class="ptable">${(()=>{
+        const blind=_uthBlindPortion();
+        const ext=getMod('uth_blind_extended');
+        // cat=9 Royal, 8 SF, 7 Quads, 6 Full, 5 Flush, 4 Straight; ext also 3 ToK, 2 TwoPair
+        const rows=[['Royal Flush',9,'500x'],['Straight Flush',8,'50x'],['Four of a Kind',7,'10x'],['Full House',6,'3x'],['Flush',5,'3:2'],['Straight',4,'1x']];
+        if(ext){rows.push(['Three of a Kind',3,'1:1']);rows.push(['Two Pair',2,'1:2']);}
+        rows.push(['< '+(ext?'Two Pair':'Straight'),null,'Push']);
+        return rows.map(([n,cat,ratio])=>{
+          const display = (blind>0 && cat!==null) ? fmt(uthBlindDelta(cat,blind)) : ratio;
+          return `<span class="pname">${n}</span><span class="ppay">${display}</span>`;
+        }).join('');
+      })()}</div>
     </div>`;
   }
 
@@ -480,10 +499,10 @@ function screenUTH(){
   </div>`;
 
   const betChips=()=>{
-    const rows=[['Ante',S.uthAnte/2],['Blind',S.uthAnte/2]];
+    const rows=[['Ante',_uthAntePortion()],['Blind',_uthBlindPortion()]];
     if(S.uthPlay>0)rows.push(['Play ('+S.uthPlayMult+'×)',S.uthPlay]);
-    return`<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:10px 0">
-      ${rows.map(([lbl,amt])=>`<div style="text-align:center;padding:8px 16px;background:rgba(0,0,0,.28);border-radius:8px;border:1px solid rgba(196,147,58,.18)">
+    return`<div class="uth-bet-chips" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:10px 0">
+      ${rows.map(([lbl,amt])=>`<div class="uth-bet-chip" style="text-align:center;padding:8px 16px;background:rgba(0,0,0,.28);border-radius:8px;border:1px solid rgba(196,147,58,.18)">
         <div style="font-size:.82rem;color:var(--shadow);text-transform:uppercase;letter-spacing:.12em">${lbl}</div>
         <div style="font-family:var(--btn-f);color:var(--gold);font-size:1.55rem;line-height:1.15">${fmt(amt)}</div>
       </div>`).join('')}
@@ -491,7 +510,7 @@ function screenUTH(){
   };
 
   if(ph==='preflop'){
-    const r4Cost=Math.ceil((S.uthAnte/2)*4), r3Cost=Math.ceil((S.uthAnte/2)*3);
+    const r4Cost=_uthAntePortion()*4, r3Cost=_uthAntePortion()*3;
     const canR4=S.chips>=r4Cost, canR3=S.chips>=r3Cost;
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
@@ -538,7 +557,7 @@ function screenUTH(){
   }
 
   if(ph==='turn'){
-    const canR1=S.chips>=Math.ceil(S.uthAnte/2);
+    const canR1=S.chips>=_uthAntePortion();
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
@@ -553,7 +572,7 @@ function screenUTH(){
       <div id="uth-actions-ui">
         ${S.uthRaised ? `<button class="btn-gold" onclick="uthNextStreet()">→ Showdown</button>` : `
           <div id="uth-action-btns" class="act-btns">
-            <button class="act-btn" onclick="uthRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${fmt(Math.ceil(S.uthAnte/2))})</button>
+            <button class="act-btn" onclick="uthRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${fmt(_uthAntePortion())})</button>
             <button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button>
           </div>`}
       </div>

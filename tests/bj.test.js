@@ -169,6 +169,168 @@ describe('bjResolve — history record', () => {
   });
 });
 
+// ─── bjResolve — split outcomes ──────────────────────────────────────────────
+// The split branch in bjResolve aggregates per-hand results into S.bjResult.delta.
+// chips are pre-deducted (one bet per hand); each winning/push hand returns its stake.
+
+// Per-hand outcome semantics (from bj.js):
+//   win:  delta = +bet (×modifiers); chips += bet + delta
+//   push: delta =  0;               chips += bet  (stake returned)
+//   bust: delta = -bet              (stake lost)
+//   lose: delta = -bet              (stake lost)
+function withSplit({ hands, bets, dealer, doubled, chips, forcedMod = {} }, fn) {
+  S.forcedMod        = forcedMod;
+  S.bjSplit          = true;
+  S.bjSplitHands     = hands.map(h => h.map(([r,s]) => card(r,s)));
+  S.bjSplitBets      = bets.slice();
+  S.bjSplitResults   = [];
+  S.bjSplitDone      = hands.map(() => true);
+  S.bjSplitDoubled   = doubled || hands.map(() => false);
+  S.bjSplitAnimFrom  = hands.map(() => 0);
+  S.bjDealer         = dealer.map(([r,s]) => card(r,s));
+  S.bjBet            = 0;
+  S.chips            = chips;
+  S.bjHistory        = [];
+  S.bjPhase          = 'play';
+  S.bjHand           = 0;
+  try {
+    bjResolve(true);
+    fn();
+  } finally { _bjRestoreS(); }
+}
+
+describe('bjResolve — split: both hands win', () => {
+  it('two winning hands return both stakes + profit', () => {
+    withSplit({
+      hands:  [[['K','s'],['9','h']], [['Q','d'],['8','c']]], // 19, 18
+      bets:   [100, 100],
+      dealer: [['7','d'],['J','c']], // 17
+      chips:  800, // 1000 - 200 in bets
+    }, () => {
+      // each wins: stake 100 + profit 100. Total: 800 + 200 + 200 = 1200.
+      assertEqual(S.chips, 1200);
+      assertEqual(S.bjResult.delta, 200);
+      assertEqual(S.bjSplitResults[0].result, 'win');
+      assertEqual(S.bjSplitResults[1].result, 'win');
+    });
+  });
+});
+
+describe('bjResolve — split: split-then-bust aggregation', () => {
+  it('one win + one bust = stake returned only on the win', () => {
+    withSplit({
+      hands:  [[['K','s'],['9','h']], [['K','d'],['Q','c'],['5','h']]], // 19, BUST
+      bets:   [100, 100],
+      dealer: [['7','d'],['J','c']], // 17
+      chips:  800, // 1000 - 200 in bets
+    }, () => {
+      // win: stake 100 + profit 100 returned. bust: nothing returned.
+      // Final: 800 + 100 + 100 = 1000.
+      assertEqual(S.chips, 1000);
+      assertEqual(S.bjResult.delta, 0); // +100 win, -100 bust = 0 net
+      assertEqual(S.bjSplitResults[0].result, 'win');
+      assertEqual(S.bjSplitResults[1].result, 'bust');
+    });
+  });
+});
+
+describe('bjResolve — split: all hands bust', () => {
+  it('all-bust returns nothing, net delta is -sum(bets)', () => {
+    withSplit({
+      hands:  [
+        [['K','s'],['Q','h'],['5','d']],  // BUST
+        [['K','d'],['J','c'],['4','h']],  // BUST
+      ],
+      bets:   [100, 100],
+      dealer: [['7','d'],['J','c']], // 17 (irrelevant, players already bust)
+      chips:  800, // 1000 - 200 in bets
+    }, () => {
+      assertEqual(S.chips, 800, 'chips unchanged — both stakes lost');
+      assertEqual(S.bjResult.delta, -200);
+      assert(S.bjSplitResults.every(r => r.result === 'bust'));
+    });
+  });
+});
+
+describe('bjResolve — split: mixed win/lose/push', () => {
+  it('aggregates per-hand chip flow correctly', () => {
+    withSplit({
+      hands:  [
+        [['K','s'],['9','h']], // 19 → win vs dealer 17
+        [['7','s'],['9','h']], // 16 → lose vs dealer 17
+        [['10','d'],['7','c']], // 17 → push vs dealer 17
+      ],
+      bets:   [100, 100, 100],
+      dealer: [['7','d'],['J','c']], // 17
+      chips:  700, // 1000 - 300 in bets
+    }, () => {
+      // win: +stake +profit = 200 returned. lose: 0 returned. push: stake 100 returned.
+      // Final: 700 + 200 + 0 + 100 = 1000. Net delta: +100 -100 +0 = 0.
+      assertEqual(S.chips, 1000);
+      assertEqual(S.bjResult.delta, 0);
+      assertEqual(S.bjSplitResults[0].result, 'win');
+      assertEqual(S.bjSplitResults[1].result, 'lose');
+      assertEqual(S.bjSplitResults[2].result, 'push');
+    });
+  });
+});
+
+describe('bjResolve — split: dealer busts means all non-bust players win', () => {
+  it('dealer 22 → both players (15, 19) win without comparison', () => {
+    withSplit({
+      hands:  [[['7','s'],['8','h']], [['10','d'],['9','c']]], // 15, 19
+      bets:   [100, 100],
+      dealer: [['K','s'],['Q','h'],['5','d']], // 25 BUST
+      chips:  800,
+    }, () => {
+      // Both win even though 15 < 17. dv > 21 short-circuits comparison.
+      assertEqual(S.chips, 1200);
+      assertEqual(S.bjResult.delta, 200);
+      assertEqual(S.bjSplitResults[0].result, 'win');
+      assertEqual(S.bjSplitResults[1].result, 'win');
+    });
+  });
+});
+
+describe('bjResolve — split: 4-way mixed outcomes', () => {
+  it('four hands with win/bust/win/lose nets correctly', () => {
+    withSplit({
+      hands:  [
+        [['K','s'],['9','h']],            // 19 win
+        [['K','d'],['Q','c'],['5','h']],  // BUST
+        [['10','s'],['9','d']],           // 19 win
+        [['7','c'],['8','d']],            // 15 lose
+      ],
+      bets:   [100, 100, 100, 100],
+      dealer: [['7','d'],['J','c']], // 17
+      chips:  600, // 1000 - 400 in bets
+    }, () => {
+      // win: +200, bust: 0, win: +200, lose: 0 returned. Net delta: +100 -100 +100 -100 = 0.
+      assertEqual(S.chips, 1000);
+      assertEqual(S.bjResult.delta, 0);
+      assertEqual(S.bjSplitResults.filter(r => r.result === 'win').length, 2);
+      assertEqual(S.bjSplitResults.filter(r => r.result === 'bust').length, 1);
+      assertEqual(S.bjSplitResults.filter(r => r.result === 'lose').length, 1);
+    });
+  });
+});
+
+describe('bjResolve — split: history records aggregated delta', () => {
+  it('bjHistory entry stores summed bet and total delta', () => {
+    withSplit({
+      hands:  [[['K','s'],['9','h']], [['Q','d'],['8','c']]],
+      bets:   [100, 100],
+      dealer: [['7','d'],['J','c']],
+      chips:  800,
+    }, () => {
+      assertEqual(S.bjHistory.length, 1);
+      assertEqual(S.bjHistory[0].bet, 200, 'history bet should be sum of split bets');
+      assertEqual(S.bjHistory[0].result, 'split');
+      assertEqual(S.bjHistory[0].delta, 200);
+    });
+  });
+});
+
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 _bjSavedSeedFlag === null
   ? _ls.removeItem('gambdle_use_test_seed')

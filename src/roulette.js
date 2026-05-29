@@ -296,9 +296,18 @@ function screenRouletteRespin(){
 function screenRouletteSpinning(){
   const bets=S.rBets;
   const total=bets.reduce((a,b)=>a+b.bet,0);
-  const betLabel=bets.length===1
-    ?`Bet on <b style="color:var(--ink)">${R_BETS[bets[0].pick].type==='num'?'Number '+R_BETS[bets[0].pick].lbl:R_BETS[bets[0].pick].lbl}</b> &nbsp;|&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`
-    :`<b style="color:var(--gold)">${bets.length} bets</b> &nbsp;|&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`;
+  const betRows=bets.map(b=>{
+    const d=R_BETS[b.pick];
+    return`<div class="irow" style="margin-bottom:2px">
+      <span class="ik">${_rBetLabel(b.pick)} &nbsp;·&nbsp; ${d.pay}:1</span>
+      <span class="iv">${fmt(b.bet)} <span style="color:var(--shadow);font-size:0.85em">→</span> <span style="color:var(--gold-hi)">${fmt(b.bet*d.pay)}</span></span>
+    </div>`;
+  }).join('');
+  const singleLabel=bets.length===1
+    ?`<div style="text-align:center;font-size:1.8rem;color:var(--cream);margin-top:4px">Bet on <b style="color:var(--ink)">${R_BETS[bets[0].pick].type==='num'?'Number '+R_BETS[bets[0].pick].lbl:R_BETS[bets[0].pick].lbl}</b> &nbsp;·&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b></div>`
+    :`<div class="divider" style="margin:8px 0"></div>
+    <div class="sec" style="margin-bottom:4px">${bets.length} Bets &nbsp;·&nbsp; ${fmt(total)} chips wagered</div>
+    ${betRows}`;
   return `${hdr('Roulette · Spinning!')}
   <div class="panel">
     ${gameDots([], 0, 'play', 2)}
@@ -307,7 +316,7 @@ function screenRouletteSpinning(){
       <div class="wheel-pointer"></div>
       <canvas id="rwheel" width="300" height="300"></canvas>
     </div>
-    <div style="text-align:center;font-size:1.8rem;color:var(--cream);margin-top:4px">${betLabel}</div>
+    ${singleLabel}
   </div>`;
 }
 
@@ -340,13 +349,13 @@ function screenRouletteBet(){
   const canAdd=(S.rBets.length<maxBets||pickAlreadyBet)&&pb&&S.rBet>0;
   const canSpin=S.rBets.length>0;
   const hdrTitle=maxBets===1?'Roulette · 1 Spin':`Roulette · Up to ${maxBets} Bets`;
-  const secLabel=maxBets===1?'Place Your Bet':'Place Your Bets';
+  const secLabel=maxBets===1?'<span class="sec-game-prefix">Roulette · </span>Place Your Bet':'<span class="sec-game-prefix">Roulette · </span>Place Your Bets';
   return `${hdr(hdrTitle)}
   <div class="panel">
     ${board}
     <button id="db" class="btn-gold" style="margin:10px 0" onclick="rSpin()" ${!canSpin?'disabled':''}>Final Spin 🎡</button>
     <div class="divider"></div>
-    <div class="sec">${secLabel}</div>
+    <div class="sec" style="text-align:center">${secLabel}</div>
     ${betInfo}
     ${chipSel(S.chips,S.rBet,null,`<button id="pb-add" class="btn-gold" onclick="rAddBet()" ${!canAdd?'disabled':''}>Place Bet (${S.rBets.length}/${maxBets})</button>`)}
     <div id="r-placed">${rPlacedInner(S.rBets,maxBets)}</div>

@@ -70,7 +70,8 @@ function bjSkip(){ _skipHand(S.bjHistory,{bet:0,result:'skip',delta:0,player:[],
 
 /** Handles the initial deal for a Blackjack hand. */
 function bjDeal(){
-  if(!S.bjBet)return;
+  if(!S.bjBet||S.bjPhase!=='bet')return;
+  S.bjPhase='dealing'; // lock immediately so bet controls can't mutate S.bjBet during sndShuffle
   S.chips-=S.bjBet;
   S.bjAnimFrom=0;S.bjDealerAnimFrom=0;
   if(getMod('bj_first_ace')&&DEAL.bjShoe[S.bjIdx]?.r!=='A'){
@@ -244,12 +245,13 @@ function bjResolve(dealerDrawn=false){
   const wm=winMult();
   if(S.bjSplit){
     let totalDelta=0;
+    const spm=getMod('bj_wild_split')?2:1; // wild split: winning hands pay 2× profit
     const handResults=S.bjSplitHands.map((hand,i)=>{
       const bet=S.bjSplitBets[i],pv=hVal(hand);
       const ddm=getMod('bj_double_bonus')&&S.bjSplitDoubled[i]?2:1; // double-down profit multiplier
       let result,delta;
       if(pv>21){result='bust';delta=-bet;}
-      else if(dv>21||pv>dv){result='win';delta=bet*wm*ddm;S.chips+=bet+delta;}
+      else if(dv>21||pv>dv){result='win';delta=bet*wm*ddm*spm;S.chips+=bet+delta;}
       else if(pv===dv){result='push';delta=0;S.chips+=bet;}
       else{result='lose';delta=-bet;}
       totalDelta+=delta;return{result,delta,bet};
@@ -299,12 +301,14 @@ function bjDealerHTML(){
 }
 
 function bjActionBtns(bust,done21,can2,canSplit){
+  const wildSplit=getMod('bj_wild_split');
+  const splitLit=wildSplit&&canSplit&&!done21&&!S.bjDealerReveal;
   return`<div class="divider"></div>
   <div class="act-btns">
     <button class="act-btn" onclick="bjHit()" ${bust||done21||S.bjDealerReveal?'disabled':''}>Hit</button>
     <button class="act-btn" onclick="bjStand()" ${done21||S.bjDealerReveal?'disabled':''}>Stand</button>
     <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21||S.bjDealerReveal?'disabled':''}>Double</button>
-    <button class="act-btn" onclick="bjSplit()" ${!canSplit||done21||S.bjDealerReveal?'disabled':''}>Split</button>
+    <button class="act-btn${splitLit?' btn-peek-glow':''}" onclick="bjSplit()" ${!canSplit||done21||S.bjDealerReveal?'disabled':''}>${wildSplit?'Split 2×':'Split'}</button>
   </div>`;
 }
 
@@ -357,11 +361,29 @@ function screenBJ(){
       ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
       <div class="divider"></div>
       ${aios
-        ?`<div class="sec">All In or Skip · Wins Pay 2×</div>
+        ?`<div class="sec" style="text-align:center"><span class="sec-game-prefix">Blackjack · </span>All In or Skip · Wins Pay 2×</div>
           ${aiosRow('allIn();bjDeal()', 'bjSkip()')}`
-        :`<div class="sec">Place Your Bet</div>
+        :(()=>{
+          const bjMult=getMod('bj_payout')||1.5;
+          const payTxt=bjMult===1.5?'3 to 2':bjMult===2?'2 to 1':bjMult===3?'3 to 1':`${bjMult}×`;
+          const standAt=getMod('bj_dealer_stand')||17;
+          return `<div class="sec" style="text-align:center"><span class="sec-game-prefix">Blackjack · </span>Place Your Bet</div>
+          <div class="bj-bet-table">
+            <div class="bj-bet-slot-row">
+              <div class="bj-bet-slot-lbl">Dealer</div>
+              <div class="bj-bet-slots"><div class="card-slot"></div><div class="card-slot"></div></div>
+            </div>
+            <div class="felt-rules">
+              <div class="felt-rule-line">Blackjack pays ${payTxt}</div>
+              <div class="felt-rule-line">Dealer must stand on ${standAt} and draw to ${standAt-1}</div>
+            </div>
+            <div class="bj-bet-slot-row">
+              <div class="bj-bet-slot-lbl">Your hand</div>
+              <div class="bj-bet-slots"><div class="card-slot"></div><div class="card-slot"></div></div>
+            </div>
+          </div>
           ${chipSel(S.chips,S.bjBet)}
-          <button id="db" class="btn-gold" style="margin-top:12px" onclick="bjDeal()" ${S.bjBet===0?'disabled':''}>Deal →</button>`}
+          <button id="db" class="btn-gold" style="margin-top:6px" onclick="bjDeal()" ${S.bjBet===0?'disabled':''}>Deal →</button>`;})()}
     </div>`;
   }
   if(ph==='play'){
@@ -371,7 +393,7 @@ function screenBJ(){
       const pv=hVal(activeHand),bust=pv>21,done21=pv===21,pvStr=S.bjDealerReveal?String(pv):hValDisplay(activeHand);
       const isInitial=activeHand.length===2;
       const can2=S.chips>=S.bjSplitBets[ai]&&isInitial;
-      const canResplit=isInitial&&activeHand[0].r===activeHand[1].r&&S.chips>=S.bjSplitBets[ai]&&S.bjSplitHands.length<4;
+      const canResplit=isInitial&&S.chips>=S.bjSplitBets[ai]&&S.bjSplitHands.length<4&&(activeHand[0].r===activeHand[1].r||!!getMod('bj_wild_split'));
       const af=S.bjSplitAnimFrom[ai]??0;
       return `${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
 <div class="panel" style="display:flex;flex-direction:column">
@@ -403,7 +425,7 @@ function screenBJ(){
     const pv=hVal(S.bjPlayer),bust=pv>21,done21=pv===21,pvStr=S.bjDealerReveal?String(pv):hValDisplay(S.bjPlayer);
     const isInitial=S.bjPlayer.length===2;
     const can2=S.chips>=S.bjBet&&isInitial;
-    const canSplit=isInitial&&S.bjPlayer[0].r===S.bjPlayer[1].r&&S.chips>0;
+    const canSplit=isInitial&&S.chips>0&&(S.bjPlayer[0].r===S.bjPlayer[1].r||!!getMod('bj_wild_split'));
     return `${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
 <div class="panel" style="display:flex;flex-direction:column">
   ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}

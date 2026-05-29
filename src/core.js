@@ -2,7 +2,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.1';
+const GAME_VERSION = 'v1.6.7';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -42,6 +42,8 @@ function mkRng(seed) {
 // Used as both the RNG seed and the _ls key — everyone resets at midnight Arizona.
 const _PHOENIX_OFFSET_MS = 7 * 60 * 60 * 1000;
 const getDailySeed = () => { const d=new Date(Date.now()-_PHOENIX_OFFSET_MS); return d.getUTCFullYear()*10000+(d.getUTCMonth()+1)*100+d.getUTCDate(); };
+// Returns the seed (YYYYMMDD) for the next Phoenix-time calendar day.
+const _nextDailySeed = () => { const d=new Date(Date.now()-_PHOENIX_OFFSET_MS); d.setUTCDate(d.getUTCDate()+1); return d.getUTCFullYear()*10000+(d.getUTCMonth()+1)*100+d.getUTCDate(); };
 let _backlogSeed = (() => { const v=parseInt(_ls.getItem('gambdle_backlog_seed')||'0'); return v||null; })();
 const getActiveSeed = () => _backlogSeed || getDailySeed();
 // Test-only setter — lets dev-advanced.test.js override _backlogSeed without a page reload.
@@ -239,6 +241,7 @@ const DEAL=genDeal();
 
 // ─── GLOBAL STATE ───────────────────────────────────────────
 const START_CHIPS=1000;
+const BORROW_AMOUNT=50; // chips loaned to a busted player; deducted from next day's starting stack
 const CHIP_TIERS=[
   {min:2500,emoji:'🐋',label:'Whale'},
   {min:1500,emoji:'💎',label:'High Roller'},
@@ -266,7 +269,20 @@ let S={
   rReSpun:false,    // true once the player uses their free re-spin (r_respin modifier)
   forcedMod: null,  // dev override — set by devApplyMod(), cleared on next loadState()
   peekUsed: false,  // whether the one-time dealer peek has been used this game
+  borrowUsed: false,        // true once the daily borrow option has been taken or declined
+  borrowAmount: 0,          // actual chips borrowed (may exceed BORROW_AMOUNT under min_chips modifier)
+  borrowReturnScreen: null, // screen to navigate to after borrowing chips
 };
+
+/** True when the daily borrow option can still be shown: not yet used, and roulette not yet spun. */
+function _canShowBorrow() {
+  return !S.borrowUsed && S.rResult === null;
+}
+
+/** Chips to loan: always at least BORROW_AMOUNT, bumped up to meet min_chips modifier floor. */
+function _effectiveBorrowAmount() {
+  return Math.max(BORROW_AMOUNT, getMod('min_chips') || 0);
+}
 
 /** True when the player can no longer place a valid bet (< 10 chips, or below the min_chips modifier floor). */
 function isChipBusted() {
@@ -329,9 +345,36 @@ function loadState() {
     if (_noProg) S.chips = START_CHIPS;
     // Guard: for completed runs, recompute chips from recorded history so stale saves can't inflate scores.
     // Fall back to the saved value if the calculation is non-finite (corrupted history entries).
+    // Borrowed chips count as part of the effective starting stack for this calculation.
     if (S.screen === 'results') {
-      const _calc = START_CHIPS + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0);
+      const _calc = START_CHIPS + (S.borrowUsed ? (S.borrowAmount || BORROW_AMOUNT) : 0) + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0);
       S.chips = Number.isFinite(_calc) ? _calc : S.chips;
+    }
+  } else {
+    // No saved state for today — apply borrow debt only if it targets today's exact seed.
+    // If the player skipped the target day, the debt expires without applying.
+    // Skip in test/backlog modes so practice runs don't consume or create debt.
+    if (!_testActive() && !_backlogSeed) {
+      try {
+        const raw = _ls.getItem('gambdle_borrow_debt');
+        if (raw) {
+          const debt = JSON.parse(raw);
+          if (typeof debt.targetSeed !== 'number' || typeof debt.amount !== 'number') {
+            // Malformed entry — clear immediately rather than leaving it stuck forever.
+            _ls.removeItem('gambdle_borrow_debt');
+          } else {
+            if (debt.targetSeed === getDailySeed()) {
+              S.chips = START_CHIPS - debt.amount;
+            }
+            // Clear once the target day has arrived or passed (expired or consumed).
+            if (getDailySeed() >= debt.targetSeed) {
+              _ls.removeItem('gambdle_borrow_debt');
+            }
+          }
+        }
+      } catch {
+        _ls.removeItem('gambdle_borrow_debt');
+      }
     }
   }
   const forced = _ls.getItem('gambdle_forced_mod');

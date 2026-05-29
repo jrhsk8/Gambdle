@@ -2,8 +2,8 @@
 button { touch-action: manipulation; font-family: var(--btn-f); }
 
 :root {
-  --desktop:    #1f3a30;
-  --desktop2:   #0e221d;
+  --desktop:    #142a22;
+  --desktop2:   #081612;
   --panel:      #dcd2b6;
   --panel2:     #e8e0c4;
   --shadow:     #5a5238;
@@ -73,6 +73,15 @@ body {
   display: flex; flex-direction: column;
   min-height: calc(100svh - 44px);
   border-radius: 8px 8px 0 0;
+}
+
+/* Soft outer vignette on body for the desktop framing */
+@media (min-width: 1024px) {
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.45) 100%);
+    pointer-events: none; z-index: 0;
+  }
 }
 .title-bar {
   background:
@@ -467,6 +476,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .hand-val.bj { color: var(--gold-hi); }
 
 .uth-summary { font-size: 1.7rem; }
+/* Keep the inner "Ante X + Blind Y = Z chips total" line on one row even when
+   the parent uses grid/flex layout. Each <b> is otherwise free to promote to
+   its own row when chip counts get large. */
+.uth-summary span { white-space: nowrap; display: inline-block; max-width: 100%; }
 
 /* ── BJ inactive split hands ────────────────────────────── */
 .bj-split-aside { display: flex; justify-content: space-evenly; margin-bottom: 10px; }
@@ -484,8 +497,42 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 #uth-community-hand.hand:has(.card:nth-child(5)) { flex-wrap: nowrap; gap: 5px; }
 #uth-community-hand.hand:has(.card:nth-child(5)) .card + .card { margin-left: 0; }
 
+/* ── BJ bet screen: empty card slots framing the chip selector ─── */
+.bj-bet-table {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  justify-content: space-around; align-items: center;
+  gap: 8px; padding: 4px 0;
+}
+.bj-bet-slot-row { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.bj-bet-slot-lbl {
+  font-family: var(--btn-f); font-size: 1rem;
+  color: var(--cream); opacity: 0.55; letter-spacing: 0.18em;
+  text-transform: uppercase; line-height: 1;
+}
+.bj-bet-slots { display: flex; gap: 8px; }
+.card-slot {
+  width: 60px; height: 84px;
+  border: 2px dashed rgba(251, 245, 220, 0.22);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.07);
+}
+/* Casino felt rules — small uppercase text between dealer & player slots */
+.felt-rules {
+  text-align: center; line-height: 1.4;
+  color: var(--cream); opacity: 0.7;
+  font-family: var(--btn-f);
+  font-size: 0.95rem; letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  padding: 4px 0;
+}
+.felt-rule-line { white-space: nowrap; }
+
 /* ── Chip selector ──────────────────────────────────────── */
-.chip-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+/* Chip row never wraps — chips that don't fit shrink via flex-shrink rather than
+   spilling onto a second row. Mobile re-asserts nowrap with tighter gap below. */
+.chip-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: nowrap; }
 .chbtn {
   position: relative; width: 60px; height: 60px;
   border-radius: 50%;
@@ -561,13 +608,14 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* ── Hand progress dots (pills) ─────────────────────────── */
 .dots-row { display: flex; gap: 8px; margin: 4px 0 4px; }
 .hand-dot {
-  flex: 1; padding: 4px 10px;
+  flex: 1; min-width: 0; padding: 4px 10px;
   background: var(--panel); color: var(--shadow);
   border: 1px solid var(--ink);
   box-shadow: none;
   font-family: var(--btn-f);
   font-size: 1.4rem; text-align: center; line-height: 1.1;
   letter-spacing: 0.06em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .hand-dot.cur  { background: var(--gold); color: var(--ink); font-weight: 700;
   box-shadow: inset 2px 2px 0 var(--gold-lo), inset -1px -1px 0 var(--gold-hi); }
@@ -587,6 +635,19 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .ik { font-size: 1.4rem; color: var(--shadow); letter-spacing: 0.04em; }
 .iv { font-family: var(--btn-f); font-size: 1.35rem; color: var(--ink); }
 .sec-sm { font-size: 1rem; }
+/* Dev-stats group label — small, gold, spans the 2-col grid. */
+.dvs-grp-lbl {
+  grid-column: 1 / -1;
+  font-family: var(--btn-f);
+  font-size: 0.82rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-align: left;
+  margin: 6px 0 1px;
+  padding-left: 2px;
+}
+.dvs-grp-lbl:first-child { margin-top: 0; }
 .gold-divider { width: 60%; height: 1px; background: rgba(196,147,58,0.1); align-self: center; }
 .result-hl { font-family: var(--btn-f); font-size: 3rem; margin-bottom: 4px; text-shadow: 2px 2px 0 rgba(0,0,0,0.4); }
 .result-sub { font-family: var(--btn-f); font-size: 2rem; margin-bottom: 14px; }
@@ -690,6 +751,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2px -2px 0 var(--gold-lo);
 }
 .r-chip-sel { background: rgba(196,147,58,0.25); border: 1px dashed var(--gold); }
+/* Column 2:1 buttons sit at the top of the board; move their chip to the bottom to avoid clip */
+.r2to1 .r-chip { top: auto; bottom: -6px; }
 .r-pay-lbl {
   position: absolute; bottom: -22px; left: 0; right: 0;
   font-size: 0.75rem; font-weight: 700; color: var(--gold-hi);
@@ -963,12 +1026,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .logo { font-size: 3.6rem; }
   .logo-sub { font-size: 1.2rem; margin-top: 4px; }
   /* Cards — modestly smaller to reclaim vertical space */
-  .card.lg { width: 72px; height: 102px; }
-  .card.md { width: 62px; height: 88px; }
-  .card.sm { width: 50px; height: 70px; }
-  .card.lg .csuit { font-size: 2.0rem; }
-  .card.md .csuit { font-size: 1.6rem; }
-  .card.sm .csuit { font-size: 1.25rem; }
+  .card.lg { width: 80px; height: 114px; }
+  .card.md { width: 72px; height: 102px; }
+  .card.sm { width: 58px; height: 82px; }
+  .card.lg .csuit { font-size: 2.2rem; }
+  .card.md .csuit { font-size: 1.85rem; }
+  .card.sm .csuit { font-size: 1.5rem; }
   /* Roulette board — reduce row heights; horizontal scroll is acceptable */
   .rboard, .rboard-sub { grid-template-columns: 22px repeat(12, 1fr) 32px; }
   .r2to1, .rout { font-size: 0.95rem; }
@@ -979,13 +1042,18 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .r-board-wrap::-webkit-scrollbar { display: none; }
   /* Chip selector */
   .chip-row { flex-wrap: nowrap; gap: 6px; }
-  .chbtn { width: 44px; height: 44px; }
+  .chbtn { width: 40px; height: 40px; }
   .ch-1000 > span { font-size: 0.95rem; }
   /* Bet row */
   .bet-row { flex-wrap: wrap; gap: 8px; }
   .bet-amt { flex: 1 1 100%; }
   .bet-row:has(#pb-add) .bet-amt, #pb-add { flex: 1 1 45%; }
   .ch-clear, .ch-allin { flex: 1; }
+  /* BJ bet table — compact slots on mobile */
+  .bj-bet-table { gap: 4px; padding: 2px 0; }
+  .card-slot { width: 44px; height: 62px; border-width: 1.5px; }
+  .bj-bet-slot-lbl { font-size: 0.78rem; letter-spacing: 0.14em; }
+  .felt-rules { font-size: 0.72rem; letter-spacing: 0.12em; padding: 2px 0; line-height: 1.3; }
   /* Intro game manifest */
   .gm-row { grid-template-columns: 22px 1fr; gap: 8px; padding: 5px 10px; }
   .rnd-ic { font-size: 1.1rem; }
@@ -1004,7 +1072,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bj-split-result .result-sub { font-size: 1.2rem; margin-bottom: 0; }
   .bj-sr-dealer { margin-bottom: 0; }
   .bj-sr-dealer .hand-val { font-size: 1.2rem !important; }
-  .bj-sr-hands { margin-bottom: 0 !important; }
+  .bj-sr-dealer .card.sm { width: 50px; height: 70px; }
+  .bj-sr-hands { margin-bottom: 0 !important; gap: 6px !important; }
   /* Split hands */
   .bj-split-lbl { font-size: 0.78rem; white-space: nowrap; }
   .bj-split-val { font-size: 2rem; }
@@ -1021,73 +1090,463 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .ppay  { font-size: 1.15rem; }
   /* UTH result screen */
   .uth-result-panel .result-hl { font-size: 2rem; margin-bottom: 2px; }
-  .uth-result-panel .result-sub { font-size: 1.4rem; margin-bottom: 6px; }
-  .uth-result-top { margin-bottom: 4px; }
-  .uth-cards-col { gap: 6px; margin: 5px 0; }
+  .uth-result-panel .result-sub { font-size: 1.4rem; margin-bottom: 2px; }
+  .uth-result-top { margin-bottom: 2px; }
+  .uth-cards-col { gap: 4px; margin: 2px 0; }
   .uth-result-panel .card.md { width: 50px; height: 70px; }
   .uth-result-panel .card.md .csuit { font-size: 1.25rem; }
   .uth-result-panel .card.md .ct-r { font-size: 0.9rem; }
   .uth-result-panel .card.md .ct-s { font-size: 0.75rem; }
   .uth-result-panel .card.md .ct-r[data-r="10"] { font-size: 0.72rem !important; }
   .uth-bets-grid { display:flex; flex-wrap:wrap; justify-content:center; gap:2px 10px; margin-bottom:6px; }
+  /* Keep tight screens' cards at original size — they have no room for growth */
+  #bj-dealer-section .card.lg { width: 72px; height: 102px; }
+  .uth-result-panel .card.sm { width: 50px; height: 70px; }
+  /* BJ 4-way split play — shrink aside cards + dealer spacing */
+  #bj-dealer-section { margin-bottom: 6px !important; }
+  .bj-split-aside { margin-bottom: 4px; }
+  .bj-split-aside .card.sm { width: 40px; height: 56px; }
+  .bj-split-aside .card.sm .csuit { font-size: 1.0rem; }
+  /* BJ 4-way split result — compact result hand cards */
+  .bj-sr-hands .card.sm { width: 46px; height: 65px; }
+  .bj-sr-hands .card.sm .csuit { font-size: 1.1rem; }
+  /* UTH showdown — override inline divider margins */
+  .uth-result-panel .uth-cards-col .divider { margin: 3px 0 !important; }
+  /* Roulette placed bets — compact list and spin button */
+  #db { margin: 5px 0 !important; }
+  /* Hide the "Roulette · " / etc. prefix on mobile — title bar already shows the game */
+  .sec-game-prefix { display: none; }
+  #r-placed .divider { margin: 3px 0 !important; }
+  #r-placed .sec { font-size: 0.85rem; margin-bottom: 1px; }
+  #r-placed .irow { padding: 2px 6px !important; margin-bottom: 1px !important; }
   /* Emoji deck */
   body.deck-emoji .ct-s::after { font-size: 0.72em; }
 }
 
 /* ── Desktop / large screen ─────────────────────────────── */
+/* Goal: fill the wider window without growing it. Hard no-scroll inside
+   the panel (parallels the mobile philosophy). Extra space is absorbed by
+   chrome, fonts, padding, chips, roulette/board cells, and scoped card
+   growth only where the 1280x800 layout has measured slack. */
 @media (min-width: 1024px) {
-  body { font-size: 32px; overflow-x: hidden; overflow-y: auto; }
-  .app { max-width: 860px; }
-  .window { min-height: calc(100svh - 120px); }
-  .panel { padding: 18px; min-height: 540px; }
-  .card.lg { width: 100px; height: 140px; }
-  .card.md { width: 86px; height: 122px; }
-  .card.sm { width: 70px; height: 98px; }
-  .card.lg .csuit { font-size: 4.4rem; }
-  .card.md .csuit { font-size: 3.5rem; }
-  .card.sm .csuit { font-size: 2.7rem; }
-  .chbtn { width: 70px; height: 70px; }
-  .chbtn > span { font-size: 1.35rem; }
+  /* Shell — fluid window, capped well below viewport so the desktop frames it.
+     Width:  620px at 1024w  →  810px at 1440w  →  880px at 1920w (capped).
+     Height: 704px at 768h   →  836px at 900h   →  940px at 1080h (capped).  */
+  body { font-size: 22px; overflow-x: hidden; overflow-y: auto; }
+  .app { max-width: clamp(620px, 56vw, 880px); padding: 16px 16px; }
+  .window {
+    height: clamp(700px, calc(100svh - 32px), 960px);
+    min-height: 0;
+    box-shadow:
+      inset 1px 1px 0 var(--highlight),
+      inset -2px -2px 0 var(--shadow),
+      0 0 0 1px rgba(0,0,0,0.5),
+      0 18px 50px rgba(0,0,0,0.55);
+  }
+  .panel { padding: 6px 22px; min-height: 0; overflow: hidden; gap: 4px; }
+  .panel.cream { padding: 10px 24px; }
+  .divider { margin: 2px 0; }
+
+  /* Chrome */
+  .title-bar { font-size: 26px; padding: 5px 8px; }
+  .chip-badge { font-size: 1.55rem; padding: 1px 12px; }
+  .menu-bar { font-size: 1.18rem; padding: 0 8px 0 0; }
+  .menu-bar .mb-item { padding: 4px 10px; }
+  .status-bar { font-size: 1.08rem; padding: 3px 10px; }
+
+  /* Mod banner — fill width, modest */
+  .mod-banner { padding: 8px 18px; font-size: 1.45rem; margin-bottom: 5px; }
+  .mod-banner-label { font-size: 1.05rem; }
+  .mod-banner-title { font-size: 1.78rem; }
+  .mod-banner-r { font-size: 1.38rem; }
+
+  /* Section labels + info rows */
+  .sec { font-size: 1.3rem; margin-bottom: 3px; }
+  .sec-sm { font-size: 1.05rem; }
+  .ik { font-size: 1.3rem; }
+  .iv { font-size: 1.3rem; }
+  .irow { padding: 5px 14px; }
+
+  /* Hand-progress dots */
+  .dots-row { gap: 8px; margin: 2px 0; }
+  .hand-dot { padding: 4px 12px; font-size: 1.25rem; }
+
+  /* Hand values under cards */
+  .hand-val { font-size: 2.2rem; margin-top: 6px; }
+
+  /* Desktop cards — modest upscale from mobile sizes (~10% larger). */
+  .card.lg { width: 88px; height: 124px; }
+  .card.md { width: 78px; height: 110px; }
+  .card.sm { width: 62px; height: 87px; }
+  .card.lg .csuit { font-size: 3.4rem; }
+  .card.md .csuit { font-size: 2.85rem; }
+  .card.sm .csuit { font-size: 2.25rem; }
+  .card.lg .ct-r { font-size: 1.35rem; }
+  .card.lg .ct-s { font-size: 1.1rem; }
+  .card.md .ct-r { font-size: 1.15rem; }
+  .card.md .ct-s { font-size: 0.95rem; }
+  .card.sm .ct-r { font-size: 0.92rem; }
+  .card.sm .ct-s { font-size: 0.78rem; }
+  .card.lg .ct-r[data-r="10"] { font-size: 1.05rem !important; }
+  .card.md .ct-r[data-r="10"] { font-size: 0.92rem !important; }
+  .card.sm .ct-r[data-r="10"] { font-size: 0.75rem !important; }
+
+  /* Chip selector — slightly larger and roomier */
+  .chbtn { width: 56px; height: 56px; }
+  .chbtn > span { font-size: 1.15rem; }
+  .chip-row { gap: 10px; margin-bottom: 8px; }
+  .bet-row { gap: 10px; }
+  .bet-amt { padding: 5px 14px; }
+  .bet-amt span:first-child { font-size: 1.05rem; }
+  .bet-amt span:last-child { font-size: 1.65rem; }
+  .ch-clear, .ch-allin { padding: 7px 16px; font-size: 1.15rem; }
   .bet-row > .bet-amt { order: 1; }
   .bet-row > .ch-clear { order: 2; }
   #pb-add { order: 3; width: auto; }
   .bet-row > .ch-allin { order: 4; }
-  .bj-split-lbl { font-size: 1.6rem; }
-  .bj-split-val  { font-size: 2rem; }
-  /* Results screen — fit within natural window height */
-  .results-panel { padding: 16px 18px !important; }
-  .results-tier { font-size: 1.02rem !important; margin-bottom: 2px !important; }
-  .results-chips-lbl { margin-bottom: 2px !important; }
-  .big-chips { font-size: 3.2rem !important; transform: scale(1.2); }
-  .res-row { padding: 6px 10px !important; }
-  .res-net { font-size: 1.25rem !important; }
-  .results-panel .game-manifest { margin-bottom: 4px !important; }
-  .results-panel .ik { font-size: 1.2rem; }
-  .results-panel .iv { font-size: 1.2rem; }
-  #dist-title { font-size: 1.05rem !important; margin-top: 6px !important; margin-bottom: 4px !important; }
-  .dist-bars { height: 50px; margin-top: 13px; margin-bottom: 17px; }
-  .share-box { font-size: 0.67rem; padding: 6px 10px; line-height: 1.3; }
-  .results-panel > .btn-gold { padding: 14px 16px; }
-  /* UTH result screen — compact sizing to stay inside the XP window on all desktop viewports */
-  .uth-result-panel { min-height: 0 !important; padding: 10px 14px !important; }
-  .uth-result-panel > .divider { margin: 4px 0; }
-  .uth-result-panel .result-hl { font-size: 1.4rem; margin-bottom: 1px; }
-  .uth-result-panel .result-sub { font-size: 1.1rem; margin-bottom: 2px; }
+
+  /* Action buttons */
+  .act-btn { padding: 12px 14px; font-size: 1.5rem; }
+  .btn-gold { padding: 12px 16px; font-size: 1.45rem; }
+  .btn-gold.btn-lg { padding: 16px 20px; font-size: 1.9rem; }
+
+  /* ── Intro screen ─────────────────────────────── */
+  .logo { font-size: 4rem; }
+  .logo-sub { font-size: 1.25rem; margin-top: 4px; }
+  .game-manifest .gm-row { padding: 6px 14px; gap: 12px; }
+  .game-manifest .rnd-ic { font-size: 1.4rem; }
+  .game-manifest .rnd-nm { font-size: 1.55rem; }
+  .game-manifest .rnd-dc { font-size: 1.15rem; margin-top: 1px; }
+
+  /* ── BJ play (normal) ─────────────────────────── */
+  #bj-dealer-section { margin-bottom: 2px !important; }
+  #bj-dealer-section .hand-val { font-size: 1.9rem; margin-top: 3px; }
+  .bj-celebrate-txt { font-size: 2rem; margin-top: 6px; }
+  .act-btns { gap: 6px; }
+  /* Tighten the bet-readout irow margin-top (inline 10px) on play screens */
+  .bj-split-active ~ div .irow,
+  #bj-player-hand ~ * .irow { margin-top: 4px !important; padding: 4px 12px !important; }
+
+  /* BJ result screens — shrink headline/sub from base 3rem/2rem */
+  .panel .result-hl { font-size: 2.2rem; margin-bottom: 2px; }
+  .panel .result-sub { font-size: 1.5rem; margin-bottom: 6px; }
+  .panel .result-hl ~ .result-sub { margin-bottom: 4px; }
+  /* BJ result-win detail: target the inline flex column with gap:16px */
+  .panel > div[style*="gap:16px"] { gap: 6px !important; margin-bottom: 4px !important; }
+  /* Compact hand-val on BJ result screens */
+  .panel > div[style*="gap:16px"] .hand-val { font-size: 1.2rem !important; margin-top: 2px !important; }
+
+  /* ── BJ 4-way split play / result ─────────────── */
+  /* Heaviest screens — tightest possible to fit the 4-hand active layout */
+  .bj-split-aside { margin-bottom: 2px; }
+  .bj-split-lbl { font-size: 0.9rem; }
+  .bj-split-val { font-size: 1.15rem; margin-top: 1px; }
+  .bj-split-aside .card.sm { width: 40px; height: 56px; }
+  .bj-split-aside .card.sm .csuit { font-size: 1rem; }
+  .bj-active-lbl { font-size: 1.05rem; margin-bottom: 1px; }
+  /* Active hand value gets tight on split */
+  .bj-split-active .card.lg { width: 88px; height: 124px; }
+  .bj-split-active .card.lg .csuit { font-size: 3.4rem; }
+  .bj-split-active .card.lg .ct-r { font-size: 1.35rem; }
+  .bj-split-active .card.lg .ct-s { font-size: 1.1rem; }
+  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.05rem !important; }
+  .bj-split-active .hand-val { font-size: 1.5rem !important; margin-top: 2px !important; }
+  /* Tight act-btns under split */
+  .bj-split-active + div .act-btns,
+  .bj-split-active ~ div .act-btns { gap: 4px; padding-top: 2px; }
+  /* Split-play-only panel overrides — most aggressive */
+  .panel:has(.bj-split-active) { padding: 4px 28px !important; gap: 2px !important; }
+  .panel:has(.bj-split-active) #bj-dealer-section { margin-bottom: 0 !important; }
+  .panel:has(.bj-split-active) #bj-dealer-section .sec { font-size: 1rem; margin-bottom: 1px; }
+  .panel:has(.bj-split-active) #bj-dealer-section .hand-val { font-size: 1.25rem; margin-top: 1px; }
+  .panel:has(.bj-split-active) .divider { margin: 1px 0; }
+  .panel:has(.bj-split-active) .bj-active-lbl { font-size: 0.85rem; margin-bottom: 0; }
+  .panel:has(.bj-split-active) .dots-row { margin: 0; }
+  .panel:has(.bj-split-active) .hand-dot { padding: 3px 10px; font-size: 1.1rem; }
+  .panel:has(.bj-split-active) .act-btn { padding: 6px 10px; font-size: 1.15rem; }
+  .panel:has(.bj-split-active) .irow { padding: 3px 12px !important; margin-top: 4px !important; }
+  /* Override the result hl/sub specifically for the bj-split-result panel (base rule above was 2.2rem) */
+  .bj-split-result { padding: 3px 24px !important; gap: 1px !important; }
+  .bj-split-result .result-hl { font-size: 1.45rem !important; margin-bottom: 0 !important; }
+  .bj-split-result .result-sub { font-size: 1rem !important; margin-bottom: 1px !important; }
+  .bj-sr-dealer { margin-bottom: 1px; }
+  .bj-sr-dealer .hand-val { font-size: 0.9rem !important; margin-top: 1px !important; }
+  .bj-sr-dealer .card.sm { width: 36px; height: 50px; }
+  .bj-sr-dealer .card.sm .csuit { font-size: 0.9rem; }
+  .bj-sr-hands { margin-bottom: 2px !important; gap: 3px !important; }
+  .bj-sr-hands .card.sm { width: 36px; height: 50px; }
+  .bj-sr-hands .card.sm .csuit { font-size: 0.9rem; }
+  .bj-sr-hands .hand-val { font-size: 0.9rem !important; margin-top: 1px !important; }
+  .bj-sr-hands .sec { font-size: 0.8rem !important; }
+  .bj-split-result .btn-gold { padding: 6px 12px; font-size: 1.1rem; }
+
+  .panel:has(#uth-actions-ui) {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    gap: 2px;
+  }
+  .panel:has(#uth-actions-ui) .divider { margin: 1px 0; }
+  .panel:has(#uth-actions-ui) .sec { font-size: 1.2rem; margin-bottom: 1px; }
+  .panel:has(#uth-actions-ui) .hand-dot { padding: 3px 12px; font-size: 1.22rem; }
+  .panel:has(#uth-actions-ui) .card.md { width: 72px; height: 102px; }
+  .panel:has(#uth-actions-ui) .card.sm { width: 54px; height: 76px; }
+  .panel:has(#uth-actions-ui) .card.md .csuit { font-size: 2.45rem; }
+  .panel:has(#uth-actions-ui) .card.sm .csuit { font-size: 1.75rem; }
+  .panel:has(#uth-actions-ui) .card.md .ct-r { font-size: 1.08rem; }
+  .panel:has(#uth-actions-ui) .card.md .ct-s { font-size: 0.9rem; }
+  .panel:has(#uth-actions-ui) .card.sm .ct-r { font-size: 0.82rem; }
+  .panel:has(#uth-actions-ui) .card.sm .ct-s { font-size: 0.7rem; }
+  .panel:has(#uth-actions-ui) .card.md .ct-r[data-r="10"] { font-size: 0.86rem !important; }
+  .panel:has(#uth-actions-ui) .card.sm .ct-r[data-r="10"] { font-size: 0.66rem !important; }
+  .panel:has(#uth-actions-ui) .uth-bet-chips { margin: 2px 0 !important; }
+  .panel:has(#uth-actions-ui) .uth-bet-chip { padding: 3px 12px !important; }
+  .panel:has(#uth-actions-ui) .act-btn,
+  .panel:has(#uth-actions-ui) .btn-gold { padding: 8px 12px; font-size: 1.25rem; }
+
+  /* UTH bet chips block (preflop/flop/turn/reveal) — compact margin + inner padding */
+  .uth-bet-chips { margin: 4px 0 !important; gap: 8px !important; }
+  .uth-bet-chip { padding: 4px 14px !important; }
+  .uth-bet-chip > div:first-child { font-size: 0.78rem !important; }
+  .uth-bet-chip > div:last-child { font-size: 1.4rem !important; }
+
+  /* ── UTH bet screen ───────────────────────────── */
+  /* The pay table is the chunk that pushes UTH bet over — compact it */
+  .ptable { gap: 0 18px; padding: 4px 14px; }
+  .pname { font-size: 1.1rem; }
+  .ppay { font-size: 1.05rem; }
+  .uth-summary { font-size: 1.15rem; }
+
+  /* ── UTH bet panel — scale up to fill the empty bottom on desktop ── */
+  /* Tuned for 1280×800. Larger viewports get further bumps in the 1440+
+     and 1920+ blocks below. Summary is a natural one-line block (no flex);
+     remaining slack at larger viewports gets eaten by the ptable/chip/dot
+     scale-ups, not by an invisible padding band around the summary text. */
+  .panel:has(#uth-summary) { gap: 6px; justify-content: flex-start; }
+  .panel:has(#uth-summary) .dot-detail { display: none; }
+  .panel:has(#uth-summary) #uth-summary { font-size: 1.4rem; margin: 0 !important; }
+  /* chbtn flex-shrink: 1 lets the chips squish a hair when the panel is at its
+     min width (620px → 576px inner), so 7 chips always fit without wrapping. */
+  .panel:has(#uth-summary) .chip-row { gap: 8px; margin: 2px 0 8px; }
+  .panel:has(#uth-summary) .chbtn { width: 66px; height: 66px; flex-shrink: 1; min-width: 0; }
+  .panel:has(#uth-summary) .chbtn > span { font-size: 1.2rem; }
+  .panel:has(#uth-summary) .bet-amt { padding: 6px 14px; }
+  .panel:has(#uth-summary) .bet-amt span:last-child { font-size: 1.75rem; }
+  .panel:has(#uth-summary) #db { padding: 10px 16px; font-size: 1.4rem; margin-top: 2px !important; }
+  .panel:has(#uth-summary) > .divider { margin: 5px 0; }
+  .panel:has(#uth-summary) .ptable { padding: 6px 18px; gap: 2px 24px; }
+  .panel:has(#uth-summary) .pname { font-size: 1.3rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 1.25rem; }
+
+  /* ── UTH play (preflop / flop / turn) ─────────── */
+  /* 4 sections + dividers + bet chips + actions — keep things tight */
+
+  /* ── UTH showdown result (win/lose/fold) ──────── */
+  .uth-result-panel { min-height: 0 !important; padding: 4px 28px !important; gap: 2px !important; }
+  .uth-result-panel > .divider { margin: 1px 0; }
+  .uth-result-panel .result-hl { font-size: 1.35rem; margin-bottom: 0; }
+  .uth-result-panel .result-sub { font-size: 1.05rem; margin-bottom: 1px; }
   .uth-result-top { margin-bottom: 2px; }
-  .uth-cards-col { gap: 4px; margin: 2px 0; }
-  .uth-result-panel .uth-cards-col .divider { margin: 3px 0 !important; }
+  .uth-cards-col { gap: 2px; margin: 0; }
+  .uth-result-panel .uth-cards-col .divider { margin: 1px 0 !important; }
   .uth-result-panel .card.md { width: 48px; height: 68px; }
-  .uth-result-panel .card.md .csuit { font-size: 1.7rem; }
+  .uth-result-panel .card.md .csuit { font-size: 1.3rem; }
   .uth-result-panel .card.md .ct-r { font-size: 0.85rem; }
-  .uth-result-panel .card.md .ct-s { font-size: 0.7rem; }
-  .uth-result-panel .card.md .ct-r[data-r="10"] { font-size: 0.67rem !important; }
+  .uth-result-panel .card.md .ct-s { font-size: 0.72rem; }
+  .uth-result-panel .card.md .ct-r[data-r="10"] { font-size: 0.7rem !important; }
   .uth-result-panel .card.sm { width: 40px; height: 56px; }
-  .uth-result-panel .card.sm .csuit { font-size: 1.3rem; }
-  .uth-result-panel .card.sm .ct-r { font-size: 0.75rem; }
-  .uth-result-panel .card.sm .ct-s { font-size: 0.62rem; }
-  .uth-result-panel .sec { font-size: 0.75rem; margin-bottom: 1px; }
-  .uth-hand-name { font-size: 0.9rem !important; margin-top: 1px !important; }
-  .uth-result-panel .uth-bets-grid { gap: 1px 10px; margin-bottom: 4px; }
-  .uth-result-panel .irow { margin-top: 4px !important; padding: 3px 8px !important; }
-  .uth-result-panel .btn-gold { margin-top: 6px !important; padding: 8px 10px !important; }
+  .uth-result-panel .card.sm .csuit { font-size: 1.05rem; }
+  .uth-result-panel .card.sm .ct-r { font-size: 0.72rem; }
+  .uth-result-panel .card.sm .ct-s { font-size: 0.6rem; }
+  .uth-result-panel .sec { font-size: 0.82rem; margin-bottom: 0; }
+  .uth-hand-name { font-size: 0.82rem !important; margin-top: 0 !important; }
+  .uth-result-panel .uth-bets-grid { gap: 0 12px; margin-bottom: 2px; }
+  .uth-result-panel .irow { margin-top: 2px !important; padding: 2px 10px !important; }
+  .uth-result-panel .btn-gold { margin-top: 3px !important; padding: 6px 12px !important; font-size: 1.2rem; }
+
+  /* ── Roulette ─────────────────────────────────── */
+  /* Board cells fill more of the wider window */
+  .rboard, .rboard-sub { gap: 3px; }
+  .rboard { grid-template-rows: 46px 46px 46px; grid-template-columns: 34px repeat(12, 1fr) 46px; }
+  .rboard-sub { grid-auto-rows: 38px; grid-template-columns: 34px repeat(12, 1fr) 46px; }
+  .rn { font-size: 1.3rem; }
+  .r2to1, .rout { font-size: 1.45rem; }
+
+  /* ── Results screen ───────────────────────────── */
+  .results-panel { padding: 4px 28px !important; gap: 2px !important; }
+  .results-panel .big-chips { font-size: 2.45rem !important; }
+  .results-panel .results-tier { font-size: 0.9rem; margin-bottom: 0; }
+  .results-panel .results-chips-lbl { font-size: 0.62rem !important; margin-bottom: 1px !important; }
+  .results-panel .game-manifest { margin-bottom: 2px; }
+  .results-panel .res-row { padding: 2px 14px !important; }
+  .results-panel .res-row span:first-child { font-size: 1rem !important; }
+  .results-panel .res-net { font-size: 1.2rem !important; }
+  .results-panel .lb-row { padding: 2px 14px !important; }
+  .results-panel .share-box { font-size: 0.9rem; padding: 5px 12px; line-height: 1.3; }
+  #dist-title { margin-top: 2px !important; margin-bottom: 1px !important; }
+  .dist-bars { height: 30px; margin: 12px 4px 16px; }
+
+  /* ── Dev stats / borrow / 5-card poker ────────── */
+  /* Devstats has lots of slack — base font rules absorb it.
+     Poker is not a priority; existing base rules suffice. */
+
+  /* ── BJ bet — slots flex-grow to fill slack; chips/bet scaled up ────── */
+  .panel:has(> #db:last-child) { justify-content: flex-start; gap: 8px; }
+  .panel:has(> #db:last-child) .sec { font-size: 1.45rem; text-align: center; margin-bottom: 0; }
+  .panel:has(> #db:last-child) .chip-row { gap: 12px; margin-bottom: 18px; }
+  .panel:has(> #db:last-child) .chbtn { width: 72px; height: 72px; }
+  .panel:has(> #db:last-child) .chbtn > span { font-size: 1.3rem; }
+  .panel:has(> #db:last-child) .bet-row { gap: 12px; }
+  .panel:has(> #db:last-child) .bet-amt { padding: 8px 18px; }
+  .panel:has(> #db:last-child) .bet-amt span:first-child { font-size: 0.9rem; }
+  .panel:has(> #db:last-child) .bet-amt span:last-child { font-size: 2rem; }
+  .panel:has(> #db:last-child) .ch-clear,
+  .panel:has(> #db:last-child) .ch-allin { padding: 9px 18px; font-size: 1.2rem; }
+  .panel:has(> #db:last-child) > #db { padding: 12px 18px; font-size: 1.55rem; }
+  /* Desktop slots — bigger and breathe more vertical space */
+  .panel:has(> #db:last-child) .bj-bet-table { gap: 10px; padding: 6px 0; }
+  .panel:has(> #db:last-child) .card-slot { width: 76px; height: 106px; }
+  .panel:has(> #db:last-child) .bj-bet-slot-lbl { font-size: 1.1rem; }
+  .panel:has(> #db:last-child) .felt-rules { font-size: 1.05rem; padding: 6px 0; }
+
+  /* Poker card screens have the most desktop slack; let the cards breathe. */
+  .panel:has(.hold-wrap) .card.md,
+  .panel:has(.result-hl) .hand:has(> .card.md:nth-child(5)) .card.md {
+    width: 128px;
+    height: 182px;
+  }
+  .panel:has(.hold-wrap) .card.md .csuit,
+  .panel:has(.result-hl) .hand:has(> .card.md:nth-child(5)) .card.md .csuit { font-size: 4.4rem; }
+  .panel:has(.hold-wrap) .card.md .ct-r,
+  .panel:has(.result-hl) .hand:has(> .card.md:nth-child(5)) .card.md .ct-r { font-size: 1.6rem; }
+  .panel:has(.hold-wrap) .card.md .ct-s,
+  .panel:has(.result-hl) .hand:has(> .card.md:nth-child(5)) .card.md .ct-s { font-size: 1.3rem; }
+  .panel:has(.hold-wrap) .card.md .ct-r[data-r="10"],
+  .panel:has(.result-hl) .hand:has(> .card.md:nth-child(5)) .card.md .ct-r[data-r="10"] { font-size: 1.25rem !important; }
+  .panel:has(.hold-wrap) .pk-hold-status { margin-top: auto; font-size: 1rem !important; }
+  .panel:has(.hold-wrap) .hold-tag { font-size: 1.25rem; height: 18px; }
+  .panel:has(.hold-wrap) .btn-gold { padding: 14px 18px; font-size: 1.55rem; }
+  .panel:has(.hold-wrap) > .irow:last-child { margin-bottom: auto; }
+  .panel:has(.hand > .card.md:nth-child(5)) > .result-hl { margin-top: auto; }
+  .panel:has(.hand > .card.md:nth-child(5)) > .btn-gold:last-child { margin-bottom: auto; }
+
+  /* Roulette result: keep the modifier pinned; center only the result stack. */
+  .panel:has(.r-res-num) {
+    justify-content: flex-start;
+    gap: 10px;
+  }
+  .panel:has(.r-res-num) > div:has(> .r-res-num) { margin-top: auto; }
+  .panel:has(.r-res-num) > .btn-gold:last-child,
+  .panel:has(.r-res-num) > div:last-child:has(> .btn-gold:last-child) { margin-bottom: auto; }
+  .panel:has(.r-res-num) .r-res-num {
+    width: 108px;
+    height: 108px;
+    font-size: 2.7rem;
+  }
+
+  /* Roulette spin — wheel scaled down to fit the narrower window. */
+  .panel:has(#rwheel) { justify-content: flex-start; }
+  .panel:has(#rwheel) .wheel-outer { margin-top: auto; margin-bottom: 14px; }
+  .panel:has(#rwheel) #rwheel { width: 280px; height: 280px; }
+  .panel:has(#rwheel) .wheel-pointer {
+    border-left-width: 13px;
+    border-right-width: 13px;
+    border-top-width: 24px;
+    margin-bottom: -4px;
+  }
+  .panel:has(#rwheel) > div:last-child { margin-bottom: auto; }
+
+  /* Center the live table area inside the felt without moving the modifier. */
+  .panel:has(#bj-player-hand) #bj-dealer-section,
+  .panel:has(.bj-split-active) #bj-dealer-section,
+  .panel:has(#uth-actions-ui) #uth-dealer-container {
+    margin-top: auto;
+  }
+  .panel:has(#bj-player-hand) > div:has(#bj-player-hand),
+  .panel:has(.bj-split-active) .bj-split-active {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+  }
+  .panel:has(#bj-player-hand) > div:last-child,
+  .panel:has(.bj-split-active) > div:last-child,
+  .panel:has(#uth-actions-ui) #uth-actions-ui {
+    margin-top: 0 !important;
+    margin-bottom: auto;
+  }
+
+  /* Spend result-screen slack on cards; tight split/showdown layouts stay compact. */
+  .panel > div[style*="gap:16px"] .card.sm {
+    width: 68px;
+    height: 96px;
+  }
+  .panel > div[style*="gap:16px"] .card.sm .csuit { font-size: 2.6rem; }
+  .panel > div[style*="gap:16px"] .card.sm .ct-r { font-size: 1.05rem; }
+  .panel > div[style*="gap:16px"] .card.sm .ct-s { font-size: 0.9rem; }
+  .panel > div[style*="gap:16px"] .card.sm .ct-r[data-r="10"] { font-size: 0.85rem !important; }
+
+  /* UTH dealer-reveal screen (and similar) — the inline gap:12px stack of cards
+     plus pay-summary tends to leave slack; nothing to do, already centered. */
+}
+
+/* ── Tall desktop (1024×880+) — fill more slack on the UTH bet panel.
+   Chip/font scale-ups use the SAME chbtn width as the base so the chip row
+   always fits the narrow (1024 wide → 576px inner) panel without wrapping. */
+@media (min-width: 1024px) and (min-height: 880px) {
+  .panel:has(#uth-summary) .dots-row { gap: 10px; margin: 4px 0; }
+  .panel:has(#uth-summary) .hand-dot { padding: 6px 14px; font-size: 1.4rem; }
+  .panel:has(#uth-summary) #uth-summary { font-size: 1.5rem; margin: 4px 0 !important; }
+  .panel:has(#uth-summary) .chip-row { gap: 10px; margin: 4px 0 12px; }
+  .panel:has(#uth-summary) .chbtn { width: 70px; height: 70px; }
+  .panel:has(#uth-summary) .chbtn > span { font-size: 1.3rem; }
+  .panel:has(#uth-summary) .bet-amt span:last-child { font-size: 1.85rem; }
+  .panel:has(#uth-summary) .ptable { padding: 8px 20px; gap: 3px 24px; }
+  .panel:has(#uth-summary) .pname { font-size: 1.4rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 1.35rem; }
+}
+
+/* ── Wider tall desktop (1280×880+) — wider panel can fit larger chips. */
+@media (min-width: 1280px) and (min-height: 880px) {
+  .panel:has(#uth-summary) .chbtn { width: 76px; height: 76px; }
+  .panel:has(#uth-summary) .chbtn > span { font-size: 1.35rem; }
+  .panel:has(#uth-summary) .chip-row { gap: 14px; margin: 4px 0 14px; }
+  .panel:has(#uth-summary) .hand-dot { padding: 8px 14px; font-size: 1.5rem; }
+  .panel:has(#uth-summary) #uth-summary { font-size: 1.6rem; margin: 6px 0 !important; }
+  .panel:has(#uth-summary) .ptable { padding: 10px 20px; gap: 4px 24px; }
+  .panel:has(#uth-summary) .pname { font-size: 1.45rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 1.4rem; }
+}
+
+/* ── Narrow-tall desktop (1024×1060+) — fills the empty bands when the user
+   has a tall but narrow window. Chip width can't grow here (1024 inner is
+   576px), so we lean on font + padding scale-ups instead. */
+@media (min-width: 1024px) and (min-height: 1060px) {
+  .panel:has(#uth-summary) .dots-row { gap: 10px; margin: 4px 0; }
+  .panel:has(#uth-summary) .hand-dot { padding: 8px 14px; font-size: 1.5rem; }
+  .panel:has(#uth-summary) #uth-summary { font-size: 1.6rem; margin: 4px 0 !important; }
+  .panel:has(#uth-summary) .chip-row { gap: 10px; margin: 4px 0 12px; }
+  .panel:has(#uth-summary) #db { padding: 12px 18px; font-size: 1.5rem; margin-top: 4px !important; }
+  .panel:has(#uth-summary) > .divider { margin: 8px 0; }
+  .panel:has(#uth-summary) .ptable { padding: 12px 22px; gap: 6px 26px; }
+  .panel:has(#uth-summary) .pname { font-size: 1.65rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 1.6rem; }
+}
+
+/* ── Tallest desktop (1280×1060+) — fill remaining empty bands on UTH bet.
+   Locked to min-width 1280 because the 82px chip row + larger ptable rows
+   would not fit the 576px inner width of a 1024-wide panel. */
+@media (min-width: 1280px) and (min-height: 1060px) {
+  .panel:has(#uth-summary) .dots-row { gap: 10px; margin: 6px 0; }
+  .panel:has(#uth-summary) .hand-dot { padding: 9px 14px; font-size: 1.6rem; }
+  .panel:has(#uth-summary) #uth-summary { font-size: 1.7rem; margin: 6px 0 !important; }
+  .panel:has(#uth-summary) .chip-row { gap: 14px; margin: 4px 0 14px; }
+  .panel:has(#uth-summary) .chbtn { width: 82px; height: 82px; }
+  .panel:has(#uth-summary) .chbtn > span { font-size: 1.4rem; }
+  .panel:has(#uth-summary) .bet-amt { padding: 8px 16px; }
+  .panel:has(#uth-summary) .bet-amt span:last-child { font-size: 2rem; }
+  .panel:has(#uth-summary) #db { padding: 12px 18px; font-size: 1.55rem; margin-top: 4px !important; }
+  .panel:has(#uth-summary) > .divider { margin: 8px 0; }
+  .panel:has(#uth-summary) .ptable { padding: 12px 22px; gap: 6px 26px; }
+  .panel:has(#uth-summary) .pname { font-size: 1.6rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 1.55rem; }
 }
