@@ -400,6 +400,27 @@ describe('render — roulette spinning / result phases', () => {
     });
   });
 
+  it('spinning: multiple bets are summarized, not listed per-bet', () => {
+    withRender({
+      screen:'roulette', rPhase:'spinning', chips:0, rSpin:17,
+      rBets:[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}],
+    }, html => {
+      assert(html.includes('5 Bets'),    'shows bet-count summary');
+      assert(html.includes('250 chips'), 'shows total wagered (5×50)');
+      // The per-bet "stake → payout" rows are what overflowed the fixed window.
+      assert(!html.includes('→'), 'individual per-bet payout rows are not listed');
+    });
+  });
+
+  it('spinning: a single bet still names the pick', () => {
+    withRender({
+      screen:'roulette', rPhase:'spinning', chips:450, rSpin:36, rBets:[{pick:46,bet:50}],
+    }, html => {
+      assert(html.includes('Bet on'), 'single bet names the pick');
+      assert(html.includes('Black'),  'shows the pick label (idx 46 = Black)');
+    });
+  });
+
   it('respin: shows keep / re-spin choice', () => {
     withRender({
       screen:'roulette', rPhase:'respin',

@@ -296,18 +296,13 @@ function screenRouletteRespin(){
 function screenRouletteSpinning(){
   const bets=S.rBets;
   const total=bets.reduce((a,b)=>a+b.bet,0);
-  const betRows=bets.map(b=>{
-    const d=R_BETS[b.pick];
-    return`<div class="irow" style="margin-bottom:2px">
-      <span class="ik">${_rBetLabel(b.pick)} &nbsp;·&nbsp; ${d.pay}:1</span>
-      <span class="iv">${fmt(b.bet)} <span style="color:var(--shadow);font-size:0.85em">→</span> <span style="color:var(--gold-hi)">${fmt(b.bet*d.pay)}</span></span>
-    </div>`;
-  }).join('');
-  const singleLabel=bets.length===1
-    ?`<div style="text-align:center;font-size:1.8rem;color:var(--cream);margin-top:4px">Bet on <b style="color:var(--ink)">${R_BETS[bets[0].pick].type==='num'?'Number '+R_BETS[bets[0].pick].lbl:R_BETS[bets[0].pick].lbl}</b> &nbsp;·&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b></div>`
-    :`<div class="divider" style="margin:8px 0"></div>
-    <div class="sec" style="margin-bottom:4px">${bets.length} Bets &nbsp;·&nbsp; ${fmt(total)} chips wagered</div>
-    ${betRows}`;
+  // One line whether there's 1 bet or 10: a single bet names the pick, multiple bets
+  // are summarized as "N Bets · X chips". Listing every bet here used to overflow a
+  // fixed window (mobile and the short 1280×800 desktop); the full per-bet breakdown
+  // is shown again on the result screen.
+  const betLabel=bets.length===1
+    ?`Bet on <b style="color:var(--ink)">${R_BETS[bets[0].pick].type==='num'?'Number '+R_BETS[bets[0].pick].lbl:R_BETS[bets[0].pick].lbl}</b> &nbsp;·&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`
+    :`<b style="color:var(--ink)">${bets.length} Bets</b> &nbsp;·&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`;
   return `${hdr('Roulette · Spinning!')}
   <div class="panel">
     ${gameDots([], 0, 'play', 2)}
@@ -316,7 +311,7 @@ function screenRouletteSpinning(){
       <div class="wheel-pointer"></div>
       <canvas id="rwheel" width="300" height="300"></canvas>
     </div>
-    ${singleLabel}
+    <div style="text-align:center;font-size:1.8rem;color:var(--cream);margin-top:4px">${betLabel}</div>
   </div>`;
 }
 

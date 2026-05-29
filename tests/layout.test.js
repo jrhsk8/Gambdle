@@ -23,10 +23,14 @@ const PANEL_SCROLL_TOL=  5; // px — desktop panel scroll tolerance
 const _isDesktop = () => window.innerWidth >= 1024;
 
 // Merges clean state with overrides, renders, checks bounds, restores.
-function checkScreen(label, overrides) {
+// afterRender (optional) runs after render() but before measurement — used to
+// force async content (e.g. the score-distribution chart) to render synchronously
+// so its real height is measured.
+function checkScreen(label, overrides, afterRender) {
   const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
   Object.assign(S, base, overrides);
   render();
+  if (afterRender) afterRender();
 
   const win = document.querySelector('.window');
   assert(win !== null, `${label}: .window not found`);
@@ -55,12 +59,21 @@ function checkScreen(label, overrides) {
     assert(panelScroll <= PANEL_SCROLL_TOL,
       `panel scrolls by ${panelScroll}px — reduce content to fit fixed desktop window`);
   } else {
-    // Mobile: window must not extend past viewport.
+    // Mobile: the window is CSS-capped at 100svh (.app max-height + .window
+    // overflow:hidden), so its own box never reports overflow. The real failure
+    // mode is panel content spilling under the status bar (the XP taskbar) — the
+    // panel is flex:1 with min-height:0, so over-tall content overflows its box
+    // and overlaps the status bar that follows it. Assert the last panel child
+    // sits above the status bar, not merely inside the viewport.
     const vertOver = rect.bottom - vh;
+    const sb = document.querySelector('.status-bar');
+    const sbTop = sb ? Math.round(sb.getBoundingClientRect().top) : vh;
     const lastBottom = lastKid ? Math.round(lastKid.getBoundingClientRect().bottom) : -1;
-    measure(label, vh - lastBottom);
+    measure(label, sbTop - lastBottom);
     assert(vertOver <= VERT_TOL,
       `vertical overflow by ${Math.round(vertOver)}px — bottom=${Math.round(rect.bottom)} viewport=${vh}`);
+    assert(lastBottom <= sbTop + VERT_TOL,
+      `content overflows into status bar by ${lastBottom - sbTop}px — last child bottom=${lastBottom}, status-bar top=${sbTop}`);
   }
 
   assert(horizOver <= HORIZ_TOL,
@@ -311,6 +324,14 @@ describe('layout — roulette screens', () => {
     chips:450, rSpin:36, rBets:[{pick:46,bet:50}],
   }));
 
+  // Five bets is the binding case for the spinning screen — the per-bet list used
+  // to extend past the bottom of a mobile window (and under the status bar). The
+  // screen must summarize, not list every bet, so this fits like the 1-bet case.
+  it('spinning phase with a full set of bets fits viewport', () => checkScreen('roulette-spinning-max', {
+    screen:'roulette', rPhase:'spinning', chips:0, rSpin:17,
+    rBets:[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}],
+  }));
+
   it('result — lose fits viewport', () => checkScreen('roulette-result-lose', {
     screen:'roulette', rPhase:'result', chips:450, rSpin:36,
     rResult:{ delta:-50, bets:[{pick:46,won:false,delta:-50,pay:1,bet:50}] },
@@ -344,6 +365,26 @@ describe('layout — final results', () => {
   it('high score (whale) fits viewport', () => checkScreen('results-whale', {
     screen:'results', chips:3500, ..._fullHistory,
   }));
+
+  // The score-distribution chart is fetched async, so the headless env normally
+  // shows only the short "Loading…" placeholder — hiding ~110px of real chart
+  // height (title + bars + axis labels). On a real completed game this pushed the
+  // Copy & Share button under the status bar on mobile. Seed local history and
+  // render the chart synchronously so its true height is in the measurement.
+  it('with score-distribution chart fits above status bar', () => {
+    const _savedHist = _ls.getItem('gambdle_history');
+    _ls.setItem('gambdle_history', JSON.stringify({
+      20260505:800, 20260506:1200, 20260507:600, 20260508:1500,
+      20260509:1000, 20260510:2000, 20260511:900,
+    }));
+    try {
+      checkScreen('results-chart', { screen:'results', chips:1000, ..._fullHistory },
+        () => _showHistoryChart(document.getElementById('dist-chart')));
+    } finally {
+      if (_savedHist === null) _ls.removeItem('gambdle_history');
+      else _ls.setItem('gambdle_history', _savedHist);
+    }
+  });
 });
 
 // ─── Dev stats ────────────────────────────────────────────────────────────────

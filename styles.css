@@ -1133,11 +1133,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Action buttons */
   .act-btns { gap: 6px; }
   .act-btn { font-size: 1.1rem; padding: 12px 5px; white-space: normal; }
-  /* Results screen */
+  /* Results screen — kept tight so the Copy & Share button clears the status bar
+     once the (async) score-distribution chart renders its full ~110px height. */
   .big-chips { font-size: 3.2rem !important; line-height: 1; }
   .res-row { padding: 4px 10px !important; }
-  .dist-bars { height: 45px; margin-top: 16px; margin-bottom: 20px; }
-  .share-box { padding: 8px 10px; font-size: 1.0rem; line-height: 1.35; }
+  .dist-bars { height: 45px; margin-top: 14px; margin-bottom: 14px; }
+  .share-box { padding: 7px 10px; font-size: 0.95rem; line-height: 1.25; }
   /* BJ split result */
   .bj-split-result .result-hl { font-size: 1.8rem; margin-bottom: 0; }
   .bj-split-result .result-sub { font-size: 1.2rem; margin-bottom: 0; }
