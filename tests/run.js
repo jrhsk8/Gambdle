@@ -71,6 +71,8 @@ const anyFail = sections => sections.some(s => s.fails.length > 0);
     { width: 1280, height:  800 },
     { width: 1440, height:  900 },
     { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },  // 1440p / 4K-at-150% — first zoom step (1.25×)
+    { width: 3840, height: 2160 },  // true 4K-at-100% — second zoom step (1.5×)
   ];
 
   const [main, mobile, ...desktops] = await Promise.all([

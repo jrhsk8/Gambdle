@@ -22,6 +22,16 @@ const PANEL_SCROLL_TOL=  5; // px — desktop panel scroll tolerance
 
 const _isDesktop = () => window.innerWidth >= 1024;
 
+// On large displays `.app` gets a CSS `zoom` (see styles.css large-display block).
+// getBoundingClientRect returns POST-zoom geometry while getComputedStyle returns
+// PRE-zoom values (--btn-h, padding, line-height) — so any test that compares the
+// two must normalize by this factor. (Window-vs-viewport overflow checks must NOT
+// normalize: a zoomed window really does occupy zoomed pixels on the real screen.)
+const _appZoom = () => {
+  const a = document.querySelector('.app');
+  return a ? (parseFloat(getComputedStyle(a).zoom) || 1) : 1;
+};
+
 // Merges clean state with overrides, renders, checks bounds, restores.
 // afterRender (optional) runs after render() but before measurement — used to
 // force async content (e.g. the score-distribution chart) to render synchronously
@@ -185,7 +195,8 @@ describe('layout — UTH screens', () => {
       const summary = document.querySelector('#uth-summary');
       assert(summary !== null, `uth-bet-summary: #uth-summary not found at ante=${ante}`);
       const inner = summary.querySelector('span') || summary;
-      const height = inner.getBoundingClientRect().height;
+      // Rect height is post-zoom; fontSize (computed) is pre-zoom — normalize to match.
+      const height = inner.getBoundingClientRect().height / _appZoom();
       const fontSize = parseFloat(getComputedStyle(inner).fontSize);
       // A single line of text is ≤ ~1.6× font-size. 2× catches any wrap to 2+ lines.
       assert(height <= fontSize * 2,
@@ -234,7 +245,8 @@ describe('layout — UTH screens', () => {
       const cs = getComputedStyle(dot);
       const lineHeight = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
       const pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-      const contentH = dot.getBoundingClientRect().height - pad;
+      // Normalize zoomed rect height back to pre-zoom space to match pad/lineHeight.
+      const contentH = dot.getBoundingClientRect().height / _appZoom() - pad;
       // Allow some sub-pixel tolerance — 1.5× line-height still counts as one line.
       const lines = Math.round(contentH / lineHeight);
       assert(lines <= 1,
@@ -440,8 +452,10 @@ describe('layout — buttons share one height + font per window size', () => {
   };
 
   it('all button heights equal --btn-h at this viewport', () => {
+    // --btn-h is read from <html> (pre-zoom); button heights come from
+    // getBoundingClientRect (post-zoom), so scale the expectation by the app zoom.
     const expected = Math.round(parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue('--btn-h')));
+      getComputedStyle(document.documentElement).getPropertyValue('--btn-h')) * _appZoom());
     assert(expected > 0, `--btn-h must resolve to a positive px value, got ${expected}`);
     const btns = _collect(HEIGHT_SEL, false);
     assert(btns.length >= 8, `expected to sample ≥8 buttons across games, got ${btns.length}`);

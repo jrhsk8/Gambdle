@@ -1958,3 +1958,19 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .pname { font-size: 1.6rem; }
   .panel:has(#uth-summary) .ppay  { font-size: 1.55rem; }
 }
+
+/* ── Large-display scaling ──────────────────────────────────────────────
+   The window caps at ~880×960px, so on a 1440p/4K monitor it floats small
+   on a sea of desktop. Zoom the whole app uniformly to fill more of the
+   screen. `zoom` (unlike `transform: scale`) reflows cleanly and keeps
+   fonts crisp + hit-areas correct. Gated on width AND height so a short-
+   but-wide ultrawide (e.g. 3440×1440) can't zoom itself into vertical
+   scroll — the capped 960px window × zoom must still fit the viewport.
+   Note most 4K monitors run at 150% OS scaling → a 2560×1440 CSS viewport,
+   which is exactly the first step. True 4K-at-100% hits the second.       */
+@media (min-width: 2560px) and (min-height: 1400px) {
+  .app { zoom: 1.25; }   /* 960px window → ~1200px, fits 1440px tall */
+}
+@media (min-width: 3840px) and (min-height: 2100px) {
+  .app { zoom: 1.8; }    /* 960px window → ~1728px, fits 2160px tall */
+}
