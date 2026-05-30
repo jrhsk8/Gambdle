@@ -632,6 +632,7 @@ function render(){
   saveState();
   if (S.screen === 'results') { submitAndFetchLeaderboard(); fetchScoreDistribution(); }
   if (S.screen === 'devstats') fetchDevStats();
+  _runTutorial();
   _drawLayoutDebug();
 }
 

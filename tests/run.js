@@ -60,6 +60,14 @@ function printMeasurements(measurements) {
 
 const anyFail = sections => sections.some(s => s.fails.length > 0);
 
+// Parse {pass, fail} from a page's #summary text ("✅ All N tests passed" or "❌ N failed · M passed").
+function summaryCounts(summary) {
+  const allPass = summary.match(/All (\d+) tests passed/);
+  if (allPass) return { pass: +allPass[1], fail: 0 };
+  const f = summary.match(/(\d+) failed/), p = summary.match(/(\d+) passed/);
+  return { pass: p ? +p[1] : 0, fail: f ? +f[1] : 0 };
+}
+
 (async () => {
   const browser = await chromium.launch();
 
@@ -82,6 +90,16 @@ const anyFail = sections => sections.some(s => s.fails.length > 0);
   ]);
 
   await browser.close();
+
+  // Grand total across every test type (unit + layout at every viewport) on the very top line.
+  const unitC = summaryCounts(main.summary);
+  const layoutC = [mobile, ...desktops].reduce((a, p) => {
+    const c = summaryCounts(p.summary); a.pass += c.pass; a.fail += c.fail; return a;
+  }, { pass: 0, fail: 0 });
+  const totalPass = unitC.pass + layoutC.pass, totalFail = unitC.fail + layoutC.fail;
+  console.log(totalFail
+    ? `❌ SOME TESTS FAILED — ${totalPass} passed, ${totalFail} failed  (${unitC.pass} unit + ${layoutC.pass} layout)`
+    : `✅ ALL ${totalPass} TESTS PASSED  (${unitC.pass} unit + ${layoutC.pass} layout)\n`);
 
   // Main suite
   console.log('SUMMARY:', main.summary, '\n');

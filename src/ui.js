@@ -427,6 +427,47 @@ function _openSub2(key, html, trigger) {
   _positionSubmenu(sub, trigger);
 }
 
+// ─── Dev menu submenus (hybrid layout) ───────────────────────────────────
+// Jump targets, game setup, and chip grants each live behind a ► trigger to keep
+// the top-level Developer menu short. Mirror the showModSubmenu/showFutureSubmenu pattern.
+const _DD_CB = 'width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0';
+
+function showJumpSubmenu(trigger){
+  const nm = g => (typeof GAME_META !== 'undefined' && GAME_META[g] && GAME_META[g].name) || g;
+  const html =
+    `<div class="dd-item" onclick="goTo(GAME1);closeDropdowns()">→ ${nm(GAME1)}</div>` +
+    `<div class="dd-item" onclick="goTo(GAME2);closeDropdowns()">→ ${nm(GAME2)}</div>` +
+    `<div class="dd-item" onclick="goTo('roulette');closeDropdowns()">→ Roulette</div>` +
+    `<div class="dd-item" onclick="devSpin()">🎡 Spin Wheel (5 bets)</div>` +
+    `<div class="dd-item" onclick="goTo('results');closeDropdowns()">→ Results</div>`;
+  _openSub1(html, trigger);
+}
+
+function showGameSetupSubmenu(trigger){
+  const _gName = (opts, val) => opts.find(o=>o.value===val)?.label || val;
+  const slots = [
+    { slot:1, current:GAME1, opts:GAME1_OPTIONS.filter(o=>o.value!==GAME2), label:'Game 1' },
+    { slot:2, current:GAME2, opts:GAME2_OPTIONS.filter(o=>o.value!==GAME1), label:'Game 2' },
+  ];
+  const cfg = slots.map(({slot,current,opts,label}) =>
+    `<div class="dd-game-lbl">${label}</div><div class="dd-game-row">${opts.map(({value,label:l}) =>
+      `<button class="dd-game-btn${current===value?' active':''}" onclick="devSetGame(${slot},'${value}')">${l}</button>`
+    ).join('')}</div>`
+  ).join('');
+  const html = cfg +
+    `<div class="dd-sep"></div>` +
+    `<div class="dd-item" onclick="toggleTestSeed();event.stopPropagation()" style="gap:12px"><span>Test Seed (reset to apply)</span><input type="checkbox" id="dev-test-seed-cb" ${_testActive()?'checked':''} onclick="event.stopPropagation()" style="${_DD_CB}"></div>` +
+    `<div class="dd-item" onclick="devToggleUnlocks();event.stopPropagation()" style="gap:12px"><span>All Unlocks</span><input type="checkbox" id="dev-unlocks-cb" ${getPref('golden_back_unlocked')?'checked':''} onclick="event.stopPropagation()" style="${_DD_CB}"></div>`;
+  _openSub1(html, trigger);
+}
+
+function showChipsSubmenu(trigger){
+  const html =
+    `<div class="dd-item" onclick="credit(500,'dev');render();updateChipDisplay();closeDropdowns()">+ 500 chips</div>` +
+    `<div class="dd-item" onclick="credit(10000,'dev');render();updateChipDisplay();closeDropdowns()">+ 10,000 chips</div>`;
+  _openSub1(html, trigger);
+}
+
 function showModSubmenu(trigger, action) {
   action = action || 'devApplyMod';
   const cats = [
@@ -471,48 +512,24 @@ function toggleMenu(which, trigger) {
   el.className = 'dropdown'; el.dataset.menu = which;
 
   if (which === 'dev') {
-    const _gName = (opts, val) => opts.find(o=>o.value===val)?.label || val;
-    const _gameSlots = [
-      { slot:1, current:GAME1, opts:GAME1_OPTIONS.filter(o=>o.value!==GAME2), label:'Game 1' },
-      { slot:2, current:GAME2, opts:GAME2_OPTIONS.filter(o=>o.value!==GAME1), label:'Game 2' },
-    ];
-    const _gameConfigHTML = _gameSlots.map(({slot,current,opts,label}) =>
-      `<div class="dd-game-lbl">${label}</div>
-      <div class="dd-game-row">${opts.map(({value,label:l}) =>
-        `<button class="dd-game-btn${current===value?' active':''}" onclick="devSetGame(${slot},'${value}')">${l}</button>`
-      ).join('')}</div>`
-    ).join('');
     el.innerHTML = `
       <div class="dd-item" onclick="devReset();closeDropdowns()">↺ Reset Run</div>
+      <div class="dd-item" onclick="goTo('devstats');closeDropdowns()">📊 Player Stats</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="goTo(GAME1);closeDropdowns()">→ ${_gName(GAME1_OPTIONS,GAME1)}</div>
-      <div class="dd-item" onclick="goTo(GAME2);closeDropdowns()">→ ${_gName(GAME2_OPTIONS,GAME2)}</div>
-      <div class="dd-item" onclick="goTo('roulette');closeDropdowns()">→ Roulette</div>
-      <div class="dd-item" onclick="devSpin()">🎡 Spin Wheel (5 bets)</div>
-      <div class="dd-item" onclick="goTo('results');closeDropdowns()">→ Results</div>
-      <div class="dd-sep"></div>
-      ${_gameConfigHTML}
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="credit(500,'dev');render();updateChipDisplay();closeDropdowns()">+ 500 chips</div>
-      <div class="dd-item" onclick="credit(10000,'dev');render();updateChipDisplay();closeDropdowns()">+ 10,000 chips</div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="toggleTestSeed();event.stopPropagation()" style="gap:12px">
-        <span>Test Seed (reset to apply)</span>
-        <input type="checkbox" id="dev-test-seed-cb" ${_testActive()?'checked':''} onclick="event.stopPropagation()" style="width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0">
-      </div>
-      <div class="dd-item" onclick="devToggleUnlocks();event.stopPropagation()" style="gap:12px">
-        <span>All Unlocks</span>
-        <input type="checkbox" id="dev-unlocks-cb" ${getPref('golden_back_unlocked')?'checked':''} onclick="event.stopPropagation()" style="width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0">
-      </div>
+      <div class="dd-item" onclick="showJumpSubmenu(this);event.stopPropagation()">Jump to <span class="dd-key">►</span></div>
+      <div class="dd-item" onclick="showGameSetupSubmenu(this);event.stopPropagation()">Game Setup <span class="dd-key">►</span></div>
+      <div class="dd-item" onclick="showChipsSubmenu(this);event.stopPropagation()">Give Chips <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
       <div class="dd-item" id="dd-future-trigger" onclick="showFutureSubmenu(this);event.stopPropagation()">Preview Future Day <span class="dd-key">►</span></div>
       <div class="dd-item" id="dd-mod-trigger" onclick="showModSubmenu(this);event.stopPropagation()">Force Modifier <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showPopup('welcome');closeDropdowns()">💬 Show Popup</div>
-      <div class="dd-item" onclick="goTo('devstats');closeDropdowns()">📊 Player Stats</div>
+      <div class="dd-item" onclick="devToggleTestTutorial();event.stopPropagation()" style="gap:12px">
+        <span>💡 Test Tutorial</span>
+        <input type="checkbox" id="dev-test-tutorial-cb" ${_testTutorial()?'checked':''} onclick="event.stopPropagation()" style="${_DD_CB}">
+      </div>
       <div class="dd-item" onclick="devToggleLayoutDebug();event.stopPropagation()" style="gap:12px">
         <span>📐 Layout Debug</span>
-        <input type="checkbox" id="dev-layout-debug-cb" ${document.body.classList.contains('layout-debug')?'checked':''} onclick="event.stopPropagation()" style="width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0">
+        <input type="checkbox" id="dev-layout-debug-cb" ${document.body.classList.contains('layout-debug')?'checked':''} onclick="event.stopPropagation()" style="${_DD_CB}">
       </div>`;
   } else if (which === 'file') {
     const canShare = S.screen === 'results';
@@ -541,7 +558,9 @@ function toggleMenu(which, trigger) {
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showInfo('hands');closeDropdowns()">🂡 Poker Hands</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showModSubmenu(this,'showModifierPopup');event.stopPropagation()">✨ Daily Modifiers <span class="dd-key">►</span></div>`;
+      <div class="dd-item" onclick="showModSubmenu(this,'showModifierPopup');event.stopPropagation()">✨ Daily Modifiers <span class="dd-key">►</span></div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="toggleTutorial();event.stopPropagation()">💡 Tips: ${getPref('tutorial_off') ? 'Off' : 'On'}</div>`;
   }
 
   const left = Math.min(rect.left, window.innerWidth - 200);
@@ -756,24 +775,103 @@ const POPUP_MESSAGES = {
 function showPopup(id) {
   if (!POPUP_ENABLED && !DEV_OVERRIDE) return;
   const msg = POPUP_MESSAGES[id];
-  if (!msg) return;
+  if (msg) _renderBalloon(msg.title, msg.body);
+}
+
+// Renders the XP balloon with an arbitrary title/body; returns true if shown.
+// Shared by showPopup (legacy welcome) and the tutorial tips below.
+function _renderBalloon(title, body) {
   const el = document.getElementById('xp-balloon');
-  if (!el) return;
+  if (!el) return false;
   el.innerHTML = `
     <div class="xpb-inner">
       <div class="xpb-header">
         <div class="xpb-icon">i</div>
-        <div class="xpb-title">${msg.title}</div>
+        <div class="xpb-title">${title}</div>
         <button class="xpb-close" onclick="dismissPopup()" title="Close">✕</button>
       </div>
-      <div class="xpb-body">${msg.body}</div>
+      <div class="xpb-body">${body}</div>
     </div>
     <div class="xpb-tail"></div>`;
   el.className = 'xpb-visible';
   _updateBalloonPosition();
-  // No auto-fade — the balloon stays until the X or a click outside it dismisses it.
-  // Defer attaching so the click that opened the popup doesn't immediately close it.
+  // No auto-fade — stays until the X or an outside click. Deferred so the opening click doesn't close it.
   setTimeout(() => document.addEventListener('pointerdown', _popupOutsideClick), 0);
+  return true;
+}
+
+// ─── TUTORIAL TIPS ───────────────────────────────────────────────────────
+// Lightweight, once-ever contextual popups for things that surprise players
+// (mostly how this Ultimate Texas Hold'em differs from regular Hold'em). Text
+// lives in src/tutorial.js; triggers are wired in _runTutorial(), called from
+// render(). Skipped under automation (navigator.webdriver) so tips never appear
+// in the test/screenshot/webkit harnesses, and on archive/backlog views.
+
+function _tipSeen(id){ try { return !!_ls.getItem('gambdle_tip_' + id + '_seen'); } catch { return false; } }
+
+// Dev "Test Tutorial" mode: when on, tips always fire (ignoring the seen history and the
+// Tips-off setting) and are never persisted as seen, so they reappear on every visit.
+function _testTutorial(){ try { return _ls.getItem('gambdle_dev_test_tutorial') === '1'; } catch { return false; } }
+
+// Shows tip `id` once, if tutorials are on and no balloon is already up. Returns
+// true if shown. Safe to call on every render — it self-dedupes via localStorage.
+function _maybeTip(id){
+  const force = _testTutorial();              // dev Test Tutorial: ignore seen + off, never persist
+  if (!force && getPref('tutorial_off')) return false;
+  if (!force && _tipSeen(id)) return false;
+  if (typeof TUTORIAL_TIPS === 'undefined' || !TUTORIAL_TIPS[id]) return false;
+  const bal = document.getElementById('xp-balloon');
+  if (bal && bal.classList.contains('xpb-visible')) return false; // one at a time → retry next render
+  const tip = TUTORIAL_TIPS[id];
+  // The first tip a player ever sees gets the "you can turn these off" note appended (not in force mode).
+  const firstEver = !force && !_ls.getItem('gambdle_tutorial_intro_seen');
+  const body = (firstEver && typeof TUTORIAL_OFF_NOTE === 'string') ? tip.body + TUTORIAL_OFF_NOTE : tip.body;
+  if (!_renderBalloon(tip.title, body)) return false;
+  if (!force) try {
+    _ls.setItem('gambdle_tip_' + id + '_seen', '1');
+    if (firstEver) _ls.setItem('gambdle_tutorial_intro_seen', '1');
+  } catch {}
+  return true;
+}
+
+// Pure mapping of the current screen/phase to the tip ids eligible right now, in
+// priority order. Kept separate from _runTutorial so it can be unit-tested without
+// the automation/balloon side effects. Returns [] on any non-trigger state.
+function _eligibleTips(){
+  const s = S.screen, out = [];
+  if (s === 'intro') out.push('modifier');
+  if (s === 'bj'  && S.bjPhase  === 'bet')     out.push('bj_hands');
+  if (s === 'uth' && S.uthPhase === 'bet')     out.push('uth_bet');
+  if (s === 'uth' && S.uthPhase === 'preflop') out.push('uth_raise');
+  if (s === 'uth' && S.uthPhase === 'turn' && !S.uthRaised) out.push('uth_turn'); // river: raise 1x or fold, no check
+  if (s === 'uth' && (S.uthPhase === 'reveal' || S.uthPhase === 'result')) out.push('uth_qualify');
+  return out;
+}
+
+// Shows at most one eligible tip per render (a second surfaces on the next render
+// rather than stacking). Skipped under automation (navigator.webdriver) so tips
+// never appear in the test/screenshot/webkit harnesses, and on archive/backlog views.
+function _runTutorial(){
+  if (!_testTutorial() && (navigator.webdriver || _backlogSeed)) return;
+  for (const id of _eligibleTips()) if (_maybeTip(id)) break;
+}
+
+// Help menu → flip tips on/off. The menu rebuilds its label from getPref on next open.
+function toggleTutorial(){
+  const off = !getPref('tutorial_off');
+  setPref('tutorial_off', off);
+  closeDropdowns();
+  toast(off ? 'Tips off' : 'Tips on 🎲');
+}
+
+// Dev menu → force tips to always show (ignores the seen history and the Tips-off setting).
+// Persisted in _ls so it survives reloads while you preview. Tips never get marked seen while on.
+function devToggleTestTutorial(){
+  const on = !_testTutorial();
+  try { _ls.setItem('gambdle_dev_test_tutorial', on ? '1' : ''); } catch {}
+  const cb = document.getElementById('dev-test-tutorial-cb');
+  if (cb) cb.checked = on;
+  toast(on ? 'Test Tutorial on, tips always show' : 'Test Tutorial off');
 }
 
 // Closes the balloon on any click/tap that isn't inside it.
