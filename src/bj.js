@@ -429,7 +429,7 @@ function screenBJ(){
           </div>`;}).join('')}
         </div>`:''}
         <div class="bj-split-active" style="text-align:center;flex:1;">
-          <div class="sec bj-active-lbl">Hand ${ai+1}</div>
+          <div class="sec bj-active-lbl">Hand ${ai+1} <span class="bj-active-bet">· Bet ${fmt(S.bjSplitBets[ai])}</span></div>
           <div id="bj-active-hand" class="hand">${renderCards(activeHand,'lg',af,0.4,0.1)}</div>
           ${S.bjCelebrating||isBJ(activeHand)
             ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div class="bj-celebrate-txt">Blackjack!</div></div>`
@@ -437,7 +437,6 @@ function screenBJ(){
         </div>
         <div style="margin-top:auto;">
           ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canResplit)}
-          <div class="irow" style="margin-top:10px"><span class="ik">Hand ${ai+1} Bet</span><span class="iv">${fmt(S.bjSplitBets[ai])} chips</span></div>
         </div>
 </div>`;
     }
@@ -475,7 +474,8 @@ function screenBJ(){
 
   if(S.bjSplit){
     const dv=hVal(S.bjDealer);
-    const RES_LBL2={win:'Win!',push:'Push',bust:'Bust',lose:'Lose'};
+    // 'BJ' (not 'Blackjack') so the label never wraps in the tight 3-/4-across grid.
+    const RES_LBL2={win:'Win!',push:'Push',bust:'Bust',lose:'Lose',blackjack:'BJ'};
     const splitNet=S.bjSplitResults.reduce((a,r)=>a+r.delta,0);
     return `${hdr('Blackjack · Split Result')}
     ${_resultPanel(
@@ -495,7 +495,7 @@ function screenBJ(){
           ${_handValDiv(hv,'font-size:1.4rem')}
         </div>`;}).join('')}
       </div>`,
-      btnAction, btnText, 'bj-split-result'
+      btnAction, btnText, 'bj-split-result sr-'+S.bjSplitHands.length
     )}`;
   }
   const dv=hVal(S.bjDealer), pv=hVal(S.bjPlayer);

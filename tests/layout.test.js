@@ -92,6 +92,53 @@ function checkScreen(label, overrides, afterRender) {
   _ltRestore();
 }
 
+// Max vertical gap allowed between consecutive panel children (CSS px, zoom-normalized).
+// Catches leftover slack being pooled into one big band (e.g. the old dots→headline
+// gap) instead of spread evenly. The 2-/3-hand split layouts distribute their slack,
+// so no single gap should approach this.
+const MAX_SPLIT_GAP = 50;
+
+// Renders a screen and asserts no single gap between stacked panel children exceeds
+// MAX_SPLIT_GAP — i.e. the layout fills the panel evenly rather than pooling slack.
+function checkNoPooledSlack(label, overrides) {
+  const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+  Object.assign(S, base, overrides);
+  render();
+  const panel = document.querySelector('.panel');
+  assert(panel !== null, `${label}: .panel not found`);
+  const zoom = _appZoom();
+  const kids = [...panel.children].filter(el => el.getBoundingClientRect().height > 0);
+  let maxGap = 0, where = '';
+  for (let i = 1; i < kids.length; i++) {
+    const gap = (kids[i].getBoundingClientRect().top - kids[i - 1].getBoundingClientRect().bottom) / zoom;
+    if (gap > maxGap) { maxGap = gap; where = `${kids[i - 1].className.split(' ')[0]}→${kids[i].className.split(' ')[0]}`; }
+  }
+  measure(label, Math.round(MAX_SPLIT_GAP - maxGap)); // headroom under the cap (higher = better)
+  assert(maxGap <= MAX_SPLIT_GAP,
+    `${label}: biggest gap ${Math.round(maxGap)}px (${where}) exceeds ${MAX_SPLIT_GAP}px — leftover slack is pooled, not distributed`);
+  _ltRestore();
+}
+
+// The result headline ("Push") and its +chips sub-line must stay tight together as one
+// unit — the slack distributor must not push them apart (and enlarging them must not
+// reintroduce a gap). CSS px, zoom-normalized.
+const MAX_HEADLINE_GAP = 16;
+
+function checkHeadlineTight(label, overrides) {
+  const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+  Object.assign(S, base, overrides);
+  render();
+  const hl = document.querySelector('.bj-split-result .result-hl');
+  const sub = document.querySelector('.bj-split-result .result-sub');
+  assert(hl !== null && sub !== null, `${label}: result headline/sub not found`);
+  const zoom = _appZoom();
+  const gap = (sub.getBoundingClientRect().top - hl.getBoundingClientRect().bottom) / zoom;
+  measure(label, Math.round(MAX_HEADLINE_GAP - gap));
+  assert(gap <= MAX_HEADLINE_GAP,
+    `${label}: headline→sub gap ${Math.round(gap)}px exceeds ${MAX_HEADLINE_GAP}px — Push/+chips should read as one unit`);
+  _ltRestore();
+}
+
 // ─── Card fixtures ────────────────────────────────────────────────────────────
 const _h = (...specs) => specs.map(([r, s]) => card(r, s));
 
@@ -153,6 +200,30 @@ describe('layout — BJ screens', () => {
     bjSplitAnimFrom:[0,0,0,0],
   }));
 
+  // 2- and 3-hand splits get larger (hand-count-aware) cards than the 4-way cap,
+  // so they need their own fit guards.
+  it('play — 2-way split fits viewport', () => checkScreen('bj-split-2', {
+    screen:'bj', bjPhase:'play', chips:700, bjBet:100, bjHand:0, bjHistory:[],
+    bjPlayer:[], bjDealer:_bjDealer,
+    bjSplit:true, bjSplitActive:0,
+    bjSplitHands:[_bjPair,_bjPair],
+    bjSplitBets:[100,100],
+    bjSplitDone:[false,false],
+    bjSplitDoubled:[false,false],
+    bjSplitAnimFrom:[0,0],
+  }));
+
+  it('play — 3-way split fits viewport', () => checkScreen('bj-split-3', {
+    screen:'bj', bjPhase:'play', chips:650, bjBet:100, bjHand:0, bjHistory:[],
+    bjPlayer:[], bjDealer:_bjDealer,
+    bjSplit:true, bjSplitActive:1,
+    bjSplitHands:[_bjPair,_bjPair,_bjPair],
+    bjSplitBets:[100,100,100],
+    bjSplitDone:[true,false,false],
+    bjSplitDoubled:[false,false,false],
+    bjSplitAnimFrom:[0,0,0],
+  }));
+
   it('result — win fits viewport', () => checkScreen('bj-result-win', {
     screen:'bj', bjPhase:'result', chips:1100, bjHand:1,
     bjBet:100, bjPlayer:_bjPair, bjDealer:_bjDealer,
@@ -171,6 +242,95 @@ describe('layout — BJ screens', () => {
       { result:'bust',      delta:-100, bet:100 },
       { result:'win',       delta:100,  bet:100 },
       { result:'blackjack', delta:150,  bet:100 },
+    ],
+    bjResult:{ result:'split', delta:250 },
+    bjHistory:[{ bet:400,result:'split',delta:250,player:[],dealer:[] }],
+  }));
+
+  it('result — 2-way split fits viewport', () => checkScreen('bj-result-split-2', {
+    screen:'bj', bjPhase:'result', chips:1050, bjHand:1,
+    bjBet:200, bjPlayer:[], bjDealer:_bjDealer, bjDealerAnimFrom:0,
+    bjSplit:true,
+    bjSplitHands:[_bjPair, _bjBust],
+    bjSplitBets:[100,100],
+    bjSplitResults:[
+      { result:'win',  delta:100,  bet:100 },
+      { result:'bust', delta:-100, bet:100 },
+    ],
+    bjResult:{ result:'split', delta:0 },
+    bjHistory:[{ bet:200,result:'split',delta:0,player:[],dealer:[] }],
+  }));
+
+  it('result — 3-way split fits viewport', () => checkScreen('bj-result-split-3', {
+    screen:'bj', bjPhase:'result', chips:1050, bjHand:1,
+    bjBet:300, bjPlayer:[], bjDealer:_bjDealer, bjDealerAnimFrom:0,
+    bjSplit:true,
+    bjSplitHands:[_bjPair, _bjBust, _bjBJ],
+    bjSplitBets:[100,100,100],
+    bjSplitResults:[
+      { result:'win',       delta:100,  bet:100 },
+      { result:'bust',      delta:-100, bet:100 },
+      { result:'blackjack', delta:150,  bet:100 },
+    ],
+    bjResult:{ result:'split', delta:150 },
+    bjHistory:[{ bet:300,result:'split',delta:150,player:[],dealer:[] }],
+  }));
+
+  // Slack distribution: 2-/3-hand splits have spare panel height; assert it's spread
+  // across the gaps, not pooled into one band (esp. dots→headline on the result).
+  it('play — 2-way split has no pooled slack', () => checkNoPooledSlack('bj-split-2-gap', {
+    screen:'bj', bjPhase:'play', chips:700, bjBet:100, bjHand:0, bjHistory:[],
+    bjPlayer:[], bjDealer:_bjDealer, bjSplit:true, bjSplitActive:0,
+    bjSplitHands:[_bjPair,_bjPair], bjSplitBets:[100,100],
+    bjSplitDone:[false,false], bjSplitDoubled:[false,false], bjSplitAnimFrom:[0,0],
+  }));
+
+  it('play — 3-way split has no pooled slack', () => checkNoPooledSlack('bj-split-3-gap', {
+    screen:'bj', bjPhase:'play', chips:650, bjBet:100, bjHand:0, bjHistory:[],
+    bjPlayer:[], bjDealer:_bjDealer, bjSplit:true, bjSplitActive:1,
+    bjSplitHands:[_bjPair,_bjPair,_bjPair], bjSplitBets:[100,100,100],
+    bjSplitDone:[true,false,false], bjSplitDoubled:[false,false,false], bjSplitAnimFrom:[0,0,0],
+  }));
+
+  it('result — 2-way split has no pooled slack', () => checkNoPooledSlack('bj-result-split-2-gap', {
+    screen:'bj', bjPhase:'result', chips:1050, bjHand:1,
+    bjBet:200, bjPlayer:[], bjDealer:_bjDealer, bjDealerAnimFrom:0, bjSplit:true,
+    bjSplitHands:[_bjPair, _bjBust], bjSplitBets:[100,100],
+    bjSplitResults:[{ result:'win', delta:100, bet:100 }, { result:'bust', delta:-100, bet:100 }],
+    bjResult:{ result:'split', delta:0 },
+    bjHistory:[{ bet:200,result:'split',delta:0,player:[],dealer:[] }],
+  }));
+
+  it('result — 3-way split has no pooled slack', () => checkNoPooledSlack('bj-result-split-3-gap', {
+    screen:'bj', bjPhase:'result', chips:1050, bjHand:1,
+    bjBet:300, bjPlayer:[], bjDealer:_bjDealer, bjDealerAnimFrom:0, bjSplit:true,
+    bjSplitHands:[_bjPair, _bjBust, _bjBJ], bjSplitBets:[100,100,100],
+    bjSplitResults:[
+      { result:'win', delta:100, bet:100 },
+      { result:'bust', delta:-100, bet:100 },
+      { result:'blackjack', delta:150, bet:100 },
+    ],
+    bjResult:{ result:'split', delta:150 },
+    bjHistory:[{ bet:300,result:'split',delta:150,player:[],dealer:[] }],
+  }));
+
+  // Headline + sub stay a tight unit (no pooled gap between Push and +chips).
+  it('result — 2-way split headline is tight', () => checkHeadlineTight('bj-result-split-2-hl', {
+    screen:'bj', bjPhase:'result', chips:1050, bjHand:1,
+    bjBet:200, bjPlayer:[], bjDealer:_bjDealer, bjDealerAnimFrom:0, bjSplit:true,
+    bjSplitHands:[_bjPair, _bjBust], bjSplitBets:[100,100],
+    bjSplitResults:[{ result:'win', delta:100, bet:100 }, { result:'bust', delta:-100, bet:100 }],
+    bjResult:{ result:'split', delta:0 },
+    bjHistory:[{ bet:200,result:'split',delta:0,player:[],dealer:[] }],
+  }));
+
+  it('result — 4-way split headline is tight', () => checkHeadlineTight('bj-result-split-4-hl', {
+    screen:'bj', bjPhase:'result', chips:1050, bjHand:1,
+    bjBet:400, bjPlayer:[], bjDealer:_bjDealer, bjDealerAnimFrom:0, bjSplit:true,
+    bjSplitHands:[_bjPair, _bjBust, _bjPair, _bjBJ], bjSplitBets:[100,100,100,100],
+    bjSplitResults:[
+      { result:'win', delta:100, bet:100 }, { result:'bust', delta:-100, bet:100 },
+      { result:'win', delta:100, bet:100 }, { result:'blackjack', delta:150, bet:100 },
     ],
     bjResult:{ result:'split', delta:250 },
     bjHistory:[{ bet:400,result:'split',delta:250,player:[],dealer:[] }],

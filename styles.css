@@ -529,6 +529,30 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .bj-split-lbl { font-size: 1.1rem; margin-bottom: 4px; }
 .bj-split-val { font-size: 1.4rem; font-weight: 700; margin-top: 2px; }
 .bj-active-lbl { font-size: 1.4rem; }
+/* Bet amount folded into the active-hand label (replaces the old bottom bet row),
+   slightly dimmed so the hand number reads first (cream, not shadow — shadow is
+   too dark to read on the felt). */
+.bj-active-bet { opacity: 0.7; }
+
+/* ── Split-result vertical rhythm ───────────────────────────
+   Spread leftover panel height evenly across the gaps BETWEEN the result-body
+   elements (headline → sub → dealer → hands → running total), instead of pooling
+   it into one big band under the dots (the old margin-top:auto centering). The
+   dots stay pinned at the top and the Next-Hand button stays tucked under the
+   running total — neither boundary gap grows. Auto-margins split the free space
+   equally among the elements that carry one. */
+.bj-split-result > .result-hl,
+.bj-split-result > .bj-sr-dealer,
+.bj-split-result > .bj-sr-hands,
+.bj-split-result > .irow { margin-top: auto !important; }
+/* Keep the +0-chips sub-line tight under the headline (one unit) — no auto gap. */
+.bj-split-result > .result-sub { margin-top: 0 !important; }
+/* Breathing room inside the result dealer block: DEALER → card → value → divider.
+   (Spends slack reclaimed by tightening the headline/sub into one unit.) Skipped on
+   the 4-hand grid, which has no spare height. */
+.bj-split-result:not(.sr-4) .bj-sr-dealer .sec { margin-bottom: 8px; }
+.bj-split-result:not(.sr-4) .bj-sr-dealer .hand-val { margin-top: 8px !important; }
+.bj-split-result:not(.sr-4) > .bj-sr-dealer { margin-bottom: 10px !important; }
 
 /* ── Overlapping card fan (split hands) ─────────────────── */
 .hand-fan { flex-wrap: nowrap; gap: 0; }
@@ -1212,21 +1236,29 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .dist-bars { height: 45px; margin-top: 11px; margin-bottom: 11px; }
   .share-box { padding: 7px 10px; font-size: 0.94rem; line-height: 1.22; }
   /* BJ split result */
-  .bj-split-result .result-hl { font-size: 1.5rem; margin-bottom: 0; }
-  .bj-split-result .result-sub { font-size: 1.05rem; margin-bottom: 0; }
+  .bj-split-result .result-hl { font-size: 1.55rem; margin-bottom: 0; }
+  .bj-split-result .result-sub { font-size: 1.08rem; margin-bottom: 0; }
+  .bj-split-result:not(.sr-4) .result-hl { font-size: 2.4rem; }
+  .bj-split-result:not(.sr-4) .result-sub { font-size: 1.6rem; }
   .bj-sr-dealer { margin-bottom: 0; }
-  .bj-sr-dealer .hand-val { font-size: 1.05rem !important; }
-  .bj-sr-dealer .card.sm { width: 38px; height: 53px; }
+  .bj-sr-dealer .hand-val { font-size: 1.1rem !important; }
+  .bj-sr-dealer .card.sm { width: 40px; height: 56px; }
   .bj-sr-hands { margin-bottom: 0 !important; gap: 6px !important; }
   /* Split hands */
-  .bj-split-lbl { font-size: 0.78rem; white-space: nowrap; }
+  .bj-split-lbl { font-size: 0.86rem; white-space: nowrap; }
   .bj-split-val { font-size: 2rem; }
-  .bj-active-lbl { font-size: 1.4rem; }
-  .bj-split-active .card.lg { width: 62px; height: 88px; }
-  .bj-split-active .card.lg .csuit { font-size: 1.6rem; }
-  .bj-split-active .card.lg .ct-r { font-size: 1.1rem; }
-  .bj-split-active .card.lg .ct-s { font-size: 0.95rem; }
-  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 0.9rem !important; }
+  .bj-active-lbl { font-size: 1.5rem; }
+  .bj-split-active .card.lg { width: 76px; height: 106px; }
+  .bj-split-active .card.lg .csuit { font-size: 2rem; }
+  .bj-split-active .card.lg .ct-r { font-size: 1.35rem; }
+  .bj-split-active .card.lg .ct-s { font-size: 1.12rem; }
+  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.1rem !important; }
+  .bj-split-active .hand-val { font-size: 2rem; }
+  /* Take in the slack between the active hand value and the buttons: don't let the
+     active hand stretch (flex:0) and pull the buttons up under it; spare height
+     falls to the bottom of the panel rather than gapping value→buttons. */
+  .panel:has(.bj-split-active) .bj-split-active { flex: 0 1 auto !important; }
+  .panel:has(.bj-split-active) > div:last-child { margin-top: 14px !important; }
   /* UTH */
   .uth-summary { font-size: 0.9rem; }
   /* UTH blind pay table */
@@ -1249,13 +1281,25 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* BJ 4-way split play — shrink aside cards + dealer spacing */
   #bj-dealer-section { margin-bottom: 6px !important; }
   .bj-split-aside { margin-bottom: 4px; }
-  .bj-split-aside .card.sm { width: 40px; height: 56px; }
-  .bj-split-aside .card.sm .csuit { font-size: 1.0rem; }
+  .bj-split-aside .card.sm { width: 47px; height: 66px; }
+  .bj-split-aside .card.sm .csuit { font-size: 1.2rem; }
   /* BJ 4-way split result — compact result hand cards */
-  .bj-sr-hands .card.sm { width: 36px; height: 50px; }
-  .bj-sr-hands .card.sm .csuit { font-size: 0.9rem; }
-  .bj-sr-hands .hand-val { font-size: 1.05rem !important; }
-  .bj-sr-hands .sec { font-size: 0.8rem !important; }
+  .bj-sr-hands .card.sm { width: 39px; height: 55px; }
+  .bj-sr-hands .card.sm .csuit { font-size: 0.98rem; }
+  .bj-sr-hands .hand-val { font-size: 1.1rem !important; }
+  .bj-sr-hands .sec { font-size: 0.84rem !important; }
+  /* 2-/3-hand result splits show one row (vs the 4-way 2×2 grid) and have far
+     more vertical room — grow their cards to fill it. (.sr-N set in bj.js.) */
+  .sr-2 .bj-sr-dealer .card.sm { width: 50px; height: 70px; }
+  .sr-2 .bj-sr-hands .card.sm { width: 56px; height: 78px; }
+  .sr-2 .card.sm .csuit { font-size: 1.4rem; }
+  .sr-2 .hand-val { font-size: 1.45rem !important; }
+  .sr-2 .bj-sr-hands .sec { font-size: 1rem !important; }
+  .sr-3 .bj-sr-dealer .card.sm { width: 46px; height: 64px; }
+  .sr-3 .bj-sr-hands .card.sm { width: 50px; height: 70px; }
+  .sr-3 .card.sm .csuit { font-size: 1.25rem; }
+  .sr-3 .hand-val { font-size: 1.3rem !important; }
+  .sr-3 .bj-sr-hands .sec { font-size: 0.92rem !important; }
   /* UTH showdown — override inline divider margins */
   .uth-result-panel .uth-cards-col .divider { margin: 2px 0 !important; }
   .uth-result-panel .uth-hand-name { font-size: 1.05rem !important; margin-top: 1px !important; }
@@ -1442,28 +1486,38 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* ── BJ 4-way split play / result ─────────────── */
   /* Heaviest screens — tightest possible to fit the 4-hand active layout */
   .bj-split-aside { margin-bottom: 2px; }
-  .bj-split-lbl { font-size: 0.9rem; }
-  .bj-split-val { font-size: 1.15rem; margin-top: 1px; }
-  .bj-split-aside .card.sm { width: 40px; height: 56px; }
-  .bj-split-aside .card.sm .csuit { font-size: 1rem; }
+  .bj-split-lbl { font-size: 1rem; }
+  .bj-split-val { font-size: 1.3rem; margin-top: 1px; }
+  .bj-split-aside .card.sm { width: 48px; height: 67px; }
+  .bj-split-aside .card.sm .csuit { font-size: 1.2rem; }
   .bj-active-lbl { font-size: 1.05rem; margin-bottom: 1px; }
-  /* Active hand value gets tight on split */
-  .bj-split-active .card.lg { width: 88px; height: 124px; }
+  /* Split play: dealer and active hand share one size so they read as balanced
+     (active was bigger than the dealer). Tuned to stay vertically neutral — the
+     dealer's growth is paid for by the active's reduction. */
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg,
+  .bj-split-active .card.lg { width: 90px; height: 126px; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .csuit,
   .bj-split-active .card.lg .csuit { font-size: 3.4rem; }
-  .bj-split-active .card.lg .ct-r { font-size: 1.35rem; }
-  .bj-split-active .card.lg .ct-s { font-size: 1.1rem; }
-  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.05rem !important; }
-  .bj-split-active .hand-val { font-size: 1.5rem !important; margin-top: 2px !important; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-r,
+  .bj-split-active .card.lg .ct-r { font-size: 1.4rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-s,
+  .bj-split-active .card.lg .ct-s { font-size: 1.14rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-r[data-r="10"],
+  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.08rem !important; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg.back::before { font-size: 3.1rem; }
+  .bj-split-active .hand-val { font-size: 1.8rem !important; margin-top: 7px !important; }
   /* Tight act-btns under split */
   .bj-split-active + div .act-btns,
   .bj-split-active ~ div .act-btns { gap: 4px; padding-top: 2px; }
   /* Split-play-only panel overrides — most aggressive */
   .panel:has(.bj-split-active) { padding: 4px 28px !important; gap: 2px !important; }
   .panel:has(.bj-split-active) #bj-dealer-section { margin-bottom: 0 !important; }
-  .panel:has(.bj-split-active) #bj-dealer-section .sec { font-size: 1rem; margin-bottom: 1px; }
-  .panel:has(.bj-split-active) #bj-dealer-section .hand-val { font-size: 1.25rem; margin-top: 1px; }
+  /* Cards scaled down a touch; spend the savings on label→card breathing room and
+     slightly larger labels/values. */
+  .panel:has(.bj-split-active) #bj-dealer-section .sec { font-size: 1.1rem; margin-bottom: 8px; }
+  .panel:has(.bj-split-active) #bj-dealer-section .hand-val { font-size: 1.35rem; margin-top: 7px; }
   .panel:has(.bj-split-active) .divider { margin: 1px 0; }
-  .panel:has(.bj-split-active) .bj-active-lbl { font-size: 0.85rem; margin-bottom: 0; }
+  .panel:has(.bj-split-active) .bj-active-lbl { font-size: 1.15rem; margin-bottom: 8px; }
   .panel:has(.bj-split-active) .dots-row { margin: 0; }
   .panel:has(.bj-split-active) .hand-dot { padding: 3px 10px; font-size: 1.1rem; }
   .panel:has(.bj-split-active) .act-btn { padding: 6px 10px; font-size: 1.15rem; }
@@ -1472,19 +1526,30 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bj-split-result { padding: 4px 24px !important; gap: 2px !important; }
   .bj-split-result .result-hl { font-size: 1.7rem !important; margin-bottom: 0 !important; }
   .bj-split-result .result-sub { font-size: 1.2rem !important; margin-bottom: 1px !important; }
+  .bj-split-result:not(.sr-4) .result-hl { font-size: 2.1rem !important; }
+  .bj-split-result:not(.sr-4) .result-sub { font-size: 1.5rem !important; }
   .bj-sr-dealer { margin-bottom: 2px; }
-  .bj-sr-dealer .hand-val { font-size: 1.05rem !important; margin-top: 1px !important; }
-  .bj-sr-dealer .card.sm { width: 44px; height: 62px; }
-  .bj-sr-dealer .card.sm .csuit { font-size: 1.1rem; }
+  .bj-sr-dealer .hand-val { font-size: 1.1rem !important; margin-top: 1px !important; }
+  .bj-sr-dealer .card.sm { width: 45px; height: 63px; }
+  .bj-sr-dealer .card.sm .csuit { font-size: 1.15rem; }
   .bj-sr-hands { margin-bottom: 2px !important; gap: 4px !important; }
-  .bj-sr-hands .card.sm { width: 44px; height: 62px; }
-  .bj-sr-hands .card.sm .csuit { font-size: 1.1rem; }
-  .bj-sr-hands .hand-val { font-size: 1.05rem !important; margin-top: 1px !important; }
-  .bj-sr-hands .sec { font-size: 0.92rem !important; }
+  .bj-sr-hands .card.sm { width: 45px; height: 63px; }
+  .bj-sr-hands .card.sm .csuit { font-size: 1.15rem; }
+  .bj-sr-hands .hand-val { font-size: 1.1rem !important; margin-top: 1px !important; }
+  .bj-sr-hands .sec { font-size: 0.94rem !important; }
+  /* 2-/3-hand result splits: single row + ~70px spare on short desktop. */
+  .sr-2 .bj-sr-dealer .card.sm { width: 66px; height: 92px; }
+  .sr-2 .bj-sr-hands .card.sm { width: 76px; height: 106px; }
+  .sr-2 .card.sm .csuit { font-size: 1.9rem; }
+  .sr-2 .hand-val { font-size: 1.7rem !important; }
+  .sr-2 .bj-sr-hands .sec { font-size: 1.25rem !important; }
+  .sr-3 .bj-sr-dealer .card.sm { width: 58px; height: 81px; }
+  .sr-3 .bj-sr-hands .card.sm { width: 64px; height: 90px; }
+  .sr-3 .card.sm .csuit { font-size: 1.6rem; }
+  .sr-3 .hand-val { font-size: 1.55rem !important; }
+  .sr-3 .bj-sr-hands .sec { font-size: 1.12rem !important; }
   .bj-split-result .btn-gold { padding: 8px 12px; font-size: 1.2rem; }
-  /* Center the split-result group; banner + dots stay pinned at the top. */
-  .bj-split-result > .result-hl { margin-top: auto; }
-  .bj-split-result > .btn-gold:last-child { margin-bottom: auto; }
+  /* Spacing of the result group is handled globally (.bj-split-result auto-margins). */
 
   .panel:has(#uth-actions-ui) {
     padding-top: 6px;
@@ -1714,10 +1779,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
   /* Center the live table area inside the felt without moving the modifier. */
   .panel:has(#bj-player-hand) #bj-dealer-section,
-  .panel:has(.bj-split-active) #bj-dealer-section,
   .panel:has(#uth-actions-ui) #uth-dealer-container {
     margin-top: auto;
   }
+  /* Split play: a fixed gap so "Dealer Shows" always clears the progress dots,
+     even on short windows where auto-centering collapses to ~0. The active hand
+     (flex:1 below) absorbs the remaining slack and stays centered. */
+  .panel:has(.bj-split-active) #bj-dealer-section { margin-top: 12px; }
   .panel:has(#bj-player-hand) > div:has(#bj-player-hand),
   .panel:has(.bj-split-active) .bj-split-active {
     display: flex;
@@ -1759,15 +1827,21 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Split play leaves deep vertical slack on tall desktop (~160px at 1440×900) —
      spend it on the active hand. Width tracks normal play's 118px ceiling so a
      multi-card fan still fits the narrow 1024 panel. Aside hands grow modestly. */
-  .bj-split-active .card.lg { width: 108px; height: 152px; }
-  .bj-split-active .card.lg .csuit { font-size: 2.9rem; }
-  .bj-split-active .card.lg .ct-r { font-size: 1.45rem; }
-  .bj-split-active .card.lg .ct-s { font-size: 1.18rem; }
-  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.35rem !important; }
-  .bj-split-active .hand-val { font-size: 1.7rem !important; }
-  .bj-split-aside .card.sm { width: 48px; height: 67px; }
-  .bj-split-aside .card.sm .csuit { font-size: 1.5rem; }
-  .bj-split-aside .card.sm .ct-r { font-size: 0.85rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg,
+  .bj-split-active .card.lg { width: 100px; height: 140px; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .csuit,
+  .bj-split-active .card.lg .csuit { font-size: 3.7rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-r,
+  .bj-split-active .card.lg .ct-r { font-size: 1.5rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-s,
+  .bj-split-active .card.lg .ct-s { font-size: 1.22rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-r[data-r="10"],
+  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.16rem !important; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg.back::before { font-size: 3.5rem; }
+  .bj-split-active .hand-val { font-size: 1.95rem !important; }
+  .bj-split-aside .card.sm { width: 54px; height: 76px; }
+  .bj-split-aside .card.sm .csuit { font-size: 1.7rem; }
+  .bj-split-aside .card.sm .ct-r { font-size: 0.95rem; }
   .panel:has(#uth-summary) .dots-row { gap: 10px; margin: 4px 0; }
   .panel:has(#uth-summary) .hand-dot { padding: 6px 14px; font-size: 1.4rem; }
   .panel:has(#uth-summary) #uth-summary { font-size: 1.5rem; margin: 4px 0 !important; }
@@ -1802,14 +1876,27 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
   /* BJ split result — grow cards on taller windows */
   .bj-sr-dealer .card.sm,
-  .bj-sr-hands .card.sm { width: 54px; height: 76px; }
+  .bj-sr-hands .card.sm { width: 59px; height: 83px; }
   .bj-sr-dealer .card.sm .csuit,
-  .bj-sr-hands .card.sm .csuit { font-size: 1.4rem; }
-  .bj-split-result .result-hl { font-size: 2rem !important; }
-  .bj-split-result .result-sub { font-size: 1.4rem !important; }
+  .bj-sr-hands .card.sm .csuit { font-size: 1.52rem; }
+  .bj-split-result .result-hl { font-size: 2.05rem !important; }
+  .bj-split-result .result-sub { font-size: 1.42rem !important; }
+  .bj-split-result:not(.sr-4) .result-hl { font-size: 2.5rem !important; }
+  .bj-split-result:not(.sr-4) .result-sub { font-size: 1.75rem !important; }
   .bj-sr-dealer .hand-val,
-  .bj-sr-hands .hand-val { font-size: 1.3rem !important; }
-  .bj-sr-hands .sec { font-size: 1.05rem !important; }
+  .bj-sr-hands .hand-val { font-size: 1.38rem !important; }
+  .bj-sr-hands .sec { font-size: 1.08rem !important; }
+  /* 2-/3-hand result splits — taller window, single row */
+  .sr-2 .bj-sr-dealer .card.sm { width: 80px; height: 112px; }
+  .sr-2 .bj-sr-hands .card.sm { width: 92px; height: 129px; }
+  .sr-2 .card.sm .csuit { font-size: 2.2rem; }
+  .sr-2 .hand-val { font-size: 1.9rem !important; }
+  .sr-2 .bj-sr-hands .sec { font-size: 1.4rem !important; }
+  .sr-3 .bj-sr-dealer .card.sm { width: 70px; height: 98px; }
+  .sr-3 .bj-sr-hands .card.sm { width: 78px; height: 109px; }
+  .sr-3 .card.sm .csuit { font-size: 1.9rem; }
+  .sr-3 .hand-val { font-size: 1.7rem !important; }
+  .sr-3 .bj-sr-hands .sec { font-size: 1.25rem !important; }
 
   /* Roulette result — grow the result number + outcome on taller windows */
   .panel:has(.r-res-num) .r-res-num { width: 124px; height: 124px; font-size: 3.1rem; }
@@ -1891,6 +1978,16 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .ptable { padding: 10px 20px; gap: 4px 24px; }
   .panel:has(#uth-summary) .pname { font-size: 1.45rem; }
   .panel:has(#uth-summary) .ppay  { font-size: 1.4rem; }
+  /* 2-/3-hand result splits — wide window removes the narrow-panel width cap,
+     so cards can grow larger than the 1024-tier value. */
+  .sr-2 .bj-sr-dealer .card.sm { width: 92px; height: 129px; }
+  .sr-2 .bj-sr-hands .card.sm { width: 104px; height: 146px; }
+  .sr-2 .card.sm .csuit { font-size: 2.5rem; }
+  .sr-2 .hand-val { font-size: 2rem !important; }
+  .sr-3 .bj-sr-dealer .card.sm { width: 80px; height: 112px; }
+  .sr-3 .bj-sr-hands .card.sm { width: 90px; height: 126px; }
+  .sr-3 .card.sm .csuit { font-size: 2.2rem; }
+  .sr-3 .hand-val { font-size: 1.85rem !important; }
 }
 
 /* ── Narrow-tall desktop (1024×1060+) — fills the empty bands when the user
@@ -1908,15 +2005,21 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#bj-player-hand) .card.lg.back::before { font-size: 4.3rem; }
   /* Split play — ~250px of slack here; push the active hand close to normal-play
      size (118px width ceiling for fan fit), and enlarge the aside hands too. */
-  .bj-split-active .card.lg { width: 118px; height: 166px; }
-  .bj-split-active .card.lg .csuit { font-size: 3.2rem; }
-  .bj-split-active .card.lg .ct-r { font-size: 1.65rem; }
-  .bj-split-active .card.lg .ct-s { font-size: 1.32rem; }
-  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.5rem !important; }
-  .bj-split-active .hand-val { font-size: 1.9rem !important; }
-  .bj-split-aside .card.sm { width: 54px; height: 76px; }
-  .bj-split-aside .card.sm .csuit { font-size: 1.75rem; }
-  .bj-split-aside .card.sm .ct-r { font-size: 0.95rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg,
+  .bj-split-active .card.lg { width: 106px; height: 148px; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .csuit,
+  .bj-split-active .card.lg .csuit { font-size: 3.9rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-r,
+  .bj-split-active .card.lg .ct-r { font-size: 1.6rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-s,
+  .bj-split-active .card.lg .ct-s { font-size: 1.28rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-r[data-r="10"],
+  .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.24rem !important; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg.back::before { font-size: 3.7rem; }
+  .bj-split-active .hand-val { font-size: 2.2rem !important; }
+  .bj-split-aside .card.sm { width: 60px; height: 84px; }
+  .bj-split-aside .card.sm .csuit { font-size: 1.9rem; }
+  .bj-split-aside .card.sm .ct-r { font-size: 1.05rem; }
   .panel:has(#bj-player-hand) .hand-val { font-size: 3.1rem; }
   .panel:has(#bj-player-hand) .act-btn { font-size: 1.9rem; padding: 20px 14px; }
 
@@ -1931,11 +2034,27 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
   /* BJ split result — narrow-tall */
   .bj-sr-dealer .card.sm,
-  .bj-sr-hands .card.sm { width: 62px; height: 87px; }
+  .bj-sr-hands .card.sm { width: 72px; height: 101px; }
   .bj-sr-dealer .card.sm .csuit,
-  .bj-sr-hands .card.sm .csuit { font-size: 1.6rem; }
-  .bj-split-result .result-hl { font-size: 2.2rem !important; }
-  .bj-sr-hands .sec { font-size: 1.15rem !important; }
+  .bj-sr-hands .card.sm .csuit { font-size: 1.85rem; }
+  .bj-split-result .result-hl { font-size: 2.3rem !important; }
+  .bj-split-result:not(.sr-4) .result-hl { font-size: 2.8rem !important; }
+  .bj-split-result:not(.sr-4) .result-sub { font-size: 2rem !important; }
+  .bj-sr-dealer .hand-val,
+  .bj-sr-hands .hand-val { font-size: 1.6rem !important; }
+  .bj-sr-hands .sec { font-size: 1.25rem !important; }
+  /* 2-/3-hand result splits — tallest tier. Width-capped by the narrow 1024 panel
+     (2-hand = 50%, 3-hand = 33% of a 576px inner width). */
+  .sr-2 .bj-sr-dealer .card.sm { width: 86px; height: 120px; }
+  .sr-2 .bj-sr-hands .card.sm { width: 100px; height: 140px; }
+  .sr-2 .card.sm .csuit { font-size: 2.5rem; }
+  .sr-2 .hand-val { font-size: 2rem !important; }
+  .sr-2 .bj-sr-hands .sec { font-size: 1.5rem !important; }
+  .sr-3 .bj-sr-dealer .card.sm { width: 72px; height: 101px; }
+  .sr-3 .bj-sr-hands .card.sm { width: 78px; height: 109px; }
+  .sr-3 .card.sm .csuit { font-size: 2rem; }
+  .sr-3 .hand-val { font-size: 1.8rem !important; }
+  .sr-3 .bj-sr-hands .sec { font-size: 1.3rem !important; }
 
   /* Roulette result — tallest windows */
   .panel:has(.r-res-num) .r-res-num { width: 144px; height: 144px; font-size: 3.6rem; }
@@ -2028,6 +2147,16 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r { font-size: 1.65rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-s { font-size: 1.35rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r[data-r="10"] { font-size: 1.25rem !important; }
+
+  /* 2-/3-hand result splits — widest + tallest windows */
+  .sr-2 .bj-sr-dealer .card.sm { width: 104px; height: 146px; }
+  .sr-2 .bj-sr-hands .card.sm { width: 120px; height: 168px; }
+  .sr-2 .card.sm .csuit { font-size: 2.9rem; }
+  .sr-2 .hand-val { font-size: 2.3rem !important; }
+  .sr-3 .bj-sr-dealer .card.sm { width: 90px; height: 126px; }
+  .sr-3 .bj-sr-hands .card.sm { width: 100px; height: 140px; }
+  .sr-3 .card.sm .csuit { font-size: 2.5rem; }
+  .sr-3 .hand-val { font-size: 2rem !important; }
 
   .panel:has(#uth-summary) .dots-row { gap: 10px; margin: 6px 0; }
   .panel:has(#uth-summary) .hand-dot { padding: 9px 14px; font-size: 1.6rem; }
