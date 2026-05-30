@@ -468,7 +468,7 @@ function rAddBet(){
   if(S.rPick===null||!S.rBet||(isNew&&S.rBets.length>=maxBets))return;
 
   const prevPick=S.rPick, betAmt=S.rBet;
-  S.chips-=betAmt;
+  debit(betAmt,'roulette-bet');
   const placedBet=S.rBets.find(b=>b.pick===prevPick);
   if(placedBet){placedBet.bet+=betAmt;}else{S.rBets.push({pick:prevPick,bet:betAmt});}
   sndChip(betAmt);
@@ -507,7 +507,7 @@ function rAddBet(){
 /** Removes a placed bet and refunds chips. */
 function rRemoveBet(i){
   if(i<0||i>=S.rBets.length)return;
-  S.chips+=S.rBets[i].bet;
+  credit(S.rBets[i].bet,'roulette-refund');
   S.rBets.splice(i,1);
   saveState();render();
 }
@@ -515,7 +515,7 @@ function rRemoveBet(i){
 function rAllIn(){
   if(S.rPick===null||S.chips===0)return;
   S.rBets=[{pick:S.rPick,bet:S.chips}];
-  S.chips=0;
+  debit(S.chips,'roulette-allin');
   rSpin();
 }
 // Determines the winning number (using Math.random, not the seeded PRNG) then kicks off the animation.
@@ -555,11 +555,18 @@ function _evalBets(bets, spin) {
 }
 // Settles all bets: returns stake + profit for winners, then applies win multiplier on top.
 function _resolveRoulette(){
+  // Idempotency guard: only ever credit a spin once. A duplicate/late rFinish — flaky mobile
+  // audio firing both `onended` and `error`, a bfcache restore, a double-tap, or a refresh race
+  // re-running the resume path — could otherwise call this again and credit the win a second
+  // time (e.g. an all-in number win showing 2× the real stack, with the late re-credit landing
+  // after the leaderboard submission). rResult is only ever set by a completed resolve (or a
+  // skip), so if it's already set the round is done — bail before touching chips.
+  if(S.rResult) return;
   const betResults = _evalBets(S.rBets, S.rSpin);
   let totalDelta = betResults.reduce((s,b) => s + b.delta, 0);
-  betResults.forEach(b => { if (b.won) S.chips += b.bet * (1 + b.pay); }); // return stake + profit
+  betResults.forEach(b => { if (b.won) credit(b.bet * (1 + b.pay), 'roulette-win'); }); // return stake + profit
   const wm=winMult();
-  if(wm>1&&totalDelta>0){S.chips+=totalDelta;totalDelta*=wm;} // apply win multiplier bonus on top
+  if(wm>1&&totalDelta>0){credit(totalDelta,'roulette-winmult');totalDelta*=wm;} // apply win multiplier bonus on top
   S.rResult={delta:totalDelta,bets:betResults};
   S.rPhase='result';render();updateChipDisplay();
   if(totalDelta>0)setTimeout(sndBigWin,400);

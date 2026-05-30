@@ -72,7 +72,7 @@ function bjSkip(){ _skipHand(S.bjHistory,{bet:0,result:'skip',delta:0,player:[],
 function bjDeal(){
   if(!S.bjBet||S.bjPhase!=='bet')return;
   S.bjPhase='dealing'; // lock immediately so bet controls can't mutate S.bjBet during sndShuffle
-  S.chips-=S.bjBet;
+  debit(S.bjBet,'bj-deal');
   S.bjAnimFrom=0;S.bjDealerAnimFrom=0;
   if(getMod('bj_first_ace')&&DEAL.bjShoe[S.bjIdx]?.r!=='A'){
     const ai=DEAL.bjShoe.findIndex((c,i)=>i>S.bjIdx&&c.r==='A');
@@ -136,7 +136,7 @@ function bjDouble(){
     const i=S.bjSplitActive;
     if(S.chips<S.bjSplitBets[i])return;
     S.bjSplitAnimFrom[i]=S.bjSplitHands[i].length;
-    S.chips-=S.bjSplitBets[i];S.bjSplitBets[i]*=2;
+    debit(S.bjSplitBets[i],'bj-split-double');S.bjSplitBets[i]*=2;
     S.bjSplitDoubled[i]=true;
     updateChipDisplay();
     S.bjSplitHands[i].push(DEAL.bjShoe[S.bjIdx++]);
@@ -145,7 +145,7 @@ function bjDouble(){
   }else{
     if(S.chips<S.bjBet)return;
     S.bjAnimFrom=S.bjPlayer.length;
-    S.chips-=S.bjBet;S.bjBet*=2;
+    debit(S.bjBet,'bj-double');S.bjBet*=2;
     S.bjDoubled=true;
     updateChipDisplay();
     S.bjPlayer.push(DEAL.bjShoe[S.bjIdx++]);
@@ -160,7 +160,7 @@ function bjSplit(){
     const ai=S.bjSplitActive,bet=S.bjSplitBets[ai];
     if(S.chips<bet)return;
     const[c0,c1]=S.bjSplitHands[ai];
-    S.chips-=bet;
+    debit(bet,'bj-resplit');
     S.bjSplitHands.splice(ai,1,[c0,DEAL.bjShoe[S.bjIdx++]],[c1]);
     S.bjSplitBets.splice(ai,1,bet,bet);
     S.bjSplitDone.splice(ai,1,false,false);
@@ -170,7 +170,7 @@ function bjSplit(){
     const splitBet=Math.min(S.bjBet,S.chips);
     if(!splitBet)return;
     const[c0,c1]=S.bjPlayer;
-    S.chips-=splitBet;
+    debit(splitBet,'bj-split');
     S.bjSplit=true;
     S.bjSplitHands=[[c0,DEAL.bjShoe[S.bjIdx++]],[c1]];
     S.bjSplitActive=0;
@@ -239,6 +239,11 @@ function bjRevealDealer(){
 
 /** Settles all bets and records history. dealerDrawn=true means the dealer already animated; false means we skip straight to resolve (e.g. player blackjack). */
 function bjResolve(dealerDrawn=false){
+  // Idempotency guard (see _resolveRoulette): settle a hand exactly once. bjResolve is fired
+  // from timers (deal celebration, dealer-reveal step) and the refresh-resume path, so a stray
+  // or duplicate timer must not credit the payout and push a second history entry twice. It only
+  // ever runs from the 'play' phase and flips to 'result' at the end, so bail if we're past that.
+  if(S.bjPhase!=='play')return;
   if(!dealerDrawn){S.bjDealerAnimFrom=1;}
   while(hVal(S.bjDealer)<(getMod('bj_dealer_stand')||17))S.bjDealer.push(DEAL.bjShoe[S.bjIdx++]);
   const dv=hVal(S.bjDealer),dBJ=isBJ(S.bjDealer);
@@ -251,8 +256,8 @@ function bjResolve(dealerDrawn=false){
       const ddm=getMod('bj_double_bonus')&&S.bjSplitDoubled[i]?2:1; // double-down profit multiplier
       let result,delta;
       if(pv>21){result='bust';delta=-bet;}
-      else if(dv>21||pv>dv){result='win';delta=bet*wm*ddm*spm;S.chips+=bet+delta;}
-      else if(pv===dv){result='push';delta=0;S.chips+=bet;}
+      else if(dv>21||pv>dv){result='win';delta=bet*wm*ddm*spm;credit(bet+delta,'bj-split-win');}
+      else if(pv===dv){result='push';delta=0;credit(bet,'bj-split-push');}
       else{result='lose';delta=-bet;}
       totalDelta+=delta;return{result,delta,bet};
     });
@@ -264,11 +269,11 @@ function bjResolve(dealerDrawn=false){
     const bjMult = getMod('bj_payout') || 1.5;
     const ddm=getMod('bj_double_bonus')&&S.bjDoubled?2:1; // double-down profit multiplier
     let result,delta;
-    if(pBJ&&dBJ){result='push';delta=0;S.chips+=S.bjBet;}
-    else if(pBJ){result='blackjack';delta=Math.floor(S.bjBet*bjMult*wm);S.chips+=S.bjBet+delta;}
+    if(pBJ&&dBJ){result='push';delta=0;credit(S.bjBet,'bj-push');}
+    else if(pBJ){result='blackjack';delta=Math.floor(S.bjBet*bjMult*wm);credit(S.bjBet+delta,'bj-blackjack');}
     else if(pv>21){result='bust';delta=-S.bjBet;}
-    else if(dv>21||pv>dv){result='win';delta=S.bjBet*wm*ddm;S.chips+=S.bjBet+delta;}
-    else if(pv===dv){result='push';delta=0;S.chips+=S.bjBet;}
+    else if(dv>21||pv>dv){result='win';delta=S.bjBet*wm*ddm;credit(S.bjBet+delta,'bj-win');}
+    else if(pv===dv){result='push';delta=0;credit(S.bjBet,'bj-push');}
     else{result='lose';delta=-S.bjBet;}
     S.bjResult={result,delta};
     S.bjHistory.push({bet:S.bjBet,result,delta,player:[...S.bjPlayer],dealer:[...S.bjDealer]});

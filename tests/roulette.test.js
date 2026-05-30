@@ -481,3 +481,57 @@ describe('rBetLabel', () => {
     assertEqual(rBetLabel(99), '?');
   });
 });
+
+// ─── _resolveRoulette — idempotency (a spin is only ever credited once) ──────────
+// Regression for the "all-in win counted twice" bug: a duplicate/late rFinish (flaky audio
+// firing onended + error, bfcache restore, refresh race) must not re-credit the payout.
+describe('_resolveRoulette — credits a spin exactly once', () => {
+  // Run the resolve with render/saveState/updateChipDisplay stubbed out so we can assert on
+  // the chip math without DOM/network side effects, then restore the real functions.
+  function withStubs(fn) {
+    const _r = window.render, _u = window.updateChipDisplay, _s = window.saveState;
+    window.render = () => {}; window.updateChipDisplay = () => {}; window.saveState = () => {};
+    const _snap = { rResult: S.rResult, rBets: S.rBets, rSpin: S.rSpin, rPhase: S.rPhase,
+                    rReSpun: S.rReSpun, chips: S.chips, forcedMod: S.forcedMod };
+    try { fn(); }
+    finally {
+      window.render = _r; window.updateChipDisplay = _u; window.saveState = _s;
+      Object.assign(S, _snap);
+    }
+  }
+
+  it('all-in straight-up win credits stake+profit once (2375 on #14 → 85,500)', () => {
+    withStubs(() => {
+      S.forcedMod = {};               // neutralize daily modifier (no winMult / respin)
+      S.rResult = null; S.rReSpun = false; S.rPhase = 'spinning';
+      S.rBets = [{ pick: 14, bet: 2375 }]; S.rSpin = 14; S.chips = 0;
+      _resolveRoulette();
+      assertEqual(S.chips, 85500, 'first resolve: 2375 × 36');
+      assertEqual(S.rResult.delta, 83125, 'net delta = 2375 × 35');
+    });
+  });
+
+  it('a duplicate/late second resolve does NOT credit the win again', () => {
+    withStubs(() => {
+      S.forcedMod = {};
+      S.rResult = null; S.rReSpun = false; S.rPhase = 'spinning';
+      S.rBets = [{ pick: 14, bet: 2375 }]; S.rSpin = 14; S.chips = 0;
+      _resolveRoulette();
+      _resolveRoulette();             // simulate a duplicate/late rFinish
+      assertEqual(S.chips, 85500, 'chips stay at the single-credit value (not 171,000)');
+      assertEqual(S.rResult.delta, 83125, 'rResult unchanged by the second call');
+    });
+  });
+
+  it('a losing spin is also only resolved once', () => {
+    withStubs(() => {
+      S.forcedMod = {};
+      S.rResult = null; S.rReSpun = false; S.rPhase = 'spinning';
+      S.rBets = [{ pick: 14, bet: 500 }]; S.rSpin = 7; S.chips = 0; // bet already deducted
+      _resolveRoulette();
+      _resolveRoulette();
+      assertEqual(S.chips, 0, 'loss does not double-deduct');
+      assertEqual(S.rResult.delta, -500, 'net delta = -stake');
+    });
+  });
+});

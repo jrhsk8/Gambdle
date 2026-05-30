@@ -416,6 +416,101 @@ describe('layout — final results', () => {
       else _ls.setItem('gambdle_history', _savedHist);
     }
   });
+
+  // Regression: the desktop results width-cap (max-width + auto margins on #dist-chart) must NOT
+  // collapse the chart. Auto margins on a column flex item disable align-items:stretch, so without
+  // an explicit width:100% the chart shrinks to its content — and since the bars are flex:1 with
+  // absolutely-positioned labels (no intrinsic width), they render as ~2-4px slivers. Fit tests
+  // miss this (a collapsed chart is smaller, so it "fits"); these assertions check real widths.
+  it('score-distribution chart fills its width (bars are not collapsed by the width cap)', () => {
+    const _savedHist = _ls.getItem('gambdle_history');
+    const idxToSeed = idx => { const d = new Date(START_DATE_UTC + idx * 86400000); return d.getUTCFullYear()*10000 + (d.getUTCMonth()+1)*100 + d.getUTCDate(); };
+    const today = _seedDayIndex(getDailySeed());
+    const hist = {}; for (let k = 0; k < 7; k++) hist[idxToSeed(today - k)] = 800 + k * 160;
+    _ls.setItem('gambdle_history', JSON.stringify(hist));
+    try {
+      const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+      Object.assign(S, base, { screen:'results', chips:1200, ..._fullHistory });
+      render();
+      _showHistoryChart(document.getElementById('dist-chart'));
+
+      const chart = document.getElementById('dist-chart');
+      const barsWrap = chart.querySelector('.dist-bars');
+      const bars = [...chart.querySelectorAll('.dist-bar')].filter(b => b.getBoundingClientRect().height > 0);
+      const panel = document.querySelector('.panel');
+      const chartW = chart.getBoundingClientRect().width;
+      const barsW  = barsWrap.getBoundingClientRect().width;
+      const panelW = panel.getBoundingClientRect().width;
+      const minBar = Math.min(...bars.map(b => b.getBoundingClientRect().width));
+
+      assert(bars.length >= 5, `expected the 7-day history to draw several bars, got ${bars.length}`);
+      // Chart must span most of the available width (collapse shrank it to ~content → slivers).
+      assert(chartW >= panelW * 0.5, `dist-chart collapsed: ${Math.round(chartW)}px in a ${Math.round(panelW)}px panel`);
+      // The bar row must fill the chart container.
+      assert(barsW >= chartW * 0.85, `dist-bars (${Math.round(barsW)}px) doesn't fill the chart (${Math.round(chartW)}px)`);
+      // Each bar must be a real bar, not a sliver (collapsed bars measured ~2-4px; healthy ≥ ~45px).
+      assert(minBar >= 14, `bars collapsed to slivers: thinnest bar is ${minBar.toFixed(1)}px`);
+    } finally {
+      if (_savedHist === null) _ls.removeItem('gambdle_history');
+      else _ls.setItem('gambdle_history', _savedHist);
+      _ltRestore();
+    }
+  });
+
+  // Regression: the chart's bucket labels (0/250/500/1k/… and #day labels) are absolutely
+  // positioned ~22px BELOW the bars (out of flow), so .dist-bars needs enough bottom margin to
+  // both clear them and leave a gap before the share box. With too-small a margin the labels
+  // overlap the share box (measured down to -9px). Desktop only — the 375 mobile viewport is
+  // intentionally tighter and the 360 floor is covered by the WebKit suite. Gap is mod-independent.
+  it('bucket labels clear the share box with breathing room (desktop)', () => {
+    if (!_isDesktop()) return; // 375×812 mobile viewport is intentionally tighter; checked in WebKit
+    const _savedHist = _ls.getItem('gambdle_history');
+    const idxToSeed = idx => { const d = new Date(START_DATE_UTC + idx * 86400000); return d.getUTCFullYear()*10000 + (d.getUTCMonth()+1)*100 + d.getUTCDate(); };
+    const today = _seedDayIndex(getDailySeed());
+    const hist = {}; for (let k = 0; k < 7; k++) hist[idxToSeed(today - k)] = 800 + k * 160;
+    _ls.setItem('gambdle_history', JSON.stringify(hist));
+    try {
+      const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+      Object.assign(S, base, { screen:'results', chips:1200, ..._fullHistory });
+      render();
+      _showHistoryChart(document.getElementById('dist-chart'));
+
+      const share = document.querySelector('.share-box');
+      const labels = [...document.querySelectorAll('#dist-chart .dist-lbl')];
+      assert(share && labels.length, 'share box and chart bucket labels present');
+      const lowestLabel = Math.max(...labels.map(l => l.getBoundingClientRect().bottom));
+      const gap = share.getBoundingClientRect().top - lowestLabel;
+      assert(gap >= 8, `only ${Math.round(gap)}px between the chart bucket labels and the share box (min 8)`);
+    } finally {
+      if (_savedHist === null) _ls.removeItem('gambdle_history');
+      else _ls.setItem('gambdle_history', _savedHist);
+      _ltRestore();
+    }
+  });
+
+  // Regression: the "You (N)" marker label sits ~20px ABOVE the bars (out of flow, on .dist-you-line),
+  // so .dist-bars needs enough TOP margin or the label overlaps the "Score Distribution" title. It did
+  // on desktop (gap measured down to -10px) while mobile was fine. Uses _renderScoreDist directly since
+  // the real chart is fetched async (can't run offline). Desktop only — mobile is intentionally tighter.
+  it('the You label clears the Score Distribution title (desktop)', () => {
+    if (!_isDesktop()) return;
+    try {
+      const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+      Object.assign(S, base, { screen:'results', chips:1500, ..._fullHistory });
+      render();
+      // chips 1500 → bucket 3 (1k–2k); bucket 2 (count 80) is tallest, so the player is NOT in the
+      // tallest bucket → the standard -20px You line (the case the user reported).
+      _renderScoreDist(document.getElementById('dist-chart'), [12, 40, 80, 55, 30, 12, 5]);
+
+      const title = document.getElementById('dist-title');
+      const youLbl = document.querySelector('#dist-chart .dist-you-lbl');
+      assert(title && youLbl, 'Score Distribution title and You label present');
+      const gap = youLbl.getBoundingClientRect().top - title.getBoundingClientRect().bottom;
+      assert(gap >= 4, `only ${Math.round(gap)}px between the Score Distribution title and the You label (min 4)`);
+    } finally {
+      _ltRestore();
+    }
+  });
 });
 
 // ─── Dev stats ────────────────────────────────────────────────────────────────

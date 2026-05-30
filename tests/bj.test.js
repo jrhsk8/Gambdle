@@ -169,6 +169,38 @@ describe('bjResolve — history record', () => {
   });
 });
 
+// ─── bjResolve — idempotency (a hand settles exactly once) ───────────────────
+// Regression for the "win counted twice" class of bug: bjResolve is fired from timers and the
+// refresh-resume path, so a stray/duplicate call must not re-credit or push a second history entry.
+describe('bjResolve — settles a hand exactly once', () => {
+  it('a duplicate bjResolve does not re-credit, double history, or re-advance the hand', () => {
+    withBJ({ player: [['K','s'],['9','h']], dealer: [['7','d'],['J','c']], bet: 100, chips: 900 }, () => {
+      assertEqual(S.chips, 1100);            // first resolve credited the win
+      assertEqual(S.bjHistory.length, 1);
+      assertEqual(S.bjHand, 1);
+      bjResolve(true);                       // simulate a duplicate/late settle
+      assertEqual(S.chips, 1100, 'chips unchanged by the second resolve');
+      assertEqual(S.bjHistory.length, 1, 'no duplicate history entry');
+      assertEqual(S.bjHand, 1, 'hand counter not advanced twice');
+    });
+  });
+
+  it('a duplicate split resolve does not re-credit either', () => {
+    withSplit({
+      hands:  [[['K','s'],['9','h']], [['Q','d'],['8','c']]],
+      bets:   [100, 100],
+      dealer: [['7','d'],['J','c']],
+      chips:  800,
+    }, () => {
+      assertEqual(S.chips, 1200);
+      assertEqual(S.bjHistory.length, 1);
+      bjResolve(true);
+      assertEqual(S.chips, 1200, 'split chips unchanged by the second resolve');
+      assertEqual(S.bjHistory.length, 1, 'no duplicate split history entry');
+    });
+  });
+});
+
 // ─── bjResolve — split outcomes ──────────────────────────────────────────────
 // The split branch in bjResolve aggregates per-hand results into S.bjResult.delta.
 // chips are pre-deducted (one bet per hand); each winning/push hand returns its stake.

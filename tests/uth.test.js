@@ -497,3 +497,56 @@ describe('UTH odd-bet handling — ante=ceil, blind=floor', () => {
     });
   });
 });
+
+// ─── Idempotency: a UTH hand settles exactly once ───────────────────────────
+// Regression for the "win counted twice" class of bug — a double-tap on the resolving action,
+// or a stray call, must not credit the payouts / push the loss a second time.
+describe('uthResolve / uthFold — settle exactly once', () => {
+  it('a duplicate uthResolve does not re-credit or double the history', () => {
+    withUth({
+      screen:'uth', uthPhase:'turn', uthAnte:200, uthPlay:100, uthPlayMult:0,
+      uthHand:0, uthHistory:[], chips:500, forcedMod:{},
+      uthHole:[card('K','s'),card('K','h')],          // pair of Kings beats dealer's pair of 7s
+      uthDealer:[card('7','d'),card('2','c')],
+      uthComm:[card('7','h'),card('3','s'),card('9','c'),card('J','d'),card('4','h')],
+    }, () => {
+      uthResolve();
+      assertEqual(S.chips, 1000);
+      assertEqual(S.uthHistory.length, 1);
+      assertEqual(S.uthHand, 1);
+      uthResolve();                                    // simulate a duplicate/late settle
+      assertEqual(S.chips, 1000, 'chips unchanged by the second resolve');
+      assertEqual(S.uthHistory.length, 1, 'no duplicate history entry');
+      assertEqual(S.uthHand, 1, 'hand counter not advanced twice');
+    });
+  });
+
+  it('a duplicate uthFold does not push the loss or advance the hand twice', () => {
+    withUth({
+      screen:'uth', uthPhase:'turn', uthAnte:200, uthPlay:0,
+      uthHand:0, uthHistory:[], chips:800, forcedMod:{},
+    }, () => {
+      uthFold();
+      assertEqual(S.uthHistory.length, 1);
+      assertEqual(S.uthHand, 1);
+      uthFold();                                       // simulate a duplicate tap
+      assertEqual(S.uthHistory.length, 1, 'no duplicate fold entry');
+      assertEqual(S.uthHand, 1, 'hand counter not advanced twice');
+    });
+  });
+});
+
+// ─── Idempotency: pkDraw settles exactly once ───────────────────────────────
+// pkDraw credits chips + pushes history; a duplicate call (only reachable from the 'hold' phase)
+// must short-circuit. Verified via the phase guard so this needs no poker deck setup.
+describe('pkDraw — guarded against a duplicate draw', () => {
+  it('pkDraw does nothing when not in the hold phase', () => {
+    withUth({
+      screen:'poker', pkPhase:'draw', pkBet:100, pkHand:0, pkHistory:[], chips:900,
+    }, () => {
+      pkDraw();
+      assertEqual(S.chips, 900, 'chips untouched by a draw outside the hold phase');
+      assertEqual(S.pkHistory.length, 0, 'no history entry from a guarded draw');
+    });
+  });
+});

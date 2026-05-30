@@ -252,54 +252,7 @@ async function fetchScoreDistribution() {
       _showHistoryChart(el);
       return;
     }
-
-    const sorted = [...counts].sort((a, b) => b - a);
-    // Sqrt scaling when the tallest bucket is 3× the second-tallest, so one outlier doesn't flatten all other bars.
-    const useLog = sorted[0] > 0 && sorted[1] > 0 && sorted[0] / sorted[1] > 3;
-    const scaled = counts.map(c => useLog ? Math.sqrt(c) : c);
-    const maxScaled = Math.max(...scaled, 1);
-    const playerBucket = S.chips <= 249 ? 0 : S.chips <= 499 ? 1 : S.chips <= 999 ? 2 : S.chips <= 1999 ? 3 : S.chips <= 2999 ? 4 : S.chips <= 3999 ? 5 : 6;
-    const labels = ['0', '250', '500', '1k', '2k', '3k', '4k'];
-    const bucketBounds = [[0,249],[250,499],[500,999],[1000,1999],[2000,2999],[3000,3999],[4000,10000]];
-    const [bLo, bHi] = bucketBounds[playerBucket];
-    const posWithin = Math.min(Math.max((S.chips - bLo) / (bHi - bLo), 0), 1);
-    const youPct = (playerBucket + posWithin) / 7 * 100;
-    // Label side: by default keep it inside the chart (left half → right of line, right half → left).
-    // For any interior bucket (not the 0 or 5k+ ends) put the label over the SHORTER of the two
-    // neighbouring bars instead, so it never crowds the count atop the taller bar — no longer gated
-    // on the You line being near a bucket border. (left:4px = label right of line; right:4px = left of line.)
-    let youLblStyle = youPct > 50 ? 'right:4px' : 'left:4px';
-    if (playerBucket >= 1 && playerBucket <= 5) {
-      const leftCnt = counts[playerBucket - 1], rightCnt = counts[playerBucket + 1];
-      if (leftCnt !== rightCnt) youLblStyle = leftCnt > rightCnt ? 'left:4px' : 'right:4px';
-    }
-    const tallestBucket = counts.indexOf(Math.max(...counts));
-    const inTallest = playerBucket === tallestBucket;
-
-    const cols = data.map((b, i) => {
-      const cnt = parseInt(b.count);
-      const h = cnt > 0 ? Math.max((scaled[i] / maxScaled) * 100, 5) : 0;
-      const nearCenter = i === playerBucket && posWithin > 0.25 && posWithin < 0.75;
-      const nudge = nearCenter
-        ? (posWithin < 0.5 ? posWithin * 100 + 20 : posWithin * 100 - 20)
-        : 50;
-      const cntStyle = i === playerBucket ? `left:${Math.min(Math.max(nudge, 10), 90)}%;transform:translateX(-50%)` : '';
-      const lblOffsets = [-3, -12, -9, -9, -9, -9, -9];
-      const lblStyle = ` style="left:${lblOffsets[i]}px;transform:none"`;
-      const endLbl = i === 6 ? '<span class="dist-lbl" style="right:-6px;left:auto;transform:none">5k+</span>' : '';
-      return `<div class="dist-bar${i === playerBucket ? ' you' : ''}" style="height:${h}%">
-        <span class="dist-count"${cntStyle ? ` style="${cntStyle}"` : ''}>${cnt}</span>
-        <span class="dist-lbl"${lblStyle}>${labels[i]}</span>
-        ${endLbl}
-      </div>`;
-    }).join('');
-
-    el.innerHTML = `<div class="dist-bars">
-      ${cols}
-      <div class="dist-you-line" style="left:${youPct.toFixed(1)}%;${inTallest ? 'top:-28px' : ''}">
-        <span class="dist-you-lbl" style="${youLblStyle}${inTallest ? ';top:0' : ''}">You (${fmt(S.chips)})</span>
-      </div>
-    </div>`;
+    _renderScoreDist(el, counts);
   } catch(e) {
     clearTimeout(timer);
     const el = document.getElementById('dist-chart');
@@ -307,6 +260,58 @@ async function fetchScoreDistribution() {
     _showHistoryChart(el);
     if (DEV_OVERRIDE) console.error('Distribution fetch failed:', e);
   }
+}
+
+// Builds the 7-bucket score-distribution chart (bars + counts + bucket labels + the You line/label)
+// into `el` for the given per-bucket `counts`. Split out from fetchScoreDistribution so it can be
+// rendered synchronously in tests (the fetch can't run offline). Uses S.chips for the You marker.
+function _renderScoreDist(el, counts) {
+  const sorted = [...counts].sort((a, b) => b - a);
+  // Sqrt scaling when the tallest bucket is 3× the second-tallest, so one outlier doesn't flatten all other bars.
+  const useLog = sorted[0] > 0 && sorted[1] > 0 && sorted[0] / sorted[1] > 3;
+  const scaled = counts.map(c => useLog ? Math.sqrt(c) : c);
+  const maxScaled = Math.max(...scaled, 1);
+  const playerBucket = S.chips <= 249 ? 0 : S.chips <= 499 ? 1 : S.chips <= 999 ? 2 : S.chips <= 1999 ? 3 : S.chips <= 2999 ? 4 : S.chips <= 3999 ? 5 : 6;
+  const labels = ['0', '250', '500', '1k', '2k', '3k', '4k'];
+  const bucketBounds = [[0,249],[250,499],[500,999],[1000,1999],[2000,2999],[3000,3999],[4000,10000]];
+  const [bLo, bHi] = bucketBounds[playerBucket];
+  const posWithin = Math.min(Math.max((S.chips - bLo) / (bHi - bLo), 0), 1);
+  const youPct = (playerBucket + posWithin) / 7 * 100;
+  // Label side: by default keep it inside the chart (left half → right of line, right half → left).
+  // For any interior bucket (not the 0 or 5k+ ends) put the label over the SHORTER of the two
+  // neighbouring bars instead, so it never crowds the count atop the taller bar — no longer gated
+  // on the You line being near a bucket border. (left:4px = label right of line; right:4px = left of line.)
+  let youLblStyle = youPct > 50 ? 'right:4px' : 'left:4px';
+  if (playerBucket >= 1 && playerBucket <= 5) {
+    const leftCnt = counts[playerBucket - 1], rightCnt = counts[playerBucket + 1];
+    if (leftCnt !== rightCnt) youLblStyle = leftCnt > rightCnt ? 'left:4px' : 'right:4px';
+  }
+  const tallestBucket = counts.indexOf(Math.max(...counts));
+  const inTallest = playerBucket === tallestBucket;
+
+  const cols = counts.map((cnt, i) => {
+    const h = cnt > 0 ? Math.max((scaled[i] / maxScaled) * 100, 5) : 0;
+    const nearCenter = i === playerBucket && posWithin > 0.25 && posWithin < 0.75;
+    const nudge = nearCenter
+      ? (posWithin < 0.5 ? posWithin * 100 + 20 : posWithin * 100 - 20)
+      : 50;
+    const cntStyle = i === playerBucket ? `left:${Math.min(Math.max(nudge, 10), 90)}%;transform:translateX(-50%)` : '';
+    const lblOffsets = [-3, -12, -9, -9, -9, -9, -9];
+    const lblStyle = ` style="left:${lblOffsets[i]}px;transform:none"`;
+    const endLbl = i === 6 ? '<span class="dist-lbl" style="right:-6px;left:auto;transform:none">5k+</span>' : '';
+    return `<div class="dist-bar${i === playerBucket ? ' you' : ''}" style="height:${h}%">
+      <span class="dist-count"${cntStyle ? ` style="${cntStyle}"` : ''}>${cnt}</span>
+      <span class="dist-lbl"${lblStyle}>${labels[i]}</span>
+      ${endLbl}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="dist-bars">
+    ${cols}
+    <div class="dist-you-line" style="left:${youPct.toFixed(1)}%;${inTallest ? 'top:-28px' : ''}">
+      <span class="dist-you-lbl" style="${youLblStyle}${inTallest ? ';top:0' : ''}">You (${fmt(S.chips)})</span>
+    </div>
+  </div>`;
 }
 
 // ─── DEV TOOLS ───────────────────────────────────────────────────────────
@@ -334,7 +339,7 @@ function devSpin(){
   // Place a fresh, varied 5-bet set so the multi-bet spin + result flow gets exercised across
   // bet types: a straight number, a color, a 2:1 row (column), a dozen, and an even-money bet.
   if(S.rBets.length===0){
-    for(const pick of [17,45,37,40,44]){ if(S.chips>=10){S.chips-=10;S.rBets.push({pick,bet:10});} }
+    for(const pick of [17,45,37,40,44]){ if(S.chips>=10){debit(10,'dev-spin');S.rBets.push({pick,bet:10});} }
   }
   closeDropdowns();
   saveState();

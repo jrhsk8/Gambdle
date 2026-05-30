@@ -133,7 +133,7 @@ function pkSkip(){ _skipHand(S.pkHistory,{bet:0,result:'skip',pts:0,delta:0},'pk
 function pkDeal(){
   if(!S.pkBet||S.pkPhase!=='bet')return;
   S.pkPhase='dealing'; // lock immediately
-  S.chips-=S.pkBet;
+  debit(S.pkBet,'pk-deal');
   S.pkCards=DEAL.pokerDecks[S.pkHand].slice(0,5);
   S.pkHeld=new Set();
   const db=document.getElementById('db');if(db)db.disabled=true;
@@ -159,13 +159,17 @@ function toggleHold(i){
 }
 /** Discard unheld cards and draw new ones, then calculate final rank. */
 function pkDraw(){
+  // Idempotency guard (see _resolveRoulette): draw/settle exactly once. A double-tap on "Draw
+  // Cards" must not credit the payout and push a second history entry twice. Only runs from the
+  // 'hold' phase and flips to 'draw' below, so a duplicate call bails.
+  if(S.pkPhase!=='hold')return;
   const draw=DEAL.pokerDecks[S.pkHand].slice(5);let di=0;
   S.pkFinal=S.pkCards.map((c,i)=>S.pkHeld.has(i)?c:draw[di++]);
   const res=rankPoker(S.pkFinal);
   const wm=winMult();
   const profit=res.p>0?S.pkBet*res.p*wm:0;
   const delta=res.p>0?profit:-S.pkBet;
-  if(res.p>0)S.chips+=S.pkBet+profit;
+  if(res.p>0)credit(S.pkBet+profit,'pk-win');
   S.pkHistory.push({bet:S.pkBet,result:res.n,pts:res.p,delta});
   const replaceIdxs=[0,1,2,3,4].filter(i=>!S.pkHeld.has(i));
   S.pkRevealStep=0;S.pkPhase='draw';
@@ -191,7 +195,7 @@ function pkNext(){ _nextHand(()=>{ S.pkBet=0; S.pkPhase='bet'; }); }
 function uthDeal(){
   if(!S.uthAnte||S.uthPhase!=='bet')return;
   S.uthPhase='dealing'; // lock immediately so bet controls can't mutate S.uthAnte during sndShuffle
-  S.chips-=S.uthAnte;
+  debit(S.uthAnte,'uth-deal');
   if(getMod('uth_pocket_aces')){
     // +1 so hand 0 doesn't reuse the exact daily seed; *97 (prime) spaces hand seeds apart to avoid collisions.
     const hr=mkRng(getRngSeed()+(S.uthHand+1)*97);
@@ -235,7 +239,7 @@ function _uthBlindPortion(){ return Math.floor(S.uthAnte/2); }
 function uthRaise(mult){
   const bet=_uthAntePortion()*mult;
   if(S.chips<bet)return;
-  S.chips-=bet;S.uthPlay=bet;S.uthPlayMult=mult;S.uthRaised=true;
+  debit(bet,'uth-raise');S.uthPlay=bet;S.uthPlayMult=mult;S.uthRaised=true;
   sndChip();
   if(S.uthPhase==='preflop'){_uthDealFlop();updateChipDisplay();}
   else if(S.uthPhase==='flop'){_uthDealTurn();updateChipDisplay();}
@@ -250,6 +254,9 @@ function uthNextStreet(){
   else if(S.uthPhase==='turn') uthResolve();
 }
 function uthFold(){
+  // Idempotency guard (see _resolveRoulette): a double-tap on Fold must not push the loss twice
+  // or advance the hand counter twice. uthFolded is reset per hand by resetUTHHand/uthDeal.
+  if(S.uthFolded)return;
   S.uthFolded=true;
   const ante=_uthAntePortion(),blind=_uthBlindPortion();
   S.uthHistory.push({ante,blind,play:0,playMult:0,result:'fold',delta:-(ante+blind),anteDelta:-ante,blindDelta:-blind,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false});
@@ -260,6 +267,10 @@ function uthFold(){
 // Settles the UTH hand: three independent payouts (play, ante, blind) each have their own rules.
 // Play: 1:1 if player wins. Ante: 1:1 only if dealer qualifies. Blind: paytable if Straight+.
 function uthResolve(){
+  // Idempotency guard (see _resolveRoulette): settle a hand exactly once. A double-tap on the
+  // resolving action or a stray call must not credit the three payouts and push a second history
+  // entry twice. Only ever runs from the 'turn' phase and flips to 'reveal' below, so bail otherwise.
+  if(S.uthPhase!=='turn')return;
   const ante=_uthAntePortion(),blind=_uthBlindPortion(),play=S.uthPlay;
   const pb=bestOf7([...S.uthHole,...S.uthComm]);
   const db2=bestOf7([...S.uthDealer,...S.uthComm]);
@@ -269,14 +280,14 @@ function uthResolve(){
   let anteDelta=0,blindDelta=0,playDelta=0;
   if(cmp>0){
     const playMult=getMod('uth_double_play')?2:1;
-    playDelta=play*playMult*wm;S.chips+=play+playDelta;
-    if(dealerQualifies){anteDelta=ante*wm;S.chips+=ante+anteDelta;}
-    else{anteDelta=0;S.chips+=ante;}
+    playDelta=play*playMult*wm;credit(play+playDelta,'uth-play');
+    if(dealerQualifies){anteDelta=ante*wm;credit(ante+anteDelta,'uth-ante');}
+    else{anteDelta=0;credit(ante,'uth-ante-push');}
     const bd=uthBlindDelta(pb.cat,blind);
-    blindDelta=bd*wm;S.chips+=blind+blindDelta;
+    blindDelta=bd*wm;credit(blind+blindDelta,'uth-blind');
   }else if(cmp===0){
     anteDelta=0;blindDelta=0;playDelta=0;
-    S.chips+=ante+blind+play;
+    credit(ante+blind+play,'uth-push');
   }else{
     playDelta=-play;anteDelta=-ante;blindDelta=-blind;
   }

@@ -189,6 +189,19 @@ function runChecks(opts) {
         if (!built) continue;
         if (fx === 'results') await page.waitForTimeout(350); // let the async distribution chart render
         const violations = await page.evaluate(runChecks, { allowVScroll });
+        // Results: the chart's bucket labels sit ~22px below the bars (out of flow); ensure they
+        // clear the share box rather than overlapping it (the bug measured down to -9px on desktop;
+        // here it guards the 360×780 floor, which has the smallest gaps).
+        if (fx === 'results') {
+          const gap = await page.evaluate(() => {
+            const sb = document.querySelector('.share-box');
+            const lbls = [...document.querySelectorAll('#dist-chart .dist-lbl')];
+            if (!sb || !lbls.length) return null;
+            const lowest = Math.max(...lbls.map(l => l.getBoundingClientRect().bottom));
+            return Math.round(sb.getBoundingClientRect().top - lowest);
+          });
+          if (gap !== null && gap < 8) violations.push(`CHART GAP  bucket labels only ${gap}px from share box (min 8)`);
+        }
         totalChecks++;
         const tag = `[${vp.name} · ${inset.name}${allowVScroll ? ' · scroll-ok' : ''} · ${fx}]`;
         if (violations.length) {

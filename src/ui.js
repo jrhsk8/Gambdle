@@ -493,8 +493,8 @@ function toggleMenu(which, trigger) {
       <div class="dd-sep"></div>
       ${_gameConfigHTML}
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="S.chips+=500;render();updateChipDisplay();closeDropdowns()">+ 500 chips</div>
-      <div class="dd-item" onclick="S.chips+=10000;render();updateChipDisplay();closeDropdowns()">+ 10,000 chips</div>
+      <div class="dd-item" onclick="credit(500,'dev');render();updateChipDisplay();closeDropdowns()">+ 500 chips</div>
+      <div class="dd-item" onclick="credit(10000,'dev');render();updateChipDisplay();closeDropdowns()">+ 10,000 chips</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="toggleTestSeed();event.stopPropagation()" style="gap:12px">
         <span>Test Seed (reset to apply)</span>

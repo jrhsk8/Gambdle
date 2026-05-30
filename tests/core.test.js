@@ -354,3 +354,32 @@ describe('buildShareText — top-percentile line', () => {
     withTopPct(5, () => assert(buildShareText().trim().endsWith('gambdle.net'), 'footer stays last'));
   });
 });
+
+// ─── credit / debit — the single chip-accounting chokepoint ─────────────────
+describe('credit / debit', () => {
+  function withChips(start, fn) { const prev = S.chips; S.chips = start; try { fn(); } finally { S.chips = prev; } }
+
+  it('credit adds to the balance', () => {
+    withChips(1000, () => { credit(250, 'test'); assertEqual(S.chips, 1250); });
+  });
+
+  it('debit subtracts from the balance', () => {
+    withChips(1000, () => { debit(300, 'test'); assertEqual(S.chips, 700); });
+  });
+
+  it('debit never drives the balance negative (clamps at 0)', () => {
+    withChips(50, () => { debit(200, 'test'); assertEqual(S.chips, 0, 'overdraw clamps to 0'); });
+  });
+
+  it('credit rounds fractional amounts to whole chips', () => {
+    withChips(1000, () => { credit(74.5, 'test'); assertEqual(S.chips, 1075, '74.5 rounds to 75'); });
+  });
+
+  it('debit rounds fractional amounts to whole chips', () => {
+    withChips(1000, () => { debit(74.4, 'test'); assertEqual(S.chips, 926, '74.4 rounds to 74'); });
+  });
+
+  it('the balance stays an integer after a fractional credit', () => {
+    withChips(1000, () => { credit(0.5, 'test'); assert(Number.isInteger(S.chips), 'chips remain integer'); });
+  });
+});

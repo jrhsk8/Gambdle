@@ -2,7 +2,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.11';
+const GAME_VERSION = 'v1.11.1';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -327,6 +327,22 @@ function winMult(){
   if(getMod('all_in_or_skip'))return 2;
   if(getMod('comeback')&&S.chips<1000)return 2;
   return 1;
+}
+
+// ─── CHIP ACCOUNTING ───────────────────────────────────────────────────────
+// Single chokepoint for every chip-balance change. Every game routes winnings,
+// refunds and stakes through these instead of touching S.chips directly, so the
+// running total can't drift, go negative, or pick up fractional chips (odd-bet
+// payouts are rounded here rather than ad hoc at each call site). In dev mode each
+// delta is logged with a reason, making chip-accounting bugs easy to trace.
+// `reason` is a short tag (e.g. 'bj-win', 'roulette-bet') for that dev log only.
+function credit(n, reason){
+  S.chips += Math.round(n);
+  if(DEV_OVERRIDE) console.log(`[chips] +${Math.round(n)} (${reason||'?'}) → ${S.chips}`);
+}
+function debit(n, reason){
+  S.chips = Math.max(0, S.chips - Math.round(n));
+  if(DEV_OVERRIDE) console.log(`[chips] -${Math.round(n)} (${reason||'?'}) → ${S.chips}`);
 }
 
 /** Writes the current run state to _ls for persistence. */
