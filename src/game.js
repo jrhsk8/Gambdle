@@ -74,6 +74,7 @@ function borrowChips(){
   S.borrowUsed=true;
   S.borrowAmount=amt;
   _ls.setItem('gambdle_borrow_debt',JSON.stringify({amount:amt,targetSeed:_nextDailySeed()}));
+  _submitBorrow();
   const ret=S.borrowReturnScreen||GAME1;
   S.borrowReturnScreen=null;
   goTo(ret);
@@ -436,19 +437,23 @@ async function fetchDevStats() {
   const pct  = (n, d) => d > 0 ? ` <span style="color:var(--shadow);font-size:.75rem">(${Math.round(n/d*100)}%)</span>` : '';
 
   try {
-    // Fetch scores and starts count in parallel.
-    const [res, startsRes] = await Promise.all([
+    // Fetch scores, starts count, and borrows count in parallel.
+    const [res, startsRes, borrowsRes] = await Promise.all([
       fetch(`${SUPABASE_URL}/rest/v1/scores?seed=eq.${seed}&select=chips,created_at,fingerprint&order=chips.desc`, { headers }),
       fetch(`${SUPABASE_URL}/rest/v1/starts?seed=eq.${seed}&select=id`, {
         headers: { ...headers, 'Prefer': 'count=exact', 'Range': '0-0', 'Range-Unit': 'items' },
       }).catch(() => null),
+      fetch(`${SUPABASE_URL}/rest/v1/borrows?seed=eq.${seed}&select=id`, {
+        headers: { ...headers, 'Prefer': 'count=exact', 'Range': '0-0', 'Range-Unit': 'items' },
+      }).catch(() => null),
     ]);
-    // Parse start count from Content-Range header ("0-0/47" or "*/0").
-    const startsCount = (() => {
-      const cr = startsRes?.headers?.get('Content-Range');
-      const n = parseInt(cr?.split('/')[1]);
+    // Parse an exact count from a response's Content-Range header ("0-0/47" or "*/0"); null if absent.
+    const countOf = (r) => {
+      const n = parseInt(r?.headers?.get('Content-Range')?.split('/')[1]);
       return Number.isFinite(n) ? n : null;
-    })();
+    };
+    const startsCount = countOf(startsRes);
+    const borrowsCount = countOf(borrowsRes);
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const rows = await res.json();
@@ -463,6 +468,11 @@ async function fetchDevStats() {
     const completionVal = startsCount !== null && startsCount > 0
       ? `${Math.round(total / startsCount * 100)}%`
       : startsCount === 0 ? warn('no starts yet') : warn('—');
+    // Borrowed = devices that actually took the loan today (% of starts — the base for any
+    // in-run behaviour; shown in Outcomes below). Computed here so it's ready for that group.
+    const borrowedVal = borrowsCount !== null
+      ? `${fmt(borrowsCount)}${pct(borrowsCount, startsCount)}`
+      : warn('needs table');
 
     const engagementGroup = ['Engagement', [
       ['Started today',    startedVal],
@@ -562,6 +572,7 @@ async function fetchDevStats() {
         ['In profit',        `${fmt(inProfit)}${pct(inProfit, total)}`],
         ['Went bust',        `<span style="color:${bozos>0?'var(--lose)':'inherit'}">${fmt(bozos)}</span>${pct(bozos, total)}`],
         ['Peak hour',        peakAMPM],
+        ['Borrowed',         borrowedVal],
       ]],
     ]) + distHTML;
   } catch (err) {
@@ -806,6 +817,29 @@ async function _submitStart() {
   if (_ls.getItem(key) || DEV_OVERRIDE || _testActive() || _backlogSeed) return;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/starts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ seed, fingerprint: getDeviceId() }),
+    });
+    if (res.ok) _ls.setItem(key, '1');
+  } catch(e) {}
+}
+
+// Fire-and-forget: records that this device took the borrow loan today (only when the chips are
+// actually accepted via borrowChips — declining doesn't fire this). Skipped in dev/test/backlog
+// modes; deduplicated per device per day via localStorage (borrow is once-per-day anyway).
+// Requires a `borrows` table in Supabase — see .claude/VERSIONS.md for setup SQL.
+async function _submitBorrow() {
+  const seed = getActiveSeed();
+  const key = `gambdle_borrowed_${seed}`;
+  if (_ls.getItem(key) || DEV_OVERRIDE || _testActive() || _backlogSeed) return;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/borrows`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -60,6 +60,16 @@
   <script>
     window._testReloadCount = 0;
     _doReload = function() { window._testReloadCount++; };
+
+    // Tests must NEVER hit the network — see the matching note in test.html. render() of the
+    // results screen fires live Supabase reads; stub fetch so the layout run stays fully offline.
+    // The chart fixtures draw synchronously via _showHistoryChart/_renderScoreDist regardless.
+    window.fetch = () => Promise.resolve({
+      ok: false, status: 0,
+      json: () => Promise.resolve(null),
+      text: () => Promise.resolve(''),
+      headers: { get: () => null },
+    });
   </script>
 
   <script src="runner.js"></script>

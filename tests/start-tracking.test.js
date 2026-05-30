@@ -190,6 +190,68 @@ describe('startGame — navigation', () => {
   });
 });
 
+// ─── Borrow tracking: _submitBorrow() ────────────────────────────────────────
+// Mirrors _submitStart: fire-and-forget POST, deduped per device/day, skipped in
+// test/backlog modes. Fires only when the loan is actually taken (borrowChips).
+const _borrowKey = () => `gambdle_borrowed_${getActiveSeed()}`;
+
+function withLiveBorrow(fn) {
+  const savedSeed = _ls.getItem('gambdle_use_test_seed');
+  const savedKey  = _ls.getItem(_borrowKey());
+  _ls.removeItem('gambdle_use_test_seed');
+  _ls.removeItem(_borrowKey());
+  try { fn(); } finally {
+    savedSeed !== null ? _ls.setItem('gambdle_use_test_seed', savedSeed) : _ls.removeItem('gambdle_use_test_seed');
+    savedKey  !== null ? _ls.setItem(_borrowKey(), savedKey)  : _ls.removeItem(_borrowKey());
+  }
+}
+
+describe('_submitBorrow — dedup guards and payload', () => {
+  it('skips fetch when the test seed is active', () => {
+    withFetchSpy(calls => { _submitBorrow(); assertEqual(calls.length, 0, 'no fetch in test mode'); });
+  });
+
+  it('skips fetch when the borrowed key already exists', () => {
+    withLiveBorrow(() => {
+      _ls.setItem(_borrowKey(), '1');
+      withFetchSpy(calls => { _submitBorrow(); assertEqual(calls.length, 0, 'no fetch when already recorded'); });
+    });
+  });
+
+  it('skips fetch in backlog mode', () => {
+    withLiveBorrow(() => {
+      _withBacklogSeed(20261231, () => {
+        withFetchSpy(calls => { _submitBorrow(); assertEqual(calls.length, 0, 'no fetch in backlog mode'); });
+      });
+    });
+  });
+
+  it('POSTs once to /borrows with seed + fingerprint when guards pass', () => {
+    withLiveBorrow(() => {
+      withFetchSpy(calls => {
+        _submitBorrow();
+        assertEqual(calls.length, 1, 'exactly one fetch');
+        assertEqual(calls[0].opts.method, 'POST', 'uses POST');
+        assert(calls[0].url.includes('/borrows'), `URL should include /borrows, got: ${calls[0].url}`);
+        const body = JSON.parse(calls[0].opts.body);
+        assertEqual(body.seed, getActiveSeed(), 'body.seed matches active seed');
+        assert(typeof body.fingerprint === 'string' && body.fingerprint.length > 0, 'non-empty fingerprint');
+      });
+    });
+  });
+
+  it('does not fire a second time once the borrowed key is set', () => {
+    withLiveBorrow(() => {
+      withFetchSpy(calls => {
+        _submitBorrow();
+        _ls.setItem(_borrowKey(), '1'); // simulate the async setItem after a 200
+        _submitBorrow();
+        assertEqual(calls.length, 1, 'second call deduped');
+      });
+    });
+  });
+});
+
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 _stSavedSeed !== null
   ? _ls.setItem('gambdle_use_test_seed', _stSavedSeed)

@@ -80,6 +80,19 @@
   <script>
     window._testReloadCount = 0;
     _doReload = function() { window._testReloadCount++; };
+
+    // Tests must NEVER hit the network. render() of the results/devstats screens fires live
+    // Supabase reads (get_percentile, get_score_distribution, scores, etc.); under headless
+    // Chromium those went to production and dominated the project's request count. Stub fetch to
+    // an always-not-ok response so every caller takes its graceful "no data" path. The chart
+    // fixtures draw synchronously via _showHistoryChart/_renderScoreDist, so this changes nothing
+    // they assert. withFetchSpy (start/borrow tests) saves & restores window.fetch, so it nests fine.
+    window.fetch = () => Promise.resolve({
+      ok: false, status: 0,
+      json: () => Promise.resolve(null),
+      text: () => Promise.resolve(''),
+      headers: { get: () => null },
+    });
   </script>
 
   <!-- Test runner must load before test files -->
