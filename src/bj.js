@@ -321,8 +321,10 @@ function bjActionBtns(bust,done21,can2,canSplit){
 }
 
 function peekBtnHTML(){
-  if(!getMod('peek')||S.peekUsed) return '';
-  return `<div id="peek-btn-wrap"><button class="btn-peek-glow" onclick="doPeek()" style="background:rgba(196,147,58,.12);border:1.5px solid rgba(196,147,58,.5);color:var(--gold-hi);padding:11px 20px;border-radius:8px;font-size:1.25rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.15;white-space:nowrap">🔍 Peek<span style="display:block;font-size:.78rem;font-weight:400;opacity:.7;letter-spacing:.04em">1 left today</span></button></div>`;
+  const limit=getMod('peek');
+  if(!limit||S.peeksUsed>=limit) return '';
+  const left=limit-S.peeksUsed;
+  return `<div id="peek-btn-wrap"><button class="btn-peek-glow" onclick="doPeek()" style="background:rgba(196,147,58,.12);border:1.5px solid rgba(196,147,58,.5);color:var(--gold-hi);padding:11px 20px;border-radius:8px;font-size:1.25rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.15;white-space:nowrap">🔍 Peek<span style="display:block;font-size:.78rem;font-weight:400;opacity:.7;letter-spacing:.04em">${left} left today</span></button></div>`;
 }
 
 // The current hand index for the active dealer-card screen, or -1 if peek doesn't apply here.
@@ -331,13 +333,14 @@ function _peekHand(){ return S.screen==='bj'?S.bjHand:S.screen==='uth'?S.uthHand
 // True only when the peek was used on THIS exact game+hand. Keeps the revealed
 // hole card from leaking onto later hands or the other game.
 function peekRevealed(){
-  if(!getMod('peek')||!S.peekUsed||!S.peekAt) return false;
+  if(!getMod('peek')||!S.peekAt) return false;
   return S.peekAt.game===S.screen && S.peekAt.hand===_peekHand();
 }
 
 function doPeek(){
-  if(!getMod('peek')||S.peekUsed) return;
-  S.peekUsed=true;
+  const limit=getMod('peek');
+  if(!limit||S.peeksUsed>=limit) return;
+  S.peeksUsed++;
   S.peekAt={game:S.screen,hand:_peekHand()};
   saveState();
   const btn=document.getElementById('peek-btn-wrap');

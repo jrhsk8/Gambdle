@@ -163,7 +163,8 @@ let _rouletteAudio = null;
 // Standard European single-zero wheel pocket sequence (clockwise from 0).
 const WO=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
 
-function drawWheel(cnv,wAngle,bAngle,bR){
+// `balls` is an array of {a, r, rad, tint} — one entry per ball on the wheel (Double Ball has two).
+function drawWheel(cnv,wAngle,balls){
   const ctx=cnv.getContext('2d');
   const W=cnv.width,H=cnv.height,cx=W/2,cy=H/2;
   const R=Math.min(W,H)/2-6;
@@ -204,12 +205,16 @@ function drawWheel(cnv,wAngle,bAngle,bR){
   ctx.beginPath();ctx.arc(cx,cy,R*0.1,0,2*Math.PI);ctx.fillStyle='#0e0d0b';ctx.fill();
   ctx.strokeStyle='#dfb95e';ctx.lineWidth=2;ctx.stroke();
 
-  const bx=cx+bR*Math.cos(bAngle),by=cy+bR*Math.sin(bAngle);
-  ctx.beginPath();ctx.arc(bx+1.5,by+2.5,8,0,2*Math.PI);ctx.fillStyle='rgba(0,0,0,.55)';ctx.fill();
-  const bg=ctx.createRadialGradient(bx-3,by-3,1,bx,by,8);
-  bg.addColorStop(0,'#fefaf0');bg.addColorStop(0.6,'#dfd5b0');bg.addColorStop(1,'#b8a878');
-  ctx.beginPath();ctx.arc(bx,by,8,0,2*Math.PI);ctx.fillStyle=bg;ctx.fill();
-  ctx.strokeStyle='#7a5a18';ctx.lineWidth=1;ctx.stroke();
+  for(const ball of balls){
+    const bAngle=ball.a, bR=ball.r, rad=ball.rad||8;
+    const bx=cx+bR*Math.cos(bAngle),by=cy+bR*Math.sin(bAngle);
+    ctx.beginPath();ctx.arc(bx+1.5,by+2.5,rad,0,2*Math.PI);ctx.fillStyle='rgba(0,0,0,.55)';ctx.fill();
+    const bg=ctx.createRadialGradient(bx-3,by-3,1,bx,by,rad);
+    const t=ball.tint||['#fefaf0','#dfd5b0','#b8a878'];
+    bg.addColorStop(0,t[0]);bg.addColorStop(0.6,t[1]);bg.addColorStop(1,t[2]);
+    ctx.beginPath();ctx.arc(bx,by,rad,0,2*Math.PI);ctx.fillStyle=bg;ctx.fill();
+    ctx.strokeStyle='#7a5a18';ctx.lineWidth=1;ctx.stroke();
+  }
 }
 
 // Plays the roulette ball audio and animates the wheel for exactly the same duration.
@@ -228,11 +233,19 @@ function startWheelAnim(){
   // The middle term adds the minimum whole rotations to make wFinal positive, so the ease always animates forward.
   const wFinal=rawFinal+Math.ceil(-rawFinal/(2*Math.PI))*2*Math.PI+numSpins*2*Math.PI;
 
-  const bFinalA=-Math.PI/2;
-  const bRevs=11;
-  const bStartA=bFinalA+bRevs*2*Math.PI;
   const R=size/2-6;
   const bRi=R*0.91,bRf=R*0.68;
+
+  // Ball specs. Ball 1 lands at the top pointer (-π/2), where the wheel has been rotated to seat
+  // S.rSpin. For Double Ball, ball 2 lands on S.rSpin2's pocket: its final angle is offset from the
+  // top by the pocket distance between the two numbers on the wheel, so both balls sit in real
+  // pockets. Both balls are drawn identically (same size, radius and tint as the single-ball wheel);
+  // only their revolution counts differ so they trace separate paths before settling.
+  const ballSpecs=[{finalA:-Math.PI/2, revs:11, rf:bRf, rad:8, tint:null}];
+  if(S.rSpin2!=null){
+    const tidx2=WO.indexOf(S.rSpin2);
+    ballSpecs.push({finalA:-Math.PI/2+(tidx2-tidx)*seg, revs:9, rf:bRf, rad:8, tint:null});
+  }
 
   function ease(t){return 1-Math.pow(1-t,4);} // quartic ease-out
 
@@ -240,7 +253,11 @@ function startWheelAnim(){
     const t0=performance.now();
     function frame(now){
       const t=Math.min((now-t0)/DUR,1),e=ease(t);
-      drawWheel(cnv,wFinal*e,bStartA-(bStartA-bFinalA)*e,bRi+(bRf-bRi)*e);
+      const balls=ballSpecs.map(s=>{
+        const startA=s.finalA+s.revs*2*Math.PI;
+        return {a:startA-(startA-s.finalA)*e, r:bRi+(s.rf-bRi)*e, rad:s.rad, tint:s.tint};
+      });
+      drawWheel(cnv,wFinal*e,balls);
       if(t<1)requestAnimationFrame(frame);
       else onDone();
     }
@@ -267,6 +284,15 @@ function startWheelAnim(){
 
 // ─── ROULETTE SCREENS ────────────────────────────────────────────────────
 
+// Winning-number tile(s) + name line for the result/respin screens. Double Ball shows both balls.
+function rResultNumsHTML(){
+  const nums=S.rSpin2!=null?[S.rSpin,S.rSpin2]:[S.rSpin];
+  return `<div style="display:flex;justify-content:center;gap:10px;margin-bottom:4px">
+      ${nums.map(n=>`<div class="r-res-num ${rCls(n)}">${n}</div>`).join('')}
+    </div>
+    <div style="font-size:.88rem;color:var(--shadow);margin-bottom:6px">${nums.map(rName).join(' & ')}</div>`;
+}
+
 function screenRoulette(){
   if(S.rPhase==='bet') return screenRouletteBet();
   if(S.rPhase==='spinning') return screenRouletteSpinning();
@@ -288,10 +314,7 @@ function screenRouletteRespin(){
   <div class="panel" style="text-align:center">
     ${gameDots([], 0, 'spinning', 2)}
     <div class="divider"></div>
-    <div style="display:flex;justify-content:center;margin-bottom:4px">
-      <div class="r-res-num ${rCls(n)}">${n}</div>
-    </div>
-    <div style="font-size:.88rem;color:var(--shadow);margin-bottom:6px">${rName(n)}</div>
+    ${rResultNumsHTML()}
     <div style="font-size:1.6rem;font-weight:700;color:${col(displayDelta)};margin-bottom:8px">${sign(displayDelta)} chips</div>
     <div class="divider"></div>
     ${betRows}
@@ -395,10 +418,7 @@ function screenRouletteResult(){
     </div>`).join('');
   return `${hdr('Roulette · Result')}
   <div class="panel" style="text-align:center">
-    <div style="display:flex;justify-content:center;margin-bottom:4px">
-      <div class="r-res-num ${rCls(n)}">${n}</div>
-    </div>
-    <div style="font-size:.88rem;color:var(--shadow);margin-bottom:6px">${rName(n)}</div>
+    ${rResultNumsHTML()}
     <div class="result-hl" style="color:${col(res.delta)}">${res.delta>0?'You Win!':res.delta===0?'Push':'You Lose!'}</div>
     <div class="result-sub" style="color:${col(res.delta)}">${sign(res.delta)} chips</div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
@@ -528,6 +548,9 @@ function rSpin(){
   // r_zero_boost: expand pool by zb slots, all mapped to 0, so zero hits zb/(36+zb) of the time.
   else if(zb){const r=Math.floor(Math.random()*(36+zb));S.rSpin=r<zb?0:r-zb+1;}
   else{S.rSpin=Math.floor(Math.random()*37);}
+  // Double Ball: a second, distinct winning number. Stored in S so it survives a refresh, like rSpin.
+  if(getMod('r_double_ball')){do{S.rSpin2=Math.floor(Math.random()*37);}while(S.rSpin2===S.rSpin);}
+  else{S.rSpin2=null;}
   S.rPhase='spinning';
   render();updateChipDisplay();
   // Preload the audio now so its duration is available by the time startWheelAnim runs.
@@ -540,9 +563,12 @@ function _evalBets(bets, spin) {
   const multMod = getMod('r_payout_mult');
   const numPayMod = getMod('r_number_pay');
   const colorDoubleMod = getMod('r_color_double');
+  // Double Ball: a bet wins if EITHER ball lands on it. Pays once at normal odds — the
+  // player edge is the doubled coverage, not a doubled payout.
+  const spin2 = getMod('r_double_ball') ? S.rSpin2 : null;
   return bets.map(b => {
     const bDef = R_BETS[b.pick];
-    const won = evalBet(b.pick, spin);
+    const won = evalBet(b.pick, spin) || (spin2 != null && evalBet(b.pick, spin2));
     let pay = bDef.pay;
     if (won) {
       if (multMod) pay *= multMod;

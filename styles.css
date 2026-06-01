@@ -508,7 +508,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 /* Dealer cards + (optional) peek button on one centered row, peek to the right. */
 .dealer-hand-row { display: flex; align-items: center; justify-content: center; gap: 16px; }
-.dealer-hand-row #peek-btn-wrap { flex-shrink: 0; }
+.dealer-hand-row #peek-btn-wrap, .dealer-hand-row #tt-btn-wrap { flex-shrink: 0; }
 .hand-val {
   font-family: var(--btn-f); font-size: 2.6rem;
   color: var(--cream); text-align: center; margin-top: 10px;
@@ -815,6 +815,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 @keyframes r-pulse-fire { 50% { box-shadow: inset 1.5px 1.5px 0 rgba(255,200,80,0.15), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 3px #ff8c00; } }
 .btn-peek-glow { border-color: #e05500 !important; box-shadow: 0 0 0 1px #e05500, 0 0 10px 2px rgba(224,85,0,0.4); animation: btn-peek-pulse 1.1s ease-in-out infinite; }
 @keyframes btn-peek-pulse { 50% { box-shadow: 0 0 0 1px #ff8c00, 0 0 14px 4px rgba(255,140,0,0.55); border-color: #ff8c00 !important; } }
+.btn-timetravel-glow { border-color: #2b7fff !important; box-shadow: 0 0 0 1px #2b7fff, 0 0 10px 2px rgba(43,127,255,0.4); animation: btn-timetravel-pulse 1.1s ease-in-out infinite; }
+@keyframes btn-timetravel-pulse { 50% { box-shadow: 0 0 0 1px #5aa0ff, 0 0 14px 4px rgba(90,160,255,0.55); border-color: #5aa0ff !important; } }
 .rn.r-group-win { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px #22c55e; }
 .rn.r-group-partial { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px #ca8a04; }
 .rout.r-group-win, .r2to1.r-group-win { box-shadow: var(--raised), 0 0 0 2px #22c55e; }

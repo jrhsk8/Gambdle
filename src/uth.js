@@ -225,9 +225,41 @@ function _uthDealFlop(){
   S.uthPrevRevealComm=0;S.uthRevealComm=3;S.uthPhase='flop';
   updateUthCommunityCards();
 }
+
+// Whether community card i should be face-up. Cards reveal left-to-right by uthRevealComm;
+// River Monster additionally shows the river (index 4) from the start, before any street.
+function _uthCommShown(i){ return i < S.uthRevealComm || (getMod('uth_river_monster')===true && i===4); }
 // Reveal community cards 4 and 5 (turn + river combined).
 function _uthDealTurn(){
   S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';
+  updateUthCommunityCards();
+}
+
+// Time Travel button — mirrors the dealer-peek button (same shape/position) but with a blue glow.
+// Offered once per day, only during the flop or turn decision (a street must be on the board to re-deal).
+function timeTravelBtnHTML(){
+  if(!getMod('uth_time_travel')||S.timeTravelUsed) return '';
+  if(S.uthPhase!=='flop'&&S.uthPhase!=='turn') return '';
+  return `<div id="tt-btn-wrap"><button class="btn-timetravel-glow" onclick="doTimeTravel()" style="background:rgba(43,127,255,.12);border:1.5px solid rgba(90,160,255,.55);color:#9cc4ff;padding:11px 20px;border-radius:8px;font-size:1.25rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.15;white-space:nowrap">⏳ Re-deal<span style="display:block;font-size:.78rem;font-weight:400;opacity:.7;letter-spacing:.04em">1 left today</span></button></div>`;
+}
+
+// Re-deal the just-revealed street once per day. Replacement cards come from the unused tail of
+// DEAL.uthDeck (indices 27+), which no hand touches, so they can never duplicate a card in play.
+function doTimeTravel(){
+  if(!getMod('uth_time_travel')||S.timeTravelUsed) return;
+  if(S.uthPhase!=='flop'&&S.uthPhase!=='turn') return;
+  S.timeTravelUsed=true;
+  let ptr=S.uthRedealPtr;
+  if(S.uthPhase==='flop'){
+    for(let i=0;i<3;i++) S.uthComm[i]=DEAL.uthDeck[ptr++];
+    S.uthPrevRevealComm=0;S.uthRevealComm=3;
+  }else{ // turn — re-deal the turn + river cards (indices 3 and 4)
+    S.uthComm[3]=DEAL.uthDeck[ptr++];S.uthComm[4]=DEAL.uthDeck[ptr++];
+    S.uthPrevRevealComm=3;S.uthRevealComm=5;
+  }
+  S.uthRedealPtr=ptr;
+  const btn=document.getElementById('tt-btn-wrap');if(btn)btn.style.display='none';
+  saveState();
   updateUthCommunityCards();
 }
 // Split uthAnte into whole-chip portions. Ante gets the extra chip on odd totals
@@ -327,6 +359,7 @@ function updateUthCommunityCards() {
   let revealedCount = 0;
 
   for (let i = S.uthPrevRevealComm; i < S.uthRevealComm; i++) {
+    if (getMod('uth_river_monster') && i === 4) continue; // river is already face-up from the deal
     const cardIdx = i;
     const offset = revealedCount;
     setTimeout(() => {
@@ -363,6 +396,10 @@ function updateUthCommunityCards() {
         if (S.uthPhase === 'flop') { const r2=_uthAntePortion()*2; actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(2)" ${S.chips < r2 ? 'disabled' : ''}>Raise 2× (${fmt(r2)})</button><button class="act-btn" onclick="uthCheck()">Check</button></div>`; }
         else if (S.uthPhase === 'turn') { const r1=_uthAntePortion(); actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(1)" ${S.chips < r1 ? 'disabled' : ''}>Raise 1× (${fmt(r1)})</button><button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button></div>`; }
       }
+      // The dealer row isn't re-rendered on a street change, so the phase-gated Time Travel button
+      // must be injected here when the flop/turn lands (it returns '' when used or off, a safe no-op).
+      const dRow = document.querySelector('.dealer-hand-row');
+      if (dRow && !document.getElementById('tt-btn-wrap')) dRow.insertAdjacentHTML('beforeend', timeTravelBtnHTML());
     }
   }, finishDelay);
 
@@ -497,8 +534,11 @@ function screenUTH(){
   const commRow=()=>`<div id="uth-community-container" style="text-align:center">
     <div class="sec">Community Cards</div>
     <div id="uth-community-hand" class="hand">${[0,1,2,3,4].map(i=>{
-      if(i<S.uthRevealComm){
-        const isNew=i>=S.uthPrevRevealComm;
+      // Count-revealed cards animate when freshly dealt; River Monster's river (i=4) is shown
+      // face-up from the start but is not count-revealed, so it stays static (isNew=false).
+      const countShown=i<S.uthRevealComm;
+      if(countShown||(getMod('uth_river_monster')&&i===4)){
+        const isNew=countShown&&i>=S.uthPrevRevealComm;
         return cardHTML(S.uthComm[i],'sm','',isNew?0.05+(i-S.uthPrevRevealComm)*0.12:0,isNew);
       }
       return cardHTML('back','sm','',0,false);
@@ -516,7 +556,7 @@ function screenUTH(){
       <div id="uth-dealer-hand" class="hand">${reveal
         ?renderCards(S.uthDealer,'md',0,0.9,0.1)
         :[0,1].map((_,i)=>i===0&&peekRevealed()?cardHTML(S.uthDealer[0],'md','box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px',0,false):cardHTML('back','md')).join('')}</div>
-      ${reveal?'':peekBtnHTML()}
+      ${reveal?'':peekBtnHTML()}${reveal?'':timeTravelBtnHTML()}
     </div>
   </div>`;
 

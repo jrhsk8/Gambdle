@@ -535,3 +535,45 @@ describe('_resolveRoulette — credits a spin exactly once', () => {
     });
   });
 });
+
+// ─── Double Ball (r_double_ball): a bet wins if EITHER ball matches, pays once ───
+describe('_evalBets — r_double_ball (Double Ball)', () => {
+  it('wins when the first ball matches (pays once at 35:1)', () => {
+    S.forcedMod = 'r_double_ball'; S.rSpin2 = 5;
+    const [r] = _evalBets([_bet(17, 10)], 17);
+    assertEqual(r.won, true);
+    assertEqual(r.delta, 350, 'straight-up pays 35:1 once, not doubled');
+    S.forcedMod = null; S.rSpin2 = null;
+  });
+
+  it('wins when only the second ball matches', () => {
+    S.forcedMod = 'r_double_ball'; S.rSpin2 = 17;
+    const [r] = _evalBets([_bet(17, 10)], 5); // first ball misses, second hits
+    assertEqual(r.won, true);
+    assertEqual(r.delta, 350);
+    S.forcedMod = null; S.rSpin2 = null;
+  });
+
+  it('an even-money bet hit by BOTH balls still pays only once', () => {
+    S.forcedMod = 'r_double_ball'; S.rSpin2 = 3; // 1 and 3 are both red
+    const [r] = _evalBets([_bet(45, 10)], 1);
+    assertEqual(r.won, true);
+    assertEqual(r.delta, 10, 'Red pays 1:1 once (not 20)');
+    S.forcedMod = null; S.rSpin2 = null;
+  });
+
+  it('loses only when neither ball matches', () => {
+    S.forcedMod = 'r_double_ball'; S.rSpin2 = 18;
+    const [r] = _evalBets([_bet(17, 10)], 5);
+    assertEqual(r.won, false);
+    assertEqual(r.delta, -10);
+    S.forcedMod = null; S.rSpin2 = null;
+  });
+
+  it('ignores the second ball when the modifier is off', () => {
+    S.forcedMod = {}; S.rSpin2 = 17; // would win via second ball, but modifier inactive
+    const [r] = _evalBets([_bet(17, 10)], 5);
+    assertEqual(r.won, false);
+    S.forcedMod = null; S.rSpin2 = null;
+  });
+});

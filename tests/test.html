@@ -60,6 +60,9 @@
   <!-- Remove any dev game-slot overrides so GAME1/GAME2 always default to bj/uth.
        Must run before core.js, which reads these keys as const values at load time. -->
   <script>
+    // Mark this as the unit-test harness so _testActive() honours the test-seed flag here
+    // (the real game only honours it in dev mode, ?dev=true).
+    window.__GAMBDLE_TEST__ = true;
     try {
       localStorage.removeItem('gambdle_dev_game1');
       localStorage.removeItem('gambdle_dev_game2');

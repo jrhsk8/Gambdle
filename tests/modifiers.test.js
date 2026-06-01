@@ -347,39 +347,49 @@ describe('uth_hard_qualify — dealer qualification threshold', () => {
   });
 });
 
-// peek — doPeek lifecycle: one-time use, S.peekUsed tracks usage.
+// peek — doPeek lifecycle: S.peeksUsed counts up to the daily limit (the peek modifier's value).
 describe('peek — doPeek lifecycle', () => {
   const _pkSnap = JSON.stringify({...S, pkHeld:[...S.pkHeld]});
   const _pkRestore = () => { const r=JSON.parse(_pkSnap); r.pkHeld=new Set(r.pkHeld); Object.assign(S,r); };
 
-  it('S.peekUsed flips true after doPeek()', () => {
+  it('S.peeksUsed increments after doPeek()', () => {
     S.forcedMod = 'peek';
-    Object.assign(S, { screen:'bj', peekUsed:false, bjDealer:[card('7','d'), card('K','c')] });
+    Object.assign(S, { screen:'bj', peeksUsed:0, peekAt:null, bjDealer:[card('7','d'), card('K','c')] });
     try {
-      assertEqual(S.peekUsed, false, 'starts unused');
+      assertEqual(S.peeksUsed, 0, 'starts at zero');
       doPeek();
-      assertEqual(S.peekUsed, true, 'flips to true after doPeek()');
+      assertEqual(S.peeksUsed, 1, 'increments to 1 after doPeek()');
     } finally { _pkRestore(); }
   });
 
-  it('peekBtnHTML returns empty after S.peekUsed=true', () => {
+  it('peekBtnHTML shows the remaining count (3 → 1 left as peeks are used)', () => {
     S.forcedMod = 'peek';
-    Object.assign(S, { peekUsed:true });
     try {
-      assertEqual(peekBtnHTML(), '', 'should return empty after peek used');
+      Object.assign(S, { peeksUsed:0 });
+      assert(peekBtnHTML().includes('3 left'), 'offers 3 with none used');
+      Object.assign(S, { peeksUsed:2 });
+      assert(peekBtnHTML().includes('1 left'), 'offers 1 with two used');
+    } finally { _pkRestore(); }
+  });
+
+  it('peekBtnHTML returns empty once the daily limit is reached', () => {
+    S.forcedMod = 'peek';
+    Object.assign(S, { peeksUsed:3 });
+    try {
+      assertEqual(peekBtnHTML(), '', 'no button after all 3 peeks used');
     } finally { _pkRestore(); }
   });
 
   it('peekBtnHTML returns empty without the peek modifier', () => {
     S.forcedMod = {};
-    Object.assign(S, { peekUsed:false });
+    Object.assign(S, { peeksUsed:0 });
     try {
       assertEqual(peekBtnHTML(), '', 'should return empty without modifier');
     } finally { _pkRestore(); }
   });
 });
 
-// peek — reveal scoping. The peek is one-time per day, but the revealed hole card
+// peek — reveal scoping. Up to 3 peeks per day, but each revealed hole card
 // must only show on the exact game + hand where it was used. Regression tests for:
 //   (a) peeking reveals the dealer on every later hand of every game,
 //   (b) peeking on BJ hand 2 also reveals the hole card on BJ hand 3,
@@ -387,21 +397,21 @@ describe('peek — doPeek lifecycle', () => {
 describe('peek — reveal is scoped to the exact game + hand', () => {
   const _snap = JSON.stringify({ ...S, pkHeld: [...S.pkHeld] });
   const _restore = () => { const r = JSON.parse(_snap); r.pkHeld = new Set(r.pkHeld); Object.assign(S, r); };
-  // Put S into a peek-active state: modifier on, peek already used on the given game+hand.
+  // Put S into a peek-active state: modifier on, one peek already used on the given game+hand.
   const _peekedOn = (game, hand) => {
     S.forcedMod = 'peek';
-    Object.assign(S, { peekUsed: true, peekAt: { game, hand } });
+    Object.assign(S, { peeksUsed: 1, peekAt: { game, hand } });
     if (game === 'bj') { S.screen = 'bj'; S.bjHand = hand; }
     else if (game === 'uth') { S.screen = 'uth'; S.uthHand = hand; }
   };
 
   it('doPeek records the game + hand it was used on (BJ hand index 1)', () => {
-    Object.assign(S, { screen: 'bj', bjHand: 1, peekUsed: false, peekAt: null,
+    Object.assign(S, { screen: 'bj', bjHand: 1, peeksUsed: 0, peekAt: null,
       bjDealer: [card('7', 'd'), card('K', 'c')] });
     S.forcedMod = 'peek';
     try {
       doPeek();
-      assertEqual(S.peekUsed, true, 'peekUsed flips true');
+      assertEqual(S.peeksUsed, 1, 'peeksUsed increments');
       assert(S.peekAt && S.peekAt.game === 'bj' && S.peekAt.hand === 1,
         `peekAt should be {bj,1}, got ${JSON.stringify(S.peekAt)}`);
     } finally { _restore(); }
@@ -458,7 +468,7 @@ describe('peek — reveal is scoped to the exact game + hand', () => {
 
   it('peekRevealed() is false before any peek (button shown, card hidden)', () => {
     S.forcedMod = 'peek';
-    Object.assign(S, { screen: 'bj', bjHand: 0, peekUsed: false, peekAt: null });
+    Object.assign(S, { screen: 'bj', bjHand: 0, peeksUsed: 0, peekAt: null });
     try {
       assertEqual(peekRevealed(), false, 'unused peek must not reveal');
       assert(peekBtnHTML() !== '', 'peek button should be offered while unused');
@@ -467,38 +477,62 @@ describe('peek — reveal is scoped to the exact game + hand', () => {
 
   it('peekRevealed() is false without the peek modifier even if peekAt is set', () => {
     S.forcedMod = {}; // no peek key
-    Object.assign(S, { screen: 'bj', bjHand: 1, peekUsed: true, peekAt: { game: 'bj', hand: 1 } });
+    Object.assign(S, { screen: 'bj', bjHand: 1, peeksUsed: 1, peekAt: { game: 'bj', hand: 1 } });
     try { assertEqual(peekRevealed(), false, 'no modifier → never reveal'); }
     finally { _restore(); }
   });
 
-  it('peek button disappears on every later hand (one peek per day)', () => {
-    _peekedOn('bj', 1);
+  it('peek button is STILL offered on a later hand while peeks remain (3/day)', () => {
+    _peekedOn('bj', 1); // 1 of 3 used
     try {
       S.bjHand = 2;
-      assertEqual(peekBtnHTML(), '', 'no second peek offered on a later hand');
+      assert(peekBtnHTML().includes('2 left'), 'a later BJ hand still offers a peek (2 left)');
       Object.assign(S, { screen: 'uth', uthHand: 0 });
-      assertEqual(peekBtnHTML(), '', 'no second peek offered in the other game');
+      assert(peekBtnHTML().includes('2 left'), 'the other game still offers a peek too');
+    } finally { _restore(); }
+  });
+
+  it('peek button disappears once all 3 daily peeks are used', () => {
+    _peekedOn('bj', 1);
+    Object.assign(S, { peeksUsed: 3 });
+    try {
+      S.bjHand = 2;
+      assertEqual(peekBtnHTML(), '', 'no peek offered after the daily limit');
+      Object.assign(S, { screen: 'uth', uthHand: 0 });
+      assertEqual(peekBtnHTML(), '', 'limit applies across games');
     } finally { _restore(); }
   });
 
   it('doPeek is a no-op without the peek modifier (cannot set peekAt)', () => {
     S.forcedMod = {};
-    Object.assign(S, { screen: 'bj', bjHand: 0, peekUsed: false, peekAt: null });
+    Object.assign(S, { screen: 'bj', bjHand: 0, peeksUsed: 0, peekAt: null });
     try {
       doPeek();
-      assertEqual(S.peekUsed, false, 'peekUsed stays false without modifier');
+      assertEqual(S.peeksUsed, 0, 'peeksUsed stays 0 without modifier');
       assertEqual(S.peekAt, null, 'peekAt stays null without modifier');
     } finally { _restore(); }
   });
 
-  it('doPeek is a no-op once used — does not relocate the reveal to a new hand', () => {
-    _peekedOn('bj', 1);
+  it('a second peek on a new hand relocates the reveal and counts up', () => {
+    _peekedOn('bj', 1); // peeksUsed=1, peekAt={bj,1}
+    Object.assign(S, { screen: 'bj', bjHand: 2, bjDealer: [card('7', 'd'), card('K', 'c')] });
     try {
-      S.bjHand = 2;
-      doPeek(); // second call on a different hand
-      assert(S.peekAt.game === 'bj' && S.peekAt.hand === 1,
-        `peekAt must stay pinned to {bj,1}, got ${JSON.stringify(S.peekAt)}`);
+      doPeek(); // peek again on hand index 2
+      assertEqual(S.peeksUsed, 2, 'second peek counts up');
+      assert(S.peekAt.game === 'bj' && S.peekAt.hand === 2,
+        `peekAt moves to the newly peeked hand {bj,2}, got ${JSON.stringify(S.peekAt)}`);
+      assertEqual(peekRevealed(), true, 'the new hand reveals');
+    } finally { _restore(); }
+  });
+
+  it('doPeek stops working after the daily limit is hit', () => {
+    _peekedOn('bj', 0);
+    Object.assign(S, { screen: 'bj', bjHand: 2, peeksUsed: 3, peekAt: { game: 'bj', hand: 0 },
+      bjDealer: [card('7', 'd'), card('K', 'c')] });
+    try {
+      doPeek(); // over the limit — must be a no-op
+      assertEqual(S.peeksUsed, 3, 'count does not exceed the limit');
+      assert(S.peekAt.hand === 0, 'peekAt not relocated once exhausted');
     } finally { _restore(); }
   });
 

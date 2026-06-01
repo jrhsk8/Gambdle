@@ -2,7 +2,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.14';
+const GAME_VERSION = 'v1.15';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -52,7 +52,10 @@ let _lbTopPct = null;
 const getActiveSeed = () => _backlogSeed || getDailySeed();
 // Test-only setter — lets dev-advanced.test.js override _backlogSeed without a page reload.
 function _setBacklogSeedForTest(v) { _backlogSeed = v; }
-const _testActive = () => !!_ls.getItem('gambdle_use_test_seed');
+// The test seed only takes effect in dev mode (?dev=true) or under the unit-test harness
+// (which sets window.__GAMBDLE_TEST__) — never in normal play, even if the flag lingers in
+// localStorage from a past dev session. DEV_OVERRIDE is read lazily (defined later in this file).
+const _testActive = () => (!!DEV_OVERRIDE || !!(typeof window!=='undefined'&&window.__GAMBDLE_TEST__)) && !!_ls.getItem('gambdle_use_test_seed');
 function getRngSeed() { return _testActive()?1:(DAILY_SEED_OVERRIDES[getActiveSeed()]||getActiveSeed()); }
 function getStateKey() { return _testActive()?'gambdle_test_state':STORAGE_KEY+getActiveSeed(); }
 
@@ -226,9 +229,20 @@ function _applyUthDeckOverride(deck, hands) {
   return newDeck;
 }
 
+// Two extra decks for the BJ shoe, shuffled by a PRNG seeded INDEPENDENTLY of the main
+// draw sequence — so the base 104 cards and every poker/UTH draw stay byte-identical while
+// the shoe gains a tail it can fall back on. Deterministic per seed (identical for everyone
+// on a given day). Only ever consumed if a player draws past the base 104 (aggressive
+// wild-split play); without it, a draw past the end is undefined → uncaught crash.
+function _extendBjShoe(seed){
+  const rng2=mkRng((seed^0x9e3779b9)>>>0);
+  return shuffle(buildDeck(),rng2).concat(shuffle(buildDeck(),rng2));
+}
+
 // Pre-generates all cards and spin data for the daily run.
 function genDeal(){
-  const rng=mkRng(getRngSeed());
+  const seed=getRngSeed();
+  const rng=mkRng(seed);
   const shoe=[];for(let i=0;i<2;i++)shoe.push(...buildDeck());
   let bjShoe=shuffle(shoe,rng);
   // One fresh 52-card deck per poker hand; each shuffle advances the shared RNG sequence.
@@ -264,6 +278,9 @@ function genDeal(){
     if(CARD_SEED_OVERRIDE.rSpin != null) rSpinOverride=CARD_SEED_OVERRIDE.rSpin;
   }
 
+  // Append the no-run-dry tail AFTER any test/seed overrides, so overrides only ever touch
+  // the base 104 and the appended decks stay pristine.
+  bjShoe=bjShoe.concat(_extendBjShoe(seed));
   return{bjShoe,pokerDecks,uthDeck,rSpinOverride};
 }
 // DEAL is generated once at page load — the same cards for everyone on the same calendar day.
@@ -296,10 +313,13 @@ let S={
   uthRevealComm:0, uthPrevRevealComm:0, uthHistory:[],
   rPhase:'bet', rBets:[], rBet:0, rPick:null, rResult:null,
   rSpin:null,       // the winning number (set at spin time, null until first spin)
+  rSpin2:null,      // second winning number for the Double Ball modifier (r_double_ball)
   rReSpun:false,    // true once the player uses their free re-spin (r_respin modifier)
+  timeTravelUsed:false, // whether the one-time daily UTH re-deal (uth_time_travel) has been used
+  uthRedealPtr:27,  // next index into DEAL.uthDeck's unused tail (cards 27+) for Time Travel re-deals
   forcedMod: null,  // dev override — set by devApplyMod(), cleared on next loadState()
-  peekUsed: false,  // whether the one-time daily dealer peek has been used
-  peekAt: null,     // {game, hand} the peek was used on — reveal only shows there, not on later hands/games
+  peeksUsed: 0,     // count of daily dealer peeks consumed (limit = the peek modifier's value)
+  peekAt: null,     // {game, hand} the most recent peek was used on — reveal only shows there, not on later hands/games
   borrowUsed: false,        // true once the daily borrow option has been taken or declined
   borrowAmount: 0,          // actual chips borrowed (may exceed BORROW_AMOUNT under min_chips modifier)
   borrowReturnScreen: null, // screen to navigate to after borrowing chips

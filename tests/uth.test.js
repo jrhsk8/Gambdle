@@ -550,3 +550,107 @@ describe('pkDraw — guarded against a duplicate draw', () => {
     });
   });
 });
+
+// ─── River Monster (uth_river_monster): the river card dealt face-up ─────────
+describe('uth_river_monster — River Monster', () => {
+  const _baseDeal = (forcedMod) => ({
+    screen:'uth', uthPhase:'bet', uthAnte:100, uthHand:0, uthHistory:[],
+    chips:800, forcedMod,
+  });
+
+  it('uthDeal keeps the count-based reveal at 0 (river is shown via override, not the count)', () => {
+    withUth(_baseDeal('uth_river_monster'), () => {
+      uthDeal();
+      assertEqual(S.uthRevealComm, 0, 'flop/turn still reveal normally from the left');
+      assertEqual(S.uthPrevRevealComm, 0);
+    });
+  });
+
+  it('_uthCommShown: river (index 4) is face-up before any street; flop/turn cards are not', () => {
+    withUth({ forcedMod:'uth_river_monster', uthRevealComm:0, uthPrevRevealComm:0 }, () => {
+      assertEqual(_uthCommShown(4), true, 'river is shown pre-flop');
+      for (let i = 0; i < 4; i++) assertEqual(_uthCommShown(i), false, `card ${i} still hidden`);
+    });
+  });
+
+  it('_uthCommShown: without the modifier nothing is shown until the count advances', () => {
+    withUth({ forcedMod:{}, uthRevealComm:0, uthPrevRevealComm:0 }, () => {
+      for (let i = 0; i < 5; i++) assertEqual(_uthCommShown(i), false, `card ${i} hidden`);
+    });
+  });
+
+  it('the preflop render shows the river face-up and the other four face-down', () => {
+    withUth({
+      screen:'uth', uthPhase:'preflop', forcedMod:'uth_river_monster', uthHand:0, uthHistory:[], chips:800,
+      uthHole:[card('K','s'),card('K','h')], uthDealer:[card('7','d'),card('2','c')],
+      uthComm:[card('3','s'),card('4','d'),card('5','c'),card('6','h'),card('9','d')],
+      uthRevealComm:0, uthPrevRevealComm:0, uthRaised:false,
+    }, () => {
+      render();
+      const comm = document.getElementById('uth-community-hand');
+      assert(comm, 'community hand rendered');
+      const backs = comm.querySelectorAll('.back, [class*="back"]').length;
+      assert(comm.innerHTML.includes('9') , 'the river rank (9) is face-up in the community row');
+      assert(backs >= 4, `four flop/turn cards stay face-down (found ${backs} backs)`);
+    });
+  });
+});
+
+// ─── Time Travel (uth_time_travel): once-per-day street re-deal ──────────────
+describe('uth_time_travel — Time Travel re-deal', () => {
+  const _flopState = (over = {}) => ({
+    screen:'uth', uthPhase:'flop', uthAnte:100, uthHand:0, uthHistory:[], chips:800,
+    forcedMod:'uth_time_travel', timeTravelUsed:false, uthRedealPtr:27,
+    uthHole:[card('K','s'),card('K','h')], uthDealer:[card('7','d'),card('2','c')],
+    uthComm:[card('3','s'),card('4','d'),card('5','c'),card('6','h'),card('8','d')],
+    uthRevealComm:3, uthPrevRevealComm:3, ...over,
+  });
+  const _id = c => c.r + c.s;
+
+  it('flop re-deal swaps the 3 flop cards for deck-tail cards and marks the day used', () => {
+    withUth(_flopState(), () => {
+      const expected = [DEAL.uthDeck[27], DEAL.uthDeck[28], DEAL.uthDeck[29]].map(_id);
+      doTimeTravel();
+      assertEqual(S.timeTravelUsed, true, 'daily re-deal consumed');
+      assertEqual(S.uthRedealPtr, 30, 'tail pointer advances by 3');
+      for (let i = 0; i < 3; i++) assertEqual(_id(S.uthComm[i]), expected[i], `flop card ${i} replaced`);
+      assertEqual(_id(S.uthComm[3]), _id(card('6','h')), 'turn card untouched');
+      assertEqual(_id(S.uthComm[4]), _id(card('8','d')), 'river card untouched');
+    });
+  });
+
+  it('turn re-deal swaps only cards 3 and 4', () => {
+    withUth(_flopState({ uthPhase:'turn', uthRevealComm:5, uthPrevRevealComm:5 }), () => {
+      const expected = [DEAL.uthDeck[27], DEAL.uthDeck[28]].map(_id);
+      doTimeTravel();
+      assertEqual(S.uthRedealPtr, 29, 'tail pointer advances by 2');
+      assertEqual(_id(S.uthComm[0]), _id(card('3','s')), 'flop untouched');
+      assertEqual(_id(S.uthComm[3]), expected[0], 'turn card replaced');
+      assertEqual(_id(S.uthComm[4]), expected[1], 'river card replaced');
+    });
+  });
+
+  it('is a no-op once already used', () => {
+    withUth(_flopState({ timeTravelUsed:true }), () => {
+      const before = S.uthComm.map(_id).join();
+      doTimeTravel();
+      assertEqual(S.uthComm.map(_id).join(), before, 'used → board unchanged');
+    });
+  });
+
+  it('is a no-op without the modifier', () => {
+    withUth(_flopState({ forcedMod:{} }), () => {
+      const before = S.uthComm.map(_id).join();
+      doTimeTravel();
+      assertEqual(S.uthComm.map(_id).join(), before, 'no modifier → board unchanged');
+      assertEqual(S.timeTravelUsed, false);
+    });
+  });
+
+  it('tail cards (27+) never overlap any hand\'s dealt cards, so a re-deal cannot duplicate one', () => {
+    const dealt = new Set(DEAL.uthDeck.slice(0, 27).map(_id)); // hands 0-2 use indices 0..26
+    for (let p = 27; p < 32; p++) {
+      assert(!dealt.has(_id(DEAL.uthDeck[p])), `tail card at ${p} is not in any hand`);
+    }
+  });
+});

@@ -22,7 +22,10 @@ const OUT = __dirname + '/../screenshots/windows';
 // Window sizes to capture. Mobile uses the phone shell; everything ≥1024 uses the
 // desktop chrome; the last two exercise the large-display zoom steps.
 const SIZES = [
+  { label: '0360x780-mobile', w:  360, h:  780, mobile: true },
   { label: '0375x812-mobile', w:  375, h:  812, mobile: true },
+  { label: '0393x852-mobile', w:  393, h:  852, mobile: true },
+  { label: '1024x1080',       w: 1024, h: 1080 },
   { label: '1280x800',        w: 1280, h:  800 },
   { label: '1440x900',        w: 1440, h:  900 },
   { label: '1920x1080',       w: 1920, h: 1080 },
@@ -60,6 +63,9 @@ const SCREENS = {
   const screens = Object.entries(SCREENS).filter(([name]) =>
     !screenArgs.length || screenArgs.some(a => name.includes(a)));
 
+  // Wipe the output dir each run so it only ever holds the current set (stale/renamed
+  // shots otherwise pile up). Only the windows/ subfolder — leave the WebKit shots alone.
+  fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch();
   const json = body => r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });

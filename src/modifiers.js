@@ -14,14 +14,17 @@
  * - bj_first_ace: true      Player's first card each BJ hand is always an Ace
  * - bj_wild_split: true     Any two cards can be split (max 4 hands); split wins pay 2×
  * - min_chips: 50           Minimum chip requirement
- * - peek: true              One free peek at dealer hole card
+ * - peek: 3                 Number of free dealer hole-card peeks per day (one per hand)
  * - comeback: true          Below starting chips (1000)? Wins pay 2×
  * - uth_blind_boost: 2.0    Blind bonus payouts multiplier
  * - uth_blind_extended: true Blind pays on two pair and three of a kind
  * - uth_double_play: true   Raising pays 2:1 instead of 1:1
  * - uth_hard_qualify: true  Dealer needs two pair or better to qualify
  * - uth_pocket_aces: true   Player hole cards are AA every round (fresh deck each hand)
+ * - uth_river_monster: true Hold'em: the river card is dealt face-up before the bet
+ * - uth_time_travel: true   Hold'em: once/day, re-deal the flop or the turn+river
  * - all_in_or_skip: true    Each hand/spin: go all in or skip. Wins pay 2×
+ * - r_double_ball: true     Two balls spin; a bet wins if either ball lands on it
  * - r_payout_mult: 2.0      All roulette wins pay this multiple
  * - r_number_pay: 50        Straight number bets pay this (default 35)
  * - r_zero_boost: 10        Zero is this many times more likely to hit
@@ -44,12 +47,15 @@ const PRESET_MODIFIERS = {
   uth_double_play:    { type: 'uth',  title: "Raise the Roof",       desc: "Hold'em: Raises pay double",                     uth_double_play: true,                       devNote: '' },
   uth_hard_qualify:   { type: 'uth',  title: "Tough Table",          desc: "Hold'em: Dealer needs two pair or better to win", uth_hard_qualify: true,                      devNote: '' },
   uth_pocket_aces:    { type: 'uth',  title: "Pocket Aces",          desc: "Hold'em: Your hole cards are Aces every round",   uth_pocket_aces: true,                       devNote: '' },
+  uth_river_monster:  { type: 'uth',  title: "River Monster",        desc: "Hold'em: The river card is revealed before you bet", uth_river_monster: true,              devNote: '' },
+  uth_time_travel:    { type: 'uth',  title: "Time Travel",          desc: "Hold'em: Re-deal the flop or turn+river once today", uth_time_travel: true,                    devNote: '' },
   // Cross-game
-  peek:            { type: 'cross',   title: "Dealer Peek",          desc: "One-time peek at any dealer card",                peek: true,                                  devNote: '' },
+  peek:            { type: 'cross',   title: "Dealer Peek",          desc: "Peek at the dealer's hole card on up to 3 hands",  peek: 3,                                     devNote: '' },
   comeback:        { type: 'cross',   title: "Comeback",             desc: "Wins pay 2x if you are below 1000 chips",         comeback: true,                              devNote: '' },
   all_in_or_skip:  { type: 'cross',   title: "Martingale",           desc: "All wins are doubled. You can only go all in.",   all_in_or_skip: true,                        devNote: '' },
   // Roulette
   r_double_all:   { type: 'roulette', title: "Double Payout",        desc: "Roulette: All wins are doubled. One bet max.",    r_payout_mult: 2.0, r_max_bets: 1,          devNote: '' },
+  r_double_ball:  { type: 'roulette', title: "Double Ball",          desc: "Roulette: Two balls spin — win if either lands on your bet.", r_double_ball: true,             devNote: '' },
   r_hot_numbers:  { type: 'roulette', title: "Hot Numbers",          desc: "Roulette: Straight number bets pay 50:1",         r_number_pay: 50,                            devNote: '' },
   r_hot_zero:     { type: 'roulette', title: "Hot Zero",             desc: "Roulette: Zero is 10x more likely to hit",        r_zero_boost: 10,                            devNote: '' },
   r_color_double: { type: 'roulette', title: "Color Bonus",          desc: "Roulette: Red/Black bets pay double. One bet max.", r_color_double: true, r_max_bets: 1,  devNote: '' },
@@ -69,15 +75,15 @@ const PRESET_MODIFIERS = {
  */
 const CYCLE_ORDER = [
   'r_hot_numbers',      // Day 1  — roulette
-  'double_pay',         // Day 2  — bj
+  'r_double_ball',      // Day 2  — roulette (was double_pay)
   'r_color_double',     // Day 3  — roulette
-  'uth_blind_boost',    // Day 4  — uth
+  'uth_river_monster',  // Day 4  — uth (was uth_blind_boost)
   'r_multi_bet',        // Day 5  — roulette
   'comeback',           // Day 6  — cross
   'r_double_all',       // Day 7  — roulette
   'easy_dealer',        // Day 8  — bj
   'r_hot_zero',         // Day 9  — roulette
-  'uth_hard_qualify',   // Day 10 — uth
+  'uth_time_travel',    // Day 10 — uth (was uth_hard_qualify)
   'r_group_1_12',       // Day 11 — roulette
   'peek',               // Day 12 — cross
   'r_group_13_24',      // Day 13 — roulette
@@ -129,7 +135,10 @@ const DAILY_MODIFIERS = {
   20260530: 'r_hot_zero',         // Day 26
   20260531: 'bj_wild_split',      // Day 27
   20260601: 'peek',               // Day 28
-  20260602: 'r_color_double',     // Day 29
+  20260602: 'r_double_ball',      // Day 29
+  20260603: 'uth_time_travel',    // Day 30
+  20260604: 'r_group_13_24',      // Day 31
+  20260605: 'uth_river_monster',  // Day 32
 };
 
 /**

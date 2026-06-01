@@ -247,8 +247,17 @@ describe('getTier', () => {
 // ─── genDeal / DEAL ──────────────────────────────────────────────────────────
 
 describe('genDeal (DEAL)', () => {
-  it('DEAL.bjShoe has 104 cards (2 decks)', () => {
-    assertEqual(DEAL.bjShoe.length, 104);
+  it('DEAL.bjShoe has 208 cards (base 2 decks + 2 appended for the no-run-dry safety net)', () => {
+    assertEqual(DEAL.bjShoe.length, 208);
+  });
+
+  it('DEAL.bjShoe composition: base 104 has each card ×2, full 208 has each ×4', () => {
+    const count = (arr) => arr.reduce((m, c) => { const k = c.r + c.s; m[k] = (m[k] || 0) + 1; return m; }, {});
+    const base = count(DEAL.bjShoe.slice(0, 104));
+    assertEqual(Object.keys(base).length, 52, 'base shoe has all 52 distinct cards');
+    for (const [k, v] of Object.entries(base)) assertEqual(v, 2, `base shoe: ${k} appears ${v}×, expected 2`);
+    const full = count(DEAL.bjShoe);
+    for (const [k, v] of Object.entries(full)) assertEqual(v, 4, `extended shoe: ${k} appears ${v}×, expected 4`);
   });
 
   it('DEAL.uthDeck has 52 cards', () => {
