@@ -587,39 +587,61 @@ function _pickWith(rInt, pool) {
   try { return _pickSpin(); } finally { Math.random = orig; }
 }
 
-describe('_pickSpin — Sweet Sixteen boost (r_hot_number=16, r_hot_boost=10)', () => {
-  it('gives 16 the 10 boost slots and maps the rest to every OTHER pocket exactly once', () => {
-    S.forcedMod = 'r_sweet_sixteen';                 // pool = 36 + 10 = 46
+// Two-stage hot-number draw (true 10×): the FIRST Math.random picks one of 37 equally-likely
+// first-stage buckets — buckets 0..boost-1 win the hot number (boost/37 ≈ 10/37), the rest fall
+// through to the SECOND Math.random, a fair spin over the other 36 pockets. _pickSeq feeds those
+// two draws deterministically; firstBucket(b) lands floor(r*37)===b, otherBucket(c) lands
+// floor(r*36)===c.
+function _pickSeq(...vals) {
+  const orig = Math.random; let i = 0;
+  Math.random = () => (i < vals.length ? vals[i++] : 0.5);
+  try { return _pickSpin(); } finally { Math.random = orig; }
+}
+const firstBucket = b => (b + 0.5) / 37;
+const otherBucket = c => (c + 0.5) / 36;
+
+describe('_pickSpin — Sweet Sixteen boost (true 10×: P(16) = 10/37)', () => {
+  it('16 wins in exactly 10 of the 37 equally-likely first-stage buckets → 10/37 ≈ 27%', () => {
+    S.forcedMod = 'r_sweet_sixteen';
+    let hits = 0;
+    for (let b = 0; b < 37; b++) if (_pickSeq(firstBucket(b), otherBucket(0)) === 16) hits++;
+    S.forcedMod = null;
+    assertEqual(hits, 10, '16 wins 10 of 37 first-stage buckets (10/37, a true 10× of the fair 1/37)');
+  });
+
+  it('a boost-band first draw returns 16 regardless of the second draw', () => {
+    S.forcedMod = 'r_sweet_sixteen';
+    for (let b = 0; b < 10; b++) assertEqual(_pickSeq(firstBucket(b), otherBucket(5)), 16, `bucket ${b} → 16`);
+    S.forcedMod = null;
+  });
+
+  it('a non-boost first draw falls through to a fair spin over the other 36 pockets, skipping 16', () => {
+    S.forcedMod = 'r_sweet_sixteen';
     const hist = {};
-    for (let r = 0; r < 46; r++) { const n = _pickWith(r, 46); hist[n] = (hist[n] || 0) + 1; }
+    for (let c = 0; c < 36; c++) {
+      const n = _pickSeq(firstBucket(10), otherBucket(c));  // 10 ≥ boost → second stage
+      hist[n] = (hist[n] || 0) + 1;
+      assertEqual(n, c < 16 ? c : c + 1, `second-stage slot ${c} maps past 16`);
+    }
     S.forcedMod = null;
-    assertEqual(hist[16], 10, '16 occupies all 10 boost slots');
-    for (let n = 0; n <= 36; n++) { if (n === 16) continue; assertEqual(hist[n], 1, `pocket ${n} appears exactly once`); }
-    assert(Object.keys(hist).every(k => +k >= 0 && +k <= 36), 'every result is a real pocket 0..36');
-    assertEqual(Object.values(hist).reduce((a, b) => a + b, 0), 46, 'whole pool accounted for');
-  });
-
-  it('every boost slot resolves to 16', () => {
-    S.forcedMod = 'r_sweet_sixteen';
-    for (let r = 0; r < 10; r++) assertEqual(_pickWith(r, 46), 16, `boost slot ${r} → 16`);
-    S.forcedMod = null;
-  });
-
-  it('the non-boost slots never land on 16 (no double-counting)', () => {
-    S.forcedMod = 'r_sweet_sixteen';
-    for (let r = 10; r < 46; r++) assert(_pickWith(r, 46) !== 16, `slot ${r} must skip 16`);
-    S.forcedMod = null;
+    assert(!(16 in hist), 'second stage never lands on 16 (no double counting)');
+    assertEqual(Object.keys(hist).length, 36, 'all 36 other pockets reachable');
   });
 });
 
-describe('_pickSpin — Hot Zero still boosts 0 (refactor regression)', () => {
-  it('0 gets the 10 boost slots; 1..36 each appear exactly once', () => {
+describe('_pickSpin — Hot Zero shares the same path (true 10× on 0)', () => {
+  it('0 wins 10 of 37 first-stage buckets; the fall-through is a fair spin over 1..36', () => {
     S.forcedMod = 'r_hot_zero';
-    const hist = {};
-    for (let r = 0; r < 46; r++) { const n = _pickWith(r, 46); hist[n] = (hist[n] || 0) + 1; }
+    let hits = 0; const others = {};
+    for (let b = 0; b < 37; b++) if (_pickSeq(firstBucket(b), otherBucket(0)) === 0) hits++;
+    for (let c = 0; c < 36; c++) {
+      const n = _pickSeq(firstBucket(36), otherBucket(c));   // 36 ≥ boost → second stage
+      others[n] = (others[n] || 0) + 1;
+      assertEqual(n, c + 1, `second-stage slot ${c} → ${c + 1}`);
+    }
     S.forcedMod = null;
-    assertEqual(hist[0], 10, '0 occupies all 10 boost slots');
-    for (let n = 1; n <= 36; n++) assertEqual(hist[n], 1, `pocket ${n} appears exactly once`);
+    assertEqual(hits, 10, '0 wins 10/37 of the time');
+    assert(!(0 in others), 'second stage never re-lands on 0');
   });
 });
 
@@ -663,5 +685,47 @@ describe('Sweet Sixteen — modifier config', () => {
   it('keeps the r_multi_bet preset and its frozen archive day (Day 5) intact', () => {
     assert(PRESET_MODIFIERS.r_multi_bet, 'r_multi_bet preset retained for archives');
     assertEqual(DAILY_MODIFIERS[20260509], 'r_multi_bet', 'frozen Day 5 unchanged');
+  });
+});
+
+// ─── rAddBet — keep the bet amount selected after placing a bet ──────────────────────────────────
+// The amount stays so the player can quickly stake the same on another tile; only the tile pick
+// clears, and the kept amount caps to the chips left (it can never exceed the balance).
+describe('rAddBet — keeps the bet amount (capped to remaining chips)', () => {
+  // No roulette board is rendered in the unit harness, so rAddBet mutates state then bails at its
+  // `if(!boardBtn) render()` early-return — exactly the state we assert. Stub the side effects.
+  function withStubs(fn) {
+    const _r = window.render, _s = window.saveState, _c = window.sndChip;
+    window.render = () => {}; window.saveState = () => {}; window.sndChip = () => {};
+    const snap = { rBets: S.rBets, rBet: S.rBet, rPick: S.rPick, chips: S.chips, forcedMod: S.forcedMod, screen: S.screen, rPhase: S.rPhase };
+    try { fn(); } finally { window.render = _r; window.saveState = _s; window.sndChip = _c; Object.assign(S, snap); }
+  }
+
+  it('keeps the amount, clears the tile, debits the stake, records the bet', () => {
+    withStubs(() => {
+      S.forcedMod = {}; S.screen = 'roulette'; S.rPhase = 'bet'; S.rBets = []; S.rPick = 17; S.rBet = 50; S.chips = 200;
+      rAddBet();
+      assertEqual(S.chips, 150, 'stake debited');
+      assertEqual(S.rBets.length, 1); assertEqual(S.rBets[0].pick, 17); assertEqual(S.rBets[0].bet, 50);
+      assertEqual(S.rPick, null, 'tile pick cleared');
+      assertEqual(S.rBet, 50, 'bet amount kept for the next bet');
+    });
+  });
+
+  it('caps the kept amount to the chips left when it would exceed them', () => {
+    withStubs(() => {
+      S.forcedMod = {}; S.screen = 'roulette'; S.rPhase = 'bet'; S.rBets = []; S.rPick = 17; S.rBet = 50; S.chips = 50;
+      rAddBet();
+      assertEqual(S.chips, 0, 'all chips staked');
+      assertEqual(S.rBet, 0, 'kept amount capped to the 0 chips left');
+    });
+  });
+
+  it('does nothing without a tile picked', () => {
+    withStubs(() => {
+      S.forcedMod = {}; S.screen = 'roulette'; S.rPhase = 'bet'; S.rBets = []; S.rPick = null; S.rBet = 50; S.chips = 200;
+      rAddBet();
+      assertEqual(S.chips, 200, 'no debit'); assertEqual(S.rBets.length, 0, 'no bet recorded');
+    });
   });
 });

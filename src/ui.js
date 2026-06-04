@@ -281,79 +281,50 @@ function _fallbackCopy(text){
   document.body.removeChild(ta);
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
-const _SUIT_CLS_MAP={'♠':'sym-s','♥':'sym-h','♦':'sym-d','♣':'sym-c'};
-function suitSpans(s){return s.replace(/[♠♥♦♣]/g,m=>`<span class="${_SUIT_CLS_MAP[m]}">${m}︎</span>`);}
+// Help-window content (INFO_SECTIONS) and the suit-span renderer it uses now live in
+// src/tutorial.js, alongside the tutorial tips and About copy, so all editable text is in one file.
 
-// ─── INFO SECTIONS ────────────────────────────────────────────
-const INFO_SECTIONS = {
-  overview: {
-    title: 'How to Play',
-    body: `<div><b>🎰 Gambdle</b> is a daily casino game. Everyone plays the exact same hands — you start with <b>1,000 chips</b>, play two card games back to back, then finish with one spin of the roulette wheel. Your final chip count is your score.</div>
-      <div>A new game drops every day at midnight <b>Arizona time</b> (MST — no daylight saving). Compare your score on the leaderboard.</div>
-      <div><b>✨ Daily Modifier</b> — every day has a special rule that changes the game for everyone, like boosted payouts or extra betting options. Look for the gold banner at the top of each game screen.</div>`
-  },
-  bj: {
-    title: '🃏 Blackjack',
-    body: `<div>You and the dealer each get two cards. Try to get as close to 21 as you can without going over. The dealer plays after you.</div>
-      <div>Card values: number cards are face value, face cards (J/Q/K) are worth 10, and Aces are worth 1 or 11 — whichever helps you more.</div>
-      <div><b>Hit</b> — take another card. <b>Stand</b> — keep what you have and let the dealer go.</div>
-      <div><b>Double Down</b> — double your bet, get exactly one more card, then stand automatically.</div>
-      <div><b>Split</b> — if your first two cards are the same rank, split them into two separate hands, each with its own bet.</div>
-      <div>The dealer must keep drawing until they hit 17 or higher. If the dealer goes over 21, you win. If you go over 21, you bust and lose your bet.</div>
-      <div><b>Blackjack</b> — an Ace plus any 10-value card on your opening two cards. Pays <b>3:2</b> automatically. You play <b>3 hands</b>.</div>`
-  },
-  uth: {
-    title: "♠ Ultimate Texas Hold'em",
-    body: `<div>A poker game — just you versus the dealer. Both get 2 private cards, then 5 shared cards are revealed one group at a time. Best 5-card hand out of 7 wins.</div>
-      <div>Start by placing equal <b>Ante</b> and <b>Blind</b> bets (the game splits your stake in two for you).</div>
-      <div><b>Preflop</b> — you see your 2 cards. Raise <b>4×</b> (strong hand), raise <b>3×</b> (decent hand), or <b>Check</b> to wait and see more cards.</div>
-      <div><b>Flop</b> — 3 shared cards are revealed. Raise <b>2×</b> if you haven't raised yet, or Check again.</div>
-      <div><b>Turn &amp; River</b> — the last 2 shared cards appear. You must either raise <b>1×</b> to stay in, or <b>Fold</b> and forfeit your bets.</div>
-      <div>If your hand beats the dealer's, you win. The dealer needs at least <b>a pair</b> to "qualify" — if they don't, your Ante bet is returned. The <b>Blind</b> pays a bonus if you win with a Straight or better. You play <b>3 hands</b>.</div>`
-  },
-  roulette: {
-    title: '🎡 Roulette',
-    body: `<div>A ball is dropped onto a spinning wheel numbered 0–36. Pick where you think it'll land, set your stake, and spin. <b>One spin</b> ends the run.</div>
-      <div><b>Numbers 0–36</b> — exact match pays <b>35:1</b>. High risk, high reward.</div>
-      <div><b>Columns (2:1)</b> — bet on one of the three columns on the board.</div>
-      <div><b>Dozens</b> — 1–12, 13–24, or 25–36. Pays <b>2:1</b>.</div>
-      <div><b>Outside bets</b> — Red/Black, Odd/Even, or Low/High (1–18 / 19–36). Pays <b>1:1</b>. Safest option.</div>
-      <div>On some modifier days you can place multiple bets before spinning.</div>`
-  },
-  hands: {
-    title: '🃏 Poker Hands',
-    body: (()=>{
-      const row=(name,cards,desc)=>
-        `<span style="color:var(--ink);font-size:1.3rem">${name}</span><span style="color:var(--ink);font-size:1.2rem;text-align:right">${suitSpans(cards)}</span><span style="font-size:1.05rem;grid-column:1/-1;margin-bottom:4px;color:var(--shadow)">${desc}</span>`;
-      return `<div style="display:grid;grid-template-columns:1fr auto;gap:4px 16px;font-family:var(--btn-f)">
-        ${row('Royal Flush',   'A♠ K♠ Q♠ J♠ 10♠', 'Ace through Ten, all same suit — unbeatable.')}
-        ${row('Straight Flush','9♦ 8♦ 7♦ 6♦ 5♦',  'Five in a row, all same suit.')}
-        ${row('Four of a Kind','K♠ K♥ K♦ K♣',      'All four cards of the same rank.')}
-        ${row('Full House',    'Q♠ Q♥ Q♦ 9♣ 9♥',   'Three of a kind plus a pair.')}
-        ${row('Flush',         'A♣ J♣ 8♣ 5♣ 2♣',   'Any five cards of the same suit.')}
-        ${row('Straight',      '10♠ 9♥ 8♦ 7♣ 6♠',  'Five in a row, any suits. Ace can be low (A-2-3-4-5).')}
-        ${row('Three of a Kind','7♠ 7♥ 7♦',         'Three cards of the same rank.')}
-        ${row('Two Pair',      'J♠ J♦ 4♥ 4♣',       'Two different pairs.')}
-        ${row('One Pair',      'A♠ A♥',              'Two cards of the same rank.')}
-        ${row('High Card',     'K♠ J♥ 9♦ 6♣ 2♠',   'No matching cards — highest card wins.')}
-      </div>`;
-    })()
+
+// Shared factory for help-section modals, modifier popups, and the About window. Uses the WinXP
+// blue title bar (same chrome as the Send Feedback dialog) with just a × close button — the body
+// scrolls under the pinned bar. Also closes on a click outside the box.
+// Outside-click behaviour for a popup overlay.
+//  • Desktop: deactivate the window — grey its title bar via .win-inactive (reusing the WinXP inactive
+//    look) and drop keyboard focus, but NEVER close it; the × button is the only way out. Clicking
+//    back inside the popup reactivates it. We don't apply the refocus guard here because nothing
+//    closes, so a refocus click greying the bar (then a click-in to restore) is harmless.
+//  • Mobile: an outside tap closes the popup, but the click that brings an unfocused tab back into
+//    focus is exempted (the _refocusAt / document.hasFocus guard), so it doesn't dismiss on refocus.
+function _infoOverlayClick(el, e, mobile) {
+  const box = el.querySelector('.info-box');
+  const outside = e.target === el && el._downOnSelf;
+  if (!outside) { if (!mobile) box?.classList.remove('win-inactive'); return; } // inside click reactivates
+  if (mobile) {
+    if (document.hasFocus() && Date.now() - _refocusAt >= 300) el.remove();
+  } else {
+    box?.classList.add('win-inactive');
+    document.activeElement?.blur?.();
   }
-};
+}
 
-// Shared factory for both help-section modals and modifier popups.
 function _openInfoModal(title, content) {
   document.getElementById('info-modal')?.remove();
   const el = document.createElement('div');
   el.id = 'info-modal'; el.className = 'info-modal';
-  el.onclick = e => { if (e.target === el) el.remove(); };
-  el.innerHTML = `<div class="info-box" style="padding:18px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-family:var(--btn-f);color:var(--ink);font-size:1.7rem">${title}</div>
-      <button onclick="document.getElementById('info-modal').remove()" style="background:none;border:none;color:var(--shadow);font-size:1.6rem;cursor:pointer;padding:4px 8px;line-height:1">✕</button>
+  // Outside-click handling differs by platform (see _infoOverlayClick). _downOnSelf gates on a click
+  // that BOTH starts and ends on the dark overlay, so releasing a drag of the title bar (which can
+  // land its click on the overlay) is never treated as an outside click.
+  el.addEventListener('mousedown', e => { el._downOnSelf = (e.target === el); });
+  el.onclick = e => _infoOverlayClick(el, e, _isMobile());
+  el.innerHTML = `<div class="info-box info-box-titled">
+    <div class="title-bar">
+      <span class="tb-title"><span class="tb-icon">♠</span>${title}</span>
+      <span class="tb-btns">
+        <span class="tb-btn" title="Max" onclick="recenterDialog()">□</span>
+        <span class="tb-btn close" onclick="document.getElementById('info-modal').remove()">×</span>
+      </span>
     </div>
-    <div class="divider" style="margin-bottom:14px"></div>
-    ${content}
+    <div class="info-content">${content}</div>
   </div>`;
   document.body.appendChild(el);
 }
@@ -361,6 +332,21 @@ function _openInfoModal(title, content) {
 function showInfo(section) {
   const {title, body} = INFO_SECTIONS[section] || INFO_SECTIONS.overview;
   _openInfoModal(title, `<div style="display:flex;flex-direction:column;gap:14px;font-size:1.15rem;color:var(--ink);line-height:1.55">${body}</div>`);
+}
+
+// File → About Gambdle. A mini ♠ GAMBDLE logo + editable subtitle/body; the copy lives in
+// src/tutorial.js (ABOUT_GAMBLE) so it can be edited without touching the UI code.
+function showAbout() {
+  closeDropdowns();
+  const a = (typeof ABOUT_GAMBLE !== 'undefined' && ABOUT_GAMBLE) || { subtitle: '', body: '' };
+  const content = `
+    <div style="text-align:center;padding:4px 4px 2px">
+      <div class="logo logo-mini"><span class="logo-spade">♠</span>GAMBDLE</div>
+      <div class="logo-sub">${a.subtitle || ''}</div>
+    </div>
+    <div class="divider" style="margin:14px 0"></div>
+    <div style="font-size:1.15rem;color:var(--ink);line-height:1.55">${a.body || ''}</div>`;
+  _openInfoModal('About Gambdle', content);
 }
 
 // ─── MENUS ────────────────────────────────────────────────────
@@ -555,7 +541,9 @@ function toggleMenu(which, trigger) {
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showFeedbackDialog();closeDropdowns()">✉ Send Feedback</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showPrefsSubmenu(this);event.stopPropagation()">Preferences <span class="dd-key">►</span></div>`;
+      <div class="dd-item" onclick="showPrefsSubmenu(this);event.stopPropagation()">Preferences <span class="dd-key">►</span></div>
+      <div class="dd-sep"></div>
+      <div class="dd-item" onclick="showAbout()">♠ About Gambdle</div>`;
   } else {
     el.innerHTML = `
       <div class="dd-item" onclick="showInfo('overview');closeDropdowns()">How to Play</div>
@@ -722,7 +710,7 @@ function showFeedbackDialog() {
   el.onclick = e => { if (e.target === el) document.getElementById('feedback-txt')?.blur(); };
   el.innerHTML = `
     <div class="info-box" style="padding:0;max-width:420px">
-      <div class="title-bar" style="border-radius:0;flex-shrink:0">
+      <div class="title-bar" style="border-radius:7px 7px 0 0;flex-shrink:0">
         <span class="tb-title"><span class="tb-icon">✉</span>Send Feedback</span>
         <span class="tb-btns"><span class="tb-btn close" onclick="closeFeedbackDialog()">×</span></span>
       </div>

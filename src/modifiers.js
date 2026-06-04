@@ -27,9 +27,8 @@
  * - r_double_ball: true     Two balls spin; a bet wins if either ball lands on it
  * - r_payout_mult: 2.0      All roulette wins pay this multiple
  * - r_number_pay: 50        Straight number bets pay this (default 35)
- * - r_zero_boost: 10        Zero is this many times more likely to hit
- * - r_hot_number: 16        The straight-up pocket that gets the hot-pocket boost (paired with r_hot_boost)
- * - r_hot_boost: 10         Extra pockets given to r_hot_number, so it lands this many : 1 vs each other number
+ * - r_hot_number: 16        The straight-up pocket that gets the hot-pocket boost (0 = Hot Zero, 16 = Sweet Sixteen)
+ * - r_hot_boost: 10         Likelihood multiplier for r_hot_number vs a fair wheel — 10 ⇒ it lands 10× its normal 1/37 (≈27%)
  * - r_color_double: true    Red and Black bets pay 2:1
  * - r_max_bets: 3           Max roulette bets per spin (default 5)
  * - r_respin: true          After spin, choose to keep the result or re-spin once
@@ -41,14 +40,14 @@ const PRESET_MODIFIERS = {
   easy_dealer:     { type: 'bj',      title: "Easy Dealer",          desc: "Blackjack: Dealer stands on 15 instead of 17",   bj_dealer_stand: 15,                         devNote: '' },
   bj_double_bonus: { type: 'bj',      title: "Quadruple Down",       desc: "Blackjack: Successful double downs pay 2x profit", bj_double_bonus: true,                     devNote: '' },
   high_stakes:     { type: 'bj',      title: "High Stakes",          desc: "Blackjack: Minimum chips requirement is 100",     min_chips: 100,                              devNote: '' },
-  bj_first_ace:    { type: 'bj',      title: "Ace Up Your Sleeve",   desc: "Blackjack: Your first card each hand is always an Ace", bj_first_ace: true,                  devNote: '' },
-  bj_wild_split:   { type: 'bj',      title: "Big Splitter",          desc: "Blackjack: Split any two cards. Split wins pay double.", bj_wild_split: true,                 devNote: '' },
+  bj_first_ace:    { type: 'bj',      title: "Ace Up Your Sleeve",   desc: "Blackjack: Your first card each hand is always an Ace", bj_first_ace: true,                  devNote: 'Yall were losing way too much so I had to throw you a bone' },
+  bj_wild_split:   { type: 'bj',      title: "Big Splitter",          desc: "Blackjack: Split any two cards. Split wins pay double.", bj_wild_split: true,                 devNote: 'Someone should do the math on how often you should split here. It\'s a very interesting problem' },
   // UTH
   uth_blind_boost:    { type: 'uth',  title: "Big Blind",            desc: "Hold'em: Blind payouts are doubled",              uth_blind_boost: 2.0,                        devNote: '' },
   uth_blind_extended: { type: 'uth',  title: "Loose Blind",          desc: "Hold'em: Blind pays on two pair and up",          uth_blind_extended: true,                    devNote: '' },
   uth_double_play:    { type: 'uth',  title: "Raise the Roof",       desc: "Hold'em: Raises pay double",                     uth_double_play: true,                       devNote: '' },
   uth_hard_qualify:   { type: 'uth',  title: "Tough Table",          desc: "Hold'em: Dealer needs two pair or better to win", uth_hard_qualify: true,                      devNote: '' },
-  uth_pocket_aces:    { type: 'uth',  title: "Pocket Aces",          desc: "Hold'em: Your hole cards are Aces every round",   uth_pocket_aces: true,                       devNote: '' },
+  uth_pocket_aces:    { type: 'uth',  title: "Pocket Aces",          desc: "Hold'em: Your hole cards are Aces every round",   uth_pocket_aces: true,                       devNote: 'Yall were losing way too much so I had to throw you a bone' },
   uth_river_monster:  { type: 'uth',  title: "River Monster",        desc: "Hold'em: The river card is revealed before you bet", uth_river_monster: true,              devNote: '' },
   uth_time_travel:    { type: 'uth',  title: "Time Travel",          desc: "Hold'em: Re-deal the flop or turn+river once today", uth_time_travel: true,                    devNote: '' },
   // Cross-game
@@ -59,8 +58,8 @@ const PRESET_MODIFIERS = {
   r_double_all:   { type: 'roulette', title: "Double Payout",        desc: "Roulette: All wins are doubled. One bet max.",    r_payout_mult: 2.0, r_max_bets: 1,          devNote: '' },
   r_double_ball:  { type: 'roulette', title: "Double Ball",          desc: "Roulette: Two balls spin — win if either lands on your bet.", r_double_ball: true,             devNote: '' },
   r_hot_numbers:  { type: 'roulette', title: "Hot Numbers",          desc: "Roulette: Straight number bets pay 50:1",         r_number_pay: 50,                            devNote: '' },
-  r_hot_zero:     { type: 'roulette', title: "Hot Zero",             desc: "Roulette: Zero is 10x more likely to hit",        r_zero_boost: 10,                            devNote: '' },
-  r_sweet_sixteen:{ type: 'roulette', title: "Sweet Sixteen",        desc: "Roulette: 16 is 10x more likely to hit",          r_hot_number: 16, r_hot_boost: 10,           devNote: '' },
+  r_hot_zero:     { type: 'roulette', title: "Hot Zero",             desc: "Roulette: Zero is 10x more likely to hit",        r_hot_number: 0, r_hot_boost: 10,            devNote: 'Raises the chance of your number hitting from 2.7% to exactly 27%' },
+  r_sweet_sixteen:{ type: 'roulette', title: "Sweet Sixteen",        desc: "Roulette: 16 is 10x more likely to hit",          r_hot_number: 16, r_hot_boost: 10,           devNote: 'Raises the chance of your number hitting from 2.7% to exactly 27%' },
   r_color_double: { type: 'roulette', title: "Color Bonus",          desc: "Roulette: Red/Black bets pay double. One bet max.", r_color_double: true, r_max_bets: 1,  devNote: '' },
   r_multi_bet:    { type: 'roulette', title: "Multi Bet",            desc: "Roulette: Place up to 10 bets",                   r_max_bets: 10,                              devNote: '' },
   r_respin:       { type: 'roulette', title: "Second Chance",        desc: "Roulette: One free re-spin",                      r_respin: true,                              devNote: '' },

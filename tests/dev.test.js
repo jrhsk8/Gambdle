@@ -30,7 +30,8 @@ describe('devApplyMod', () => {
 
   it('getMod reads the forced mod after devApplyMod', () => {
     devApplyMod('r_hot_zero');
-    assertEqual(getMod('r_zero_boost'), 10);
+    assertEqual(getMod('r_hot_number'), 0);
+    assertEqual(getMod('r_hot_boost'), 10);
     S.forcedMod = null;
   });
 

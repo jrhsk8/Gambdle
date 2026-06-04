@@ -500,7 +500,9 @@ function rAddBet(){
   const placedBet=S.rBets.find(b=>b.pick===prevPick);
   if(placedBet){placedBet.bet+=betAmt;}else{S.rBets.push({pick:prevPick,bet:betAmt});}
   sndChip(betAmt);
-  S.rBet=0; S.rPick=null;
+  // Keep the bet amount selected for quick repeat bets on other tiles; only the tile pick clears.
+  // Cap it to the chips left after this stake so the kept amount can never exceed the balance.
+  S.rPick=null; S.rBet=Math.min(betAmt,S.chips);
   saveState();
 
   const boardBtn=document.querySelector(`[data-idx="${prevPick}"]`);
@@ -518,8 +520,8 @@ function rAddBet(){
   if(irow)irow.innerHTML=`<span class="ik" style="color:var(--shadow)">Select a tile to bet on</span><span class="iv"></span>`;
 
   const bv=document.getElementById('bv');
-  if(bv)bv.textContent=fmt(0);
-  document.querySelectorAll('.chbtn').forEach(b=>{b.disabled=(+b.dataset.v)>S.chips;});
+  if(bv)bv.textContent=fmt(S.rBet); // keep showing the retained amount, not 0
+  document.querySelectorAll('.chbtn').forEach(b=>{b.disabled=S.rBet+(+b.dataset.v)>S.chips;});
 
   const placed=document.getElementById('r-placed');
   if(placed)placed.innerHTML=rPlacedInner(S.rBets,maxBets);
@@ -546,15 +548,12 @@ function rAllIn(){
   debit(S.chips,'roulette-allin');
   rSpin();
 }
-// The active "hot number" pocket boost as {num, extra}, or null. Covers legacy Hot Zero
-// (r_zero_boost → pocket 0) and the generic Hot Number boost (r_hot_number + r_hot_boost → any
-// pocket, e.g. Sweet Sixteen on 16). `extra` is the bonus pockets that number gets, so it lands
-// extra:1 vs each other number ("10x more likely").
+// The active "hot number" pocket boost as {num, boost}, or null. Drives both Hot Zero (pocket 0)
+// and Sweet Sixteen (pocket 16) — same shape, one path. `boost` is the likelihood multiplier vs a
+// fair wheel: 10 means the pocket lands 10× as often as its normal 1/37 (see _pickSpin).
 function rHotNumber(){
-  const zb=getMod('r_zero_boost');
-  if(zb) return {num:0, extra:zb};
   const n=getMod('r_hot_number');
-  if(n!=null) return {num:n, extra:getMod('r_hot_boost')||0};
+  if(n!=null) return {num:n, boost:getMod('r_hot_boost')||0};
   return null;
 }
 
@@ -564,15 +563,16 @@ function _pickSpin(){
   if(DEAL.rSpinOverride!=null) return DEAL.rSpinOverride;
   const fg=getMod('r_force_group');
   if(fg&&R_GROUP_INFO[fg]){const ns=[...R_GROUP_INFO[fg].nums];return ns[Math.floor(Math.random()*ns.length)];}
-  // Hot number: expand the pool by `extra` slots all mapped to the boosted pocket, so it hits
-  // extra/(36+extra) of the time; the other 36 slots map in order to every OTHER pocket (0-36
-  // minus the boosted one). For pocket 0 this reduces to the original zero-boost (idx+1 → 1..36).
+  // Hot number (true Nx): a two-stage draw that keeps the wheel at its normal 37 pockets instead of
+  // diluting it. With probability boost/37 the ball is on the hot pocket — so a boost of 10 lands it
+  // at 10/37, exactly 10× the fair 1/37. Otherwise it's an ordinary fair spin over the OTHER 36
+  // pockets (idx 0..35 mapped to 0-36, skipping the hot one). Roulette uses Math.random(), not the
+  // seeded PRNG, so the second draw costs nothing.
   const hot=rHotNumber();
   if(hot){
-    const r=Math.floor(Math.random()*(36+hot.extra));
-    if(r<hot.extra) return hot.num;
-    const idx=r-hot.extra;          // 0..35
-    return idx<hot.num?idx:idx+1;   // map to 0..36, skipping the boosted pocket
+    if(Math.floor(Math.random()*37)<hot.boost) return hot.num;
+    const idx=Math.floor(Math.random()*36);   // 0..35 — fair pick among the other 36 pockets
+    return idx<hot.num?idx:idx+1;              // map to 0..36, skipping the hot pocket
   }
   return Math.floor(Math.random()*37);
 }

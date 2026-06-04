@@ -194,12 +194,18 @@ body {
 }
 
 /* ── WinXP inactive window ──────────────────────────────── */
-body.win-inactive .title-bar {
+/* Applies both when the whole tab loses focus (body.win-inactive) and when a single popup is
+   deactivated by a desktop click-away (.info-box.win-inactive — see _infoOverlayClick). */
+body.win-inactive .title-bar,
+.info-box.win-inactive .title-bar {
   background: linear-gradient(180deg, #c8c8c8 0%, #a8a8a8 100%);
 }
-body.win-inactive .tb-title { opacity: 0.6; text-shadow: none; }
+body.win-inactive .tb-title,
+.info-box.win-inactive .tb-title { opacity: 0.6; text-shadow: none; }
 body.win-inactive .tb-btn,
-body.win-inactive .tb-btn.close {
+body.win-inactive .tb-btn.close,
+.info-box.win-inactive .tb-btn,
+.info-box.win-inactive .tb-btn.close {
   background: #c0c0c0;
   border-color: #888;
   box-shadow: inset 1px 1px 0 rgba(255,255,255,0.65), inset -1px -1px 0 rgba(0,0,0,0.18);
@@ -207,7 +213,9 @@ body.win-inactive .tb-btn.close {
   text-shadow: none;
 }
 body.win-inactive .tb-btn:hover,
-body.win-inactive .tb-btn.close:hover {
+body.win-inactive .tb-btn.close:hover,
+.info-box.win-inactive .tb-btn:hover,
+.info-box.win-inactive .tb-btn.close:hover {
   background: #cccccc;
 }
 
@@ -292,6 +300,8 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 }
 .logo-spade { color: var(--ink); margin-right: 0.12em; }
 .logo-sub { font-size: 1.5rem; color: var(--shadow); letter-spacing: 0.18em; margin-top: 8px; text-transform: uppercase; }
+/* Mini logo for the About window (smaller than the start-screen 5.4rem). */
+.logo-mini { font-size: 3rem; }
 
 /* ── Buttons ────────────────────────────────────────────── */
 .btn-gold {
@@ -974,7 +984,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   border: 1px solid var(--ink);
   box-shadow: inset 1px 1px 0 var(--highlight), inset -2px -2px 0 var(--shadow), 0 16px 40px rgba(0,0,0,0.6);
   max-width: 560px; width: 100%; max-height: 80vh; overflow-y: auto;
+  border-radius: 8px 8px 0 0;   /* rounded top corners like the main .window */
 }
+/* Titled info modal (help windows, modifier popups, About): pin the WinXP blue bar at the top and
+   scroll the body beneath it. overflow:hidden clips the bar to the box's rounded top corners. */
+.info-box.info-box-titled { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.info-box-titled > .title-bar { border-radius: 7px 7px 0 0; flex-shrink: 0; }
+.info-box-titled > .info-content { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
 
 .feedback-textarea {
   width: 100%; min-height: 110px; resize: vertical;
@@ -1818,8 +1834,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r { font-size: 1.12rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-s { font-size: 0.95rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r[data-r="10"] { font-size: 0.9rem !important; }
-  /* Center the BJ win-result group (banner + dots stay pinned at the top). */
-  .panel:has(> div[style*="gap:16px"]) > .result-hl { margin-top: auto; }
+  /* Center the BJ win-result group (banner + dots stay pinned at the top). The headline carries
+     auto-margins top AND bottom so its own slack splits evenly above (to the divider) and below
+     (to the chips line) — it stays vertically centered between them instead of hugging the sub. */
+  .panel:has(> div[style*="gap:16px"]) > .result-hl { margin-top: auto; margin-bottom: auto; }
   .panel:has(> div[style*="gap:16px"]) > .btn-gold:last-child { margin-bottom: auto; }
   .panel:has(> div[style*="gap:16px"]) .hand-val { font-size: 1.5rem !important; }
   .panel:has(> div[style*="gap:16px"]) .sec-sm { font-size: 1.1rem; }
@@ -1880,7 +1898,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r { font-size: 1.35rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-s { font-size: 1.1rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r[data-r="10"] { font-size: 1.05rem !important; }
-  .panel:has(> div[style*="gap:16px"]) .result-hl { font-size: 2.5rem; }
+  .panel:has(> div[style*="gap:16px"]) .result-hl { font-size: 3rem; }
   .panel:has(> div[style*="gap:16px"]) .hand-val { font-size: 1.7rem !important; }
 
   /* BJ split result — grow cards on taller windows */
@@ -1909,7 +1927,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
   /* Roulette result — grow the result number + outcome on taller windows */
   .panel:has(.r-res-num) .r-res-num { width: 124px; height: 124px; font-size: 3.1rem; }
-  .panel:has(.r-res-num) .result-hl { font-size: 2.6rem; }
+  .panel:has(.r-res-num) .result-hl { font-size: 3rem; }
   .panel:has(.r-res-num) .result-sub { font-size: 1.8rem; }
   .panel:has(.r-res-num) .res-row,
   .panel:has(.r-res-num) .game-manifest > div { font-size: 1.15rem; }
@@ -2038,7 +2056,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r { font-size: 1.5rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-s { font-size: 1.2rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r[data-r="10"] { font-size: 1.15rem !important; }
-  .panel:has(> div[style*="gap:16px"]) .result-hl { font-size: 2.7rem; }
+  .panel:has(> div[style*="gap:16px"]) .result-hl { font-size: 3.3rem; }
   .panel:has(> div[style*="gap:16px"]) .hand-val { font-size: 1.9rem !important; }
 
   /* BJ split result — narrow-tall */
@@ -2067,7 +2085,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
   /* Roulette result — tallest windows */
   .panel:has(.r-res-num) .r-res-num { width: 144px; height: 144px; font-size: 3.6rem; }
-  .panel:has(.r-res-num) .result-hl { font-size: 2.9rem; }
+  .panel:has(.r-res-num) .result-hl { font-size: 3.3rem; }
   .panel:has(.r-res-num) .res-row,
   .panel:has(.r-res-num) .game-manifest > div { font-size: 1.3rem; }
 

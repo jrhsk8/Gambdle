@@ -416,7 +416,7 @@ function screenBJ(){
             </div>
             <div class="felt-rules">
               <div class="felt-rule-line">Blackjack pays ${payTxt}</div>
-              <div class="felt-rule-line">Dealer must stand on ${standAt} and draw to ${standAt-1}</div>
+              <div class="felt-rule-line">Dealer must draw to ${standAt-1} and stand on all ${standAt}s</div>
             </div>
             <div class="bj-bet-slot-row">
               <div class="bj-bet-slot-lbl">Your hand</div>

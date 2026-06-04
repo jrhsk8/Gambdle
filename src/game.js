@@ -889,16 +889,63 @@ function _winMouseup() {
   document.removeEventListener('mousemove', _winMousemove);
 }
 
+// ─── Draggable dialog boxes (Help / About / modifier popups / Send Feedback) ───────────────
+// These dialogs reuse the WinXP `.title-bar`, so grabbing one used to drag the main window behind
+// it. Instead a dialog's bar drags the DIALOG itself (a transform on its `.info-box`), and the main
+// window is locked while any dialog is open. Each freshly opened dialog starts centered — the offset
+// resets whenever a different box is grabbed.
+let _dlgDrag = null, _dlgBox = null, _dlgOffset = { x: 0, y: 0 };
+
+function _dlgMousemove(e) {
+  if (!_dlgDrag) return;
+  _dlgOffset.x = _dlgDrag.ox + e.clientX - _dlgDrag.mx;
+  _dlgOffset.y = _dlgDrag.oy + e.clientY - _dlgDrag.my;
+  _dlgDrag.box.style.transform = `translate(${_dlgOffset.x}px,${_dlgOffset.y}px)`;
+}
+
+function _dlgMouseup() {
+  _dlgDrag = null;
+  document.removeEventListener('mousemove', _dlgMousemove);
+}
+
+// The □ title-bar button on a blue-bar dialog: glide it back to center (the dialog analogue of
+// snapWindowToOrigin). Zero the offset so a later drag resumes from center; no-op when undragged
+// (and therefore harmless on mobile/touch, where dialog drag is disabled).
+function recenterDialog() {
+  const box = document.querySelector('.info-modal .info-box');
+  if (!box || (_dlgOffset.x === 0 && _dlgOffset.y === 0)) return;
+  _dlgOffset = { x: 0, y: 0 };
+  box.style.transition = 'transform 0.22s ease';
+  box.style.transform = 'translate(0,0)';
+  setTimeout(() => { box.style.transition = ''; }, 220);
+}
+
+// Routes a title-bar mousedown: a dialog's bar drags that dialog; the main window's bar drags the
+// window only when no dialog is open. The ✕/min/max buttons (`.tb-btn`) never start a drag.
+function _dragMousedown(e) {
+  const tb = e.target.closest('.title-bar');
+  if (!tb || e.target.closest('.tb-btn')) return;
+  const modal = tb.closest('.info-modal');
+  if (modal) {
+    const box = modal.querySelector('.info-box');
+    if (!box) return;
+    e.preventDefault();
+    if (box !== _dlgBox) { _dlgBox = box; _dlgOffset = { x: 0, y: 0 }; } // a new dialog → start centered
+    _dlgDrag = { box, ox: _dlgOffset.x, oy: _dlgOffset.y, mx: e.clientX, my: e.clientY };
+    document.addEventListener('mousemove', _dlgMousemove);
+    document.addEventListener('mouseup', _dlgMouseup, { once: true });
+    return;
+  }
+  if (document.querySelector('.info-modal')) return; // a dialog is open — keep the main window put
+  e.preventDefault();
+  _winDragStart = { mx: e.clientX, my: e.clientY, ox: _winOffset.x, oy: _winOffset.y };
+  document.addEventListener('mousemove', _winMousemove);
+  document.addEventListener('mouseup', _winMouseup, { once: true });
+}
+
 function initWindowDrag() {
   if (window.innerWidth <= 480 || !window.matchMedia('(hover: hover)').matches) return;
-  document.addEventListener('mousedown', e => {
-    const tb = e.target.closest('.title-bar');
-    if (!tb || e.target.closest('.tb-btn')) return;
-    e.preventDefault();
-    _winDragStart = { mx: e.clientX, my: e.clientY, ox: _winOffset.x, oy: _winOffset.y };
-    document.addEventListener('mousemove', _winMousemove);
-    document.addEventListener('mouseup', _winMouseup, { once: true });
-  });
+  document.addEventListener('mousedown', _dragMousedown);
 }
 
 // ─── BOOT ────────────────────────────────────────────────────────────────
