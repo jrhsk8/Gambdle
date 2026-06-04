@@ -39,18 +39,27 @@ function _bjResumeAfterRefresh(){
     setTimeout(()=>{S.bjCelebrating=false;bjResolve();},BJ_RESUME_MS);
     return;
   }
-  if(!S.bjSplit&&hVal(S.bjPlayer)>=21){
-    // Player busted or hit to 21; dealer reveal never fired.
-    setTimeout(bjRevealDealer,BJ_RESUME_MS);
+  // The player finished acting (stood, doubled, hit to 21, or busted) but the timer that starts the
+  // dealer's turn was lost to the refresh. A bust/21 is evident from the cards; a stand or a double
+  // that landed under 21 is not, so bjStand/bjDouble persist S.bjActed to mark it. _bjResolving locks
+  // the (still-rendered) action buttons out during the short re-reveal delay so the hand can't be
+  // re-played (e.g. hitting an already-doubled hand).
+  if(!S.bjSplit&&(S.bjActed||hVal(S.bjPlayer)>=21)){
+    _bjResolving=true;
+    setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_RESUME_MS);
     return;
   }
   if(S.bjSplit){
     if(S.bjSplitDone.length&&S.bjSplitDone.every(d=>d)){
       // All split hands resolved; dealer reveal never fired.
-      setTimeout(bjRevealDealer,BJ_RESUME_MS);
+      _bjResolving=true;
+      setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_RESUME_MS);
     } else {
       const ai=S.bjSplitActive,hand=S.bjSplitHands[ai];
-      if(hand&&hVal(hand)>=21) setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_RESUME_MS);
+      if(S.bjActed||(hand&&hVal(hand)>=21)){
+        _bjResolving=true;
+        setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_RESUME_MS);
+      }
     }
   }
 }
@@ -61,7 +70,7 @@ function resetBJHand(){
   S.bjSplitBets=[]; S.bjSplitResults=[]; S.bjSplitDone=[];
   S.bjDoubled=false; S.bjSplitDoubled=[];
   S.bjAnimFrom=0; S.bjDealerAnimFrom=0; S.bjSplitAnimFrom=[];
-  S.bjDealerReveal=false; S.bjCelebrating=false;
+  S.bjDealerReveal=false; S.bjCelebrating=false; S.bjActed=false;
   _bjResolving=false;
 }
 
@@ -125,6 +134,11 @@ function bjHit(){
 function bjStand(){
   if(_bjResolving)return;
   _bjResolving=true;
+  // Persist that the player finished acting, so a refresh during the brief reveal delay resumes the
+  // dealer's turn instead of stranding the hand in 'play' with the action buttons live again
+  // (a stand leaves the cards unchanged, so without this flag the saved state is indistinguishable
+  // from "still deciding"). See _bjResumeAfterRefresh.
+  S.bjActed=true;saveState();
   if(S.bjSplit)setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_RESUME_MS);
   else setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_RESUME_MS);
 }
@@ -141,6 +155,7 @@ function bjDouble(){
     updateChipDisplay();
     S.bjSplitHands[i].push(DEAL.bjShoe[S.bjIdx++]);
     sndCard(100);
+    S.bjActed=true; // hand is done after the one card; a refresh in the deal-out delay resumes (render() persists it)
     _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_ADVANCE_MS);
   }else{
     if(S.chips<S.bjBet)return;
@@ -149,6 +164,7 @@ function bjDouble(){
     S.bjDoubled=true;
     updateChipDisplay();
     S.bjPlayer.push(DEAL.bjShoe[S.bjIdx++]);
+    S.bjActed=true; // hand is done after the one card; a refresh in the deal-out delay resumes (render() persists it)
     _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_ADVANCE_MS);
   }
 }
@@ -200,6 +216,7 @@ function bjCheckSplitHand(){
 
 /** Moves play to the next split hand, or to the dealer if all hands are done. */
 function bjAdvanceSplit(){
+  S.bjActed=false; // this sub-hand's action is consumed; the next sub-hand (if any) is freshly playable
   S.bjSplitDone[S.bjSplitActive]=true;
   const next=S.bjSplitDone.indexOf(false);
   if(next!==-1){
@@ -218,6 +235,7 @@ function bjAdvanceSplit(){
 /** Reveals the dealer's hole card, then hits recursively every 800ms until standing (17+). */
 function bjRevealDealer(){
   S.bjDealerReveal=true;
+  S.bjActed=false; // consumed — from here the dealer-reveal branch owns refresh recovery
   S.bjDealerAnimFrom=1; // animate the hole card reveal
   S.bjAnimFrom=ANIM_NONE;S.bjSplitAnimFrom=S.bjSplitAnimFrom.map(()=>ANIM_NONE);
   _noAnim=true;render();

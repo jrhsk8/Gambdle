@@ -120,6 +120,14 @@ function sndShuffle(cb){
     let done=false;
     const once=()=>{if(!done){done=true;cb();}};
     a.onended=once;a.onerror=once;
+    // The deal is gated on this callback — bj/uth/poker leave the 'dealing' lock only when it
+    // fires — so it MUST run even if the audio stalls. play() can resolve yet never emit
+    // 'ended'/'error' (tab backgrounded mid-clip, a suspended/throttled element, or iOS's
+    // per-session HTMLAudioElement limit after many new Audio() calls in a hand). Without a ceiling
+    // the game hangs forever on the dealing screen with a disabled Deal button. 2000ms clears the
+    // ~1s clip so normal playback is never cut short; the clip keeps playing (we don't pause it) —
+    // only the cards deal early in the rare stall.
+    setTimeout(once,2000);
     a.play().catch(()=>setTimeout(once,800));
   }else{
     a.play().catch(()=>{});
@@ -874,10 +882,17 @@ function devToggleTestTutorial(){
   toast(on ? 'Test Tutorial on, tips always show' : 'Test Tutorial off');
 }
 
-// Closes the balloon on any click/tap that isn't inside it.
+// Timestamp (ms) of the most recent window refocus — see _popupOutsideClick.
+let _refocusAt = 0;
+
+// Closes the balloon on any click/tap that isn't inside it — EXCEPT the click that brings the
+// window back into focus after it was unfocused (that click should leave the tip up). That refocus
+// click can arrive either before focus is restored (document not yet focused) or just after the
+// focus event fires, so we guard on both: an unfocused document, or a click within 300ms of refocus.
 function _popupOutsideClick(e) {
   const el = document.getElementById('xp-balloon');
   if (el && el.contains(e.target)) return;
+  if (!document.hasFocus() || Date.now() - _refocusAt < 300) return;
   dismissPopup();
 }
 
@@ -904,6 +919,6 @@ function _updateBalloonPosition() {
 
 // WinXP inactive title bar — dims chrome when tab loses focus
 window.addEventListener('blur', () => document.body.classList.add('win-inactive'));
-window.addEventListener('focus', () => document.body.classList.remove('win-inactive'));
+window.addEventListener('focus', () => { document.body.classList.remove('win-inactive'); _refocusAt = Date.now(); });
 document.addEventListener('visibilitychange', () =>
   document.body.classList.toggle('win-inactive', document.hidden));

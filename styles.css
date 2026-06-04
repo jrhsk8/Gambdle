@@ -844,6 +844,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   font-size: 0.75rem; font-weight: 700; color: var(--gold-hi);
   text-align: center; line-height: 1; pointer-events: none;
 }
+/* In-tile corner flame for a boosted mid-grid pocket (e.g. Sweet Sixteen on 16), where the
+   below-tile .r-pay-lbl would collide with the dozens row beneath the number grid. */
+.r-fire-badge {
+  position: absolute; top: -3px; right: -2px;
+  font-size: 0.62rem; line-height: 1; pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.7));
+}
 
 .wheel-outer { display: flex; flex-direction: column; align-items: center; margin: 6px 0 14px; }
 .wheel-pointer { width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-top: 22px solid var(--gold); margin-bottom: -3px; position: relative; z-index: 2; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.5)); }

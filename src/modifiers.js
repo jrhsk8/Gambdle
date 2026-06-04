@@ -28,6 +28,8 @@
  * - r_payout_mult: 2.0      All roulette wins pay this multiple
  * - r_number_pay: 50        Straight number bets pay this (default 35)
  * - r_zero_boost: 10        Zero is this many times more likely to hit
+ * - r_hot_number: 16        The straight-up pocket that gets the hot-pocket boost (paired with r_hot_boost)
+ * - r_hot_boost: 10         Extra pockets given to r_hot_number, so it lands this many : 1 vs each other number
  * - r_color_double: true    Red and Black bets pay 2:1
  * - r_max_bets: 3           Max roulette bets per spin (default 5)
  * - r_respin: true          After spin, choose to keep the result or re-spin once
@@ -58,6 +60,7 @@ const PRESET_MODIFIERS = {
   r_double_ball:  { type: 'roulette', title: "Double Ball",          desc: "Roulette: Two balls spin — win if either lands on your bet.", r_double_ball: true,             devNote: '' },
   r_hot_numbers:  { type: 'roulette', title: "Hot Numbers",          desc: "Roulette: Straight number bets pay 50:1",         r_number_pay: 50,                            devNote: '' },
   r_hot_zero:     { type: 'roulette', title: "Hot Zero",             desc: "Roulette: Zero is 10x more likely to hit",        r_zero_boost: 10,                            devNote: '' },
+  r_sweet_sixteen:{ type: 'roulette', title: "Sweet Sixteen",        desc: "Roulette: 16 is 10x more likely to hit",          r_hot_number: 16, r_hot_boost: 10,           devNote: '' },
   r_color_double: { type: 'roulette', title: "Color Bonus",          desc: "Roulette: Red/Black bets pay double. One bet max.", r_color_double: true, r_max_bets: 1,  devNote: '' },
   r_multi_bet:    { type: 'roulette', title: "Multi Bet",            desc: "Roulette: Place up to 10 bets",                   r_max_bets: 10,                              devNote: '' },
   r_respin:       { type: 'roulette', title: "Second Chance",        desc: "Roulette: One free re-spin",                      r_respin: true,                              devNote: '' },
@@ -78,7 +81,7 @@ const CYCLE_ORDER = [
   'r_double_ball',      // Day 2  — roulette (was double_pay)
   'r_color_double',     // Day 3  — roulette
   'uth_river_monster',  // Day 4  — uth (was uth_blind_boost)
-  'r_multi_bet',        // Day 5  — roulette
+  'r_sweet_sixteen',    // Day 5  — roulette (was r_multi_bet)
   'comeback',           // Day 6  — cross
   'r_double_all',       // Day 7  — roulette
   'easy_dealer',        // Day 8  — bj
@@ -137,7 +140,7 @@ const DAILY_MODIFIERS = {
   20260601: 'peek',               // Day 28
   20260602: 'r_double_ball',      // Day 29
   20260603: 'uth_time_travel',    // Day 30
-  20260604: 'r_group_13_24',      // Day 31
+  20260604: 'r_sweet_sixteen',    // Day 31 (overridden for the Sweet Sixteen launch)
   20260605: 'uth_river_monster',  // Day 32
 };
 

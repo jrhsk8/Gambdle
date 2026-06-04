@@ -577,3 +577,91 @@ describe('_evalBets — r_double_ball (Double Ball)', () => {
     S.forcedMod = null; S.rSpin2 = null;
   });
 });
+
+// ─── _pickSpin — winning-pocket selection (incl. the hot-number boost) ──────────────────────────
+// Pins Math.random() to the centre of pool slot `rInt` so each draw is deterministic, then walks
+// every slot to prove the exact pocket mapping (no statistics / flakiness).
+function _pickWith(rInt, pool) {
+  const orig = Math.random;
+  Math.random = () => (rInt + 0.5) / pool;
+  try { return _pickSpin(); } finally { Math.random = orig; }
+}
+
+describe('_pickSpin — Sweet Sixteen boost (r_hot_number=16, r_hot_boost=10)', () => {
+  it('gives 16 the 10 boost slots and maps the rest to every OTHER pocket exactly once', () => {
+    S.forcedMod = 'r_sweet_sixteen';                 // pool = 36 + 10 = 46
+    const hist = {};
+    for (let r = 0; r < 46; r++) { const n = _pickWith(r, 46); hist[n] = (hist[n] || 0) + 1; }
+    S.forcedMod = null;
+    assertEqual(hist[16], 10, '16 occupies all 10 boost slots');
+    for (let n = 0; n <= 36; n++) { if (n === 16) continue; assertEqual(hist[n], 1, `pocket ${n} appears exactly once`); }
+    assert(Object.keys(hist).every(k => +k >= 0 && +k <= 36), 'every result is a real pocket 0..36');
+    assertEqual(Object.values(hist).reduce((a, b) => a + b, 0), 46, 'whole pool accounted for');
+  });
+
+  it('every boost slot resolves to 16', () => {
+    S.forcedMod = 'r_sweet_sixteen';
+    for (let r = 0; r < 10; r++) assertEqual(_pickWith(r, 46), 16, `boost slot ${r} → 16`);
+    S.forcedMod = null;
+  });
+
+  it('the non-boost slots never land on 16 (no double-counting)', () => {
+    S.forcedMod = 'r_sweet_sixteen';
+    for (let r = 10; r < 46; r++) assert(_pickWith(r, 46) !== 16, `slot ${r} must skip 16`);
+    S.forcedMod = null;
+  });
+});
+
+describe('_pickSpin — Hot Zero still boosts 0 (refactor regression)', () => {
+  it('0 gets the 10 boost slots; 1..36 each appear exactly once', () => {
+    S.forcedMod = 'r_hot_zero';
+    const hist = {};
+    for (let r = 0; r < 46; r++) { const n = _pickWith(r, 46); hist[n] = (hist[n] || 0) + 1; }
+    S.forcedMod = null;
+    assertEqual(hist[0], 10, '0 occupies all 10 boost slots');
+    for (let n = 1; n <= 36; n++) assertEqual(hist[n], 1, `pocket ${n} appears exactly once`);
+  });
+});
+
+describe('_pickSpin — no boost and override', () => {
+  it('with no modifier the 37 pool slots map 1:1 onto 0..36', () => {
+    S.forcedMod = {};
+    const hist = {};
+    for (let r = 0; r < 37; r++) { const n = _pickWith(r, 37); hist[n] = (hist[n] || 0) + 1; }
+    S.forcedMod = null;
+    for (let n = 0; n <= 36; n++) assertEqual(hist[n], 1, `pocket ${n} appears exactly once`);
+  });
+
+  it('DEAL.rSpinOverride beats the hot-number boost outright', () => {
+    const prev = DEAL.rSpinOverride;
+    DEAL.rSpinOverride = 23; S.forcedMod = 'r_sweet_sixteen';
+    try { assertEqual(_pickSpin(), 23); }
+    finally { DEAL.rSpinOverride = prev; S.forcedMod = null; }
+  });
+});
+
+// ─── Sweet Sixteen — modifier configuration (the day wiring) ─────────────────────────────────────
+describe('Sweet Sixteen — modifier config', () => {
+  it('preset exists with the right type, title, and boost keys', () => {
+    const m = PRESET_MODIFIERS.r_sweet_sixteen;
+    assert(m, 'r_sweet_sixteen preset exists');
+    assertEqual(m.type, 'roulette');
+    assertEqual(m.title, 'Sweet Sixteen');
+    assertEqual(m.r_hot_number, 16);
+    assertEqual(m.r_hot_boost, 10);
+  });
+
+  it('replaces r_multi_bet in the daily CYCLE_ORDER', () => {
+    assert(CYCLE_ORDER.includes('r_sweet_sixteen'), 'cycle now includes Sweet Sixteen');
+    assert(!CYCLE_ORDER.includes('r_multi_bet'), 'cycle no longer includes r_multi_bet');
+  });
+
+  it("is tomorrow's daily modifier (2026-06-04)", () => {
+    assertEqual(DAILY_MODIFIERS[20260604], 'r_sweet_sixteen');
+  });
+
+  it('keeps the r_multi_bet preset and its frozen archive day (Day 5) intact', () => {
+    assert(PRESET_MODIFIERS.r_multi_bet, 'r_multi_bet preset retained for archives');
+    assertEqual(DAILY_MODIFIERS[20260509], 'r_multi_bet', 'frozen Day 5 unchanged');
+  });
+});

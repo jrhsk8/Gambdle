@@ -23,8 +23,8 @@
 
 const TUTORIAL_TIPS = {
   modifier: {
-    title: "Today's Twist",
-    body: "Every day has a <b>daily modifier</b>, shown in the banner up top. It can make a big difference in gameplay, so make sure to check it each day!",
+    title: "Welcome to Gambdle!",
+    body: "Gambdle consists of three games each day. Everyone gets the <b>same shuffles</b> and a <b>random roulette spin.</b> Every day has a <b>daily modifier</b> that shakes up gameplay."
   },
   bj_hands: {
     title: "3 Hands of Blackjack",

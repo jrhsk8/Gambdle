@@ -363,6 +363,71 @@ describe('bjResolve — split: history records aggregated delta', () => {
   });
 });
 
+// ─── _bjResumeAfterRefresh — recover a hand interrupted by a page refresh ────────
+// Regression for "stuck mid-hand after a refresh": after the player Stands or Doubles there is a
+// short delay before the dealer's turn begins. If the page reloads in that window the timer is gone,
+// so resume must restart the dealer's turn (reveal, or advance to the next split hand). A stand
+// leaves the cards unchanged — indistinguishable from "still deciding" — so the intent is persisted
+// in S.bjActed. These assert the resume *fires* (schedules a timer) exactly when it should; without
+// the fix the stand/double cases schedule nothing and the hand strands in 'play'.
+describe('_bjResumeAfterRefresh — resumes a stood/doubled hand lost to a refresh', () => {
+  const H = (r, s) => card(r, s);
+  // Run _bjResumeAfterRefresh against a crafted play-phase state with setTimeout captured (not run).
+  // Returns how many timers it scheduled (1 = a resume was kicked off, 0 = left to the player).
+  function resumeTimers(state) {
+    const origST = window.setTimeout;
+    const timers = [];
+    window.setTimeout = (f, d) => { timers.push({ f, d: d || 0 }); return timers.length; };
+    try {
+      Object.assign(S, {
+        screen: 'bj', bjPhase: 'play', forcedMod: {},
+        bjSplit: false, bjDealerReveal: false, bjCelebrating: false, bjActed: false,
+        bjPlayer: [], bjDealer: [H('9','d'), H('7','c')], bjIdx: 0,
+        bjSplitHands: [], bjSplitDone: [], bjSplitActive: 0,
+      }, state);
+      _bjResumeAfterRefresh();
+      return timers.length;
+    } finally {
+      window.setTimeout = origST;
+      resetBJHand();   // clears the _bjResolving lock the resume may have set
+      _bjRestoreS();   // back to the clean baseline
+    }
+  }
+
+  it('non-split: a stand under 21 (bjActed) resumes the dealer reveal', () => {
+    assertEqual(resumeTimers({ bjActed: true, bjPlayer: [H('K','s'), H('9','h')] }), 1);
+  });
+  it('non-split: a double under 21 (bjActed, 3 cards) resumes the dealer reveal', () => {
+    assertEqual(resumeTimers({ bjActed: true, bjDoubled: true, bjBet: 200, bjPlayer: [H('5','s'), H('4','h'), H('9','d')] }), 1);
+  });
+  it('non-split: bust resumes even without bjActed (the cards are self-evident)', () => {
+    assertEqual(resumeTimers({ bjActed: false, bjPlayer: [H('K','s'), H('Q','h'), H('5','d')] }), 1);
+  });
+  it('non-split: a still-deciding hand (no bjActed, under 21) does NOT resume', () => {
+    assertEqual(resumeTimers({ bjActed: false, bjPlayer: [H('K','s'), H('5','h')] }), 0);
+  });
+  it('split: a stand on the active sub-hand (bjActed) resumes the advance', () => {
+    assertEqual(resumeTimers({ bjSplit: true, bjActed: true, bjSplitActive: 0,
+      bjSplitHands: [[H('K','s'), H('9','h')], [H('8','h')]], bjSplitDone: [false, false] }), 1);
+  });
+  it('split: a still-deciding active sub-hand does NOT resume', () => {
+    assertEqual(resumeTimers({ bjSplit: true, bjActed: false, bjSplitActive: 0,
+      bjSplitHands: [[H('K','s'), H('5','h')], [H('8','h')]], bjSplitDone: [false, false] }), 0);
+  });
+});
+
+// bjStand / bjDouble must persist the "acted" intent so the above resume can fire after a refresh.
+describe('bjStand / bjDouble — persist bjActed for refresh recovery', () => {
+  it('bjStand sets S.bjActed', () => {
+    _bjRestoreS();
+    Object.assign(S, { screen:'bj', bjPhase:'play', bjSplit:false, bjPlayer:[card('K','s'),card('9','h')], bjDealer:[card('9','d'),card('7','c')], bjBet:100, chips:900, bjIdx:0 });
+    _bjResolving = false;
+    const origST = window.setTimeout; window.setTimeout = () => 0; // swallow the reveal timer
+    try { bjStand(); assert(S.bjActed, 'bjStand should set bjActed'); }
+    finally { window.setTimeout = origST; resetBJHand(); _bjRestoreS(); }
+  });
+});
+
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 _bjSavedSeedFlag === null
   ? _ls.removeItem('gambdle_use_test_seed')

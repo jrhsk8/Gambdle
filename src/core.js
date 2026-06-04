@@ -2,7 +2,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.15';
+const GAME_VERSION = 'v1.16';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -305,6 +305,8 @@ let S={
   bjHistory:[], bjIdx:0,
   bjSplit:false, bjSplitHands:[], bjSplitActive:0, bjSplitBets:[], bjSplitResults:[], bjSplitDone:[], bjDoubled:false, bjSplitDoubled:[],
   bjAnimFrom:0, bjDealerAnimFrom:0, bjSplitAnimFrom:[], bjDealerReveal:false, bjCelebrating:false,
+  bjActed:false,    // player finished acting on the current (sub-)hand (stood/doubled) — lets a refresh resume the dealer's turn
+
   pkHand:0, pkPhase:'bet', pkBet:0,
   pkCards:[], pkHeld:new Set(), pkFinal:[], pkHistory:[], pkRevealStep:0,
   uthHand:0, uthPhase:'bet', uthAnte:0, uthPlay:0, uthPlayMult:0,

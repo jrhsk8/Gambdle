@@ -115,22 +115,30 @@ function rBoard(){
     if(placedTotals.has(i))return`<span class="r-chip r-chip-placed">${chipLbl(placedTotals.get(i))}</span>`;
     return'';
   };
-  const rMod=getMod('r_payout_mult')?'all':getMod('r_number_pay')?'nums':getMod('r_zero_boost')?'zero':getMod('r_color_double')?'color':null;
+  const hot=rHotNumber();
+  const rMod=getMod('r_payout_mult')?'all':getMod('r_number_pay')?'nums':hot?'hotnum':getMod('r_color_double')?'color':null;
   const boost=i=>{
     if(!rMod)return'';
     if(rMod==='all')return'r-boost';
     if(rMod==='nums'&&i<=36)return'r-boost';
-    if(rMod==='zero'&&i===0)return'r-boost-fire';
+    if(rMod==='hotnum'&&i===hot.num)return'r-boost-fire';
     if(rMod==='color'&&(i===45||i===46))return'r-boost';
     return'';
   };
   const boostLabel=i=>{
     if(!rMod)return'';
-    if(rMod==='zero'&&i===0)return'🔥';
+    if(rMod==='hotnum'&&i===hot.num&&hot.num===0)return'🔥'; // tall zero cell: room for a below-tile label
     if(rMod==='color'&&(i===45||i===46))return'2:1';
     return'';
   };
-  const lbl=i=>{const t=boostLabel(i);return t?`<span class="r-pay-lbl">${t}</span>`:''};
+  const lbl=i=>{
+    // A boosted mid-grid pocket (Sweet Sixteen's 16 — any non-zero hot number) gets an in-tile corner
+    // flame; the below-tile r-pay-lbl is reserved for the zero cell and the color tiles, which have
+    // clear space beneath them (a below-tile flame on 16 would collide with the dozens row).
+    if(rMod==='hotnum'&&i===hot.num&&hot.num!==0) return `<span class="r-fire-badge">🔥</span>`;
+    const t=boostLabel(i);
+    return t?`<span class="r-pay-lbl">${t}</span>`:'';
+  };
   const numBtns=Array.from({length:37},(_,n)=>{
     const gc=n===0?'1':String(Math.floor((n-1)/3)+2);
     const gr=n===0?'1/4':String(n%3===0?1:n%3===2?2:3);
@@ -538,16 +546,41 @@ function rAllIn(){
   debit(S.chips,'roulette-allin');
   rSpin();
 }
+// The active "hot number" pocket boost as {num, extra}, or null. Covers legacy Hot Zero
+// (r_zero_boost → pocket 0) and the generic Hot Number boost (r_hot_number + r_hot_boost → any
+// pocket, e.g. Sweet Sixteen on 16). `extra` is the bonus pockets that number gets, so it lands
+// extra:1 vs each other number ("10x more likely").
+function rHotNumber(){
+  const zb=getMod('r_zero_boost');
+  if(zb) return {num:0, extra:zb};
+  const n=getMod('r_hot_number');
+  if(n!=null) return {num:n, extra:getMod('r_hot_boost')||0};
+  return null;
+}
+
+// Picks the winning pocket (0-36), honoring the active modifiers. Split out from rSpin so the
+// selection is unit-testable; the only impurity is the Math.random() draw.
+function _pickSpin(){
+  if(DEAL.rSpinOverride!=null) return DEAL.rSpinOverride;
+  const fg=getMod('r_force_group');
+  if(fg&&R_GROUP_INFO[fg]){const ns=[...R_GROUP_INFO[fg].nums];return ns[Math.floor(Math.random()*ns.length)];}
+  // Hot number: expand the pool by `extra` slots all mapped to the boosted pocket, so it hits
+  // extra/(36+extra) of the time; the other 36 slots map in order to every OTHER pocket (0-36
+  // minus the boosted one). For pocket 0 this reduces to the original zero-boost (idx+1 → 1..36).
+  const hot=rHotNumber();
+  if(hot){
+    const r=Math.floor(Math.random()*(36+hot.extra));
+    if(r<hot.extra) return hot.num;
+    const idx=r-hot.extra;          // 0..35
+    return idx<hot.num?idx:idx+1;   // map to 0..36, skipping the boosted pocket
+  }
+  return Math.floor(Math.random()*37);
+}
+
 // Determines the winning number (using Math.random, not the seeded PRNG) then kicks off the animation.
 function rSpin(){
   if(S.rBets.length===0)return;
-  const zb=getMod('r_zero_boost');
-  const fg=getMod('r_force_group');
-  if(DEAL.rSpinOverride!=null){S.rSpin=DEAL.rSpinOverride;}
-  else if(fg&&R_GROUP_INFO[fg]){const ns=[...R_GROUP_INFO[fg].nums];S.rSpin=ns[Math.floor(Math.random()*ns.length)];}
-  // r_zero_boost: expand pool by zb slots, all mapped to 0, so zero hits zb/(36+zb) of the time.
-  else if(zb){const r=Math.floor(Math.random()*(36+zb));S.rSpin=r<zb?0:r-zb+1;}
-  else{S.rSpin=Math.floor(Math.random()*37);}
+  S.rSpin=_pickSpin();
   // Double Ball: a second, distinct winning number. Stored in S so it survives a refresh, like rSpin.
   if(getMod('r_double_ball')){do{S.rSpin2=Math.floor(Math.random()*37);}while(S.rSpin2===S.rSpin);}
   else{S.rSpin2=null;}

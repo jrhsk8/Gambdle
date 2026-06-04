@@ -191,3 +191,38 @@ describe('Test Tutorial dev mode — always re-show', () => {
     }
   });
 });
+
+// ─── _popupOutsideClick — clicking back into an unfocused window keeps the tip up ───────────────
+// Regression: the tip balloon is dismissed by any outside pointerdown, but the click that brings an
+// unfocused window back into focus shouldn't count. The refocus click can land either before focus
+// is restored (document not focused yet) or just after the focus event, so both are guarded.
+describe('_popupOutsideClick — refocus click does not dismiss the tip', () => {
+  // Show the balloon, stub the focus state, fire an outside pointerdown; returns whether it dismissed.
+  function clickOutside({ hasFocus, refocusAgoMs }) {
+    let dismissed;
+    withBalloon(bal => {
+      bal.classList.add('xpb-visible');
+      const origHasFocus = document.hasFocus, origRefocus = _refocusAt;
+      document.hasFocus = () => hasFocus;
+      _refocusAt = Date.now() - refocusAgoMs;
+      try {
+        _popupOutsideClick({ target: document.body });   // body is outside the balloon
+        dismissed = !bal.classList.contains('xpb-visible');
+      } finally {
+        document.hasFocus = origHasFocus;
+        _refocusAt = origRefocus;
+      }
+    });
+    return dismissed;
+  }
+
+  it('keeps the tip up when the click arrives before focus is restored (document not focused)', () => {
+    assertEqual(clickOutside({ hasFocus: false, refocusAgoMs: 10000 }), false);
+  });
+  it('keeps the tip up when the click lands right after the refocus (within 300ms)', () => {
+    assertEqual(clickOutside({ hasFocus: true, refocusAgoMs: 50 }), false);
+  });
+  it('still dismisses on a normal outside click while focused, well after any refocus', () => {
+    assertEqual(clickOutside({ hasFocus: true, refocusAgoMs: 10000 }), true);
+  });
+});
