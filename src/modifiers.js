@@ -48,7 +48,7 @@ const PRESET_MODIFIERS = {
   uth_double_play:    { type: 'uth',  title: "Raise the Roof",       desc: "Hold'em: Raises pay double",                     uth_double_play: true,                       devNote: '' },
   uth_hard_qualify:   { type: 'uth',  title: "Tough Table",          desc: "Hold'em: Dealer needs two pair or better to win", uth_hard_qualify: true,                      devNote: '' },
   uth_pocket_aces:    { type: 'uth',  title: "Pocket Aces",          desc: "Hold'em: Your hole cards are Aces every round",   uth_pocket_aces: true,                       devNote: 'Yall were losing way too much so I had to throw you a bone' },
-  uth_river_monster:  { type: 'uth',  title: "River Monster",        desc: "Hold'em: The river card is revealed before you bet", uth_river_monster: true,              devNote: '' },
+  uth_river_monster:  { type: 'uth',  title: "River Monster",        desc: "Hold'em: River card revealed immediately after you bet", uth_river_monster: true,              devNote: '' },
   uth_time_travel:    { type: 'uth',  title: "Time Travel",          desc: "Hold'em: Re-deal the flop or turn+river once today", uth_time_travel: true,                    devNote: '' },
   // Cross-game
   peek:            { type: 'cross',   title: "Dealer Peek",          desc: "Peek at the dealer's hole card on up to 3 hands",  peek: 3,                                     devNote: '' },
@@ -152,6 +152,7 @@ const DAILY_MODIFIERS = {
  */
 const DAILY_SEED_OVERRIDES = {
   // 20260528: 20260601,
+  20260609: 20260103,
 };
 
 // Validate CYCLE_ORDER entries at load time

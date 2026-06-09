@@ -890,17 +890,19 @@ function _winMouseup() {
 }
 
 // ─── Draggable dialog boxes (Help / About / modifier popups / Send Feedback) ───────────────
-// These dialogs reuse the WinXP `.title-bar`, so grabbing one used to drag the main window behind
-// it. Instead a dialog's bar drags the DIALOG itself (a transform on its `.info-box`), and the main
-// window is locked while any dialog is open. Each freshly opened dialog starts centered — the offset
-// resets whenever a different box is grabbed.
-let _dlgDrag = null, _dlgBox = null, _dlgOffset = { x: 0, y: 0 };
+// These dialogs reuse the WinXP `.title-bar`, so grabbing one drags the DIALOG itself (a transform
+// on its `.info-box`), not the main window behind it. Each window remembers its own drag offset on
+// the element (`box._winOffset`), so several desktop floats track independently. The main window is
+// locked only while a *blocking* (mobile) modal is open — desktop floats are non-blocking, so the
+// game stays draggable underneath. The ✕/□ buttons (`.tb-btn`) never start a drag.
+let _dlgDrag = null;
 
 function _dlgMousemove(e) {
   if (!_dlgDrag) return;
-  _dlgOffset.x = _dlgDrag.ox + e.clientX - _dlgDrag.mx;
-  _dlgOffset.y = _dlgDrag.oy + e.clientY - _dlgDrag.my;
-  _dlgDrag.box.style.transform = `translate(${_dlgOffset.x}px,${_dlgOffset.y}px)`;
+  const o = _dlgDrag.box._winOffset;
+  o.x = _dlgDrag.ox + e.clientX - _dlgDrag.mx;
+  o.y = _dlgDrag.oy + e.clientY - _dlgDrag.my;
+  _dlgDrag.box.style.transform = `translate(${o.x}px,${o.y}px)`;
 }
 
 function _dlgMouseup() {
@@ -908,21 +910,12 @@ function _dlgMouseup() {
   document.removeEventListener('mousemove', _dlgMousemove);
 }
 
-// The □ title-bar button on a blue-bar dialog: glide it back to center (the dialog analogue of
-// snapWindowToOrigin). Zero the offset so a later drag resumes from center; no-op when undragged
-// (and therefore harmless on mobile/touch, where dialog drag is disabled).
-function recenterDialog() {
-  const box = document.querySelector('.info-modal .info-box');
-  if (!box || (_dlgOffset.x === 0 && _dlgOffset.y === 0)) return;
-  _dlgOffset = { x: 0, y: 0 };
-  box.style.transition = 'transform 0.22s ease';
-  box.style.transform = 'translate(0,0)';
-  setTimeout(() => { box.style.transition = ''; }, 220);
-}
-
-// Routes a title-bar mousedown: a dialog's bar drags that dialog; the main window's bar drags the
-// window only when no dialog is open. The ✕/min/max buttons (`.tb-btn`) never start a drag.
 function _dragMousedown(e) {
+  // Desktop window focus: a mousedown inside a floating window raises + activates it; a mousedown
+  // anywhere else (including the game) greys every float. Runs before the drag routing below.
+  const fw = e.target.closest('.info-modal.float-win');
+  if (fw) focusWindow(fw.querySelector('.info-box')); else blurAllWindows();
+
   const tb = e.target.closest('.title-bar');
   if (!tb || e.target.closest('.tb-btn')) return;
   const modal = tb.closest('.info-modal');
@@ -930,13 +923,13 @@ function _dragMousedown(e) {
     const box = modal.querySelector('.info-box');
     if (!box) return;
     e.preventDefault();
-    if (box !== _dlgBox) { _dlgBox = box; _dlgOffset = { x: 0, y: 0 }; } // a new dialog → start centered
-    _dlgDrag = { box, ox: _dlgOffset.x, oy: _dlgOffset.y, mx: e.clientX, my: e.clientY };
+    const o = box._winOffset || (box._winOffset = { x: 0, y: 0 });
+    _dlgDrag = { box, ox: o.x, oy: o.y, mx: e.clientX, my: e.clientY };
     document.addEventListener('mousemove', _dlgMousemove);
     document.addEventListener('mouseup', _dlgMouseup, { once: true });
     return;
   }
-  if (document.querySelector('.info-modal')) return; // a dialog is open — keep the main window put
+  if (document.querySelector('.info-modal:not(.float-win)')) return; // a blocking (mobile) modal — keep the window put
   e.preventDefault();
   _winDragStart = { mx: e.clientX, my: e.clientY, ox: _winOffset.x, oy: _winOffset.y };
   document.addEventListener('mousemove', _winMousemove);

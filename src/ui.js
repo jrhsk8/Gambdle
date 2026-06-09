@@ -109,13 +109,33 @@ function modBannerHTML(slim=false){
 }
 
 // ─── AUDIO SYSTEM ─────────────────────────────────────────────
-function playMp3(src,ms=0){if(getPref('mute'))return;if(ms){setTimeout(()=>playMp3(src),ms);return;}new Audio(src).play().catch(()=>{});}
+// Plays an HTMLAudioElement defensively. Audio is never essential, but every sound call fires from
+// inside a setTimeout chain that drives game flow (deal, dealer reveal, the blackjack celebration,
+// next-hand advance), so a sound that THROWS strands the game with no way to advance. A privacy /
+// tracking-protection tool or an older browser can make play() return undefined instead of a Promise
+// — then `.catch` throws "Cannot read properties of undefined" — and play() can also throw outright.
+// We guard both: returns the play() Promise when there is one (so gated callers like sndShuffle can
+// attach their own handler), else null. onReject fires when play() did not yield a usable Promise.
+function _safePlay(a,onReject){
+  try{
+    const p=a&&a.play();
+    if(p&&typeof p.catch==='function'){p.catch(()=>{if(onReject)onReject();});return p;}
+  }catch(e){}
+  if(onReject)onReject();   // play() returned non-Promise (or threw) → treat as "won't play"
+  return null;
+}
+function playMp3(src,ms=0){
+  if(getPref('mute'))return;
+  if(ms){setTimeout(()=>playMp3(src),ms);return;}
+  try{_safePlay(new Audio(src));}catch(e){}   // also guard a throwing Audio() constructor
+}
 function sndCard(ms=0){playMp3(`assets/sounds/card${Math.ceil(Math.random()*3)}.mp3`,ms);}
 // d = chip denomination (or 'allin'); selects the appropriate sound effect.
 function sndChip(d){playMp3(d==='allin'?'assets/sounds/allin.mp3':d<=25?'assets/sounds/smallbet.mp3':'assets/sounds/mediumbet.mp3');}
 function sndShuffle(cb){
   if(getPref('mute')){if(cb)setTimeout(cb,0);return;}
-  const a=new Audio('assets/sounds/shuffle.mp3');
+  let a;
+  try{a=new Audio('assets/sounds/shuffle.mp3');}catch(e){if(cb)setTimeout(cb,0);return;}
   if(cb){
     let done=false;
     const once=()=>{if(!done){done=true;cb();}};
@@ -128,9 +148,11 @@ function sndShuffle(cb){
     // ~1s clip so normal playback is never cut short; the clip keeps playing (we don't pause it) —
     // only the cards deal early in the rare stall.
     setTimeout(once,2000);
-    a.play().catch(()=>setTimeout(once,800));
+    // If play() can't yield a Promise (blocked/overridden media API), _safePlay calls onReject so the
+    // 800ms fallback still deals the cards instead of throwing and stranding the game on 'dealing'.
+    _safePlay(a,()=>setTimeout(once,800));
   }else{
-    a.play().catch(()=>{});
+    _safePlay(a);
   }
 }
 function sndBigWin(){playMp3('assets/sounds/bigwin.mp3');}
@@ -285,53 +307,105 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 // src/tutorial.js, alongside the tutorial tips and About copy, so all editable text is in one file.
 
 
-// Shared factory for help-section modals, modifier popups, and the About window. Uses the WinXP
-// blue title bar (same chrome as the Send Feedback dialog) with just a × close button — the body
-// scrolls under the pinned bar. Also closes on a click outside the box.
-// Outside-click behaviour for a popup overlay.
-//  • Desktop: deactivate the window — grey its title bar via .win-inactive (reusing the WinXP inactive
-//    look) and drop keyboard focus, but NEVER close it; the × button is the only way out. Clicking
-//    back inside the popup reactivates it. We don't apply the refocus guard here because nothing
-//    closes, so a refocus click greying the bar (then a click-in to restore) is harmless.
-//  • Mobile: an outside tap closes the popup, but the click that brings an unfocused tab back into
-//    focus is exempted (the _refocusAt / document.hasFocus guard), so it doesn't dismiss on refocus.
-function _infoOverlayClick(el, e, mobile) {
-  const box = el.querySelector('.info-box');
-  const outside = e.target === el && el._downOnSelf;
-  if (!outside) { if (!mobile) box?.classList.remove('win-inactive'); return; } // inside click reactivates
-  if (mobile) {
-    if (document.hasFocus() && Date.now() - _refocusAt >= 300) el.remove();
-  } else {
-    box?.classList.add('win-inactive');
-    document.activeElement?.blur?.();
-  }
+// ─── WINDOW MANAGER (Help / About / modifier popup / Send Feedback) ───────────────────────────────
+// On DESKTOP these are non-blocking floating windows: multiple open at once, one instance per type
+// (re-opening focuses the existing one), and the game stays clickable + draggable underneath. On
+// MOBILE (≤480px) each is a single blocking modal (dark backdrop, outside-tap closes) — the old
+// behaviour, kept because floating windows don't fit a 360px screen. Both share the WinXP blue-bar
+// chrome; `key` namespaces the window id ('win-<key>'). See styles.css `.info-modal.float-win`.
+let _winZ = 600;        // z-index high-water mark; floats sit above the game chrome (z 1–500)
+let _winCascade = 0;    // each desktop open steps the box down-and-right so windows don't stack exactly
+
+// Brings a floating window's box to the front and gives it the active (blue) title bar, greying
+// every other open float via .win-inactive (the existing inactive-title-bar style).
+function focusWindow(box) {
+  if (!box) return;
+  const overlay = box.closest('.info-modal');
+  if (overlay) overlay.style.zIndex = ++_winZ;
+  document.querySelectorAll('.info-modal.float-win > .info-box').forEach(b =>
+    b.classList.toggle('win-inactive', b !== box));
 }
 
-function _openInfoModal(title, content) {
-  document.getElementById('info-modal')?.remove();
+// Greys every floating window — fired when the player clicks the game (no window focused).
+function blurAllWindows() {
+  document.querySelectorAll('.info-modal.float-win > .info-box').forEach(b => b.classList.add('win-inactive'));
+}
+
+// × handler: closes the window the button lives in.
+function closeWindow(btn) { btn.closest('.info-modal')?.remove(); }
+
+// □ handler: glides this window back to center (zeroes its drag offset). No-op if undragged.
+function recenterWindow(btn) {
+  const box = btn.closest('.info-box');
+  if (!box) return;
+  const o = box._winOffset || { x: 0, y: 0 };
+  if (o.x === 0 && o.y === 0) return;
+  box._winOffset = { x: 0, y: 0 };
+  box.style.transition = 'transform 0.22s ease';
+  box.style.transform = 'translate(0,0)';
+  setTimeout(() => { box.style.transition = ''; }, 220);
+}
+
+// Mobile only: an outside tap on the dark overlay closes the modal — EXCEPT the tap that brings an
+// unfocused tab back into focus (the _refocusAt / document.hasFocus guard). _downOnSelf gates on a
+// click that BOTH starts and ends on the overlay, so releasing a title-bar drag onto the overlay is
+// never treated as an outside tap. Desktop floats don't use this — they (de)activate via the
+// document-level focus handler (focusWindow / blurAllWindows, in game.js _dragMousedown).
+function _infoOverlayClick(el, e) {
+  if (e.target !== el || !el._downOnSelf) return;
+  if (document.hasFocus() && Date.now() - _refocusAt >= 300) el.remove();
+}
+
+// Core opener. `key` identifies the window type; `boxHTML` is the full .info-box element markup.
+// Desktop: floating, one per type (focuses an existing one instead of duplicating). Mobile: a single
+// blocking modal that replaces any prior dialog. Returns the overlay element.
+function _openWindow(key, boxHTML) {
+  const id = 'win-' + key;
+  if (_isMobile()) {
+    document.querySelectorAll('.info-modal').forEach(m => m.remove());   // single blocking modal
+    const el = document.createElement('div');
+    el.id = id; el.className = 'info-modal';
+    el.addEventListener('mousedown', e => { el._downOnSelf = (e.target === el); });
+    el.onclick = e => _infoOverlayClick(el, e);
+    el.innerHTML = boxHTML;
+    document.body.appendChild(el);
+    return el;
+  }
+  const existing = document.getElementById(id);
+  if (existing) { focusWindow(existing.querySelector('.info-box')); return existing; }
   const el = document.createElement('div');
-  el.id = 'info-modal'; el.className = 'info-modal';
-  // Outside-click handling differs by platform (see _infoOverlayClick). _downOnSelf gates on a click
-  // that BOTH starts and ends on the dark overlay, so releasing a drag of the title bar (which can
-  // land its click on the overlay) is never treated as an outside click.
-  el.addEventListener('mousedown', e => { el._downOnSelf = (e.target === el); });
-  el.onclick = e => _infoOverlayClick(el, e, _isMobile());
-  el.innerHTML = `<div class="info-box info-box-titled">
+  el.id = id; el.className = 'info-modal float-win';
+  el.innerHTML = boxHTML;
+  document.body.appendChild(el);
+  const box = el.querySelector('.info-box');
+  const step = (_winCascade++ % 6) * 26;   // cascade so stacked opens don't sit exactly on top
+  box._winOffset = { x: step, y: step };
+  if (step) box.style.transform = `translate(${step}px,${step}px)`;
+  focusWindow(box);
+  return el;
+}
+
+// The □ recenter button only makes sense for a draggable desktop float; mobile modals are fixed, so
+// they show just ×, matching the pre-floating-windows look.
+const _recenterBtnHTML = () => _isMobile() ? '' : `<span class="tb-btn" title="Center" onclick="recenterWindow(this)">□</span>`;
+
+// Shared blue-bar window for Help sections, the modifier popup, and About. `key` namespaces the id.
+function _openInfoModal(title, content, key) {
+  _openWindow(key, `<div class="info-box info-box-titled">
     <div class="title-bar">
       <span class="tb-title"><span class="tb-icon">♠</span>${title}</span>
       <span class="tb-btns">
-        <span class="tb-btn" title="Max" onclick="recenterDialog()">□</span>
-        <span class="tb-btn close" onclick="document.getElementById('info-modal').remove()">×</span>
+        ${_recenterBtnHTML()}
+        <span class="tb-btn close" title="Close" onclick="closeWindow(this)">×</span>
       </span>
     </div>
     <div class="info-content">${content}</div>
-  </div>`;
-  document.body.appendChild(el);
+  </div>`);
 }
 
 function showInfo(section) {
   const {title, body} = INFO_SECTIONS[section] || INFO_SECTIONS.overview;
-  _openInfoModal(title, `<div style="display:flex;flex-direction:column;gap:14px;font-size:1.15rem;color:var(--ink);line-height:1.55">${body}</div>`);
+  _openInfoModal(title, `<div style="display:flex;flex-direction:column;gap:14px;font-size:1.15rem;color:var(--ink);line-height:1.55">${body}</div>`, 'help-' + section);
 }
 
 // File → About Gambdle. A mini ♠ GAMBDLE logo + editable subtitle/body; the copy lives in
@@ -346,11 +420,12 @@ function showAbout() {
     </div>
     <div class="divider" style="margin:14px 0"></div>
     <div style="font-size:1.15rem;color:var(--ink);line-height:1.55">${a.body || ''}</div>`;
-  _openInfoModal('About Gambdle', content);
+  _openInfoModal('About Gambdle', content, 'about');
 }
 
 // ─── MENUS ────────────────────────────────────────────────────
-const _isMobile = () => window.innerWidth <= 480;
+let _forceMobile = null;   // test hook: null = use the real viewport width
+const _isMobile = () => _forceMobile !== null ? _forceMobile : window.innerWidth <= 480;
 
 function closeDropdowns() {
   document.querySelectorAll('.dropdown, .dd-submenu').forEach(d => d.remove());
@@ -491,7 +566,7 @@ function showModifierPopup(key) {
   if (!m) return;
   const content = `<div style="font-size:1.15rem;color:var(--ink);line-height:1.55">${m.desc}</div>` +
     (m.devNote ? `<div class="divider" style="margin:14px 0 10px"></div><div style="font-size:1rem;color:var(--shadow);line-height:1.5"><b>Dev Note:</b> ${m.devNote}</div>` : '');
-  _openInfoModal(`✨ ${m.title}`, content);
+  _openInfoModal(`✨ ${m.title}`, content, 'modifier');
 }
 
 function toggleMenu(which, trigger) {
@@ -704,35 +779,34 @@ function togglePref(k){
 
 // ── Feedback dialog ───────────────────────────────────────
 function showFeedbackDialog() {
-  document.getElementById('feedback-modal')?.remove();
-  const el = document.createElement('div');
-  el.id = 'feedback-modal'; el.className = 'info-modal';
-  el.onclick = e => { if (e.target === el) document.getElementById('feedback-txt')?.blur(); };
-  el.innerHTML = `
+  // Re-uses the window manager: a non-blocking float on desktop, a blocking modal on mobile. The
+  // char counter updates inline (no addEventListener) so re-opening an existing window never stacks
+  // duplicate listeners. The ids stay stable since only one feedback window can exist.
+  _openWindow('feedback', `
     <div class="info-box" style="padding:0;max-width:420px">
       <div class="title-bar" style="border-radius:7px 7px 0 0;flex-shrink:0">
         <span class="tb-title"><span class="tb-icon">✉</span>Send Feedback</span>
-        <span class="tb-btns"><span class="tb-btn close" onclick="closeFeedbackDialog()">×</span></span>
+        <span class="tb-btns">
+          ${_recenterBtnHTML()}
+          <span class="tb-btn close" title="Close" onclick="closeFeedbackDialog()">×</span>
+        </span>
       </div>
       <div style="padding:14px">
         <div style="font-size:1rem;margin-bottom:8px;color:var(--shadow)">Send feedback to the developer</div>
-        <textarea id="feedback-txt" class="feedback-textarea" maxlength="500" placeholder="Type here…"></textarea>
+        <textarea id="feedback-txt" class="feedback-textarea" maxlength="500" placeholder="Type here…"
+          oninput="document.getElementById('feedback-char').textContent = this.value.length + ' / 500'"></textarea>
         <div id="feedback-char" style="font-size:0.8rem;color:var(--shadow);text-align:right;margin-top:2px">0 / 500</div>
         <div class="act-btns" style="margin-top:10px">
           <button class="act-btn" onclick="closeFeedbackDialog()">Cancel</button>
           <button class="act-btn primary" id="feedback-send-btn" onclick="submitFeedback()">Send</button>
         </div>
       </div>
-    </div>`;
-  document.body.appendChild(el);
-  const ta = document.getElementById('feedback-txt');
-  const counter = document.getElementById('feedback-char');
-  ta.addEventListener('input', () => { counter.textContent = `${ta.value.length} / 500`; });
-  setTimeout(() => ta.focus(), 50);
+    </div>`);
+  setTimeout(() => document.getElementById('feedback-txt')?.focus(), 50);
 }
 
 function closeFeedbackDialog() {
-  document.getElementById('feedback-modal')?.remove();
+  document.getElementById('win-feedback')?.remove();
 }
 
 async function submitFeedback() {

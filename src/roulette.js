@@ -276,7 +276,7 @@ function startWheelAnim(){
   if(audio){
     const go=()=>{
       const DUR=Math.round(audio.duration*1000);
-      audio.play().catch(()=>{});
+      _safePlay(audio);
       audio.onended=()=>setTimeout(rFinish,R_SETTLE_MS);
       runAnim(DUR, ()=>{}); // animation ends with the audio; rFinish handles the transition
     };

@@ -992,6 +992,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .info-box-titled > .title-bar { border-radius: 7px 7px 0 0; flex-shrink: 0; }
 .info-box-titled > .info-content { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
 
+/* Desktop floating windows: non-blocking. The full-screen overlay goes transparent and click-through
+   so the game stays clickable + draggable underneath; only the .info-box itself catches pointer
+   events. Multiple coexist (one per type), each raised via an inline z-index on focus. */
+.info-modal.float-win { background: transparent; pointer-events: none; }
+.info-modal.float-win > .info-box { pointer-events: auto; }
+
 .feedback-textarea {
   width: 100%; min-height: 110px; resize: vertical;
   background: var(--cream); color: var(--ink);

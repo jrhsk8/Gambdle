@@ -71,118 +71,137 @@ describe('_dragMousedown — dialogs drag themselves; main window locks while on
       assert(_winDragStart === null && _dlgDrag === null, 'a button mousedown does not drag');
     } finally { reset(); main.remove(); }
   });
+
+  // A desktop FLOAT (.info-modal.float-win) is non-blocking, so unlike a mobile modal it must NOT
+  // lock the main window — the player can still drag the game while instructions float over it.
+  it('grabbing the main window bar while a FLOAT is open still drags the window', () => {
+    reset();
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div class="info-modal float-win"><div class="info-box"><div class="title-bar"></div></div></div>`;
+    document.body.appendChild(wrap);
+    const main = makeBar(false);
+    try {
+      md(main.querySelector('.title-bar'));
+      assert(_winDragStart !== null, 'window drags freely under a non-blocking float');
+    } finally { reset(); wrap.remove(); main.remove(); }
+  });
+
+  it('a mousedown inside a float focuses it (active) and greys the other floats', () => {
+    reset();
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div id="win-a" class="info-modal float-win"><div class="info-box"><div class="title-bar"></div></div></div>
+      <div id="win-b" class="info-modal float-win"><div class="info-box"><div class="title-bar"></div></div></div>`;
+    document.body.appendChild(wrap);
+    try {
+      md(document.querySelector('#win-a .title-bar'));
+      assert(!document.querySelector('#win-a .info-box').classList.contains('win-inactive'), 'clicked float is active');
+      assert(document.querySelector('#win-b .info-box').classList.contains('win-inactive'), 'other float greyed');
+    } finally { reset(); wrap.remove(); }
+  });
+
+  it('a mousedown on the game (no float) greys all floats', () => {
+    reset();
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div id="win-a" class="info-modal float-win"><div class="info-box"><div class="title-bar"></div></div></div>`;
+    document.body.appendChild(wrap);
+    const game = document.createElement('div'); game.className = 'app'; document.body.appendChild(game);
+    try {
+      md(game);
+      assert(document.querySelector('#win-a .info-box').classList.contains('win-inactive'), 'clicking the game greys floats');
+    } finally { reset(); wrap.remove(); game.remove(); }
+  });
 });
 
-// ─── recenterDialog — the □ button glides a dragged popup back to center ─────────────────────────
-// Mirrors snapWindowToOrigin for the blue-bar dialogs: zero out _dlgOffset and animate the open
-// .info-box back to translate(0,0). No-op when the popup hasn't been moved.
-describe('recenterDialog — □ recenters a dragged popup', () => {
+// ─── recenterWindow — the □ button glides a dragged window back to center ────────────────────────
+// Per-window analogue of snapWindowToOrigin: zero the box's own _winOffset and animate it back to
+// translate(0,0). No-op when that window hasn't been moved. Takes the □ button; finds its .info-box.
+describe('recenterWindow — □ recenters a dragged window', () => {
   function makeModal() {
     const wrap = document.createElement('div');
-    wrap.innerHTML = `<div class="info-modal"><div class="info-box"><div class="title-bar"></div></div></div>`;
+    wrap.innerHTML = `<div class="info-modal float-win"><div class="info-box"><div class="title-bar">` +
+      `<span class="tb-btn" onclick="recenterWindow(this)">□</span></div></div></div>`;
     document.body.appendChild(wrap);
     return wrap;
   }
-  function clean(wrap) {
-    document.querySelectorAll('.info-modal').forEach(el => el.remove());
-    if (wrap) wrap.remove();
-    _dlgOffset = { x: 0, y: 0 };
-  }
+  const clean = wrap => { document.querySelectorAll('.info-modal').forEach(el => el.remove()); if (wrap) wrap.remove(); };
 
-  it('resets _dlgOffset and animates the box back to translate(0,0)', () => {
+  it('resets the box _winOffset and animates it back to translate(0,0)', () => {
     const wrap = makeModal();
     try {
       const box = wrap.querySelector('.info-box');
-      _dlgOffset = { x: 30, y: 20 };
+      box._winOffset = { x: 30, y: 20 };
       box.style.transform = 'translate(30px,20px)';
-      recenterDialog();
-      assertEqual(_dlgOffset.x, 0, '_dlgOffset.x cleared');
-      assertEqual(_dlgOffset.y, 0, '_dlgOffset.y cleared');
+      recenterWindow(wrap.querySelector('.tb-btn'));
+      assertEqual(box._winOffset.x, 0, '_winOffset.x cleared');
+      assertEqual(box._winOffset.y, 0, '_winOffset.y cleared');
       assert(/translate\(\s*0/.test(box.style.transform), `box recentered: ${box.style.transform}`);
       assert(/transform/.test(box.style.transition), `animated: ${box.style.transition}`);
     } finally { clean(wrap); }
   });
 
-  it('is a no-op when the popup is already centered (leaves the box transform untouched)', () => {
+  it('is a no-op when the window is already centered (leaves the transform untouched)', () => {
     const wrap = makeModal();
     try {
       const box = wrap.querySelector('.info-box');
-      _dlgOffset = { x: 0, y: 0 };
-      box.style.transform = 'translate(0px,0px)';
+      box._winOffset = { x: 0, y: 0 };
       box.style.transition = '';
-      recenterDialog();
+      recenterWindow(wrap.querySelector('.tb-btn'));
       assertEqual(box.style.transition, '', 'no animation kicked off');
     } finally { clean(wrap); }
   });
 
-  it('does nothing (and does not throw) when no popup is open', () => {
-    clean();
-    recenterDialog();   // no .info-modal in the DOM
-    assert(true, 'returned without error');
+  it('does nothing (and does not throw) when the button has no .info-box ancestor', () => {
+    const stray = document.createElement('span'); stray.className = 'tb-btn'; document.body.appendChild(stray);
+    try { recenterWindow(stray); assert(true, 'returned without error'); }
+    finally { stray.remove(); }
   });
 });
 
-// ─── _openInfoModal overlay close — refocus click leaves the popup up ────────────────────────────
-// The dark overlay still closes on a deliberate outside click, but the click that brings an
-// unfocused tab back into focus must not — reusing the _refocusAt / document.hasFocus guard.
-// On desktop an outside click DEACTIVATES the popup (greys its title bar via .win-inactive) and never
-// closes it — only × does; clicking back inside reactivates it. On mobile an outside tap still closes,
-// keeping the _refocusAt / document.hasFocus guard so the click that re-focuses the tab doesn't dismiss it.
-describe('_infoOverlayClick — desktop deactivates (no close); mobile taps close', () => {
-  function open() {
-    document.getElementById('info-modal')?.remove();
-    _openInfoModal('T', 'body');
-    return document.getElementById('info-modal');
+// ─── _infoOverlayClick — mobile blocking modal: outside tap closes (with refocus guard) ──────────
+// Desktop floats deactivate via the document focus handler (covered above), so _infoOverlayClick is
+// now mobile-only: an outside tap on the dark overlay closes it, EXCEPT the tap that re-focuses an
+// unfocused tab (the _refocusAt / document.hasFocus guard). Only a click that both starts (_downOnSelf)
+// and ends on the overlay counts as outside.
+describe('_infoOverlayClick — mobile outside-tap close with refocus guard', () => {
+  function makeOverlay() {
+    const el = document.createElement('div');
+    el.className = 'info-modal';
+    el.innerHTML = `<div class="info-box"><div class="title-bar"></div></div>`;
+    document.body.appendChild(el);
+    return el;
   }
-  const box = el => el.querySelector('.info-box');
-  // Run an outside (or inside) click with focus stubbed; restores stubs after.
-  function fire(el, target, mobile, { hasFocus = true, refocusAgoMs = 10000 } = {}) {
+  // Fire a click with focus state stubbed; restores stubs after.
+  function fire(el, target, { hasFocus = true, refocusAgoMs = 10000 } = {}) {
     const oF = document.hasFocus, oR = _refocusAt;
     document.hasFocus = () => hasFocus; _refocusAt = Date.now() - refocusAgoMs;
-    try { _infoOverlayClick(el, { target }, mobile); }
+    try { _infoOverlayClick(el, { target }); }
     finally { document.hasFocus = oF; _refocusAt = oR; }
   }
 
-  it('desktop: an outside click greys the popup (win-inactive) and never closes it', () => {
-    const el = open(); el._downOnSelf = true;
-    fire(el, el, false);
-    try {
-      assert(box(el).classList.contains('win-inactive'), 'title bar deactivated');
-      assert(document.getElementById('info-modal'), 'popup stays open');
-    } finally { el.remove(); }
-  });
-
-  it('desktop: clicking back inside the popup reactivates it (removes win-inactive)', () => {
-    const el = open(); box(el).classList.add('win-inactive'); el._downOnSelf = false;
-    fire(el, box(el), false);
-    try {
-      assert(!box(el).classList.contains('win-inactive'), 'reactivated');
-      assert(document.getElementById('info-modal'), 'still open');
-    } finally { el.remove(); }
-  });
-
-  it('mobile: an outside tap closes the popup (focused, well after any refocus)', () => {
-    const el = open(); el._downOnSelf = true;
-    fire(el, el, true, { hasFocus: true, refocusAgoMs: 10000 });
-    const closed = !document.getElementById('info-modal');
+  it('an outside tap closes the modal (focused, well after any refocus)', () => {
+    const el = makeOverlay(); el._downOnSelf = true;
+    fire(el, el, { hasFocus: true, refocusAgoMs: 10000 });
+    const closed = !document.body.contains(el);
     el.remove();
-    assert(closed, 'popup closed on mobile');
+    assert(closed, 'modal closed on outside tap');
   });
 
-  it('mobile: the refocus tap (unfocused, or within 300ms) does NOT close', () => {
+  it('the refocus tap (unfocused, or within 300ms) does NOT close', () => {
     for (const guard of [{ hasFocus: false, refocusAgoMs: 10000 }, { hasFocus: true, refocusAgoMs: 50 }]) {
-      const el = open(); el._downOnSelf = true;
-      fire(el, el, true, guard);
-      const open_ = !!document.getElementById('info-modal');
+      const el = makeOverlay(); el._downOnSelf = true;
+      fire(el, el, guard);
+      const stillOpen = document.body.contains(el);
       el.remove();
-      assert(open_, `stays open (${JSON.stringify(guard)})`);
+      assert(stillOpen, `stays open (${JSON.stringify(guard)})`);
     }
   });
 
-  it('mobile: never greys the popup (close-or-nothing, no inactive state)', () => {
-    const el = open(); el._downOnSelf = true;
-    fire(el, el, true, { hasFocus: false, refocusAgoMs: 0 });   // guarded → no close
-    try { assert(!box(el).classList.contains('win-inactive'), 'no inactive styling on mobile'); }
-    finally { el.remove(); }
+  it('a click that did not start on the overlay (inside the box) does NOT close', () => {
+    const el = makeOverlay(); el._downOnSelf = false;
+    fire(el, el.querySelector('.info-box'), { hasFocus: true, refocusAgoMs: 10000 });
+    const stillOpen = document.body.contains(el);
+    el.remove();
+    assert(stillOpen, 'inside click leaves the modal open');
   });
 });

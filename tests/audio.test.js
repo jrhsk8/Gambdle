@@ -83,4 +83,63 @@ describe('sndShuffle — deal callback always fires', () => {
     run({ play: () => ({ catch() {} }) }, () => { sndShuffle(); });
     assert(true, 'no-callback form is a safe no-op');
   });
+
+  // Regression for the blackjack softlock reports (Days 33-35): a privacy/tracking-protection
+  // tool or older browser can make HTMLAudioElement.play() return undefined (NOT a Promise).
+  // `a.play().catch(...)` then throws "Cannot read properties of undefined (reading 'catch')"
+  // synchronously, aborting the setTimeout chain that drives the deal and stranding the game.
+  it('does not throw and still fires the callback when play() returns undefined', () => {
+    let fired = false, threw = false;
+    run({ play: () => undefined }, ({ timers }) => {       // play() returns undefined, not a Promise
+      try { sndShuffle(() => { fired = true; }); }
+      catch (e) { threw = true; }
+      assert(!threw, 'sndShuffle must not throw when play() returns undefined');
+      const fb = timers.find(t => t.d > 0 && t.d <= 2000);
+      assert(fb, 'a fallback/backstop timer must still be scheduled');
+      timers.forEach(t => t.f());
+    });
+    assert(fired, 'callback MUST fire even when play() returns undefined');
+  });
+
+  it('does not throw when play() itself throws synchronously', () => {
+    let fired = false, threw = false;
+    run({ play: () => { throw new Error('blocked media API'); } }, ({ timers }) => {
+      try { sndShuffle(() => { fired = true; }); }
+      catch (e) { threw = true; }
+      assert(!threw, 'sndShuffle must not throw when play() throws');
+      timers.forEach(t => t.f());
+    });
+    assert(fired, 'callback MUST fire even when play() throws');
+  });
+});
+
+// ─── playMp3 — must never throw into the timer chains that drive game flow ────────────────
+// sndCard/sndBigWin/sndChip/sndAdvance all route through playMp3, and they fire from inside the
+// setTimeout chains for the dealer reveal, the blackjack celebration, and the next-hand advance.
+// If playMp3 throws, that chain dies and the hand softlocks with no way to advance.
+describe('playMp3 — never throws regardless of play() return', () => {
+  function run({ muted = false, play } = {}, body) {
+    const origAudio = window.Audio, origST = window.setTimeout, origGetPref = window.getPref;
+    window.setTimeout = (f, d) => 0; // swallow the deferred (ms>0) re-call; we test the immediate path
+    window.getPref = k => (k === 'mute' ? muted : origGetPref(k));
+    window.Audio = function () { return { play: play || (() => ({ catch() {} })) }; };
+    try { return body(); }
+    finally { window.Audio = origAudio; window.setTimeout = origST; window.getPref = origGetPref; }
+  }
+  it('does not throw when play() returns undefined', () => {
+    let threw = false;
+    run({ play: () => undefined }, () => { try { playMp3('x.mp3'); } catch (e) { threw = true; } });
+    assert(!threw, 'playMp3 must not throw when play() returns undefined');
+  });
+  it('does not throw when play() throws synchronously', () => {
+    let threw = false;
+    run({ play: () => { throw new Error('blocked'); } }, () => { try { playMp3('x.mp3'); } catch (e) { threw = true; } });
+    assert(!threw, 'playMp3 must not throw when play() throws');
+  });
+  it('swallows a normal play() promise rejection', () => {
+    let threw = false;
+    run({ play: () => ({ catch(h) { h(new Error('autoplay blocked')); } }) },
+        () => { try { playMp3('x.mp3'); } catch (e) { threw = true; } });
+    assert(!threw, 'a rejected play() promise is handled');
+  });
 });
