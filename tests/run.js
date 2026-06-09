@@ -76,6 +76,11 @@ function summaryCounts(summary) {
   // the chip row and pay table without wrapping or overflow.
   const DESKTOP_SIZES = [
     { width: 1024, height: 1080 },
+    // Short desktop window (laptop split-screen, or a user with enlarged browser/OS fonts): the
+    // window must GROW past its clamp floor so tall screens (UTH showdown, 4-way split, results
+    // chart) scroll into reach rather than clipping the bottom button. Guards the desktop
+    // grow-on-overflow fix (.window min-height + .panel flex:1 0 auto, no overflow clip).
+    { width: 1024, height:  640 },
     { width: 1280, height:  800 },
     { width: 1440, height:  900 },
     { width: 1920, height: 1080 },

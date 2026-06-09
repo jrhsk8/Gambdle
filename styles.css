@@ -376,6 +376,10 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 .cbr { bottom: 5px; right: 7px; transform: rotate(180deg); }
 .ct-r { font-family: var(--display); font-weight: 700; line-height: 0.95; }
 .ct-s { font-family: var(--f); line-height: 1; margin-top: 1px; }
+/* Suit glyphs are flat text, never emoji. The trailing U+FE0E in cardHTML handles older engines;
+   font-variant-emoji is the standardised hint (Chrome 131+, Firefox, Safari 17.4+) and stops mobile
+   browsers from substituting an oversized multicolor emoji for ♥/♦. */
+.ct-s, .cbody .csuit { font-variant-emoji: text; }
 .card.lg .ct-r { font-size: 1.35rem; }   .card.lg .ct-s { font-size: 1.1rem; }
 .card.md .ct-r { font-size: 1.1rem; }    .card.md .ct-s { font-size: 0.95rem; }
 .card.sm .ct-r { font-size: 0.9rem; }    .card.sm .ct-s { font-size: 0.75rem; }
@@ -393,6 +397,13 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 .card.lg .csuit { font-size: 3.4rem; }
 .card.md .csuit { font-size: 2.8rem; }
 .card.sm .csuit { font-size: 2.2rem; }
+/* The ♦ glyph is the narrowest suit in virtually every system font (Tahoma: ♦≈27px vs ♣≈35px at the
+   same size), so a diamond reads visibly smaller than ♠♥♣ — most noticeable on the tiny split cards
+   where the centre suit is the only suit shown. Scale diamonds up so all four suits look balanced.
+   These elements are flex items (.cbody / .ctl / .cbr are flex), so transform applies and, scaling
+   about the default centre origin, keeps the glyph centred and the corner rank in place. */
+.card.suit-d .csuit { transform: scale(1.12); }
+.card.suit-d .ct-s  { transform: scale(1.1); }
 
 /* Tiniest cards (split aside/result hands + split result dealer): one centred
    suit reads cleaner than three cramped pips. Drop the two corner suit glyphs,
@@ -1387,15 +1398,21 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   :root { --btn-h: 46px; --btn-fs: 1.35rem; --btn-px: 16px; }
   .app { max-width: clamp(620px, 56vw, 880px); padding: 16px 16px; }
   .window {
-    height: clamp(700px, calc(100svh - 32px), 960px);
-    min-height: 0;
+    /* min-height (not a fixed height) so the window stays at the framed clamp size when content
+       fits — preserving the XP look — but GROWS when content is genuinely taller than it (a short
+       window, or a user's enlarged browser/OS fonts). The page then scrolls vertically so every
+       button stays reachable, instead of the panel clipping the bottom one off-screen. */
+    min-height: clamp(700px, calc(100svh - 32px), 960px);
     box-shadow:
       inset 1px 1px 0 var(--highlight),
       inset -2px -2px 0 var(--shadow),
       0 0 0 1px rgba(0,0,0,0.5),
       0 18px 50px rgba(0,0,0,0.55);
   }
-  .panel { padding: 6px 22px; min-height: 0; overflow: hidden; gap: 4px; }
+  /* flex:1 0 auto (fill when content is short, never shrink below content when tall) + no overflow
+     clip lets a too-tall panel push the window taller and the page scroll, rather than clipping the
+     bottom button. Mirrors the mobile shell. Horizontal bleed is still caught by body overflow-x. */
+  .panel { padding: 6px 22px; flex: 1 0 auto; min-height: 0; gap: 4px; }
   .panel.cream { padding: 10px 24px; }
   .divider { margin: 2px 0; }
 

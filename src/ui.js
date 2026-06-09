@@ -975,8 +975,12 @@ function _updateBalloonPosition() {
   const win = document.querySelector('.window');
   if (!win) { el.style.bottom = '46px'; el.style.right = '8px'; return; }
   const rect = win.getBoundingClientRect();
-  el.style.bottom = Math.max(4, window.innerHeight - rect.bottom + 32) + 'px';
-  el.style.right  = Math.max(4, window.innerWidth  - rect.right  + 8)  + 'px';
+  // Anchor just above the window's bottom-right. When the window is TALLER than the viewport (short
+  // desktop height — now possible since the window grows to fit overflowing content), its bottom is
+  // off-screen and the formula floors out; keep a 16px floor so the entrance animation (translateY
+  // 10px) can't nudge the balloon off the bottom edge. Normal viewports already yield >16 here.
+  el.style.bottom = Math.max(16, window.innerHeight - rect.bottom + 32) + 'px';
+  el.style.right  = Math.max(4,  window.innerWidth  - rect.right  + 8)  + 'px';
 }
 
 // WinXP inactive title bar — dims chrome when tab loses focus
