@@ -4,9 +4,17 @@ const BJ_ADVANCE_MS   = 700;   // delay after hitting 21 or doubling before adva
 const BJ_HIT_MS       = 800;   // interval between dealer hit steps
 const BJ_RESOLVE_MS   = 1000;  // delay after dealer finishes drawing before settling bets
 const BJ_CELEBRATE_MS = 1500;  // inner duration of the blackjack celebration animation
+const BJ_PEEK_MS      = 700;   // beat after the deal before the dealer flips a natural blackjack (casino peek)
 
 // Mutex flag — prevents double-actions while cards are mid-animation.
 let _bjResolving=false;
+
+// Resolve choreography, kept in one place. _bjDefer: hold the action-button lock for `ms`, then
+// release it and run `next` (the dealer reveal, or the next split hand). _bjAfterCard: the same,
+// preceded by locking + a no-animation re-render — so a card the player can't act on (a hit to 21,
+// a double's single card) stays on screen for a beat before play advances.
+function _bjDefer(next, ms){ setTimeout(()=>{ _bjResolving=false; next(); }, ms); }
+function _bjAfterCard(next){ _bjResolving=true; _noAnim=true; render(); _bjDefer(next, BJ_ADVANCE_MS); }
 
 // Called once on boot — if the page was refreshed while cards were mid-animation,
 // the saved state has a resolved hand but the setTimeout chain is gone.
@@ -41,24 +49,25 @@ function _bjResumeAfterRefresh(){
   }
   // The player finished acting (stood, doubled, hit to 21, or busted) but the timer that starts the
   // dealer's turn was lost to the refresh. A bust/21 is evident from the cards; a stand or a double
-  // that landed under 21 is not, so bjStand/bjDouble persist S.bjActed to mark it. _bjResolving locks
-  // the (still-rendered) action buttons out during the short re-reveal delay so the hand can't be
-  // re-played (e.g. hitting an already-doubled hand).
-  if(!S.bjSplit&&(S.bjActed||hVal(S.bjPlayer)>=21)){
+  // that landed under 21 is not, so bjStand/bjDouble persist S.bjActed to mark it. A refresh during
+  // the dealer-blackjack peek (player hasn't acted, but the dealer is sitting on a natural 21) must
+  // also resume the reveal. _bjResolving locks the (still-rendered) action buttons out during the
+  // short re-reveal delay so the hand can't be re-played (e.g. hitting an already-doubled hand).
+  if(!S.bjSplit&&(S.bjActed||hVal(S.bjPlayer)>=21||isBJ(S.bjDealer))){
     _bjResolving=true;
-    setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_RESUME_MS);
+    _bjDefer(bjRevealDealer, BJ_RESUME_MS);
     return;
   }
   if(S.bjSplit){
     if(S.bjSplitDone.length&&S.bjSplitDone.every(d=>d)){
       // All split hands resolved; dealer reveal never fired.
       _bjResolving=true;
-      setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_RESUME_MS);
+      _bjDefer(bjRevealDealer, BJ_RESUME_MS);
     } else {
       const ai=S.bjSplitActive,hand=S.bjSplitHands[ai];
       if(S.bjActed||(hand&&hVal(hand)>=21)){
         _bjResolving=true;
-        setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_RESUME_MS);
+        _bjDefer(bjAdvanceSplit, BJ_RESUME_MS);
       }
     }
   }
@@ -92,6 +101,19 @@ function bjDeal(){
   const db=document.getElementById('db');if(db)db.disabled=true;
   const bjMult = getMod('bj_payout') || 1.5;
   sndShuffle(()=>{
+    // Casino peek: the dealer checks for a natural blackjack before the player acts. A dealer
+    // blackjack ends the hand immediately — the player never gets to hit/double/split into a sure
+    // loss — settling as a push if the player also has a blackjack, otherwise a loss of the original
+    // bet. (A dealer BJ always shows an Ace or a 10 up, so this is exactly the real-table peek.)
+    if(isBJ(S.bjDealer)){
+      S.bjPhase='play';
+      _bjResolving=true; // lock the action buttons through the brief peek before the hole card flips
+      _noAnim=true;render();
+      sndCard(100);sndCard(500);
+      setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_PEEK_MS);
+      return;
+    }
+    // Player blackjack with no dealer blackjack — an automatic win; celebrate, then settle.
     if(isBJ(S.bjPlayer)){
       S.bjPhase='play';S.bjCelebrating=true;
       _noAnim=true;render();
@@ -118,7 +140,7 @@ function bjHit(){
   sndCard(100);
   const pv=hVal(hand);
   // At 21+ the player can't act; auto-advance after a short delay so the card is visible.
-  if(pv>=21){_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;isSplit?bjAdvanceSplit():bjRevealDealer();},BJ_ADVANCE_MS);}
+  if(pv>=21){_bjAfterCard(isSplit?bjAdvanceSplit:bjRevealDealer);}
   else{
     const handEl=document.getElementById(isSplit?'bj-active-hand':'bj-player-hand');
     const valEl=document.getElementById(isSplit?'bj-active-val':'bj-player-val');
@@ -139,8 +161,7 @@ function bjStand(){
   // (a stand leaves the cards unchanged, so without this flag the saved state is indistinguishable
   // from "still deciding"). See _bjResumeAfterRefresh.
   S.bjActed=true;saveState();
-  if(S.bjSplit)setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_RESUME_MS);
-  else setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_RESUME_MS);
+  _bjDefer(S.bjSplit?bjAdvanceSplit:bjRevealDealer, BJ_RESUME_MS);
 }
 
 /** Double the bet and receive exactly one more card. */
@@ -156,7 +177,7 @@ function bjDouble(){
     S.bjSplitHands[i].push(DEAL.bjShoe[S.bjIdx++]);
     sndCard(100);
     S.bjActed=true; // hand is done after the one card; a refresh in the deal-out delay resumes (render() persists it)
-    _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_ADVANCE_MS);
+    _bjAfterCard(bjAdvanceSplit);
   }else{
     if(S.chips<S.bjBet)return;
     S.bjAnimFrom=S.bjPlayer.length;
@@ -165,12 +186,13 @@ function bjDouble(){
     updateChipDisplay();
     S.bjPlayer.push(DEAL.bjShoe[S.bjIdx++]);
     S.bjActed=true; // hand is done after the one card; a refresh in the deal-out delay resumes (render() persists it)
-    _bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_ADVANCE_MS);
+    _bjAfterCard(bjRevealDealer);
   }
 }
 
 /** Splits a pair into two separate hands. Supports re-splitting. */
 function bjSplit(){
+  if(_bjResolving)return;
   if(S.bjSplit){
     if(S.bjSplitHands.length>=4)return;
     const ai=S.bjSplitActive,bet=S.bjSplitBets[ai];
@@ -210,7 +232,7 @@ function bjCheckSplitHand(){
       _bjResolving=true;S.bjCelebrating=true;_noAnim=true;render();
       sndCard(100);sndCard(500);
       setTimeout(()=>{sndBigWin();setTimeout(()=>{S.bjCelebrating=false;_bjResolving=false;bjAdvanceSplit();},BJ_CELEBRATE_MS);},1000);
-    }else{_bjResolving=true;_noAnim=true;render();setTimeout(()=>{_bjResolving=false;bjAdvanceSplit();},BJ_ADVANCE_MS);}
+    }else{_bjAfterCard(bjAdvanceSplit);}
   }else{_noAnim=true;render();}
 }
 
@@ -329,12 +351,15 @@ function bjDealerHTML(){
 function bjActionBtns(bust,done21,can2,canSplit){
   const wildSplit=getMod('bj_wild_split');
   const splitLit=wildSplit&&canSplit&&!done21&&!S.bjDealerReveal;
+  // _bjResolving (mid-animation / the dealer peek) disables every action — the matching click
+  // handlers already bail on it, so this just keeps the buttons from looking live while locked.
+  const locked=S.bjDealerReveal||_bjResolving;
   return`<div class="divider"></div>
   <div class="act-btns">
-    <button class="act-btn" onclick="bjHit()" ${bust||done21||S.bjDealerReveal?'disabled':''}>Hit</button>
-    <button class="act-btn" onclick="bjStand()" ${done21||S.bjDealerReveal?'disabled':''}>Stand</button>
-    <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21||S.bjDealerReveal?'disabled':''}>Double</button>
-    <button class="act-btn${splitLit?' btn-peek-glow':''}" onclick="bjSplit()" ${!canSplit||done21||S.bjDealerReveal?'disabled':''}>${wildSplit?'Split 2×':'Split'}</button>
+    <button class="act-btn" onclick="bjHit()" ${bust||done21||locked?'disabled':''}>Hit</button>
+    <button class="act-btn" onclick="bjStand()" ${done21||locked?'disabled':''}>Stand</button>
+    <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21||locked?'disabled':''}>Double</button>
+    <button class="act-btn${splitLit?' btn-peek-glow':''}" onclick="bjSplit()" ${!canSplit||done21||locked?'disabled':''}>${wildSplit?'Split 2×':'Split'}</button>
   </div>`;
 }
 
@@ -488,10 +513,8 @@ function screenBJ(){
 </div>`;
   }
   // result
-  const res=S.bjResult, isLast=S.bjHand>=3;
-  const isBusted=isChipBusted();
-  const btnText=isBusted?'Game Over 💀':(isLast?`Round 2: ${GAME_META[GAME2].name} →`:'Next Hand →');
-  const btnAction=isBusted?"advanceTo('results')":(isLast?`advanceTo('${GAME2}')`:'bjNext()');
+  const res=S.bjResult;
+  const {text:btnText, action:btnAction} = resultAdvanceBtn(S.bjHand>=3, NEXT_SCREEN['bj'], 'bjNext()');
 
   if(S.bjSplit){
     const dv=hVal(S.bjDealer);
@@ -522,10 +545,15 @@ function screenBJ(){
   const dv=hVal(S.bjDealer), pv=hVal(S.bjPlayer);
   const bjMult = getMod('bj_payout') || 1.5;
   const RES_LBL={win:'You Win!',blackjack:'Blackjack! 🂡',push:'Push',bust:'You Bust!',lose:'You Lose!'};
+  // Name the loss for what it is when the dealer turned over a natural blackjack (the casino peek),
+  // so the player understands why the hand ended before they could act.
+  const headline = res.result === 'blackjack' && bjMult === 2 ? 'Mega Blackjack! 💎'
+    : res.result === 'lose' && isBJ(S.bjDealer) ? 'Dealer Blackjack'
+    : RES_LBL[res.result];
   return `${hdr('Blackjack · Result')}
   ${_resultPanel(
     gameDots(S.bjHistory, S.bjHand, S.bjPhase), res.delta,
-    res.result === 'blackjack' && bjMult === 2 ? 'Mega Blackjack! 💎' : RES_LBL[res.result],
+    headline,
     `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;margin-bottom:14px">
       ${renderBJResultDealer(dv, 0)}
       <div class="gold-divider"></div>

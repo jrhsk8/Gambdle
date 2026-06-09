@@ -482,11 +482,8 @@ function screenPoker(){
     </div>`;
   }
   // result
-  const h=S.pkHistory[S.pkHand-1], res=rankPoker(S.pkFinal), isLast=S.pkHand>=3;
-  const isBusted=isChipBusted();
-  const _pkNext=NEXT_SCREEN['poker'];
-  const btnText=isBusted?'Game Over 💀':(isLast?(_pkNext==='roulette'?'Final Round: Roulette →':`Round 2: ${GAME_META[_pkNext].name} →`):'Next Hand →');
-  const btnAction=isBusted?"advanceTo('results')":(isLast?`advanceTo('${_pkNext}')`:'pkNext()');
+  const h=S.pkHistory[S.pkHand-1], res=rankPoker(S.pkFinal);
+  const {text:btnText, action:btnAction} = resultAdvanceBtn(S.pkHand>=3, NEXT_SCREEN['poker'], 'pkNext()');
 
   return `${hdr('5 Card Poker · Result')}
   <div class="panel" style="text-align:center">
@@ -663,11 +660,7 @@ function screenUTH(){
   // result
   const hist=S.uthHistory[S.uthHand-1];
   if(!hist)return'';
-  const isLast=S.uthHand>=3;
-  const isBusted=isChipBusted();
-  const _uthNext=NEXT_SCREEN['uth'];
-  const btnText=isBusted?'Game Over 💀':(isLast?(_uthNext==='roulette'?'Final Round: Roulette →':`Round 2: ${GAME_META[_uthNext].name} →`):'Next Hand →');
-  const btnAction=isBusted?"advanceTo('results')":(isLast?`advanceTo('${_uthNext}')`:'uthNext()');
+  const {text:btnText, action:btnAction} = resultAdvanceBtn(S.uthHand>=3, NEXT_SCREEN['uth'], 'uthNext()');
 
   if(hist.result==='fold'){
     const dealerBest=bestOf7([...S.uthDealer,...S.uthComm]);

@@ -770,6 +770,18 @@ function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnT
   </div>`;
 }
 
+// The advance button (label + onclick) shown on a card game's result screen — shared by Blackjack,
+// Hold'em and Poker, which all phrase it identically. Busted → go to results; the last hand of 3 →
+// the next game (worded "Final Round: Roulette" when roulette is the finale, else "Round 2: <name>");
+// any earlier hand → the next hand. `nextScreen` is NEXT_SCREEN[game]; `nextHandCall` runs the
+// game's own next-hand function (e.g. 'bjNext()').
+function resultAdvanceBtn(isLast, nextScreen, nextHandCall) {
+  if (isChipBusted()) return { text: 'Game Over 💀', action: "advanceTo('results')" };
+  if (!isLast)        return { text: 'Next Hand →',  action: nextHandCall };
+  const text = nextScreen === 'roulette' ? 'Final Round: Roulette →' : `Round 2: ${GAME_META[nextScreen].name} →`;
+  return { text, action: `advanceTo('${nextScreen}')` };
+}
+
 // Plays a transition sound scaled to how well the player is doing.
 function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3('assets/sounds/mediumbet.mp3');else playMp3('assets/sounds/smallbet.mp3');}
 // Navigates between games; redirects to results early if the player is busted (<10 chips).

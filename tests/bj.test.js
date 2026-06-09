@@ -428,6 +428,93 @@ describe('bjStand / bjDouble — persist bjActed for refresh recovery', () => {
   });
 });
 
+// ─── Casino dealer peek — a dealer blackjack ends the hand before the player can act ──────────────
+// A dealer sitting on a natural blackjack is revealed immediately after the deal: the player never
+// gets to hit/double/split into a sure loss, and pays out as a push (matching blackjack) or a loss
+// of just the original bet. A dealer BJ always shows an Ace or a 10, so this is exactly the casino
+// peek. (bjResolve already settles correctly once play is locked to two cards; these lock in the
+// deal-time peek, the refresh recovery, and the settlement.)
+describe('bjDeal — dealer peek for blackjack', () => {
+  const C = (r, s) => card(r, s);
+  // Deal a rigged hand with audio + timers stubbed so the sndShuffle callback runs synchronously and
+  // no real timer fires. Returns the post-deal flags. player/dealer are arrays of [rank, suit].
+  function deal(player, dealer) {
+    const origST = window.setTimeout, origShuffle = window.sndShuffle, origShoe = DEAL.bjShoe.slice(0, 4);
+    window.setTimeout = () => 0;                  // swallow the peek / celebrate timers
+    window.sndShuffle = cb => { if (cb) cb(); };  // run the deal callback synchronously
+    DEAL.bjShoe.splice(0, 4, C(...player[0]), C(...player[1]), C(...dealer[0]), C(...dealer[1]));
+    Object.assign(S, { screen:'bj', forcedMod:{}, bjPhase:'bet', bjBet:100, chips:1000, bjIdx:0, bjHistory:[], bjHand:0, bjSplit:false });
+    _bjResolving = false; S.bjCelebrating = false;
+    try {
+      bjDeal();
+      return { resolving: _bjResolving, celebrating: S.bjCelebrating, phase: S.bjPhase };
+    } finally {
+      window.setTimeout = origST; window.sndShuffle = origShuffle;
+      DEAL.bjShoe.splice(0, 4, ...origShoe); resetBJHand(); _bjRestoreS();
+    }
+  }
+
+  it('a dealer blackjack locks the player out immediately', () => {
+    const r = deal([['K','s'],['9','h']], [['A','d'],['10','c']]); // dealer BJ, player 19
+    assert(r.resolving,    'player is locked during the peek (cannot hit/double/split)');
+    assert(!r.celebrating, 'no player celebration when the dealer has blackjack');
+  });
+  it('no dealer blackjack leaves the player free to act', () => {
+    const r = deal([['K','s'],['9','h']], [['7','d'],['9','c']]); // dealer 16, player 19
+    assert(!r.resolving,   'player can act');
+    assert(!r.celebrating, 'no celebration');
+  });
+  it('player blackjack with no dealer blackjack celebrates the win', () => {
+    const r = deal([['A','s'],['K','h']], [['7','d'],['9','c']]); // player BJ, dealer 16
+    assert(r.celebrating, 'player blackjack celebrates');
+  });
+  it('a dealer blackjack takes priority over the player blackjack (push via the peek, no celebration)', () => {
+    const r = deal([['A','s'],['K','h']], [['A','d'],['Q','c']]); // both blackjack
+    assert(r.resolving,    'the peek path runs');
+    assert(!r.celebrating, 'no celebration — settled as a push by the dealer reveal');
+  });
+});
+
+describe('bjResolve — dealer blackjack outcome', () => {
+  it('player loses only the original bet to a dealer blackjack (no extra from doubling/splitting)', () => {
+    withBJ({ player:[['K','s'],['9','h']], dealer:[['A','d'],['10','c']], bet:100, chips:900 }, () => {
+      assertEqual(S.bjResult.result, 'lose', 'non-blackjack hand loses to the dealer blackjack');
+      assertEqual(S.bjResult.delta, -100, 'only the original bet is lost');
+    });
+  });
+  it('a matching player blackjack pushes against the dealer blackjack', () => {
+    withBJ({ player:[['A','s'],['K','h']], dealer:[['A','d'],['Q','c']], bet:100, chips:900 }, () => {
+      assertEqual(S.bjResult.result, 'push');
+      assertEqual(S.bjResult.delta, 0);
+    });
+  });
+});
+
+describe('bjDeal peek — supporting guards', () => {
+  it('_bjResumeAfterRefresh resumes the reveal if a refresh lands during the dealer-blackjack peek', () => {
+    const origST = window.setTimeout; const timers = [];
+    window.setTimeout = (f, d) => { timers.push({ f, d }); return timers.length; };
+    Object.assign(S, { screen:'bj', bjPhase:'play', forcedMod:{}, bjSplit:false, bjDealerReveal:false,
+      bjCelebrating:false, bjActed:false, bjPlayer:[card('K','s'),card('5','h')], bjDealer:[card('A','d'),card('10','c')], bjIdx:0 });
+    try { _bjResumeAfterRefresh(); assertEqual(timers.length, 1, 'a dealer blackjack resumes the reveal even before the player acts'); }
+    finally { window.setTimeout = origST; resetBJHand(); _bjRestoreS(); }
+  });
+  it('bjSplit is a no-op while resolving (so a split cannot sneak in during the peek)', () => {
+    Object.assign(S, { screen:'bj', bjPhase:'play', bjSplit:false, bjPlayer:[card('8','s'),card('8','h')],
+      bjDealer:[card('A','d'),card('10','c')], bjBet:100, chips:900, bjIdx:0 });
+    _bjResolving = true;
+    try { bjSplit(); assert(!S.bjSplit, 'split is blocked while the hand is resolving'); }
+    finally { _bjResolving = false; resetBJHand(); _bjRestoreS(); }
+  });
+  it('the result screen names a dealer-blackjack loss', () => {
+    Object.assign(S, { screen:'bj', bjPhase:'result', forcedMod:{}, bjSplit:false, bjDealerReveal:true,
+      bjPlayer:[card('K','s'),card('9','h')], bjDealer:[card('A','d'),card('10','c')],
+      bjResult:{result:'lose',delta:-100}, bjHand:1, bjHistory:[{bet:100,result:'lose',delta:-100,player:[],dealer:[]}] });
+    try { assert(screenBJ().includes('Dealer Blackjack'), 'headline names the dealer blackjack'); }
+    finally { _bjRestoreS(); }
+  });
+});
+
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 _bjSavedSeedFlag === null
   ? _ls.removeItem('gambdle_use_test_seed')
