@@ -31,6 +31,8 @@
  * - r_hot_number: 16        The straight-up pocket that gets the hot-pocket boost (0 = Hot Zero, 16 = Sweet Sixteen)
  * - r_hot_boost: 10         Likelihood multiplier for r_hot_number vs a fair wheel — 10 ⇒ it lands 10× its normal 1/37 (≈27%)
  * - r_color_double: true    Red and Black bets pay 2:1
+ * - r_color_boost: 66       Player's single Red/Black bet wins this % of the time (dynamic to whichever
+ *                           color they pick); a non-color bet spins fair. Pair with r_max_bets: 1.
  * - r_max_bets: 3           Max roulette bets per spin (default 5)
  * - r_respin: true          After spin, choose to keep the result or re-spin once
  * - choices: [k1,k2,k3]     Player's Choice: offer these 3 preset keys; the player picks one
@@ -69,7 +71,8 @@ const PRESET_MODIFIERS = {
   r_hot_numbers:  { type: 'roulette', title: "Hot Numbers",          desc: "Roulette: Straight number bets pay 50:1",         r_number_pay: 50,                            devNote: '' },
   r_hot_zero:     { type: 'roulette', title: "Hot Zero",             desc: "Roulette: Zero is 10x more likely to hit",        r_hot_number: 0, r_hot_boost: 10,            devNote: 'Raises the chance of your number hitting from 2.7% to exactly 27%' },
   r_sweet_sixteen:{ type: 'roulette', title: "Sweet Sixteen",        desc: "Roulette: 16 is 10x more likely to hit",          r_hot_number: 16, r_hot_boost: 10,           devNote: 'Raises the chance of your number hitting from 2.7% to exactly 27%' },
-  r_color_double: { type: 'roulette', title: "Color Bonus",          desc: "Roulette: Red/Black bets pay double. One bet max.", r_color_double: true, r_max_bets: 1,  devNote: '' },
+  r_color_double: { type: 'roulette', title: "Color Bonus",          desc: "Roulette: Red/Black pay double. One bet max.", r_color_double: true, r_max_bets: 1,  devNote: '' },
+  r_color_lock:   { type: 'roulette', title: "Wait, how?",           desc: "Roulette: Red/Black each win 2/3 of the time. One bet max.", r_color_boost: 66, r_max_bets: 1, devNote: 'Pick a color and it wins 66% instead of the usual 48.6%. Bet a number or anything else and the wheel plays fair.' },
   r_multi_bet:    { type: 'roulette', title: "Multi Bet",            desc: "Roulette: Place up to 10 bets",                   r_max_bets: 10,                              devNote: '' },
   r_respin:       { type: 'roulette', title: "Second Chance",        desc: "Roulette: One free re-spin",                      r_respin: true,                              devNote: '' },
   r_group_1_12:   { type: 'roulette', title: "Dozen I",              desc: "Roulette: Winning number will be from 1-12.",     r_force_group: '1_12',  r_max_bets: 3,      devNote: '' },
@@ -106,7 +109,7 @@ const CYCLE_ORDER = [
   'r_group_19_36',      // Day 19 — roulette
   'uth_double_play',    // Day 20 — uth
   'r_respin',           // Day 21 — roulette
-  'all_in_or_skip',     // Day 22 — cross
+  'r_color_lock',       // Day 22 — roulette (replaced all_in_or_skip)
   'bj_first_ace',       // Day 23 — bj
   'uth_pocket_aces',    // Day 24 — uth
   'bj_wild_split',      // Day 25 — bj
@@ -153,6 +156,7 @@ const DAILY_MODIFIERS = {
   20260605: 'uth_river_monster',  // Day 32
   20260611: 'players_choice',      // Day 38 — launch of Player's Choice (same trio every day)
   20260612: 'uth_three_hole',      // Day 39 — launch of Triple Threat (3 hole cards)
+  20260613: 'r_color_lock',        // Day 40 — launch of Loaded Colors (chosen color wins 66%)
 };
 
 /**

@@ -699,6 +699,89 @@ describe('Sweet Sixteen — modifier config', () => {
   });
 });
 
+// ─── spinFromRandom — Loaded Colors (dynamic 66% boost on the player's chosen color) ─────────────
+// Unlike the fixed hot-number boost, this one reads the single locked bet, so the boosted set is
+// whichever color the player picked. Stage 1 is w0 % 100 < 66 (hit the chosen 18 pockets via w1),
+// else fall through to the other 19 pockets (other color + green 0) via w1. Feeding small ints
+// walks every bucket deterministically.
+describe('spinFromRandom — Loaded Colors boost (chosen color wins 66%)', () => {
+  // Runs fn with Loaded Colors active and a single bet on `pick`, then restores state.
+  function withColorBet(pick, fn) {
+    const prevMod = S.forcedMod, prevBets = S.rBets;
+    S.forcedMod = 'r_color_lock'; S.rBets = [_bet(pick, 10)];
+    try { fn(); } finally { S.forcedMod = prevMod; S.rBets = prevBets; }
+  }
+  const isBlack = n => n !== 0 && !REDS.has(n);
+
+  it('a Red bet: red wins in exactly 66 of the 100 first-word buckets', () => {
+    withColorBet(45, () => {
+      let hits = 0;
+      for (let b = 0; b < 100; b++) if (REDS.has(_spinW(b, 0).n)) hits++;
+      assertEqual(hits, 66, 'red wins 66/100 first-word buckets (exactly 66%)');
+    });
+  });
+
+  it('a Red bet: a hit bucket walks all 18 red pockets via the second word', () => {
+    withColorBet(45, () => {
+      const seen = new Set();
+      for (let c = 0; c < 18; c++) { const n = _spinW(0, c).n; assert(REDS.has(n), `slot ${c} → a red pocket (${n})`); seen.add(n); }
+      assertEqual(seen.size, 18, 'all 18 red pockets reachable');
+    });
+  });
+
+  it('a Red bet: a miss bucket falls through to the other 19 pockets (black + green 0)', () => {
+    withColorBet(45, () => {
+      const seen = new Set();
+      for (let c = 0; c < 19; c++) { const n = _spinW(66, c).n; assert(!REDS.has(n) || n === 0, `slot ${c} → not red (${n})`); seen.add(n); }
+      assertEqual(seen.size, 19, 'all 19 non-red pockets reachable');
+      assert(seen.has(0), 'green 0 sits in the miss bucket');
+    });
+  });
+
+  it('a Black bet boosts black instead (black wins 66 of 100 buckets)', () => {
+    withColorBet(46, () => {
+      let hits = 0;
+      for (let b = 0; b < 100; b++) if (isBlack(_spinW(b, 0).n)) hits++;
+      assertEqual(hits, 66, 'black wins 66/100 first-word buckets');
+    });
+  });
+
+  it('a non-color single bet spins fair (no boost): 37 slots map 1:1 onto 0..36', () => {
+    const prevMod = S.forcedMod, prevBets = S.rBets;
+    S.forcedMod = 'r_color_lock'; S.rBets = [_bet(7, 10)]; // straight-up number, not a color
+    try {
+      const hist = {};
+      for (let r = 0; r < 37; r++) { const n = _spinW(r).n; hist[n] = (hist[n] || 0) + 1; }
+      for (let n = 0; n <= 36; n++) assertEqual(hist[n], 1, `pocket ${n} appears exactly once (fair)`);
+    } finally { S.forcedMod = prevMod; S.rBets = prevBets; }
+  });
+});
+
+// ─── Loaded Colors — modifier configuration (the day wiring) ─────────────────────────────────────
+describe('Loaded Colors — modifier config', () => {
+  it('preset exists with the right type, title, boost, and one-bet cap', () => {
+    const m = PRESET_MODIFIERS.r_color_lock;
+    assert(m, 'r_color_lock preset exists');
+    assertEqual(m.type, 'roulette');
+    assertEqual(m.title, 'Loaded Colors');
+    assertEqual(m.r_color_boost, 66);
+    assertEqual(m.r_max_bets, 1);
+  });
+
+  it('replaces all_in_or_skip in the daily CYCLE_ORDER', () => {
+    assert(CYCLE_ORDER.includes('r_color_lock'), 'cycle now includes Loaded Colors');
+    assert(!CYCLE_ORDER.includes('all_in_or_skip'), 'cycle no longer includes all_in_or_skip');
+  });
+
+  it('launches on 2026-06-13', () => {
+    assertEqual(DAILY_MODIFIERS[20260613], 'r_color_lock');
+  });
+
+  it('keeps the all_in_or_skip preset intact for direct use', () => {
+    assert(PRESET_MODIFIERS.all_in_or_skip, 'all_in_or_skip preset retained');
+  });
+});
+
 // ─── rAddBet — keep the bet amount selected after placing a bet ──────────────────────────────────
 // The amount stays so the player can quickly stake the same on another tile; only the tile pick
 // clears, and the kept amount caps to the chips left (it can never exceed the balance).

@@ -558,6 +558,23 @@ function rHotNumber(){
   return null;
 }
 
+// The dynamic color boost (Loaded Colors) for the player's single Red/Black bet, or null. Reads the
+// locked bet — the mod caps the board at one bet, so the boosted color is simply whichever the player
+// picked. Returns the chosen color's 18 pockets plus the other 19 (the other color + green 0). A
+// non-color single bet (or no bet) returns null, so the wheel spins fair. `pct` is the win likelihood
+// of the chosen color, e.g. 66 ⇒ it lands 66% of the time instead of the usual 18/37 (≈48.6%).
+function rColorBoost(){
+  const pct=getMod('r_color_boost');
+  if(pct==null) return null;
+  const b=S.rBets[0];
+  if(!b||R_BETS[b.pick]?.type!=='col2') return null;
+  const nums=getRBetNums(b.pick);            // 18 pockets of the chosen color (red=45, black=46)
+  const chosen=new Set(nums);
+  const others=[];
+  for(let p=0;p<=36;p++) if(!chosen.has(p)) others.push(p); // 19 pockets: other color + green 0
+  return {nums, others, pct};
+}
+
 // Maps random words (4 uint32s) to the winning pocket(s), honoring the day's modifier
 // distribution. Pure and deterministic: the same words always give the same numbers, so the
 // server can recompute the outcome from its stored `spins` row at replay time without knowing
@@ -568,6 +585,7 @@ function spinFromRandom(words){
   let n;
   const fg=getMod('r_force_group');
   const hot=rHotNumber();
+  const cb=rColorBoost();
   if(fg&&R_GROUP_INFO[fg]){const ns=[...R_GROUP_INFO[fg].nums];n=ns[w(0)%ns.length];}
   // Hot number (true Nx): a two-stage draw that keeps the wheel at its normal 37 pockets instead
   // of diluting it. With probability boost/37 the ball is on the hot pocket — so a boost of 10
@@ -576,6 +594,12 @@ function spinFromRandom(words){
   else if(hot){
     if(w(0)%37<hot.boost)n=hot.num;
     else{const i2=w(1)%36;n=i2<hot.num?i2:i2+1;}
+  }
+  // Loaded Colors: the same two-stage shape as Hot Number, but the "hit" set is the player's chosen
+  // color's 18 pockets. With probability pct/100 land uniformly on the chosen color, otherwise land
+  // uniformly on one of the other 19 pockets (the other color + green 0). Chosen color → exactly pct%.
+  else if(cb){
+    n=(w(0)%100<cb.pct)?cb.nums[w(1)%cb.nums.length]:cb.others[w(1)%cb.others.length];
   }
   else n=w(0)%37;
   // Double Ball: a second, distinct pocket — `n+1+k` for k uniform over 0..35 walks the other 36
