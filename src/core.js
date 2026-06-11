@@ -2,7 +2,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.26';
+const GAME_VERSION = 'v1.26.1';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -118,12 +118,20 @@ const NEXT_SCREEN = { [GAME1]: GAME2, [GAME2]: 'roulette' };
 function gameHistory(g){ return g==='bj'?S.bjHistory:g==='uth'?S.uthHistory:S.pkHistory; }
 // Non-finite deltas (undefined, NaN) are skipped rather than poisoning the whole sum.
 function gameNet(g){ return gameHistory(g).reduce((a,h)=>a+(Number.isFinite(h.delta)?h.delta:0),0); }
+// Recomputes the run's chip total from recorded history, so a stale or edited save can't inflate a
+// score. Borrowed chips count as part of the effective starting stack. Returns NaN if history is
+// corrupt; callers fall back to the saved value. Single source of truth for loadState + advanceTo.
+function recalcChips(){ return START_CHIPS + (S.borrowUsed ? (S.borrowAmount || BORROW_AMOUNT) : 0) + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0); }
 const STORAGE_KEY = 'gambdle_state_';
 const ANIM_NONE = 99; // sentinel: suppress card animation on this hand
 
 // ─── SUPABASE CONFIG ──────────────────────────────────
 const SUPABASE_URL = 'https://kxbteesmfozqzoxzktzv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4YnRlZXNtZm96cXpveHprdHp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMDk3OTEsImV4cCI6MjA5Mzc4NTc5MX0.oiDpuibLU5zZWKjm5LEoXRJGyOLBWieSO5FhPl4I3UU';
+// Standard headers for authenticated Supabase REST / RPC / Edge Function calls (the anon key is
+// public by design; RLS enforces write rules). Spread in extra headers per call, e.g.
+// { ...SUPABASE_HEADERS, 'Prefer': 'return=minimal' }.
+const SUPABASE_HEADERS = { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
 
 /** DEV_OVERRIDE enabled via ?dev=true in URL */
 const urlParams = new URLSearchParams(window.location.search);
@@ -434,8 +442,14 @@ function saveState() {
 /** Loads any existing saved progress for the current day. */
 function loadState() {
   const saved = _ls.getItem(getStateKey());
+  let parsed = null;
   if (saved) {
-    const parsed = JSON.parse(saved);
+    // A corrupt value (truncated by storage-quota pressure, an interrupted write) must not crash
+    // the boot path — JSON.parse would throw an uncaught SyntaxError and leave a blank screen with
+    // no way to recover. Treat unparseable saves as "no save": start the day fresh.
+    try { parsed = JSON.parse(saved); } catch (e) { parsed = null; }
+  }
+  if (parsed) {
     if (Array.isArray(parsed.pkHeld)) parsed.pkHeld = new Set(parsed.pkHeld);
     S = { ...S, ...parsed, day: getActiveDayNum() };
     // Migrate: old saves used 'poker' as a generic game-2 screen key; now it means 5-card poker specifically.
@@ -449,7 +463,7 @@ function loadState() {
     // Borrowed chips count as part of the effective starting stack for this calculation.
     // Skipped in dev mode so chips added via the dev menu aren't recomputed away.
     if (S.screen === 'results' && !DEV_OVERRIDE) {
-      const _calc = START_CHIPS + (S.borrowUsed ? (S.borrowAmount || BORROW_AMOUNT) : 0) + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0);
+      const _calc = recalcChips();
       // Clamp at 0: a chip balance can never be negative (debit() floors at 0), so a sub-zero recalc
       // means a corrupted/edited save — never let it be displayed, shared, or submitted to the board.
       S.chips = Number.isFinite(_calc) ? Math.max(0, _calc) : S.chips;

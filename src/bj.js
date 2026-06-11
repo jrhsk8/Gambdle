@@ -150,6 +150,10 @@ function bjHit(){
       handEl.insertAdjacentHTML('beforeend', cardHTML(hand[hand.length-1], 'lg', '', 0.1, true));
       valEl.textContent = hValDisplay(hand);
       saveState();
+    }else{
+      // The surgical update target is missing (stale/unexpected DOM) — fall back to a full render,
+      // which rebuilds from S and saves. Without this, the pushed card is neither shown nor persisted.
+      render();
     }
   }
 }
@@ -211,15 +215,17 @@ function bjSplit(){
     S.bjSplitAnimFrom.splice(ai,1,0,0);
     render(); updateChipDisplay();
   }else{
-    const splitBet=Math.min(S.bjBet,S.chips);
-    if(!splitBet)return;
+    // Splitting stakes a second hand at the full original bet, so it requires full coverage —
+    // same rule as double-down (see can2 / canSplit in the render). The guard is defensive; the
+    // button is disabled when chips < bet.
+    if(S.chips<S.bjBet)return;
     txLog({g:'bj',a:'split',h:S.bjHand,s:0});
     const[c0,c1]=S.bjPlayer;
-    debit(splitBet,'bj-split');
+    debit(S.bjBet,'bj-split');
     S.bjSplit=true;
     S.bjSplitHands=[[c0,DEAL.bjShoe[S.bjIdx++]],[c1]];
     S.bjSplitActive=0;
-    S.bjSplitBets=[S.bjBet,splitBet];
+    S.bjSplitBets=[S.bjBet,S.bjBet];
     S.bjSplitResults=[];
     S.bjSplitDone=[false,false];
     S.bjSplitDoubled=[false,false];
@@ -496,7 +502,7 @@ function screenBJ(){
     const pv=hVal(S.bjPlayer),bust=pv>21,done21=pv===21,pvStr=S.bjDealerReveal?String(pv):hValDisplay(S.bjPlayer);
     const isInitial=S.bjPlayer.length===2;
     const can2=S.chips>=S.bjBet&&isInitial;
-    const canSplit=isInitial&&S.chips>0&&(S.bjPlayer[0].r===S.bjPlayer[1].r||!!getMod('bj_wild_split'));
+    const canSplit=isInitial&&S.chips>=S.bjBet&&(S.bjPlayer[0].r===S.bjPlayer[1].r||!!getMod('bj_wild_split'));
     return `${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
 <div class="panel" style="display:flex;flex-direction:column">
   ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}

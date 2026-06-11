@@ -180,11 +180,7 @@ async function submitAndFetchLeaderboard() {
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
   const seed = getActiveSeed();
   const subKey = `gambdle_submitted_${seed}`;
-  const headers = {
-    'Content-Type': 'application/json',
-    'apikey': SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-  };
+  const headers = SUPABASE_HEADERS;
 
   if (!_backlogSeed && !_ls.getItem(subKey) && !DEV_OVERRIDE && !_testActive()) {
     try {
@@ -284,7 +280,7 @@ async function fetchScoreDistribution() {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_score_distribution`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+      headers: SUPABASE_HEADERS,
       body: JSON.stringify({ p_seed: getActiveSeed() }),
       signal: controller.signal,
     });
@@ -947,7 +943,7 @@ function advanceTo(s){
   }
   if(s!=='results'&&isChipBusted())s='results';
   if(s==='results'&&!DEV_OVERRIDE){
-    const _calc=START_CHIPS+(S.borrowUsed?(S.borrowAmount||BORROW_AMOUNT):0)+gameNet(GAME1)+gameNet(GAME2)+(S.rResult?.delta||0);
+    const _calc=recalcChips();
     // Fall back to the current saved value if the recalculation is non-finite (corrupted history).
     // Skipped in dev mode so dev-menu chip bonuses aren't recomputed away on the results screen.
     // Clamp at 0: balances never go negative (debit() floors at 0), so a sub-zero recalc is a corrupt save.
@@ -981,12 +977,7 @@ async function _submitStart() {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/starts`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Prefer': 'return=minimal',
-      },
+      headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=minimal' },
       body: JSON.stringify({ seed, fingerprint: getDeviceId() }),
     });
     if (res.ok) _ls.setItem(key, '1');
@@ -1004,12 +995,7 @@ async function _submitBorrow() {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/borrows`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Prefer': 'return=minimal',
-      },
+      headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=minimal' },
       body: JSON.stringify({ seed, fingerprint: getDeviceId() }),
     });
     if (res.ok) _ls.setItem(key, '1');

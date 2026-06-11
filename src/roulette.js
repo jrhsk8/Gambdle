@@ -584,10 +584,11 @@ function spinFromRandom(words){
   return{n,n2};
 }
 
-// SHA-256 hex of the locked bets ([[pick, amount], …] in placement order). Sent with the spin
-// request and stored server-side; submit-score recomputes it from the transcript and rejects a
-// mismatch — so fetching the spin words before really betting commits you to the bets you hashed.
-async function _betNonce(bets){
+// SHA-256 hex of the locked bets ([[pick, amount], …] in placement order). It is a commitment to
+// the bets (not a nonce — it's deterministic, derived from the bets themselves): sent with the spin
+// request and stored server-side, then submit-score recomputes it from the transcript and rejects a
+// mismatch. So fetching the spin words before really betting commits you to the bets you hashed.
+async function _betHash(bets){
   if(!crypto.subtle)return null; // non-secure context (shouldn't happen on https/file)
   const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(bets)));
   return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -604,13 +605,13 @@ async function _spinWords(bets){
   };
   if(DEV_OVERRIDE||_testActive()||_backlogSeed||SUPABASE_URL==='YOUR_SUPABASE_URL')return local();
   try{
-    const betNonce=await _betNonce(bets);
+    const betHash=await _betHash(bets);
     const ctrl=new AbortController();
     const timer=setTimeout(()=>ctrl.abort(),5000);
     const res=await fetch(`${SUPABASE_URL}/functions/v1/spin`,{
       method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
-      body:JSON.stringify({seed:getActiveSeed(),fingerprint:getDeviceId(),respin:S.rReSpun,betNonce}),
+      headers:SUPABASE_HEADERS,
+      body:JSON.stringify({seed:getActiveSeed(),fingerprint:getDeviceId(),respin:S.rReSpun,betHash}),
       signal:ctrl.signal,
     });
     clearTimeout(timer);

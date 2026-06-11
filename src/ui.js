@@ -822,7 +822,7 @@ async function submitFeedback() {
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/rapid-service`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+      headers: SUPABASE_HEADERS,
       body: JSON.stringify({ content: `📬 **Gambdle Feedback** · Day #${S.day} · ${fmt(S.chips)} chips\n>>> ${msg}` })
     });
     if (!res.ok) throw new Error();

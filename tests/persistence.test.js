@@ -403,10 +403,13 @@ describe('saveState → loadState round-trip', () => {
 // ─── Graceful degradation ─────────────────────────────────────────────────────
 
 describe('loadState — graceful degradation', () => {
-  it('corrupted JSON throws — no try/catch in loadState (document this behavior)', () => {
+  it('corrupted JSON degrades gracefully — no throw, day starts fresh', () => {
+    // A truncated/corrupt save (e.g. storage-quota pressure) must not crash boot. loadState
+    // treats an unparseable value as "no save" and leaves S in a usable default state.
     withRawSave('{{NOT_VALID_JSON', err => {
-      assert(err !== null, 'loadState threw on invalid JSON');
-      assert(err instanceof SyntaxError, 'error is a SyntaxError');
+      assert(err === null, 'loadState did not throw on invalid JSON');
+      assert(Array.isArray(S.bjHistory), 'S left in a usable default state');
+      assert(S.pkHeld instanceof Set, 'pkHeld still a Set');
     });
   });
 
