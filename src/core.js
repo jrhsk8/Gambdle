@@ -2,7 +2,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.22';
+const GAME_VERSION = 'v1.24';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -133,12 +133,32 @@ if(DEV_OVERRIDE) document.body.classList.add('dev-mode');
 /** Manual overrides for deck seeding (independent of ?dev=true flag) */
 const ENABLE_CARD_SEEDING = false; // Set to true to enable the overrides below
 
-function getMod(key) {
+// Resolves today's active modifier preset object (forced > date override > cycle), or null.
+// Does NOT apply the Player's Choice indirection — that's getMod's job.
+function _activeMod() {
   const cycled = CYCLE_ORDER[(getActiveDayNum()-1) % CYCLE_ORDER.length];
   const modRef = S.forcedMod || DAILY_MODIFIERS[getActiveSeed()] || cycled;
   if (!modRef) return null;
-  let mod = typeof modRef === 'string' ? PRESET_MODIFIERS[modRef] : modRef;
+  return typeof modRef === 'string' ? PRESET_MODIFIERS[modRef] : modRef;
+}
+
+function getMod(key) {
+  let mod = _activeMod();
+  if (!mod) return null;
+  // Player's Choice: once the player commits a pick, the active modifier IS their chosen preset,
+  // so every getMod() call (game rules, banner title/desc, results recalc) reads through it.
+  if (mod.choices && S.pcPick) mod = PRESET_MODIFIERS[S.pcPick] || mod;
   return (mod && mod[key] !== undefined) ? mod[key] : null;
+}
+
+// Returns the three offered choice presets ({key, ...preset}) when today is a Player's Choice day
+// and the player hasn't committed yet — otherwise null. Drives the picker screen and start routing.
+function pendingPlayersChoice() {
+  const mod = _activeMod();
+  if (mod && mod.choices && !S.pcPick) {
+    return mod.choices.map(k => ({ key: k, ...PRESET_MODIFIERS[k] }));
+  }
+  return null;
 }
 
 // ─── CARD UTILITIES ───────────────────────────────────────────
@@ -325,6 +345,7 @@ let S={
   borrowUsed: false,        // true once the daily borrow option has been taken or declined
   borrowAmount: 0,          // actual chips borrowed (may exceed BORROW_AMOUNT under min_chips modifier)
   borrowReturnScreen: null, // screen to navigate to after borrowing chips
+  pcPick: null,             // Player's Choice: the chosen modifier key once committed (null until picked)
 };
 
 /** True when the daily borrow option can still be shown: not yet used, and roulette not yet spun. */
@@ -418,7 +439,9 @@ function loadState() {
     // Skipped in dev mode so chips added via the dev menu aren't recomputed away.
     if (S.screen === 'results' && !DEV_OVERRIDE) {
       const _calc = START_CHIPS + (S.borrowUsed ? (S.borrowAmount || BORROW_AMOUNT) : 0) + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0);
-      S.chips = Number.isFinite(_calc) ? _calc : S.chips;
+      // Clamp at 0: a chip balance can never be negative (debit() floors at 0), so a sub-zero recalc
+      // means a corrupted/edited save — never let it be displayed, shared, or submitted to the board.
+      S.chips = Number.isFinite(_calc) ? Math.max(0, _calc) : S.chips;
     }
   } else {
     // No saved state for today — apply borrow debt only if it targets today's exact seed.
@@ -434,7 +457,8 @@ function loadState() {
             _ls.removeItem('gambdle_borrow_debt');
           } else {
             if (debt.targetSeed === getDailySeed()) {
-              S.chips = START_CHIPS - debt.amount;
+              // Clamp at 0 so a corrupted/oversized debt can't seed the day with a negative balance.
+              S.chips = Math.max(0, START_CHIPS - debt.amount);
             }
             // Clear once the target day has arrived or passed (expired or consumed).
             if (getDailySeed() >= debt.targetSeed) {

@@ -350,6 +350,46 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 .act-btn:disabled { opacity: 0.38; cursor: not-allowed; }
 .act-btn.primary { background: var(--gold); box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2.5px -2.5px 0 var(--gold-lo); }
 
+/* ── Player's Choice picker ────────────────────────────────
+   Options are raised buttons (not the flat gold banner) so they read as "pick me".
+   Always horizontal bars stacked vertically (icon beside text) at every width; the
+   header scales up as large as each breakpoint allows. */
+.pc-head { font-family: var(--btn-f); font-size: 2rem; letter-spacing: 0.12em; color: var(--gold-hi); margin: 12px 0 4px; line-height: 1.05; }
+.pc-sub  { font-size: 1.2rem; color: var(--cream); opacity: 0.72; margin-bottom: 16px; }
+.pc-grid { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+.pc-option {
+  display: flex; flex-direction: row; align-items: center; gap: 16px;
+  padding: 18px 20px; cursor: pointer; text-align: left;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--ink);
+  box-shadow: inset 1.5px 1.5px 0 var(--highlight), inset -2.5px -2.5px 0 var(--shadow);
+  transition: background 0.08s;
+}
+.pc-option:hover { background: var(--gold); box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2.5px -2.5px 0 var(--gold-lo); }
+.pc-option:active { transform: translate(1px,1px); box-shadow: inset 2.5px 2.5px 0 var(--shadow), inset -1.5px -1.5px 0 var(--highlight); }
+.pc-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.pc-icon { font-size: 2.4rem; line-height: 1; flex-shrink: 0; }
+.pc-title { font-family: var(--btn-f); font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+.pc-desc { font-size: 1.15rem; opacity: 0.8; line-height: 1.35; }
+@media (max-width: 480px) {
+  .pc-head { font-size: 1.7rem; letter-spacing: 0.08em; }
+  .pc-option { padding: 14px 16px; gap: 14px; }
+  .pc-icon { font-size: 2.1rem; }
+  .pc-title { font-size: 1.55rem; }
+}
+/* Desktop: lots of room — center the (short) picker vertically and go big on the header
+   and bars so they fill the window like substantial buttons. */
+@media (min-width: 1024px) {
+  .pc-panel { justify-content: center; }
+  .pc-head { font-size: 3.4rem; letter-spacing: 0.18em; margin-bottom: 10px; }
+  .pc-sub { font-size: 1.5rem; margin-bottom: 28px; }
+  .pc-grid { gap: 18px; }
+  .pc-option { padding: 28px 36px; gap: 26px; }
+  .pc-icon { font-size: 3.4rem; }
+  .pc-title { font-size: 2.3rem; }
+  .pc-desc { font-size: 1.45rem; }
+}
+
 /* ── Cards — Balatro-readable ──────────────────────────── */
 .card {
   display: inline-block; position: relative;
@@ -738,6 +778,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   padding-left: 2px;
 }
 .dvs-grp-lbl:first-child { margin-top: 0; }
+/* Desktop: dev stats now carries an extra Lifetime group + the chart, so tighten its rows and
+   group spacing (scoped to #devstats-body) to keep the whole screen on one window at 1280×800. */
+@media (min-width: 1024px) {
+  #devstats-body .irow { padding: 1px 10px; }
+  #devstats-body .dvs-grp-lbl { margin-top: 3px; }
+}
 .gold-divider { width: 60%; height: 1px; background: rgba(196,147,58,0.1); align-self: center; }
 .result-hl { font-family: var(--btn-f); font-size: 3rem; margin-bottom: 4px; text-shadow: 2px 2px 0 rgba(0,0,0,0.4); }
 .result-sub { font-family: var(--btn-f); font-size: 2rem; margin-bottom: 14px; }

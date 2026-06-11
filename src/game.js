@@ -86,6 +86,43 @@ function declineBorrow(){
   advanceTo('results');
 }
 
+// ─── PLAYER'S CHOICE PICKER ───────────────────────────────────────────────────
+// Icon per modifier type, used on the picker buttons (presets carry a `type`, not an icon).
+const _PC_ICON = { bj:'♠️', uth:'🤠', roulette:'🎡', cross:'✨', choice:'🎲' };
+
+function screenChoice(){
+  const choices = pendingPlayersChoice();
+  // Defensive: only reachable when a pick is pending (startGame routes here). If not, fall back.
+  if(!choices) return screenIntro();
+  const cards = choices.map(c=>`
+    <button class="pc-option" onclick="pickModifier('${c.key}')">
+      <span class="pc-icon">${_PC_ICON[c.type]||'✨'}</span>
+      <span class="pc-text">
+        <span class="pc-title">${c.title}</span>
+        <span class="pc-desc">${c.desc}</span>
+      </span>
+    </button>`).join('');
+  return `${hdr("Player's Choice")}
+  <div class="panel pc-panel" style="text-align:center">
+    <div class="pc-head">PLAYER'S CHOICE</div>
+    <div class="pc-sub">The casino is feeling generous. Today only, pick your own daily mod.</div>
+    <div class="pc-grid">${cards}</div>
+  </div>`;
+}
+
+// Commits the player's pick and starts the run. Instant-commit: one tap locks it for the day.
+// Sets screen=GAME1 before saveState so a refresh right after picking resumes into Blackjack
+// (not back onto the picker) with the chosen modifier applied.
+function pickModifier(key){
+  const choices = pendingPlayersChoice();
+  if(!choices || !choices.some(c=>c.key===key)) return; // only a currently-offered choice is valid
+  S.pcPick=key;
+  S.screen=GAME1; S.bjPhase='bet';
+  saveState();
+  sndChip('allin');
+  render();
+}
+
 function screenResults(){
   const g1Net=gameNet(GAME1), g2Net=gameNet(GAME2);
   const g1Label=`${GAME_META[GAME1].icon} ${GAME_META[GAME1].name}`;
@@ -152,7 +189,7 @@ async function submitAndFetchLeaderboard() {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-score`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ seed, chips: S.chips, fingerprint: getDeviceId() })
+        body: JSON.stringify({ seed, chips: Math.max(0, S.chips), fingerprint: getDeviceId() })
       });
       if (res.ok) _ls.setItem(subKey, '1');
     } catch(e) {
@@ -378,14 +415,14 @@ function toggleTestSeed() {
 // ─── STATUS BAR ──────────────────────────────────────────────────────────
 
 const STATUS_HINT = {
-  intro:    'Idle — start a new game.',
-  bj:       'Blackjack — choose action.',
-  uth:      "Hold'em — choose action.",
-  poker:    'Poker — choose action.',
-  roulette: 'Roulette — place a bet.',
-  borrow:   'Broke — borrow chips to continue.',
+  intro:    'Idle · Start a new game.',
+  bj:       'Blackjack · Choose action.',
+  uth:      "Hold'em · Choose action.",
+  poker:    'Poker · Choose action.',
+  roulette: 'Roulette · Place a bet.',
+  borrow:   'Broke · Borrow chips to continue.',
   results:  '<span class="sb-prefix">Game complete · </span>New game at midnight<span class="sb-suffix"> Arizona time</span>',
-  devstats: 'Dev mode — player statistics.',
+  devstats: 'Dev mode · Player statistics.',
 };
 
 function statusBar(){
@@ -421,6 +458,28 @@ function screenDevStats() {
   </div>`;
 }
 
+// Builds the score-distribution bar chart from 7 bucket counts (<=249 … >=4000). Shared by the
+// single-RPC fast path and the multi-query fallback so both draw the chart identically.
+function _distChartHTML(counts) {
+  if (!Array.isArray(counts) || counts.length !== 7) return '';
+  const sorted = [...counts].sort((a, b) => b - a);
+  const useLog = sorted[0] > 0 && sorted[1] > 0 && sorted[0] / sorted[1] > 3;
+  const scaled = counts.map(c => useLog ? Math.sqrt(c) : c);
+  const maxScaled = Math.max(...scaled, 1);
+  const labels = ['0','250','500','1k','2k','3k','4k'];
+  const lblOffsets = [-3,-12,-9,-9,-9,-9,-9];
+  const cols = counts.map((cnt, i) => {
+    const h = cnt > 0 ? Math.max((scaled[i] / maxScaled) * 100, 5) : 0;
+    const endLbl = i === 6 ? '<span class="dist-lbl" style="right:-6px;left:auto;transform:none">5k+</span>' : '';
+    return `<div class="dist-bar" style="height:${h}%">
+      <span class="dist-count">${cnt}</span>
+      <span class="dist-lbl" style="left:${lblOffsets[i]}px;transform:none">${labels[i]}</span>
+      ${endLbl}
+    </div>`;
+  }).join('');
+  return `<div class="dvs-grp-lbl" style="margin-top:8px">Score Distribution</div><div class="dist-wrap"><div class="dist-bars">${cols}</div></div>`;
+}
+
 async function fetchDevStats() {
   const el = document.getElementById('devstats-body');
   if (!el) return;
@@ -435,17 +494,95 @@ async function fetchDevStats() {
     ).join('') + `</div>`;
   const warn = (txt) => `<span style="color:var(--shadow);font-size:.75rem">${txt}</span>`;
   const pct  = (n, d) => d > 0 ? ` <span style="color:var(--shadow);font-size:.75rem">(${Math.round(n/d*100)}%)</span>` : '';
+  const net  = (n) => `<span style="color:${col(n)}">${sign(n)}</span>`;
+
+  // ── Fast path: one RPC returns the entire payload (see supabase/dev_stats.sql). Falls through to
+  // the multi-query path below if get_dev_stats isn't deployed yet. ─────────────────────────────
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_dev_stats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ p_seed: seed }),
+    });
+    if (r.ok) {
+      const d = await r.json();
+      if (d && d.today && d.lifetime && d.last7) {
+        const T = d.today, L = d.lifetime, W = d.last7;
+        const ph = T.peak_hour;
+        const peakAMPM = ph == null ? warn('n/a') : ph === 0 ? '12am' : ph < 12 ? ph + 'am' : ph === 12 ? '12pm' : (ph - 12) + 'pm';
+        const dnf = Math.max((T.started || 0) - (T.completions || 0), 0);
+        const returning = T.fingerprinted - T.new_players;
+        const lifetimeGroup = ['Lifetime · All Days', [
+          ['Unique players',   fmt(L.unique_players)],
+          ['Completions',      fmt(L.completions)],
+          ['Net chips',        net(L.net)],
+          ['Avg plays/day',    fmt(Math.round(L.completions / Math.max(S.day, 1)))],
+          ['Players/day (7d)', fmt(Math.round((W.plays || 0) / 7))],
+          ['New players (7d)', fmt(W.new_players)],
+        ]];
+        const engagementGroup = ['Engagement', [
+          ['Started today',   T.started > 0 || T.completions > 0 ? fmt(T.started) : warn('needs table')],
+          ['Completed',       fmt(T.completions)],
+          ['DNF',             T.started > 0 ? `${fmt(dnf)}${pct(dnf, T.started)}` : warn('n/a')],
+          ['Completion rate', T.started > 0 ? `${Math.round(T.completions / T.started * 100)}%` : warn('no starts yet')],
+        ]];
+        if (T.completions === 0) {
+          el.innerHTML = renderGroups([engagementGroup, lifetimeGroup]) +
+            `<div style="color:var(--shadow);padding:14px 0;text-align:center">No completed runs yet for seed ${seed}.</div>`;
+          return;
+        }
+        el.innerHTML = renderGroups([
+          engagementGroup,
+          ['Audience', [
+            ['New today',  fmt(T.new_players)],
+            ['Returning',  `${fmt(returning)}${pct(returning, T.fingerprinted)}`],
+          ]],
+          ['Scores', [
+            ['Average',    fmt(T.avg)],
+            ['Median',     fmt(T.median)],
+            ['High score', fmt(T.high)],
+            ['Net chips',  net(T.net)],
+          ]],
+          ['Outcomes', [
+            ['In profit',  `${fmt(T.in_profit)}${pct(T.in_profit, T.completions)}`],
+            ['Went bust',  `<span style="color:${T.bust > 0 ? 'var(--lose)' : 'inherit'}">${fmt(T.bust)}</span>${pct(T.bust, T.completions)}`],
+            ['Peak hour',  peakAMPM],
+            ['Borrowed',   `${fmt(T.borrowed)}${pct(T.borrowed, T.started)}`],
+          ]],
+          lifetimeGroup,
+        ]) + _distChartHTML(d.distribution || []);
+        return;
+      }
+    }
+  } catch (e) {}
 
   try {
-    // Fetch scores, starts count, and borrows count in parallel.
-    const [res, startsRes, borrowsRes] = await Promise.all([
+    // Everything fires in one parallel batch: today's scores, the per-day counts, the lifetime count,
+    // the rolling 7-day metrics, the per-seed new-player counts, and the score distribution.
+    const countHeaders = { ...headers, 'Prefer': 'count=exact', 'Range': '0-0', 'Range-Unit': 'items' };
+    const jsonHeaders = { 'Content-Type': 'application/json', ...headers };
+    // Last 7 daily seeds (today first, then prior 6), Phoenix time — for the rolling 7-day metrics.
+    const last7Seeds = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(Date.now() - _PHOENIX_OFFSET_MS); d.setUTCDate(d.getUTCDate() - i);
+      return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+    });
+    const [res, startsRes, borrowsRes, lifeScoresRes, plays7Res, newPlayerCounts, distRes] = await Promise.all([
       fetch(`${SUPABASE_URL}/rest/v1/scores?seed=eq.${seed}&select=chips,created_at,fingerprint&order=chips.desc`, { headers }),
-      fetch(`${SUPABASE_URL}/rest/v1/starts?seed=eq.${seed}&select=id`, {
-        headers: { ...headers, 'Prefer': 'count=exact', 'Range': '0-0', 'Range-Unit': 'items' },
-      }).catch(() => null),
-      fetch(`${SUPABASE_URL}/rest/v1/borrows?seed=eq.${seed}&select=id`, {
-        headers: { ...headers, 'Prefer': 'count=exact', 'Range': '0-0', 'Range-Unit': 'items' },
-      }).catch(() => null),
+      fetch(`${SUPABASE_URL}/rest/v1/starts?seed=eq.${seed}&select=id`, { headers: countHeaders }).catch(() => null),
+      fetch(`${SUPABASE_URL}/rest/v1/borrows?seed=eq.${seed}&select=id`, { headers: countHeaders }).catch(() => null),
+      // Lifetime completion count (header only). Unique players + net chips need a server-side aggregate
+      // (count-distinct / sum over the whole table); a REST row fetch is capped by Supabase's row limit,
+      // so those two are accurate only via the get_dev_stats fast path (run supabase/dev_stats.sql).
+      fetch(`${SUPABASE_URL}/rest/v1/scores?select=id`, { headers: countHeaders }).catch(() => null),
+      // Plays across the last 7 days (one submission per device per day, so this is player-days).
+      fetch(`${SUPABASE_URL}/rest/v1/scores?seed=in.(${last7Seeds.join(',')})&select=id`, { headers: countHeaders }).catch(() => null),
+      // New-player count per seed (index 0 = today, reused for "New today"; finite entries sum to the
+      // 7-day total). One call per seed; a null entry means the RPC errored/was absent.
+      Promise.all(last7Seeds.map(s =>
+        fetch(`${SUPABASE_URL}/rest/v1/rpc/get_new_player_count`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ p_seed: s }) })
+          .then(r => r.ok ? r.json() : null).catch(() => null)
+      )),
+      fetch(`${SUPABASE_URL}/rest/v1/rpc/get_score_distribution`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ p_seed: seed }) }).catch(() => null),
     ]);
     // Parse an exact count from a response's Content-Range header ("0-0/47" or "*/0"); null if absent.
     const countOf = (r) => {
@@ -454,6 +591,26 @@ async function fetchDevStats() {
     };
     const startsCount = countOf(startsRes);
     const borrowsCount = countOf(borrowsRes);
+
+    // New players: index 0 of the per-seed counts is today; finite entries sum to the 7-day total.
+    const newPlayers = Number.isFinite(newPlayerCounts[0]) ? newPlayerCounts[0] : null;
+    const newPlayers7 = newPlayerCounts.every(v => Number.isFinite(v)) ? newPlayerCounts.reduce((a, b) => a + b, 0) : null;
+
+    // Lifetime (all seeds, all days). Completion count is a cheap count header. Unique players and net
+    // chips need a server-side aggregate (count-distinct / sum over the whole table) — a REST row fetch
+    // is capped by Supabase's row limit and would badly undercount (a fingerprint that played thousands
+    // of times still counts once, but we'd only see the first page of rows), so we DON'T fake them here.
+    // They show real values via the get_dev_stats fast path above (run supabase/dev_stats.sql).
+    const lifeCompletions = countOf(lifeScoresRes);
+    const plays7 = countOf(plays7Res);
+    const lifetimeGroup = ['Lifetime · All Days', [
+      ['Unique players',   warn('needs RPC')],
+      ['Completions',      lifeCompletions !== null ? fmt(lifeCompletions) : warn('n/a')],
+      ['Net chips',        warn('needs RPC')],
+      ['Avg plays/day',    lifeCompletions !== null ? fmt(Math.round(lifeCompletions / Math.max(S.day, 1))) : warn('n/a')],
+      ['Players/day (7d)', plays7 !== null ? fmt(Math.round(plays7 / 7)) : warn('n/a')],
+      ['New players (7d)', newPlayers7 !== null ? fmt(newPlayers7) : warn('needs RPC')],
+    ]];
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const rows = await res.json();
@@ -464,10 +621,10 @@ async function fetchDevStats() {
     const dnfCount = startsCount !== null ? Math.max(startsCount - total, 0) : null;
     const dnfVal = dnfCount !== null
       ? `${fmt(dnfCount)}${pct(dnfCount, startsCount)}`
-      : warn('—');
+      : warn('n/a');
     const completionVal = startsCount !== null && startsCount > 0
       ? `${Math.round(total / startsCount * 100)}%`
-      : startsCount === 0 ? warn('no starts yet') : warn('—');
+      : startsCount === 0 ? warn('no starts yet') : warn('n/a');
     // Borrowed = devices that actually took the loan today (% of starts — the base for any
     // in-run behaviour; shown in Outcomes below). Computed here so it's ready for that group.
     const borrowedVal = borrowsCount !== null
@@ -481,23 +638,28 @@ async function fetchDevStats() {
       ['Completion rate',  completionVal],
     ]];
 
-    // No completions yet → render engagement-only and bail.
+    // No completions yet → render engagement + lifetime (which spans all days) and bail.
     if (total === 0) {
-      el.innerHTML = renderGroups([engagementGroup]) +
+      el.innerHTML = renderGroups([engagementGroup, lifetimeGroup]) +
         `<div style="color:var(--shadow);padding:14px 0;text-align:center">No completed runs yet for seed ${seed}.</div>`;
       return;
     }
 
     const scores = rows.map(r => r.chips);
     const fingerprintedCount = rows.filter(r => r.fingerprint).length;
-    const avg    = Math.round(scores.reduce((a, b) => a + b, 0) / total);
-    const sorted = [...scores].sort((a, b) => a - b);
-    const med    = sorted.length % 2 === 0
-      ? Math.round((sorted[sorted.length/2-1] + sorted[sorted.length/2]) / 2)
-      : sorted[Math.floor(sorted.length/2)];
-    const max    = scores[0];
     const bozos  = scores.filter(s => s === 0).length;
     const inProfit = scores.filter(s => s > START_CHIPS).length;
+    // Value stats (avg/median/high/net) ignore scores above 100,000 — almost always tampered or
+    // corrupted saves — so they don't skew. Counts above (and completions) still include every row.
+    const valScores = scores.filter(s => s <= 100000); // rows are ordered chips.desc, so [0] is the max
+    const avg    = valScores.length ? Math.round(valScores.reduce((a, b) => a + b, 0) / valScores.length) : 0;
+    const sorted = [...valScores].sort((a, b) => a - b);
+    const med    = sorted.length === 0 ? 0
+      : sorted.length % 2 === 0 ? Math.round((sorted[sorted.length/2-1] + sorted[sorted.length/2]) / 2)
+      : sorted[Math.floor(sorted.length/2)];
+    const max    = valScores.length ? valScores[0] : 0;
+    // Today's net chips — each finish's deviation from the 1,000-chip start (outliers excluded).
+    const todayNet = valScores.reduce((a, s) => a + (s - START_CHIPS), 0);
 
     // Hourly submission breakdown from created_at
     const hourBuckets = Array(24).fill(0);
@@ -508,52 +670,19 @@ async function fetchDevStats() {
     const peakHour = hourBuckets.indexOf(Math.max(...hourBuckets));
     const peakAMPM = peakHour === 0 ? '12am' : peakHour < 12 ? peakHour + 'am' : peakHour === 12 ? '12pm' : (peakHour - 12) + 'pm';
 
-    // New players today — first-time fingerprints
-    let newPlayers = null;
-    try {
-      const npr = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_new_player_count`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-        body: JSON.stringify({ p_seed: seed })
-      });
-      if (npr.ok) newPlayers = await npr.json();
-    } catch(e) {}
+    // New today / Returning — reuse the today entry from the per-seed counts fetched above.
     const newPlayersVal = newPlayers !== null ? fmt(newPlayers) : warn('needs RPC');
     const returningPlayers = newPlayers !== null ? fingerprintedCount - newPlayers : null;
     const returningVal = returningPlayers !== null
       ? `${fmt(returningPlayers)}${pct(returningPlayers, fingerprintedCount)}`
       : warn('needs RPC');
 
-    // Score distribution — same RPC as results screen, no "you" line
+    // Score distribution — same RPC as results screen (fetched in the parallel batch above), no "you" line.
     let distHTML = '';
     try {
-      const dr = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_score_distribution`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-        body: JSON.stringify({ p_seed: seed })
-      });
-      if (dr.ok) {
-        const dist = await dr.json();
-        if (Array.isArray(dist) && dist.length) {
-          const counts = dist.map(b => parseInt(b.count));
-          const sorted2 = [...counts].sort((a, b) => b - a);
-          const useLog = sorted2[0] > 0 && sorted2[1] > 0 && sorted2[0] / sorted2[1] > 3;
-          const scaled = counts.map(c => useLog ? Math.sqrt(c) : c);
-          const maxScaled = Math.max(...scaled, 1);
-          const labels = ['0','250','500','1k','2k','3k','4k'];
-          const cols = dist.map((b, i) => {
-            const cnt = parseInt(b.count);
-            const h = cnt > 0 ? Math.max((scaled[i] / maxScaled) * 100, 5) : 0;
-            const lblOffsets = [-3,-12,-9,-9,-9,-9,-9];
-            const endLbl = i === 6 ? '<span class="dist-lbl" style="right:-6px;left:auto;transform:none">5k+</span>' : '';
-            return `<div class="dist-bar" style="height:${h}%">
-              <span class="dist-count">${cnt}</span>
-              <span class="dist-lbl" style="left:${lblOffsets[i]}px;transform:none">${labels[i]}</span>
-              ${endLbl}
-            </div>`;
-          }).join('');
-          distHTML = `<div class="dvs-grp-lbl" style="margin-top:8px">Score Distribution</div><div class="dist-wrap"><div class="dist-bars">${cols}</div></div>`;
-        }
+      if (distRes && distRes.ok) {
+        const dist = await distRes.json();
+        if (Array.isArray(dist) && dist.length) distHTML = _distChartHTML(dist.map(b => parseInt(b.count)));
       }
     } catch(e) {}
 
@@ -567,6 +696,7 @@ async function fetchDevStats() {
         ['Average',          fmt(avg)],
         ['Median',           fmt(med)],
         ['High score',       fmt(max)],
+        ['Net chips',        net(todayNet)],
       ]],
       ['Outcomes', [
         ['In profit',        `${fmt(inProfit)}${pct(inProfit, total)}`],
@@ -574,6 +704,7 @@ async function fetchDevStats() {
         ['Peak hour',        peakAMPM],
         ['Borrowed',         borrowedVal],
       ]],
+      lifetimeGroup,
     ]) + distHTML;
   } catch (err) {
     if (el) el.innerHTML = `<div style="color:var(--lose);padding:10px 0">Error: ${err.message}</div>`;
@@ -584,7 +715,7 @@ async function fetchDevStats() {
 
 // Full re-render — replaces all of #app. Use surgical DOM updates mid-hand to avoid flash.
 function render(){
-  const scr={intro:screenIntro,bj:screenBJ,uth:screenUTH,poker:screenPoker,roulette:screenRoulette,borrow:screenBorrow,results:screenResults,devstats:screenDevStats};
+  const scr={intro:screenIntro,choice:screenChoice,bj:screenBJ,uth:screenUTH,poker:screenPoker,roulette:screenRoulette,borrow:screenBorrow,results:screenResults,devstats:screenDevStats};
   const inner = (scr[S.screen]||screenIntro)();
   document.getElementById('app').innerHTML=`<div class="app">
     <div class="window">
@@ -807,7 +938,8 @@ function advanceTo(s){
     const _calc=START_CHIPS+(S.borrowUsed?(S.borrowAmount||BORROW_AMOUNT):0)+gameNet(GAME1)+gameNet(GAME2)+(S.rResult?.delta||0);
     // Fall back to the current saved value if the recalculation is non-finite (corrupted history).
     // Skipped in dev mode so dev-menu chip bonuses aren't recomputed away on the results screen.
-    S.chips=Number.isFinite(_calc)?_calc:S.chips;
+    // Clamp at 0: balances never go negative (debit() floors at 0), so a sub-zero recalc is a corrupt save.
+    S.chips=Number.isFinite(_calc)?Math.max(0,_calc):S.chips;
   }
   sndAdvance();goTo(s);
 }
@@ -819,7 +951,13 @@ function _borrowReturnScreen(){
   if(S.screen==='poker') return S.pkHand<3  ?'poker' :NEXT_SCREEN['poker'];
   return S.screen;
 }
-function startGame(){sndChip('allin');S.screen=GAME1;S.bjPhase='bet';render();_submitStart();}
+function startGame(){
+  sndChip('allin');
+  // Player's Choice day: divert to the picker before the first game. The pick screen commits
+  // S.pcPick, then routes into GAME1 (see pickModifier). On a normal day, go straight to Blackjack.
+  if(pendingPlayersChoice()){S.screen='choice';render();_submitStart();return;}
+  S.screen=GAME1;S.bjPhase='bet';render();_submitStart();
+}
 
 // Fire-and-forget: records that this device started today's game.
 // Skipped in dev/test/backlog modes; deduplicated per device per day via localStorage.

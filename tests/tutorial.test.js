@@ -226,3 +226,84 @@ describe('_popupOutsideClick — refocus click does not dismiss the tip', () => 
     assertEqual(clickOutside({ hasFocus: true, refocusAgoMs: 10000 }), true);
   });
 });
+
+// ─── "What's New" announcement — src/tutorial.js WHATS_NEW + _maybeWhatsNew ──────────────────────
+// A one-off balloon shown on the intro screen to returning players (tips on) to flag game changes.
+// Brand-new players are silently opted out of the current note so they only see future ones.
+describe("WHATS_NEW content — src/tutorial.js", () => {
+  it('is a well-formed announcement config', () => {
+    assert(typeof WHATS_NEW === 'object' && WHATS_NEW, 'WHATS_NEW exists');
+    assertEqual(typeof WHATS_NEW.enabled, 'boolean', 'enabled is a boolean toggle');
+    assert(typeof WHATS_NEW.id === 'string' && WHATS_NEW.id.length, 'has a non-empty id');
+    assert(typeof WHATS_NEW.title === 'string' && WHATS_NEW.title.length, 'has a title');
+    assert(typeof WHATS_NEW.body === 'string' && WHATS_NEW.body.length, 'has a body');
+  });
+});
+
+describe("_maybeWhatsNew — returning-player announcement", () => {
+  function clearWN() {
+    _ls.removeItem(_whatsNewKey());
+    _ls.removeItem('gambdle_highscore');
+    _ls.removeItem('gambdle_history');
+  }
+  // Runs fn with a mock balloon, clean keys, and the player marked returning or not.
+  function run(returning, fn) {
+    withBalloon(() => {
+      clearWN();
+      if (returning) _ls.setItem('gambdle_highscore', '1500');
+      try { fn(); } finally { clearWN(); }
+    });
+  }
+
+  it('shows once to a returning player with tips on, then dedupes', () => {
+    run(true, () => {
+      assertEqual(_maybeWhatsNew(), true, 'first visit shows the note');
+      assert(document.getElementById('xp-balloon').classList.contains('xpb-visible'), 'balloon is visible');
+      assert(_ls.getItem(_whatsNewKey()), 'note is marked seen');
+      document.getElementById('xp-balloon').className = ''; // simulate dismissal
+      assertEqual(_maybeWhatsNew(), false, 'an already-seen note does not re-show');
+    });
+  });
+
+  it('silently opts a brand-new player out of the current note (marks seen, no balloon)', () => {
+    run(false, () => {
+      assertEqual(_maybeWhatsNew(), false, 'a new player sees nothing');
+      assert(!document.getElementById('xp-balloon').classList.contains('xpb-visible'), 'no balloon for a new player');
+      assert(_ls.getItem(_whatsNewKey()), 'the current note is consumed so only future ones show');
+    });
+  });
+
+  it('does nothing and stays unseen while Tips are off (can still show if tips are later turned on)', () => {
+    run(true, () => {
+      setPref('tutorial_off', true);
+      try {
+        assertEqual(_maybeWhatsNew(), false, 'tips off → no note');
+        assert(!_ls.getItem(_whatsNewKey()), 'not consumed while tips are off');
+      } finally { setPref('tutorial_off', false); }
+    });
+  });
+
+  it('respects the enabled flag', () => {
+    run(true, () => {
+      const orig = WHATS_NEW.enabled;
+      WHATS_NEW.enabled = false;
+      try { assertEqual(_maybeWhatsNew(), false, 'disabled → no note'); assert(!_ls.getItem(_whatsNewKey()), 'disabled note not consumed'); }
+      finally { WHATS_NEW.enabled = orig; }
+    });
+  });
+
+  it('does not steal the balloon from a tutorial tip already showing', () => {
+    run(true, () => {
+      document.getElementById('xp-balloon').className = 'xpb-visible'; // a tip occupies the slot
+      assertEqual(_maybeWhatsNew(), false, 'yields when a balloon is already up');
+      assert(!_ls.getItem(_whatsNewKey()), 'not consumed when it could not show');
+    });
+  });
+});
+
+describe('_isReturningPlayer', () => {
+  function clean() { _ls.removeItem('gambdle_highscore'); _ls.removeItem('gambdle_history'); }
+  it('false with no prior play', () => { clean(); try { assertEqual(_isReturningPlayer(), false); } finally { clean(); } });
+  it('true once a highscore exists', () => { clean(); _ls.setItem('gambdle_highscore', '1200'); try { assertEqual(_isReturningPlayer(), true); } finally { clean(); } });
+  it('true once history has an entry', () => { clean(); _ls.setItem('gambdle_history', JSON.stringify({ 20260601: 1500 })); try { assertEqual(_isReturningPlayer(), true); } finally { clean(); } });
+});

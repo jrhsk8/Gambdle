@@ -2,4 +2,5 @@ node_modules/
 package-lock.json
 .claude/
 screenshots/
+supabase/
 docs/superpowers/specs/2026-06-08-desktop-floating-windows-design.md

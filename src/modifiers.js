@@ -32,6 +32,8 @@
  * - r_color_double: true    Red and Black bets pay 2:1
  * - r_max_bets: 3           Max roulette bets per spin (default 5)
  * - r_respin: true          After spin, choose to keep the result or re-spin once
+ * - choices: [k1,k2,k3]     Player's Choice: offer these 3 preset keys; the player picks one
+ *                           before the run and it becomes the active modifier for the day.
  */
 
 const PRESET_MODIFIERS = {
@@ -51,12 +53,17 @@ const PRESET_MODIFIERS = {
   uth_river_monster:  { type: 'uth',  title: "River Monster",        desc: "Hold'em: River card revealed immediately after you bet", uth_river_monster: true,              devNote: '' },
   uth_time_travel:    { type: 'uth',  title: "Time Travel",          desc: "Hold'em: Re-deal the flop or turn+river once today", uth_time_travel: true,                    devNote: '' },
   // Cross-game
-  peek:            { type: 'cross',   title: "Dealer Peek",          desc: "Peek at the dealer's hole card on up to 3 hands",  peek: 3,                                     devNote: '' },
+  peek:            { type: 'cross',   title: "Dealer Peek",          desc: "Blackjack & Hold'em: 3 total peeks at a dealer card",  peek: 3,                                     devNote: '' },
   comeback:        { type: 'cross',   title: "Comeback",             desc: "Wins pay 2x if you are below 1000 chips",         comeback: true,                              devNote: '' },
   all_in_or_skip:  { type: 'cross',   title: "Martingale",           desc: "All wins are doubled. You can only go all in.",   all_in_or_skip: true,                        devNote: '' },
+  // Player's Choice — before the run, the player picks ONE of the three `choices` to be the day's
+  // modifier. Edit the `choices` array to set the trio (any 3 non-choice preset keys); the load-time
+  // guard below enforces exactly 3 valid keys. Add more variants and slot them into CYCLE_ORDER /
+  // DAILY_MODIFIERS to offer different trios on different days.
+  players_choice:  { type: 'choice',  title: "Player's Choice",      desc: "Pick one modifier to play today",                 choices: ['bj_first_ace', 'uth_pocket_aces', 'r_hot_zero'], devNote: 'Same three options for everyone.' },
   // Roulette
   r_double_all:   { type: 'roulette', title: "Double Payout",        desc: "Roulette: All wins are doubled. One bet max.",    r_payout_mult: 2.0, r_max_bets: 1,          devNote: '' },
-  r_double_ball:  { type: 'roulette', title: "Double Ball",          desc: "Roulette: Two balls spin — win if either lands on your bet.", r_double_ball: true,             devNote: '' },
+  r_double_ball:  { type: 'roulette', title: "Double Ball",          desc: "Roulette: Two balls spin. Win if either lands on your bet.", r_double_ball: true,             devNote: '' },
   r_hot_numbers:  { type: 'roulette', title: "Hot Numbers",          desc: "Roulette: Straight number bets pay 50:1",         r_number_pay: 50,                            devNote: '' },
   r_hot_zero:     { type: 'roulette', title: "Hot Zero",             desc: "Roulette: Zero is 10x more likely to hit",        r_hot_number: 0, r_hot_boost: 10,            devNote: 'Raises the chance of your number hitting from 2.7% to exactly 27%' },
   r_sweet_sixteen:{ type: 'roulette', title: "Sweet Sixteen",        desc: "Roulette: 16 is 10x more likely to hit",          r_hot_number: 16, r_hot_boost: 10,           devNote: 'Raises the chance of your number hitting from 2.7% to exactly 27%' },
@@ -141,6 +148,7 @@ const DAILY_MODIFIERS = {
   20260603: 'uth_time_travel',    // Day 30
   20260604: 'r_sweet_sixteen',    // Day 31 (overridden for the Sweet Sixteen launch)
   20260605: 'uth_river_monster',  // Day 32
+  20260611: 'players_choice',      // Day 38 — launch of Player's Choice (same trio every day)
 };
 
 /**
@@ -158,4 +166,17 @@ const DAILY_SEED_OVERRIDES = {
 // Validate CYCLE_ORDER entries at load time
 CYCLE_ORDER.forEach(k => {
   if (!PRESET_MODIFIERS[k]) throw new Error(`modifiers.js: unknown key in CYCLE_ORDER: "${k}"`);
+});
+
+// Validate Player's Choice presets: `choices` must list exactly 3 valid, non-choice preset keys
+// (no nesting a Player's Choice inside another). Catches config typos at load instead of mid-run.
+Object.entries(PRESET_MODIFIERS).forEach(([name, mod]) => {
+  if (!mod.choices) return;
+  if (!Array.isArray(mod.choices) || mod.choices.length !== 3)
+    throw new Error(`modifiers.js: "${name}" must offer exactly 3 choices`);
+  mod.choices.forEach(k => {
+    const c = PRESET_MODIFIERS[k];
+    if (!c) throw new Error(`modifiers.js: "${name}" offers unknown modifier "${k}"`);
+    if (c.choices) throw new Error(`modifiers.js: "${name}" choice "${k}" cannot itself be a Player's Choice`);
+  });
 });

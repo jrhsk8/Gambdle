@@ -387,6 +387,21 @@ describe('advanceTo(results) — recalculates chips including borrow', () => {
       assertEqual(S.chips, expected, 'chips should not include any borrow when not borrowed');
     });
   });
+
+  it('clamps a sub-zero recalc to 0 (corrupted save can never show a negative score)', () => {
+    // Simulates a corrupted/edited save whose history deltas sum far below -(START_CHIPS): the
+    // recalc would be deeply negative, but a chip balance can never be < 0, so it must clamp to 0.
+    const bjH = [{ bet:1000, result:'lose', delta:-51000, player:[], dealer:[] }];
+    withBrwState({
+      screen: 'roulette', chips: 0,
+      borrowUsed: false, borrowAmount: 0,
+      rResult: { delta: 0 }, rPhase: 'result',
+      bjHistory: bjH, uthHistory: [], bjHand: 1, uthHand: 0,
+    }, () => {
+      advanceTo('results');
+      assertEqual(S.chips, 0, 'negative recalc should clamp to 0, not display -50,000');
+    });
+  });
 });
 
 // ─── screenBorrow renders ─────────────────────────────────────────────────────

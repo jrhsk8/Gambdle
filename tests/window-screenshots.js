@@ -37,6 +37,7 @@ const SIZES = [
 // card()/bestOf7(). Mirrors the fixtures in screenshots.js so the two stay in sync.
 const SCREENS = {
   'intro':           () => { S.screen='intro'; S.chips=1000; },
+  'choice':          () => { S.forcedMod='players_choice'; S.screen='choice'; S.pcPick=null; S.chips=1000; },
   'bj-play':         () => { S.screen='bj'; S.bjPhase='play'; S.chips=950; S.bjBet=50; S.bjHand=0; S.bjHistory=[]; S.bjPlayer=[card('A','s'),card('10','h')]; S.bjDealer=[card('Q','c'),card('7','s')]; S.bjDealerReveal=false; S.bjSplit=false; },
   'bj-result':       () => { S.screen='bj'; S.bjPhase='result'; S.chips=900; S.bjBet=50; S.bjHand=1; S.bjSplit=false; S.bjDealerReveal=true; S.bjPlayer=[card('K','s'),card('9','h')]; S.bjDealer=[card('10','d'),card('8','c'),card('3','s')]; S.bjResult={result:'win',delta:50}; S.bjHistory=[{bet:50,result:'win',delta:50,player:[...S.bjPlayer],dealer:[...S.bjDealer]}]; },
   'uth-bet':         () => { S.screen='uth'; S.uthPhase='bet'; S.chips=1000; S.uthAnte=100; S.uthHand=0; S.uthHistory=[]; },

@@ -72,9 +72,9 @@ function hdr(sub){
     const parts = sub.split(' · ');
     const main = parts[0];
     const detail = parts.length > 1 ? `<span class="tb-detail"> · ${parts[1]}</span>` : '';
-    // "Gambdle — " is hidden on mobile (the status bar already shows it) so the long
+    // "Gambdle · " is hidden on mobile (the status bar already shows it) so the long
     // game name fits the narrow title bar without overflowing horizontally.
-    titleText = `<span class="tb-prefix">Gambdle — </span>${main}${detail}`;
+    titleText = `<span class="tb-prefix">Gambdle · </span>${main}${detail}`;
   }
   return`<div class="title-bar">
     <span class="tb-title"><span class="tb-icon">♠</span>${titleText}</span>
@@ -96,6 +96,8 @@ function hdr(sub){
 // Returns the gold modifier banner HTML, or '' if no modifier is active today.
 // Injected into .panel by render() after the screen HTML is built, not part of any screenX() call.
 function modBannerHTML(slim=false){
+  // The picker screen IS the modifier reveal — don't also stack the banner above it.
+  if (S.screen === 'choice') return '';
   const modTitle = getMod('title');
   const modDesc = getMod('desc');
   if (!modTitle) return '';
@@ -275,7 +277,8 @@ function buildShareText(){
     `🎡 Roulette (${sign(rNet)})`,
     ``,
     `${trophy} Finished with ${fmt(S.chips)} chips${topSuffix}`,
-    `gambdle.net`
+    // Keep the protocol on the URL — Discord (and most chat apps) only auto-link/embed when it's present.
+    `https://gambdle.net`
   ].join('\n');
 }
 // Re-renders the on-screen share box (the leaderboard fetch calls this once the
@@ -299,7 +302,7 @@ function _fallbackCopy(text){
   document.body.appendChild(ta);
   ta.focus(); ta.select();
   try { document.execCommand('copy'); toast('Copied! 🎲'); }
-  catch { toast('Copy failed — try long-pressing the share text'); }
+  catch { toast('Copy failed. Try long-pressing the share text.'); }
   document.body.removeChild(ta);
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
@@ -544,6 +547,7 @@ function showModSubmenu(trigger, action) {
     {key:'uth',      label:"♠ Hold'em"},
     {key:'cross',    label:'🔀 Cross-Game'},
     {key:'roulette', label:'🎡 Roulette'},
+    {key:'choice',   label:"🎲 Player's Choice"},
   ];
   const html = cats.map(c =>
     `<div class="dd-item" onclick="showModTypeSubmenu('${c.key}',this,'${action}');event.stopPropagation()">${c.label} <span class="dd-key">►</span></div>`
@@ -819,13 +823,13 @@ async function submitFeedback() {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/rapid-service`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-      body: JSON.stringify({ content: `📬 **Gambdle Feedback** — Day #${S.day} · ${fmt(S.chips)} chips\n>>> ${msg}` })
+      body: JSON.stringify({ content: `📬 **Gambdle Feedback** · Day #${S.day} · ${fmt(S.chips)} chips\n>>> ${msg}` })
     });
     if (!res.ok) throw new Error();
     closeFeedbackDialog();
     toast('Feedback sent! Thanks 🎲');
   } catch {
-    toast('Failed to send — try again?');
+    toast('Failed to send. Try again?');
     if (btn) { btn.disabled = false; btn.textContent = 'Send'; }
   }
 }
@@ -850,7 +854,7 @@ function showPopup(id) {
 
 // Renders the XP balloon with an arbitrary title/body; returns true if shown.
 // Shared by showPopup (legacy welcome) and the tutorial tips below.
-function _renderBalloon(title, body) {
+function _renderBalloon(title, body, sticky = false) {
   const el = document.getElementById('xp-balloon');
   if (!el) return false;
   el.innerHTML = `
@@ -864,9 +868,12 @@ function _renderBalloon(title, body) {
     </div>
     <div class="xpb-tail"></div>`;
   el.className = 'xpb-visible';
+  el.dataset.sticky = sticky ? '1' : '';
+  el.dataset.screen = S.screen;        // sticky balloons close when this screen changes (see _runTutorial)
   _updateBalloonPosition();
-  // No auto-fade — stays until the X or an outside click. Deferred so the opening click doesn't close it.
-  setTimeout(() => document.addEventListener('pointerdown', _popupOutsideClick), 0);
+  // No auto-fade. Tips also dismiss on an outside click; a sticky balloon (What's New) stays until the
+  // X or a screen change instead. Deferred so the opening click doesn't immediately close it.
+  if (!sticky) setTimeout(() => document.addEventListener('pointerdown', _popupOutsideClick), 0);
   return true;
 }
 
@@ -918,11 +925,49 @@ function _eligibleTips(){
   return out;
 }
 
+// localStorage key the current "what's new" note dedupes on (one per WHATS_NEW.id).
+function _whatsNewKey(){ return 'gambdle_whatsnew_' + (typeof WHATS_NEW !== 'undefined' ? WHATS_NEW.id : ''); }
+
+// Has this player finished at least one run before? Used to limit the "what's new" note to returning
+// players. A completed run leaves a highscore and/or a gambdle_history entry.
+function _isReturningPlayer(){
+  try {
+    if (_ls.getItem('gambdle_highscore')) return true;
+    return Object.keys(JSON.parse(_ls.getItem('gambdle_history') || '{}')).length > 0;
+  } catch { return false; }
+}
+
+// Shows the WHATS_NEW announcement balloon once to a returning player with Tips on, then marks it
+// seen. A brand-new player is silently opted out of the *current* note (the key is marked seen
+// without showing anything) so they only ever see FUTURE announcements; their normal new-player tips
+// are untouched. Returns true if the balloon was shown. Environment guards (webdriver / backlog) and
+// the "intro screen only" gate live in _runTutorial, its only caller — mirroring _maybeTip.
+function _maybeWhatsNew(){
+  if (typeof WHATS_NEW === 'undefined' || !WHATS_NEW.enabled) return false;
+  if (getPref('tutorial_off')) return false;
+  const key = _whatsNewKey();
+  let seen; try { seen = !!_ls.getItem(key); } catch { return false; }
+  if (seen) return false;
+  if (!_isReturningPlayer()) { try { _ls.setItem(key, '1'); } catch {} return false; } // new player → future notes only
+  const bal = document.getElementById('xp-balloon');
+  if (bal && bal.classList.contains('xpb-visible')) return false; // a tip already has the balloon
+  if (!_renderBalloon(WHATS_NEW.title, WHATS_NEW.body, true)) return false; // sticky: X or screen change only
+  try { _ls.setItem(key, '1'); } catch {}
+  return true;
+}
+
 // Shows at most one eligible tip per render (a second surfaces on the next render
 // rather than stacking). Skipped under automation (navigator.webdriver) so tips
 // never appear in the test/screenshot/webkit harnesses, and on archive/backlog views.
+// On the intro screen, the "what's new" note runs first: for a returning player the new-player
+// modifier tip is already seen, so the note takes the balloon; for a new player it just silently
+// opts them out of the current note and the modifier tip shows as usual.
 function _runTutorial(){
   if (!_testTutorial() && (navigator.webdriver || _backlogSeed)) return;
+  // A sticky balloon (What's New) closes as soon as you leave the screen it was shown on.
+  const bal = document.getElementById('xp-balloon');
+  if (bal && bal.classList.contains('xpb-visible') && bal.dataset.sticky === '1' && bal.dataset.screen !== S.screen) dismissPopup();
+  if (S.screen === 'intro') _maybeWhatsNew();
   for (const id of _eligibleTips()) if (_maybeTip(id)) break;
 }
 

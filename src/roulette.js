@@ -377,7 +377,7 @@ function screenRouletteBet(){
   if(aios&&S.rBets.length===0){
     return `${hdr('Roulette · 1 Spin')}
     <div class="panel">
-      <div class="sec">The Table — select where to go all in</div>
+      <div class="sec">The Table · Select where to go all in</div>
       ${board}
       <div style="display:flex;gap:10px;margin:10px 0">
         <button class="btn-gold" style="flex:2" onclick="rAllIn()" ${!pb?'disabled':''}>All In on ${pb?rBetLabel(S.rPick):'...'} (${fmt(S.chips)}) →</button>
