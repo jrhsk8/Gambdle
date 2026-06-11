@@ -311,6 +311,64 @@ describe('uth_pocket_aces — hole cards are Aces', () => {
   });
 });
 
+// uth_three_hole — Triple Threat: a third hole card from the deck's unused tail (27 + hand).
+describe('uth_three_hole — Triple Threat third hole card', () => {
+  const _thSnap = JSON.stringify({...S, pkHeld:[...S.pkHeld]});
+  const _thRestore = () => { const r=JSON.parse(_thSnap); r.pkHeld=new Set(r.pkHeld); Object.assign(S,r); };
+
+  it('uthDeal deals 3 hole cards; third comes from tail index 27, rest of layout unchanged', () => {
+    S.forcedMod = 'uth_three_hole';
+    Object.assign(S, { screen:'uth', uthPhase:'bet', uthAnte:100, uthHand:0, chips:1000 });
+    try {
+      uthDeal();
+      assertEqual(S.uthHole.length, 3, 'should deal exactly 3 hole cards');
+      assert(S.uthHole[0] === DEAL.uthDeck[0], 'first hole card unchanged');
+      assert(S.uthHole[1] === DEAL.uthDeck[1], 'second hole card unchanged');
+      assert(S.uthHole[2] === DEAL.uthDeck[27], 'third hole card comes from the unused tail (index 27)');
+      assertEqual(S.uthDealer.length, 2, 'dealer still gets exactly 2 cards');
+      assert(S.uthDealer[0] === DEAL.uthDeck[2], 'dealer cards keep their offsets');
+      assert(S.uthComm[0] === DEAL.uthDeck[4], 'community cards keep their offsets');
+    } finally { _thRestore(); }
+  });
+
+  it('hand 2 draws its third card from tail index 28 (never reuses a dealt card)', () => {
+    S.forcedMod = 'uth_three_hole';
+    Object.assign(S, { screen:'uth', uthPhase:'bet', uthAnte:100, uthHand:1, chips:1000 });
+    try {
+      uthDeal();
+      assertEqual(S.uthHole.length, 3);
+      assert(S.uthHole[2] === DEAL.uthDeck[28], 'third hole card comes from tail index 28');
+    } finally { _thRestore(); }
+  });
+
+  it('uthResolve scores the player on best 5 of 8 (third hole card wins the hand)', () => {
+    S.forcedMod = 'uth_three_hole';
+    Object.assign(S, {
+      screen:'uth', uthPhase:'turn', uthAnte:100, uthPlay:50, uthPlayMult:1,
+      uthHole:  [card('2','c'), card('7','d'), card('A','h')],  // A♥ pairs the board Ace
+      uthDealer:[card('K','s'), card('Q','d')],                 // dealer ends with high card
+      uthComm:  [card('A','s'), card('5','h'), card('9','c'), card('J','d'), card('3','h')],
+      chips:1000, uthHand:0, uthHistory:[],
+    });
+    try {
+      uthResolve();
+      const hist = S.uthHistory[0];
+      assertEqual(hist.result, 'win', 'pair of Aces via the third hole card should win');
+      assertEqual(hist.playerBest.cat, 1, 'player best hand is One Pair');
+      assert(hist.playerBest.cards.some(c => c.r === 'A' && c.s === '♥'), 'best hand uses the third hole card');
+    } finally { _thRestore(); }
+  });
+
+  it('without the modifier, uthDeal still deals exactly 2 hole cards', () => {
+    S.forcedMod = {};
+    Object.assign(S, { screen:'uth', uthPhase:'bet', uthAnte:100, uthHand:0, chips:1000 });
+    try {
+      uthDeal();
+      assertEqual(S.uthHole.length, 2, 'should deal exactly 2 hole cards');
+    } finally { _thRestore(); }
+  });
+});
+
 // uth_hard_qualify — dealer needs Two Pair (cat ≥ 2) instead of Pair (cat ≥ 1) to qualify.
 describe('uth_hard_qualify — dealer qualification threshold', () => {
   const _hqSnap = JSON.stringify({...S, pkHeld:[...S.pkHeld]});

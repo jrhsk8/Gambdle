@@ -578,48 +578,32 @@ describe('_evalBets — r_double_ball (Double Ball)', () => {
   });
 });
 
-// ─── _pickSpin — winning-pocket selection (incl. the hot-number boost) ──────────────────────────
-// Pins Math.random() to the centre of pool slot `rInt` so each draw is deterministic, then walks
-// every slot to prove the exact pocket mapping (no statistics / flakiness).
-function _pickWith(rInt, pool) {
-  const orig = Math.random;
-  Math.random = () => (rInt + 0.5) / pool;
-  try { return _pickSpin(); } finally { Math.random = orig; }
-}
+// ─── spinFromRandom — winning-pocket selection from spin words (incl. the hot-number boost) ─────
+// The server (or local fallback) supplies 4 random uint32 "words"; spinFromRandom maps them to
+// the pocket(s) as w0 % pool (+ w1 for the hot-number fall-through, w2 for Double Ball). Feeding
+// small ints walks every pool slot deterministically (no statistics / flakiness).
+const _spinW = (w0 = 0, w1 = 0, w2 = 0, w3 = 0) => spinFromRandom([w0, w1, w2, w3]);
 
-// Two-stage hot-number draw (true 10×): the FIRST Math.random picks one of 37 equally-likely
-// first-stage buckets — buckets 0..boost-1 win the hot number (boost/37 ≈ 10/37), the rest fall
-// through to the SECOND Math.random, a fair spin over the other 36 pockets. _pickSeq feeds those
-// two draws deterministically; firstBucket(b) lands floor(r*37)===b, otherBucket(c) lands
-// floor(r*36)===c.
-function _pickSeq(...vals) {
-  const orig = Math.random; let i = 0;
-  Math.random = () => (i < vals.length ? vals[i++] : 0.5);
-  try { return _pickSpin(); } finally { Math.random = orig; }
-}
-const firstBucket = b => (b + 0.5) / 37;
-const otherBucket = c => (c + 0.5) / 36;
-
-describe('_pickSpin — Sweet Sixteen boost (true 10×: P(16) = 10/37)', () => {
-  it('16 wins in exactly 10 of the 37 equally-likely first-stage buckets → 10/37 ≈ 27%', () => {
+describe('spinFromRandom — Sweet Sixteen boost (true 10×: P(16) = 10/37)', () => {
+  it('16 wins in exactly 10 of the 37 equally-likely first-word buckets → 10/37 ≈ 27%', () => {
     S.forcedMod = 'r_sweet_sixteen';
     let hits = 0;
-    for (let b = 0; b < 37; b++) if (_pickSeq(firstBucket(b), otherBucket(0)) === 16) hits++;
+    for (let b = 0; b < 37; b++) if (_spinW(b, 0).n === 16) hits++;
     S.forcedMod = null;
-    assertEqual(hits, 10, '16 wins 10 of 37 first-stage buckets (10/37, a true 10× of the fair 1/37)');
+    assertEqual(hits, 10, '16 wins 10 of 37 first-word buckets (10/37, a true 10× of the fair 1/37)');
   });
 
-  it('a boost-band first draw returns 16 regardless of the second draw', () => {
+  it('a boost-band first word returns 16 regardless of the second word', () => {
     S.forcedMod = 'r_sweet_sixteen';
-    for (let b = 0; b < 10; b++) assertEqual(_pickSeq(firstBucket(b), otherBucket(5)), 16, `bucket ${b} → 16`);
+    for (let b = 0; b < 10; b++) assertEqual(_spinW(b, 5).n, 16, `bucket ${b} → 16`);
     S.forcedMod = null;
   });
 
-  it('a non-boost first draw falls through to a fair spin over the other 36 pockets, skipping 16', () => {
+  it('a non-boost first word falls through to a fair spin over the other 36 pockets, skipping 16', () => {
     S.forcedMod = 'r_sweet_sixteen';
     const hist = {};
     for (let c = 0; c < 36; c++) {
-      const n = _pickSeq(firstBucket(10), otherBucket(c));  // 10 ≥ boost → second stage
+      const n = _spinW(10, c).n;  // first word bucket 10 ≥ boost → second stage
       hist[n] = (hist[n] || 0) + 1;
       assertEqual(n, c < 16 ? c : c + 1, `second-stage slot ${c} maps past 16`);
     }
@@ -629,13 +613,13 @@ describe('_pickSpin — Sweet Sixteen boost (true 10×: P(16) = 10/37)', () => {
   });
 });
 
-describe('_pickSpin — Hot Zero shares the same path (true 10× on 0)', () => {
-  it('0 wins 10 of 37 first-stage buckets; the fall-through is a fair spin over 1..36', () => {
+describe('spinFromRandom — Hot Zero shares the same path (true 10× on 0)', () => {
+  it('0 wins 10 of 37 first-word buckets; the fall-through is a fair spin over 1..36', () => {
     S.forcedMod = 'r_hot_zero';
     let hits = 0; const others = {};
-    for (let b = 0; b < 37; b++) if (_pickSeq(firstBucket(b), otherBucket(0)) === 0) hits++;
+    for (let b = 0; b < 37; b++) if (_spinW(b, 0).n === 0) hits++;
     for (let c = 0; c < 36; c++) {
-      const n = _pickSeq(firstBucket(36), otherBucket(c));   // 36 ≥ boost → second stage
+      const n = _spinW(36, c).n;   // bucket 36 ≥ boost → second stage
       others[n] = (others[n] || 0) + 1;
       assertEqual(n, c + 1, `second-stage slot ${c} → ${c + 1}`);
     }
@@ -645,19 +629,46 @@ describe('_pickSpin — Hot Zero shares the same path (true 10× on 0)', () => {
   });
 });
 
-describe('_pickSpin — no boost and override', () => {
-  it('with no modifier the 37 pool slots map 1:1 onto 0..36', () => {
+describe('spinFromRandom — no boost, force group, Double Ball, override', () => {
+  it('with no modifier the 37 first-word slots map 1:1 onto 0..36', () => {
     S.forcedMod = {};
     const hist = {};
-    for (let r = 0; r < 37; r++) { const n = _pickWith(r, 37); hist[n] = (hist[n] || 0) + 1; }
+    for (let r = 0; r < 37; r++) { const n = _spinW(r).n; hist[n] = (hist[n] || 0) + 1; }
     S.forcedMod = null;
     for (let n = 0; n <= 36; n++) assertEqual(hist[n], 1, `pocket ${n} appears exactly once`);
+  });
+
+  it('a force-group day walks only the group pockets (Dozen II → 13..24)', () => {
+    S.forcedMod = 'r_group_13_24';
+    try {
+      for (let k = 0; k < 12; k++) assertEqual(_spinW(k).n, 13 + k, `slot ${k} → ${13 + k}`);
+      assertEqual(_spinW(12).n, 13, 'slot 12 wraps back to the first group pocket');
+    } finally { S.forcedMod = null; }
+  });
+
+  it('Double Ball derives a second, always-distinct pocket from word 2', () => {
+    S.forcedMod = 'r_double_ball';
+    try {
+      const seen = new Set();
+      for (let k = 0; k < 36; k++) {
+        const { n, n2 } = _spinW(5, 0, k);
+        assertEqual(n, 5, 'ball 1 comes from word 0');
+        assert(n2 !== null && n2 !== 5, `ball 2 (${n2}) must differ from ball 1`);
+        seen.add(n2);
+      }
+      assertEqual(seen.size, 36, 'ball 2 covers all 36 other pockets uniformly');
+    } finally { S.forcedMod = null; }
+  });
+
+  it('without Double Ball the second pocket is null', () => {
+    S.forcedMod = {};
+    try { assertEqual(_spinW(5, 0, 9).n2, null); } finally { S.forcedMod = null; }
   });
 
   it('DEAL.rSpinOverride beats the hot-number boost outright', () => {
     const prev = DEAL.rSpinOverride;
     DEAL.rSpinOverride = 23; S.forcedMod = 'r_sweet_sixteen';
-    try { assertEqual(_pickSpin(), 23); }
+    try { assertEqual(_spinW(0).n, 23); }
     finally { DEAL.rSpinOverride = prev; S.forcedMod = null; }
   });
 });

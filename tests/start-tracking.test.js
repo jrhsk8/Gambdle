@@ -160,9 +160,12 @@ describe('_submitStart — fetch payload when all guards pass', () => {
 // ─── startGame() ─────────────────────────────────────────────────────────────
 
 describe('startGame — navigation', () => {
+  // Pin a plain (non-choice) modifier: on a real Player's Choice day startGame correctly
+  // routes to the picker screen instead of GAME1, which is covered by choice.test.js.
   it('sets S.screen to GAME1', () => {
     const prevKey = _ls.getItem(_stSnap); // unused, just for safety
     try {
+      S.forcedMod = {};
       startGame();
       assertEqual(S.screen, GAME1, `screen should be ${GAME1} after startGame`);
     } finally {
@@ -172,6 +175,7 @@ describe('startGame — navigation', () => {
 
   it('sets bjPhase to bet', () => {
     try {
+      S.forcedMod = {};
       startGame();
       assertEqual(S.bjPhase, 'bet', 'bjPhase should be bet after startGame');
     } finally {
@@ -182,6 +186,7 @@ describe('startGame — navigation', () => {
   it('does not write a started key in test mode', () => {
     const before = _ls.getItem(_startKey());
     try {
+      S.forcedMod = {};
       startGame();
       assertEqual(_ls.getItem(_startKey()), before, 'no started key should be written in test mode');
     } finally {

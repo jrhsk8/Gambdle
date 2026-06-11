@@ -248,6 +248,21 @@ describe('bestOf7', () => {
     assert(r.score >= 0, 'score is non-negative');
     assert(r.cards.length === 5, 'result has exactly 5 cards');
   });
+
+  // 8-card hands occur under uth_three_hole (Triple Threat): 3 hole + 5 community.
+  it('8 cards (Triple Threat): finds quads scattered across all 8 positions', () => {
+    const cards = h([['K','s'],['2','h'],['K','h'],['3','d'],['K','d'],['4','c'],['A','s'],['K','c']]);
+    const r = bestOf7(cards);
+    assertEqual(r.cat, 7, 'should find four Kings among 8 cards');
+  });
+
+  it('8 cards: best hand uses the 8th card when it completes a flush', () => {
+    const cards = h([['2','s'],['7','s'],['9','s'],['J','s'],['3','h'],['8','d'],['Q','c'],['A','s']]);
+    const r = bestOf7(cards);
+    assertEqual(r.cat, 5, 'should find the Ace-high spade flush');
+    assert(r.cards.some(c => c.r === 'A' && c.s === '♠'), 'flush should include the A♠ (8th card)');
+    assert(r.cards.length === 5, 'result has exactly 5 cards');
+  });
 });
 
 // ─── uthBlindDelta ────────────────────────────────────────────────────────────

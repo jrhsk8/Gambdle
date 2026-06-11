@@ -23,6 +23,7 @@
  * - uth_pocket_aces: true   Player hole cards are AA every round (fresh deck each hand)
  * - uth_river_monster: true Hold'em: the river card is dealt face-up before the bet
  * - uth_time_travel: true   Hold'em: once/day, re-deal the flop or the turn+river
+ * - uth_three_hole: true    Hold'em: player gets a 3rd hole card; best 5 of 8 plays (dealer keeps 2)
  * - all_in_or_skip: true    Each hand/spin: go all in or skip. Wins pay 2×
  * - r_double_ball: true     Two balls spin; a bet wins if either ball lands on it
  * - r_payout_mult: 2.0      All roulette wins pay this multiple
@@ -52,6 +53,7 @@ const PRESET_MODIFIERS = {
   uth_pocket_aces:    { type: 'uth',  title: "Pocket Aces",          desc: "Hold'em: Your hole cards are Aces every round",   uth_pocket_aces: true,                       devNote: 'Yall were losing way too much so I had to throw you a bone' },
   uth_river_monster:  { type: 'uth',  title: "River Monster",        desc: "Hold'em: River card revealed immediately after you bet", uth_river_monster: true,              devNote: '' },
   uth_time_travel:    { type: 'uth',  title: "Time Travel",          desc: "Hold'em: Re-deal the flop or turn+river once today", uth_time_travel: true,                    devNote: '' },
+  uth_three_hole:     { type: 'uth',  title: "Triple Threat",        desc: "Hold'em: You get 3 hole cards instead of 2",      uth_three_hole: true,                        devNote: 'Your best 5 of 8 cards play. The dealer still only gets 2.' },
   // Cross-game
   peek:            { type: 'cross',   title: "Dealer Peek",          desc: "Blackjack & Hold'em: 3 total peeks at a dealer card",  peek: 3,                                     devNote: '' },
   comeback:        { type: 'cross',   title: "Comeback",             desc: "Wins pay 2x if you are below 1000 chips",         comeback: true,                              devNote: '' },
@@ -60,7 +62,7 @@ const PRESET_MODIFIERS = {
   // modifier. Edit the `choices` array to set the trio (any 3 non-choice preset keys); the load-time
   // guard below enforces exactly 3 valid keys. Add more variants and slot them into CYCLE_ORDER /
   // DAILY_MODIFIERS to offer different trios on different days.
-  players_choice:  { type: 'choice',  title: "Player's Choice",      desc: "Pick one modifier to play today",                 choices: ['bj_first_ace', 'uth_pocket_aces', 'r_hot_zero'], devNote: 'Same three options for everyone.' },
+  players_choice:  { type: 'choice',  title: "Player's Choice",      desc: "Pick one of three modifiers to play today",                 choices: ['bj_first_ace', 'uth_pocket_aces', 'r_hot_zero'], devNote: 'Same three options for everyone.' },
   // Roulette
   r_double_all:   { type: 'roulette', title: "Double Payout",        desc: "Roulette: All wins are doubled. One bet max.",    r_payout_mult: 2.0, r_max_bets: 1,          devNote: '' },
   r_double_ball:  { type: 'roulette', title: "Double Ball",          desc: "Roulette: Two balls spin. Win if either lands on your bet.", r_double_ball: true,             devNote: '' },
@@ -100,7 +102,7 @@ const CYCLE_ORDER = [
   'r_group_25_36',      // Day 15 — roulette
   'uth_blind_extended', // Day 16 — uth
   'r_group_1_18',       // Day 17 — roulette
-  'high_stakes',        // Day 18 — bj
+  'players_choice',     // Day 18 — cross
   'r_group_19_36',      // Day 19 — roulette
   'uth_double_play',    // Day 20 — uth
   'r_respin',           // Day 21 — roulette
@@ -108,6 +110,7 @@ const CYCLE_ORDER = [
   'bj_first_ace',       // Day 23 — bj
   'uth_pocket_aces',    // Day 24 — uth
   'bj_wild_split',      // Day 25 — bj
+  'uth_three_hole',     // Day 26 — uth
 ];
 
 /**
@@ -149,6 +152,7 @@ const DAILY_MODIFIERS = {
   20260604: 'r_sweet_sixteen',    // Day 31 (overridden for the Sweet Sixteen launch)
   20260605: 'uth_river_monster',  // Day 32
   20260611: 'players_choice',      // Day 38 — launch of Player's Choice (same trio every day)
+  20260612: 'uth_three_hole',      // Day 39 — launch of Triple Threat (3 hole cards)
 };
 
 /**

@@ -2,7 +2,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.24';
+const GAME_VERSION = 'v1.26';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -337,6 +337,8 @@ let S={
   rSpin:null,       // the winning number (set at spin time, null until first spin)
   rSpin2:null,      // second winning number for the Double Ball modifier (r_double_ball)
   rReSpun:false,    // true once the player uses their free re-spin (r_respin modifier)
+  rUnverified:false,// spin fell back to a local draw (server unreachable) — submission carries the flag
+  tx:[],            // append-only transcript of replay-relevant decisions (see txLog)
   timeTravelUsed:false, // whether the one-time daily UTH re-deal (uth_time_travel) has been used
   uthRedealPtr:27,  // next index into DEAL.uthDeck's unused tail (cards 27+) for Time Travel re-deals
   forcedMod: null,  // dev override — set by devApplyMod(), cleared on next loadState()
@@ -387,6 +389,15 @@ function debit(n, reason){
   S.chips = Math.max(0, S.chips - Math.round(n));
   if(DEV_OVERRIDE) console.log(`[chips] -${Math.round(n)} (${reason||'?'}) → ${S.chips}`);
 }
+
+// ─── RUN TRANSCRIPT ────────────────────────────────────────────────────────
+// Append-only log of every replay-relevant player decision: bets and moves in each game,
+// the borrow, the Player's Choice pick, Time Travel re-deals, and the locked roulette bets.
+// Persisted with the run state and sent with the leaderboard submission, where it's stored
+// for auditing — and, in integrity Phase 2, replayed server-side to recompute the score
+// (see .claude/LEADERBOARD-INTEGRITY.md). Dealer peeks are NOT logged (no chip/card effect).
+// Persistence rides the caller's existing saveState()/render() flow.
+function txLog(e){ if(Array.isArray(S.tx)) S.tx.push(e); }
 
 /** Writes the current run state to _ls for persistence. */
 function saveState() {

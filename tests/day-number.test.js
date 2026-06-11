@@ -51,14 +51,14 @@ describe('seedToDayNum — known values', () => {
 // ─── CYCLE_ORDER wrap ─────────────────────────────────────────────────────────
 
 describe('CYCLE_ORDER cycle wrap', () => {
-  it('has exactly 25 entries', () => {
-    assertEqual(CYCLE_ORDER.length, 25);
+  it('has exactly 26 entries', () => {
+    assertEqual(CYCLE_ORDER.length, 26);
   });
 
-  it('Day 1 maps to cycle index 0; Day 26 is the first wrap back to index 0', () => {
+  it('Day 1 maps to cycle index 0; Day 27 is the first wrap back to index 0', () => {
     assertEqual((_seedToDayNum(20260505) - 1) % CYCLE_ORDER.length, 0,  'Day 1 → index 0');
-    assertEqual((_seedToDayNum(20260529) - 1) % CYCLE_ORDER.length, 24, 'Day 25 → index 24 (last slot)');
-    assertEqual((_seedToDayNum(20260530) - 1) % CYCLE_ORDER.length, 0,  'Day 26 → index 0 (first wrap)');
+    assertEqual((_seedToDayNum(20260530) - 1) % CYCLE_ORDER.length, 25, 'Day 26 → index 25 (last slot)');
+    assertEqual((_seedToDayNum(20260531) - 1) % CYCLE_ORDER.length, 0,  'Day 27 → index 0 (first wrap)');
   });
 
   it('Day 24 maps to cycle index 23', () => {
@@ -69,19 +69,19 @@ describe('CYCLE_ORDER cycle wrap', () => {
     assertEqual((_seedToDayNum(20260506) - 1) % CYCLE_ORDER.length, 1);
   });
 
-  it('cycle index is always in [0, 24] for any positive day number', () => {
+  it('cycle index is always in [0, length-1] for any positive day number', () => {
     for (let dayNum = 1; dayNum <= 200; dayNum++) {
       const idx = (dayNum - 1) % CYCLE_ORDER.length;
-      assert(idx >= 0 && idx <= 24, `dayNum ${dayNum} → idx ${idx}`);
+      assert(idx >= 0 && idx <= CYCLE_ORDER.length - 1, `dayNum ${dayNum} → idx ${idx}`);
     }
   });
 
-  it('all 25 cycle slots are visited before wrapping', () => {
+  it('all cycle slots are visited before wrapping', () => {
     const visited = new Set();
-    for (let dayNum = 1; dayNum <= 25; dayNum++) {
+    for (let dayNum = 1; dayNum <= CYCLE_ORDER.length; dayNum++) {
       visited.add((dayNum - 1) % CYCLE_ORDER.length);
     }
-    assertEqual(visited.size, 25, 'all 25 indices visited in first 25 days');
+    assertEqual(visited.size, CYCLE_ORDER.length, 'all indices visited in the first full cycle');
   });
 });
 

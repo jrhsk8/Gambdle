@@ -444,6 +444,7 @@ function screenRouletteResult(){
 
 /** Skip the roulette spin (all_in_or_skip modifier). Records delta 0 and goes to result. */
 function rSkip(){
+  txLog({g:'r',a:'skip'});
   S.rResult={delta:0,skipped:true};S.rPhase='result';render();
 }
 
@@ -557,38 +558,99 @@ function rHotNumber(){
   return null;
 }
 
-// Picks the winning pocket (0-36), honoring the active modifiers. Split out from rSpin so the
-// selection is unit-testable; the only impurity is the Math.random() draw.
-function _pickSpin(){
-  if(DEAL.rSpinOverride!=null) return DEAL.rSpinOverride;
+// Maps random words (4 uint32s) to the winning pocket(s), honoring the day's modifier
+// distribution. Pure and deterministic: the same words always give the same numbers, so the
+// server can recompute the outcome from its stored `spins` row at replay time without knowing
+// the modifier config. (The 2^32 % 37 modulo bias is ~1e-8 relative — irrelevant for gameplay.)
+function spinFromRandom(words){
+  if(DEAL.rSpinOverride!=null)return{n:DEAL.rSpinOverride,n2:null};
+  const w=i=>words[i]>>>0;
+  let n;
   const fg=getMod('r_force_group');
-  if(fg&&R_GROUP_INFO[fg]){const ns=[...R_GROUP_INFO[fg].nums];return ns[Math.floor(Math.random()*ns.length)];}
-  // Hot number (true Nx): a two-stage draw that keeps the wheel at its normal 37 pockets instead of
-  // diluting it. With probability boost/37 the ball is on the hot pocket — so a boost of 10 lands it
-  // at 10/37, exactly 10× the fair 1/37. Otherwise it's an ordinary fair spin over the OTHER 36
-  // pockets (idx 0..35 mapped to 0-36, skipping the hot one). Roulette uses Math.random(), not the
-  // seeded PRNG, so the second draw costs nothing.
   const hot=rHotNumber();
-  if(hot){
-    if(Math.floor(Math.random()*37)<hot.boost) return hot.num;
-    const idx=Math.floor(Math.random()*36);   // 0..35 — fair pick among the other 36 pockets
-    return idx<hot.num?idx:idx+1;              // map to 0..36, skipping the hot pocket
+  if(fg&&R_GROUP_INFO[fg]){const ns=[...R_GROUP_INFO[fg].nums];n=ns[w(0)%ns.length];}
+  // Hot number (true Nx): a two-stage draw that keeps the wheel at its normal 37 pockets instead
+  // of diluting it. With probability boost/37 the ball is on the hot pocket — so a boost of 10
+  // lands it at 10/37, exactly 10× the fair 1/37. Otherwise it's an ordinary fair spin over the
+  // OTHER 36 pockets (word1 % 36 mapped to 0-36, skipping the hot one).
+  else if(hot){
+    if(w(0)%37<hot.boost)n=hot.num;
+    else{const i2=w(1)%36;n=i2<hot.num?i2:i2+1;}
   }
-  return Math.floor(Math.random()*37);
+  else n=w(0)%37;
+  // Double Ball: a second, distinct pocket — `n+1+k` for k uniform over 0..35 walks the other 36
+  // pockets exactly once each, so it's uniform over them and distinct from n by construction.
+  const n2=getMod('r_double_ball')?(n+1+w(2)%36)%37:null;
+  return{n,n2};
 }
 
-// Determines the winning number (using Math.random, not the seeded PRNG) then kicks off the animation.
-function rSpin(){
+// SHA-256 hex of the locked bets ([[pick, amount], …] in placement order). Sent with the spin
+// request and stored server-side; submit-score recomputes it from the transcript and rejects a
+// mismatch — so fetching the spin words before really betting commits you to the bets you hashed.
+async function _betNonce(bets){
+  if(!crypto.subtle)return null; // non-secure context (shouldn't happen on https/file)
+  const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(bets)));
+  return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Returns the 4 random words that decide this spin. Production asks the `spin` Edge Function
+// (idempotent per device-day, so a refresh re-fetch gets the same words and a cheater can't
+// re-roll). Dev/test/backlog runs never submit, so they draw locally; a production fetch
+// failure also falls back locally but marks the run (submission then carries `unverifiedSpin`).
+async function _spinWords(bets){
+  const local=()=>{
+    if(crypto.getRandomValues)return[...crypto.getRandomValues(new Uint32Array(4))];
+    return [0,0,0,0].map(()=>Math.floor(Math.random()*4294967296));
+  };
+  if(DEV_OVERRIDE||_testActive()||_backlogSeed||SUPABASE_URL==='YOUR_SUPABASE_URL')return local();
+  try{
+    const betNonce=await _betNonce(bets);
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),5000);
+    const res=await fetch(`${SUPABASE_URL}/functions/v1/spin`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+      body:JSON.stringify({seed:getActiveSeed(),fingerprint:getDeviceId(),respin:S.rReSpun,betNonce}),
+      signal:ctrl.signal,
+    });
+    clearTimeout(timer);
+    if(!res.ok)throw new Error('spin http '+res.status);
+    const data=await res.json();
+    if(!Array.isArray(data.words)||data.words.length<4||!data.words.every(Number.isFinite))throw new Error('bad spin words');
+    return data.words;
+  }catch(e){
+    if(DEV_OVERRIDE)console.error('Server spin failed, falling back to local draw:',e);
+    S.rUnverified=true;
+    return local();
+  }
+}
+
+// Fetches the spin words (server or fallback) and maps them to the winning number(s).
+async function _resolveSpinNumber(bets){ return spinFromRandom(await _spinWords(bets)); }
+
+// In-flight lock so a double-tap can't start two word fetches.
+let _rSpinPending=false;
+
+// Locks the bets, logs them to the transcript, fetches the spin randomness, then animates.
+// The bet snapshot is taken before any await so the nonce, the transcript, and the resolution
+// all see the same set; flipping rPhase to 'spinning' immediately locks the bet UI.
+async function rSpin(){
   if(S.rBets.length===0)return;
-  S.rSpin=_pickSpin();
-  // Double Ball: a second, distinct winning number. Stored in S so it survives a refresh, like rSpin.
-  if(getMod('r_double_ball')){do{S.rSpin2=Math.floor(Math.random()*37);}while(S.rSpin2===S.rSpin);}
-  else{S.rSpin2=null;}
+  if(_rSpinPending||S.rPhase==='spinning')return;
+  _rSpinPending=true;
+  const bets=S.rBets.map(b=>[b.pick,b.bet]);
+  txLog({g:'r',a:'spin',bets,respin:S.rReSpun});
+  S.rSpin=null;S.rSpin2=null;
   S.rPhase='spinning';
   render();updateChipDisplay();
   // Preload the audio now so its duration is available by the time startWheelAnim runs.
   _rouletteAudio = getPref('mute') ? null : new Audio('assets/sounds/roulette ball.mp3');
   if (_rouletteAudio) { _rouletteAudio.volume = 0.5; _rouletteAudio.load(); }
+  try{
+    const sp=await _resolveSpinNumber(bets);
+    S.rSpin=sp.n;S.rSpin2=sp.n2;
+  }finally{_rSpinPending=false;}
+  saveState();
   setTimeout(startWheelAnim,60);
 }
 // Evaluates all placed bets and applies any active payout modifiers, returning enriched bet objects.
@@ -635,5 +697,5 @@ function rFinish(){
   if(getMod('r_respin')&&!S.rReSpun){S.rPhase='respin';render();return;}
   _resolveRoulette();
 }
-function rKeepSpin(){_resolveRoulette();} // player chose to keep the respin result
-function rDoRespin(){S.rReSpun=true;rSpin();}
+function rKeepSpin(){txLog({g:'r',a:'keep'});_resolveRoulette();} // player chose to keep the respin result
+function rDoRespin(){S.rReSpun=true;rSpin();} // the re-spin is logged by rSpin (respin:true)

@@ -60,11 +60,13 @@ function handScore(cs){
   return{cat,score};
 }
 
-// Checks all C(7,5)=21 five-card combinations by dropping each pair (i,j), returns the best.
+// Checks every five-card combination and returns the best. Despite the name it takes any
+// hand size ≥ 5: 7 cards normally (21 combos), 8 under Triple Threat's third hole card (56).
 function bestOf7(cards){
   let best=null,bs=-1,bc=0;
-  for(let i=0;i<7;i++)for(let j=i+1;j<7;j++){
-    const five=cards.filter((_,k)=>k!==i&&k!==j);
+  const n=cards.length;
+  for(let a=0;a<n-4;a++)for(let b=a+1;b<n-3;b++)for(let c=b+1;c<n-2;c++)for(let d=c+1;d<n-1;d++)for(let e=d+1;e<n;e++){
+    const five=[cards[a],cards[b],cards[c],cards[d],cards[e]];
     const{cat,score}=handScore(five);
     if(score>bs){bs=score;bc=cat;best=five;}
   }
@@ -122,10 +124,10 @@ function resetUTHHand(){
 }
 
 /** Skip the current UTH hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function uthSkip(){ _skipHand(S.uthHistory,{ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0},'uthHand',NEXT_SCREEN['uth'],resetUTHHand); }
+function uthSkip(){ txLog({g:'uth',a:'skip',h:S.uthHand}); _skipHand(S.uthHistory,{ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0},'uthHand',NEXT_SCREEN['uth'],resetUTHHand); }
 
 /** Skip the current poker hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function pkSkip(){ _skipHand(S.pkHistory,{bet:0,result:'skip',pts:0,delta:0},'pkHand',NEXT_SCREEN['poker'],()=>{S.pkBet=0;S.pkPhase='bet';}); }
+function pkSkip(){ txLog({g:'pk',a:'skip',h:S.pkHand}); _skipHand(S.pkHistory,{bet:0,result:'skip',pts:0,delta:0},'pkHand',NEXT_SCREEN['poker'],()=>{S.pkBet=0;S.pkPhase='bet';}); }
 
 // ─── 5-CARD POKER LOGIC ──────────────────────────────────────────────────
 
@@ -134,6 +136,7 @@ function pkDeal(){
   if(!S.pkBet||S.pkPhase!=='bet')return;
   S.pkPhase='dealing'; // lock immediately
   debit(S.pkBet,'pk-deal');
+  txLog({g:'pk',a:'deal',h:S.pkHand,bet:S.pkBet});
   S.pkCards=DEAL.pokerDecks[S.pkHand].slice(0,5);
   S.pkHeld=new Set();
   const db=document.getElementById('db');if(db)db.disabled=true;
@@ -163,6 +166,7 @@ function pkDraw(){
   // Cards" must not credit the payout and push a second history entry twice. Only runs from the
   // 'hold' phase and flips to 'draw' below, so a duplicate call bails.
   if(S.pkPhase!=='hold')return;
+  txLog({g:'pk',a:'draw',h:S.pkHand,held:[...S.pkHeld].sort((a,b)=>a-b)});
   const draw=DEAL.pokerDecks[S.pkHand].slice(5);let di=0;
   S.pkFinal=S.pkCards.map((c,i)=>S.pkHeld.has(i)?c:draw[di++]);
   const res=rankPoker(S.pkFinal);
@@ -196,6 +200,7 @@ function uthDeal(){
   if(!S.uthAnte||S.uthPhase!=='bet')return;
   S.uthPhase='dealing'; // lock immediately so bet controls can't mutate S.uthAnte during sndShuffle
   debit(S.uthAnte,'uth-deal');
+  txLog({g:'uth',a:'deal',h:S.uthHand,ante:S.uthAnte});
   if(getMod('uth_pocket_aces')){
     // +1 so hand 0 doesn't reuse the exact daily seed; *97 (prime) spaces hand seeds apart to avoid collisions.
     const hr=mkRng(getRngSeed()+(S.uthHand+1)*97);
@@ -208,6 +213,10 @@ function uthDeal(){
   }else{
     const dk=DEAL.uthDeck,off=S.uthHand*9;
     S.uthHole=[dk[off],dk[off+1]];
+    // Triple Threat's third hole card comes from the deck's unused tail (27+), the same region
+    // Time Travel re-deals from. The two mods never run on the same day, so no collision; and
+    // the per-hand 9-card layout stays untouched, so test card overrides keep working.
+    if(getMod('uth_three_hole'))S.uthHole.push(dk[27+S.uthHand]);
     S.uthDealer=[dk[off+2],dk[off+3]];
     S.uthComm=[dk[off+4],dk[off+5],dk[off+6],dk[off+7],dk[off+8]];
   }
@@ -218,6 +227,7 @@ function uthDeal(){
     S.uthPhase='preflop';
     render(); updateChipDisplay();
     sndCard(100);sndCard(500);
+    if(S.uthHole.length>2)sndCard(900);
   });
 }
 // Reveal the first 3 community cards (flop). Sounds staggered to match card-flip animation.
@@ -248,6 +258,7 @@ function timeTravelBtnHTML(){
 function doTimeTravel(){
   if(!getMod('uth_time_travel')||S.timeTravelUsed) return;
   if(S.uthPhase!=='flop'&&S.uthPhase!=='turn') return;
+  txLog({g:'uth',a:'timetravel',h:S.uthHand,st:S.uthPhase}); // re-deals cards, so replay needs it
   S.timeTravelUsed=true;
   let ptr=S.uthRedealPtr;
   if(S.uthPhase==='flop'){
@@ -271,6 +282,7 @@ function _uthBlindPortion(){ return Math.floor(S.uthAnte/2); }
 function uthRaise(mult){
   const bet=_uthAntePortion()*mult;
   if(S.chips<bet)return;
+  txLog({g:'uth',a:'raise',h:S.uthHand,mult,st:S.uthPhase});
   debit(bet,'uth-raise');S.uthPlay=bet;S.uthPlayMult=mult;S.uthRaised=true;
   sndChip();
   if(S.uthPhase==='preflop'){_uthDealFlop();updateChipDisplay();}
@@ -278,8 +290,10 @@ function uthRaise(mult){
   else if(S.uthPhase==='turn'){uthResolve();}
 }
 function uthCheck(){
+  if(S.uthPhase!=='preflop'&&S.uthPhase!=='flop')return;
+  txLog({g:'uth',a:'check',h:S.uthHand,st:S.uthPhase});
   if(S.uthPhase==='preflop') _uthDealFlop();
-  else if(S.uthPhase==='flop') _uthDealTurn();
+  else _uthDealTurn();
 }
 function uthNextStreet(){
   if(S.uthPhase==='flop') _uthDealTurn();
@@ -289,6 +303,7 @@ function uthFold(){
   // Idempotency guard (see _resolveRoulette): a double-tap on Fold must not push the loss twice
   // or advance the hand counter twice. uthFolded is reset per hand by resetUTHHand/uthDeal.
   if(S.uthFolded)return;
+  txLog({g:'uth',a:'fold',h:S.uthHand,st:S.uthPhase});
   S.uthFolded=true;
   const ante=_uthAntePortion(),blind=_uthBlindPortion();
   S.uthHistory.push({ante,blind,play:0,playMult:0,result:'fold',delta:-(ante+blind),anteDelta:-ante,blindDelta:-blind,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false});

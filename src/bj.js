@@ -84,13 +84,14 @@ function resetBJHand(){
 }
 
 /** Skip the current BJ hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function bjSkip(){ _skipHand(S.bjHistory,{bet:0,result:'skip',delta:0,player:[],dealer:[]},'bjHand',NEXT_SCREEN['bj'],resetBJHand); }
+function bjSkip(){ txLog({g:'bj',a:'skip',h:S.bjHand}); _skipHand(S.bjHistory,{bet:0,result:'skip',delta:0,player:[],dealer:[]},'bjHand',NEXT_SCREEN['bj'],resetBJHand); }
 
 /** Handles the initial deal for a Blackjack hand. */
 function bjDeal(){
   if(!S.bjBet||S.bjPhase!=='bet')return;
   S.bjPhase='dealing'; // lock immediately so bet controls can't mutate S.bjBet during sndShuffle
   debit(S.bjBet,'bj-deal');
+  txLog({g:'bj',a:'deal',h:S.bjHand,bet:S.bjBet});
   S.bjAnimFrom=0;S.bjDealerAnimFrom=0;
   if(getMod('bj_first_ace')&&DEAL.bjShoe[S.bjIdx]?.r!=='A'){
     const ai=DEAL.bjShoe.findIndex((c,i)=>i>S.bjIdx&&c.r==='A');
@@ -133,6 +134,7 @@ function bjHit(){
   const isSplit=S.bjSplit;
   const ai=isSplit?S.bjSplitActive:null;
   const hand=isSplit?S.bjSplitHands[ai]:S.bjPlayer;
+  txLog({g:'bj',a:'hit',h:S.bjHand,s:isSplit?ai:0});
   if(isSplit)S.bjSplitAnimFrom[ai]=hand.length;
   else S.bjAnimFrom=hand.length;
   S.bjDealerAnimFrom=ANIM_NONE;
@@ -155,6 +157,7 @@ function bjHit(){
 /** Player finishes their turn. */
 function bjStand(){
   if(_bjResolving)return;
+  txLog({g:'bj',a:'stand',h:S.bjHand,s:S.bjSplit?S.bjSplitActive:0});
   _bjResolving=true;
   // Persist that the player finished acting, so a refresh during the brief reveal delay resumes the
   // dealer's turn instead of stranding the hand in 'play' with the action buttons live again
@@ -170,6 +173,7 @@ function bjDouble(){
   if(S.bjSplit){
     const i=S.bjSplitActive;
     if(S.chips<S.bjSplitBets[i])return;
+    txLog({g:'bj',a:'double',h:S.bjHand,s:i});
     S.bjSplitAnimFrom[i]=S.bjSplitHands[i].length;
     debit(S.bjSplitBets[i],'bj-split-double');S.bjSplitBets[i]*=2;
     S.bjSplitDoubled[i]=true;
@@ -180,6 +184,7 @@ function bjDouble(){
     _bjAfterCard(bjAdvanceSplit);
   }else{
     if(S.chips<S.bjBet)return;
+    txLog({g:'bj',a:'double',h:S.bjHand,s:0});
     S.bjAnimFrom=S.bjPlayer.length;
     debit(S.bjBet,'bj-double');S.bjBet*=2;
     S.bjDoubled=true;
@@ -197,6 +202,7 @@ function bjSplit(){
     if(S.bjSplitHands.length>=4)return;
     const ai=S.bjSplitActive,bet=S.bjSplitBets[ai];
     if(S.chips<bet)return;
+    txLog({g:'bj',a:'split',h:S.bjHand,s:ai});
     const[c0,c1]=S.bjSplitHands[ai];
     debit(bet,'bj-resplit');
     S.bjSplitHands.splice(ai,1,[c0,DEAL.bjShoe[S.bjIdx++]],[c1]);
@@ -207,6 +213,7 @@ function bjSplit(){
   }else{
     const splitBet=Math.min(S.bjBet,S.chips);
     if(!splitBet)return;
+    txLog({g:'bj',a:'split',h:S.bjHand,s:0});
     const[c0,c1]=S.bjPlayer;
     debit(splitBet,'bj-split');
     S.bjSplit=true;

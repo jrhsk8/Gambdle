@@ -70,6 +70,7 @@ function screenBorrow(){
 function borrowChips(){
   sndChip(5);
   const amt=_effectiveBorrowAmount();
+  txLog({g:'sys',a:'borrow',amt});
   S.chips=amt;
   S.borrowUsed=true;
   S.borrowAmount=amt;
@@ -116,6 +117,7 @@ function screenChoice(){
 function pickModifier(key){
   const choices = pendingPlayersChoice();
   if(!choices || !choices.some(c=>c.key===key)) return; // only a currently-offered choice is valid
+  txLog({g:'sys',a:'pick',mod:key}); // changes the day's active modifier — replay needs it
   S.pcPick=key;
   S.screen=GAME1; S.bjPhase='bet';
   saveState();
@@ -189,9 +191,19 @@ async function submitAndFetchLeaderboard() {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-score`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ seed, chips: Math.max(0, S.chips), fingerprint: getDeviceId() })
+        // The transcript (S.tx) is stored server-side for auditing and, in integrity Phase 2,
+        // replayed to recompute the score. unverifiedSpin marks a run whose spin had to fall
+        // back to a local draw (server unreachable at spin time).
+        body: JSON.stringify({
+          seed,
+          chips: Math.max(0, S.chips),
+          fingerprint: getDeviceId(),
+          tx: Array.isArray(S.tx) ? S.tx : [],
+          unverifiedSpin: S.rUnverified === true,
+        })
       });
-      if (res.ok) _ls.setItem(subKey, '1');
+      // 409 = this device already has a row for today (DB-level dedup) — treat as submitted.
+      if (res.ok || res.status === 409) _ls.setItem(subKey, '1');
     } catch(e) {
       if (DEV_OVERRIDE) console.error("Leaderboard submission failed:", e);
     }
@@ -1107,7 +1119,16 @@ function _resumeAfterRefresh() {
   } else if (S.screen === 'roulette' && S.rPhase === 'spinning') {
     _rouletteAudio = getPref('mute') ? null : new Audio('assets/sounds/roulette ball.mp3');
     if (_rouletteAudio) { _rouletteAudio.volume = 0.5; _rouletteAudio.load(); }
-    setTimeout(startWheelAnim, 60);
+    if (S.rSpin == null) {
+      // Refresh landed during the spin-word fetch: re-acquire and resume. The spin Edge
+      // Function is idempotent per device-day, so the re-fetch returns the same words.
+      const bets = S.rBets.map(b => [b.pick, b.bet]);
+      _resolveSpinNumber(bets).then(sp => {
+        S.rSpin = sp.n; S.rSpin2 = sp.n2;
+        saveState();
+        setTimeout(startWheelAnim, 60);
+      });
+    } else setTimeout(startWheelAnim, 60);
   }
 }
 
