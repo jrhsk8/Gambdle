@@ -1,16 +1,30 @@
 /**
- * GAMBDLE TUTORIAL TIPS. Edit the text in this file freely.
+ * GAMBDLE GAME TEXT. Edit the text in this file freely.
  *
- * These are small popups (the XP balloon) that show the first time a player runs
- * into each situation, and then never again. They stay light on purpose: they only
- * point out the things people tend to trip over (mostly the ways this Ultimate
- * Texas Hold'em is not the same as regular Hold'em), rather than teaching every
- * game from scratch. Players can switch them off from the Help menu under "Tips".
+ * All the editable player-facing copy lives in this one file:
+ *   TUTORIAL_TIPS     one-time XP-balloon tips (first bet, first showdown, …)
+ *   WHATS_NEW         the one-off announcement balloon for returning players
+ *   ABOUT_GAMBLE      File → About Gambdle subtitle/body
+ *   INFO_SECTIONS     Help-menu windows (How to Play / Blackjack / Hold'em / …)
+ *   POPUP_MESSAGES    the (currently disabled) first-visit welcome popup
+ *   STATUS_HINT       the status-bar hint line shown per screen
+ *   buildShareText    the "Copy & Share" text template on the results screen
  *
- * EDITING: change any title or body string below. A body can include simple HTML
- * such as <b>, <br>, or <span>. To drop a tip, delete its entry here and remove
- * its id from TUTORIAL_ORDER. To add one, add an entry, add its id to
- * TUTORIAL_ORDER, and wire a trigger for that id in _runTutorial() (src/ui.js).
+ * Bodies accept simple HTML such as <b>, <br>, or <span>. Text that is part of a
+ * game mechanic (modifier titles/descriptions, button labels, result headlines)
+ * stays with its feature: modifiers in src/modifiers.js, screens in the game files.
+ *
+ * ─── TUTORIAL TIPS ─────────────────────────────────────────────────────────
+ * Small popups (the XP balloon) that show the first time a player runs into each
+ * situation, and then never again. They stay light on purpose: they only point
+ * out the things people tend to trip over (mostly the ways this Ultimate Texas
+ * Hold'em is not the same as regular Hold'em), rather than teaching every game
+ * from scratch. Players can switch them off from the Help menu under "Tips".
+ *
+ * EDITING: change any title or body string below. To drop a tip, delete its
+ * entry here and remove its id from TUTORIAL_ORDER. To add one, add an entry,
+ * add its id to TUTORIAL_ORDER, and wire a trigger for that id in _runTutorial()
+ * (src/windows.js).
  *
  * WHEN EACH TIP FIRES (triggers live in _runTutorial(), keyed by these ids):
  *   modifier     the intro screen (points at the daily rule banner)
@@ -149,3 +163,58 @@ const INFO_SECTIONS = {
     })()
   }
 };
+
+// ─── WELCOME POPUP ─────────────────────────────────────────────────────────
+// First-visit XP balloon (shown by showPopup in src/windows.js). Toggle POPUP_ENABLED
+// to enable it for all first-time players; messages are keyed by ID.
+const POPUP_ENABLED = false;
+
+const POPUP_MESSAGES = {
+  welcome: {
+    title: 'Welcome to Gambdle!',
+    body: "Everyone plays the same hands today. Start with 1,000 chips and play Blackjack → Hold'em → Roulette. Your final chip count is your score. Good luck!",
+  },
+};
+
+// ─── STATUS BAR HINTS ──────────────────────────────────────────────────────
+// The hint line in the bottom status bar, keyed by screen (rendered by
+// statusBar()). Screens without an entry show "Ready.". The .sb-prefix /
+// .sb-suffix spans are hidden on narrow screens to keep the bar on one line.
+const STATUS_HINT = {
+  intro:    'Idle · Start a new game.',
+  bj:       'Blackjack · Choose action.',
+  uth:      "Hold'em · Choose action.",
+  poker:    'Poker · Choose action.',
+  roulette: 'Roulette · Place a bet.',
+  borrow:   'Broke · Borrow chips to continue.',
+  results:  '<span class="sb-prefix">Game complete · </span>New game at midnight<span class="sb-suffix"> Arizona time</span>',
+  devstats: 'Dev mode · Player statistics.',
+};
+
+// ─── SHARE TEXT ────────────────────────────────────────────────────────────
+// The text behind the results screen's "Copy & Share" button (and the preview
+// box above it). Edit the line list freely; the (sign(...)) values are each
+// game's net chips and `trophy` is the score-tier emoji.
+function buildShareText(){
+  const g1Net=gameNet(GAME1);
+  const g2Net=gameNet(GAME2);
+  const rNet=S.rResult?.delta||0;
+  const g1=GAME_META[GAME1],g2=GAME_META[GAME2];
+  const trophy=getTier(S.chips).emoji;
+  const modTitle = getMod('title');
+  // Top-percentile brag, appended to the chip-total line only when the player landed in the
+  // top half. The percentile arrives async after the share box first renders, so the
+  // leaderboard fetch caches it (_lbTopPct) and re-renders the box — see _refreshShareBox.
+  const topSuffix = (_lbTopPct != null && _lbTopPct <= 50) ? ` (Top ${_lbTopPct}%)` : ``;
+  return [
+    `🎰 Gambdle #${S.day}`,
+    modTitle ? `Daily modifier: ${modTitle}` : ``,
+    `${g1.icon} ${g1.short} (${sign(g1Net)})`,
+    `${g2.icon} ${g2.short} (${sign(g2Net)})`,
+    `🎡 Roulette (${sign(rNet)})`,
+    ``,
+    `${trophy} Finished with ${fmt(S.chips)} chips${topSuffix}`,
+    // Keep the protocol on the URL — Discord (and most chat apps) only auto-link/embed when it's present.
+    `https://gambdle.net`
+  ].join('\n');
+}

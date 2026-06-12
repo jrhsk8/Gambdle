@@ -4,6 +4,15 @@
 
 const { chromium } = require('playwright');
 
+// Static module-boundary check first — it needs no browser and fails fast.
+const boundaryProblems = require('./check-boundaries').check();
+if (boundaryProblems.length) {
+  console.error(`❌ MODULE BOUNDARIES: ${boundaryProblems.length} violation(s)`);
+  for (const p of boundaryProblems) console.error('  • ' + p);
+  process.exit(1);
+}
+console.log('MODULE BOUNDARIES: ✅ clean\n');
+
 const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/';
 
 // Opens a page, optionally at a specific viewport, waits for tests to finish,

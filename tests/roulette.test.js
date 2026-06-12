@@ -763,7 +763,7 @@ describe('Loaded Colors — modifier config', () => {
     const m = PRESET_MODIFIERS.r_color_lock;
     assert(m, 'r_color_lock preset exists');
     assertEqual(m.type, 'roulette');
-    assertEqual(m.title, 'Loaded Colors');
+    assertEqual(m.title, 'Wait, how?');
     assertEqual(m.r_color_boost, 66);
     assertEqual(m.r_max_bets, 1);
   });

@@ -1,6 +1,6 @@
 // ─── Tutorial tips ─────────────────────────────────────────────────────────────
 // Covers _maybeTip's dedup, off-switch, one-at-a-time, and first-tip note behaviour,
-// plus content integrity of the editable src/tutorial.js. The unit harness has no
+// plus content integrity of the editable src/gametext.js. The unit harness has no
 // #xp-balloon, so we create a mock one for the duration of each test.
 
 const _tutKeys = ['modifier', 'bj_hands', 'uth_bet', 'uth_raise', 'uth_turn', 'uth_qualify'];
@@ -26,7 +26,7 @@ function withBalloon(fn) {
   }
 }
 
-describe('tutorial content — src/tutorial.js', () => {
+describe('tutorial content — src/gametext.js', () => {
   it('every ordered id maps to a tip with a non-empty title and body', () => {
     TUTORIAL_ORDER.forEach(id => {
       const t = TUTORIAL_TIPS[id];
@@ -227,10 +227,10 @@ describe('_popupOutsideClick — refocus click does not dismiss the tip', () => 
   });
 });
 
-// ─── "What's New" announcement — src/tutorial.js WHATS_NEW + _maybeWhatsNew ──────────────────────
+// ─── "What's New" announcement — src/gametext.js WHATS_NEW + _maybeWhatsNew ──────────────────────
 // A one-off balloon shown on the intro screen to returning players (tips on) to flag game changes.
 // Brand-new players are silently opted out of the current note so they only see future ones.
-describe("WHATS_NEW content — src/tutorial.js", () => {
+describe("WHATS_NEW content — src/gametext.js", () => {
   it('is a well-formed announcement config', () => {
     assert(typeof WHATS_NEW === 'object' && WHATS_NEW, 'WHATS_NEW exists');
     assertEqual(typeof WHATS_NEW.enabled, 'boolean', 'enabled is a boolean toggle');

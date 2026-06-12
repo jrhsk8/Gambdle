@@ -72,11 +72,17 @@
   <!-- Source files — full load order including ui.js and game.js -->
   <script src="../src/modifiers.js"></script>
   <script src="../src/core.js"></script>
-  <script src="../src/tutorial.js"></script>
+  <script src="../src/gametext.js"></script>
+  <script src="../src/audio.js"></script>
   <script src="../src/uth.js"></script>
   <script src="../src/roulette.js"></script>
   <script src="../src/bj.js"></script>
   <script src="../src/ui.js"></script>
+  <script src="../src/windows.js"></script>
+  <script src="../src/menus.js"></script>
+  <script src="../src/dev.js"></script>
+  <script src="../src/screens.js"></script>
+  <script src="../src/flow.js"></script>
   <script src="../src/game.js"></script>
 
   <!-- Override _doReload AFTER game.js so the function declaration doesn't overwrite it.
@@ -144,6 +150,9 @@
 
   <script>section('Start Tracking');</script>
   <script src="start-tracking.test.js"></script>
+
+  <script>section('Game Shell');</script>
+  <script src="game-shell.test.js"></script>
 
   <script>section('Bet Guard');</script>
   <script src="bet-guard.test.js"></script>

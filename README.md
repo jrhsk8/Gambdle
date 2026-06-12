@@ -10,13 +10,13 @@ A daily casino game where everyone plays the same seeded hands. Start with 1,000
 
 1. **Blackjack:** 3 hands
 2. **Ultimate Texas Hold'em:** 3 hands
-3. **Roulette** One spin
+3. **Roulette:** One spin
 
 Your final chip count is your score. A new game resets every day at midnight Arizona time (MST, UTC-7, no DST). Everyone plays the same seeded hands on the same day, so results are directly comparable.
 
 ## Daily modifiers
 
-Every day has a **modifier,** a rule twist that applies to the whole run. Examples: blackjacks pay 3:1, the dealer stands on 15, blind payouts are doubled, or you can only go all-in. The mod rotates on a 24-day cycle, with date-specific overrides available in `src/modifiers.js`.
+Every day has a **modifier,** a rule twist that applies to the whole run. Examples: blackjacks pay 3:1, the dealer stands on 15, blind payouts are doubled, or you can only go all-in. The mod rotates on a fixed cycle (`CYCLE_ORDER`, currently 26 days), with date-specific overrides available in `src/modifiers.js`.
 
 The current modifier is shown before you start and applies to all three games (some mods are game-specific, some are cross-game).
 
@@ -55,7 +55,8 @@ npx serve .
 Script load order matters and is already wired in `index.html`:
 
 ```
-modifiers.js → core.js → ui.js → bj.js → uth.js → roulette.js → game.js
+modifiers.js → core.js → gametext.js → audio.js → ui.js → windows.js → menus.js
+→ bj.js → uth.js → roulette.js → dev.js → screens.js → flow.js → game.js
 ```
 
 ## File structure
@@ -66,11 +67,21 @@ modifiers.js → core.js → ui.js → bj.js → uth.js → roulette.js → game
 | `styles.css` | All styles |
 | `src/modifiers.js` | Daily modifier definitions, schedule, and seed overrides |
 | `src/core.js` | State, RNG/seeding, constants, card utilities, save/load |
-| `src/ui.js` | Shared HTML helpers, chip selector, audio, menus, preferences |
+| `src/gametext.js` | All editable player-facing copy: tutorial tips, Help/About, What's New, status hints, share text |
+| `src/audio.js` | Sound playback (defensive helpers, effects, Web Audio spin synth) |
+| `src/ui.js` | Shared HTML helpers, chip selector + bet UI, share box, toast |
+| `src/windows.js` | XP window chrome: dragging, floating window manager, notification balloon + tutorial runtime |
+| `src/menus.js` | Menu bar dropdowns + submenus, archive picker, preferences, feedback dialog |
 | `src/bj.js` | Blackjack logic and screen rendering |
 | `src/uth.js` | Ultimate Texas Hold'em + 5-card poker logic and screen rendering |
 | `src/roulette.js` | Roulette board, wheel animation, bet resolution |
-| `src/game.js` | App shell: intro/results screens, leaderboard, score distribution, `render()`, boot |
+| `src/dev.js` | Dev menu actions, Dev Stats screen, layout-debug overlay |
+| `src/screens.js` | Intro/borrow/choice/results screens, leaderboard submit/fetch, score charts |
+| `src/flow.js` | `render()`, status bar, navigation, shared hand-flow helpers |
+| `src/game.js` | Boot: state restore, first render, refresh-resume |
+| `supabase/functions/` | Edge Functions: `spin` (server-drawn roulette randomness), `submit-score` (sole leaderboard writer), shared helpers in `_shared/` |
+| `supabase/*.sql` | `integrity.sql` (schema + write lockdown), `dev_stats.sql` (dev-stats RPCs) |
+| `tests/` | Playwright harness: unit suites, responsive layout, WebKit/iOS layout, screenshots |
 | `assets/og-image.png` | Social preview image (1200×630) |
 | `assets/og-image.html` | Source template for regenerating the OG image |
 
@@ -88,7 +99,7 @@ All game state lives in a single global object `S`, persisted to `localStorage` 
 
 `getRngSeed()` wraps `getDailySeed()` and checks `DAILY_SEED_OVERRIDES` (in `modifiers.js`) before returning, allowing a specific date's card draws to be swapped out without changing its modifier or save slot.
 
-Roulette is the exception: the wheel uses `Math.random()` at spin time (stored in `S.rSpin` so it survives a refresh mid-spin).
+Roulette is the exception: the winning pocket isn't part of the daily seed. The randomness is server-drawn — the `spin` Edge Function returns 4 crypto-random words, stored per device-day so a refresh re-fetches the same words and nobody can re-roll — and the client maps them to the pocket(s) through the pure `spinFromRandom(words)` in `roulette.js` (which also applies the day's distribution modifiers). Dev/test/archive runs draw locally; a server failure also falls back locally and flags the run. The result is stored in `S.rSpin` so it survives a refresh mid-spin.
 
 Day 1 is May 5, 2026. `getDayNum()` derives the current day number from that anchor.
 
@@ -111,6 +122,8 @@ For mid-hand updates, the code uses **surgical DOM mutations:** inserting a card
 Edit `src/modifiers.js` to change the modifier schedule. Four things live there:
 
 **`PRESET_MODIFIERS`** — a named object for each modifier, with a `type`, `title`, `desc`, and any number of modifier keys (e.g. `bj_payout: 2.0`, `r_max_bets: 10`). Available keys are documented at the top of the file.
+
+**`CYCLE_ORDER`:** The rotating daily schedule — an array of preset keys cycled by day number (index 0 = Day 1, May 5 2026; currently 26 entries).
 
 **`DAILY_MODIFIERS`:** A `{ YYYYMMDD: 'preset_key' }` map for date-specific modifier overrides. These take priority over the cycle. Past days should be frozen here so future edits to `CYCLE_ORDER` don't alter archives.
 
