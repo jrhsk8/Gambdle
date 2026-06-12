@@ -1055,6 +1055,44 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .info-modal.float-win { background: transparent; pointer-events: none; }
 .info-modal.float-win > .info-box { pointer-events: auto; }
 
+/* ── Player Profile window (File → Player Profile) ───────── */
+.pf-tier { text-align: center; font-family: var(--btn-f); font-size: 1.6rem; color: var(--gold); margin-bottom: 10px; }
+.pf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+.pf-stat {
+  background: var(--cream); border: 1px solid var(--ink);
+  box-shadow: var(--raised-sm);
+  padding: 7px 4px; text-align: center;
+}
+.pf-stat b { display: block; font-family: var(--btn-f); font-size: 1.6rem; line-height: 1.1; color: var(--ink); }
+.pf-stat b.pf-pos { color: var(--win); }
+.pf-stat b.pf-neg { color: var(--lose); }
+.pf-stat span { font-size: 0.72rem; color: var(--shadow); text-transform: uppercase; letter-spacing: 0.08em; }
+.pf-sec { font-size: 0.78rem; color: var(--shadow); text-transform: uppercase; letter-spacing: 0.1em; margin: 10px 0 5px; }
+.pf-cal { display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px; }
+.pf-cal i, .pf-legend i { display: block; aspect-ratio: 1; border-radius: 2px; border: 1px solid rgba(0,0,0,0.18); }
+.pf-c-profit { background: var(--win); }
+.pf-c-loss   { background: #e08878; }  /* lighter red: finished down but not busted */
+.pf-c-bust   { background: var(--lose); }
+.pf-c-miss   { background: rgba(0,0,0,0.10); }
+.pf-legend { display: flex; gap: 12px; justify-content: center; margin-top: 6px; font-size: 0.75rem; color: var(--shadow); }
+.pf-legend span { display: flex; align-items: center; gap: 4px; }
+.pf-legend i { width: 9px; height: 9px; aspect-ratio: auto; }
+.pf-badges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pf-badge {
+  background: var(--cream); border: 1px solid var(--ink);
+  box-shadow: var(--raised-sm);
+  padding: 7px 2px; text-align: center; font-size: 0.78rem; color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.pf-badge-ic { font-size: 1.25rem; line-height: 1; }
+.pf-badge.pf-locked { opacity: 0.45; }
+.pf-badge-hint { font-family: var(--btn-f); font-size: 0.85rem; color: var(--shadow); }
+/* Mobile: the longest tier titles (Down the Hole · NN days played) must stay on one line
+   in the 360px modal, so the tier line steps down a size. */
+@media (max-width: 480px) {
+  .pf-tier { font-size: 1.25rem; }
+}
+
 .feedback-textarea {
   width: 100%; min-height: 110px; resize: vertical;
   background: var(--cream); color: var(--ink);

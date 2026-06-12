@@ -198,6 +198,7 @@ function toggleMenu(which, trigger) {
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showPrefsSubmenu(this);event.stopPropagation()">Preferences <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
+      <div class="dd-item" onclick="showProfile()">👤 Player Profile</div>
       <div class="dd-item" onclick="showAbout()">♠ About Gambdle</div>`;
   } else {
     el.innerHTML = `

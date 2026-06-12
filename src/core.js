@@ -2,7 +2,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.28';
+const GAME_VERSION = 'v1.29';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -90,6 +90,57 @@ function computeStreak(endSeed = getDailySeed(), includeEnd = false) {
   let best = sorted.length ? 1 : 0, run = 1;
   for (let k = 1; k < sorted.length; k++) { run = sorted[k] === sorted[k-1] + 1 ? run + 1 : 1; if (run > best) best = run; }
   return { current, best };
+}
+
+// Cosmetic unlock catalog — single source of truth for the profile window's badge grid.
+// prefKey is the *_unlocked preference flag set when the player first hits the threshold;
+// thresholds also appear as hint strings in the Preferences pickers (menus.js PICKER_ITEMS).
+const UNLOCKS = [
+  { prefKey: 'orange_back_unlocked', icon: '🟠', label: 'Orange Back', threshold: 1500 },
+  { prefKey: 'green_theme_unlocked', icon: '🌿', label: 'Green Theme', threshold: 2000 },
+  { prefKey: 'maroon_felt_unlocked', icon: '🟥', label: 'Maroon Felt', threshold: 2500 },
+  { prefKey: 'deck_emoji_unlocked',  icon: '😀', label: 'Emoji Deck',  threshold: 3500 },
+  { prefKey: 'whale_back_unlocked',  icon: '🐋', label: 'Whale Back',  threshold: 5000 },
+  { prefKey: 'golden_back_unlocked', icon: '✨', label: 'Golden Back', threshold: 10000 },
+];
+
+/**
+ * Lifetime stats for the Player Profile window, derived from gambdle_history and
+ * gambdle_highscore. Returns all zeros (and a 28-cell all-'miss' calendar) for a new
+ * player or a corrupt history; never throws.
+ *   streak  — current daily streak. Counts back from today; if today isn't finished
+ *             yet it counts back from yesterday instead (an unfinished today doesn't
+ *             break the run — it only breaks once the day is actually missed).
+ *   longest — longest consecutive run anywhere in history (computeStreak's best).
+ *   calendar — last 28 Phoenix days, oldest first (index 27 = today):
+ *             'profit' (>= START_CHIPS — breaking even counts), 'loss' (1..999),
+ *             'bust' (0), 'miss' (no entry).
+ */
+function profileStats() {
+  let hist = {};
+  try { hist = JSON.parse(_ls.getItem('gambdle_history') || '{}'); } catch (_e) {}
+  const byIndex = {};
+  for (const [seed, sc] of Object.entries(hist)) {
+    const n = Number(sc);
+    if (Number.isFinite(n)) byIndex[_seedDayIndex(parseInt(seed))] = n;
+  }
+  const scores = Object.values(byIndex);
+  const daysPlayed = scores.length;
+  const high = parseInt(_ls.getItem('gambdle_highscore') || '0') || 0;
+  const best = Math.max(high, ...scores, 0);
+  const avg = daysPlayed ? Math.round(scores.reduce((a, b) => a + b, 0) / daysPlayed) : 0;
+  const net = scores.reduce((a, b) => a + (b - START_CHIPS), 0);
+  const busts = scores.filter(s => s === 0).length;
+  const today = _seedDayIndex(getDailySeed());
+  let streak = 0;
+  for (let i = byIndex[today] !== undefined ? today : today - 1; byIndex[i] !== undefined; i--) streak++;
+  const longest = computeStreak().best;
+  const calendar = [];
+  for (let i = today - 27; i <= today; i++) {
+    const sc = byIndex[i];
+    calendar.push(sc === undefined ? 'miss' : sc === 0 ? 'bust' : sc >= START_CHIPS ? 'profit' : 'loss');
+  }
+  return { daysPlayed, streak, longest, best, avg, net, busts, calendar };
 }
 
 // Creates a card object; s accepts shorthand ('s','h','d','c') or a direct suit symbol.
@@ -326,6 +377,23 @@ const CHIP_TIERS=[
 ];
 // Always returns a tier — fallback to the last entry so NaN/negative chips never return undefined.
 function getTier(chips){return CHIP_TIERS.find(t=>chips>=t.min)||CHIP_TIERS[CHIP_TIERS.length-1];}
+
+// Lifetime-net tier ladder for the Player Profile title. Deliberately separate from
+// the daily CHIP_TIERS: lifetime net compounds across days (and can go negative), so
+// the breakpoints are an order of magnitude larger and no title is shared.
+const NET_TIERS=[
+  {min:250000,   emoji:'👑', label:'House Legend'},
+  {min:100000,   emoji:'💰', label:'Mogul'},
+  {min:50000,    emoji:'🏦', label:'The House'},
+  {min:25000,    emoji:'🎩', label:'Pit Boss'},
+  {min:10000,    emoji:'🦈', label:'Card Shark'},
+  {min:2500,     emoji:'💵', label:'Grinder'},
+  {min:0,        emoji:'👶', label:'Novice'},
+  {min:-4999,    emoji:'📉', label:'In the Red'},
+  {min:-Infinity,emoji:'🕳️', label:'Down the Hole'},
+];
+// Always returns a tier — the -Infinity floor catches any loss, and NaN falls back to the last entry.
+function getNetTier(net){return NET_TIERS.find(t=>net>=t.min)||NET_TIERS[NET_TIERS.length-1];}
 let S={
   screen:'intro', chips:START_CHIPS, day:getActiveDayNum(),
   bjHand:0, bjPhase:'bet', bjBet:0,

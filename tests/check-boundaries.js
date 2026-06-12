@@ -28,9 +28,11 @@ const MANIFEST = {
     'START_DATE_UTC', 'SUPABASE_ANON_KEY', 'SUPABASE_HEADERS', 'SUPABASE_URL', '_PHOENIX_OFFSET_MS',
     '_backlogSeed', '_canShowBorrow', '_effectiveBorrowAmount', '_lbTopPct', '_ls', '_nextDailySeed',
     '_testActive', 'buildDeck', 'card', 'computeStreak', 'credit', 'debit', 'gameNet',
-    'getActiveSeed', 'getDailySeed', 'getDayNum', 'getDeviceId', 'getMod', 'getRngSeed',
-    'getStateKey', 'getTier', 'hVal', 'hValDisplay', 'isBJ', 'isChipBusted', 'loadState', 'mkRng',
-    'pendingPlayersChoice', 'recalcChips', 'saveState', 'shuffle', 'txLog', 'winMult',
+    'getActiveSeed', 'getDailySeed', 'getDayNum', 'getDeviceId', 'getMod', 'getNetTier',
+    'getRngSeed', 'getStateKey', 'getTier', 'hVal', 'hValDisplay', 'isBJ', 'isChipBusted',
+    'loadState', 'mkRng',
+    'pendingPlayersChoice', 'profileStats', 'recalcChips', 'saveState', 'shuffle', 'txLog',
+    'UNLOCKS', 'winMult',
   ],
   'dev.js': [
     '_doReload', '_drawLayoutDebug', 'devApplyMod', 'devReset', 'devSetGame', 'devSpin',
@@ -42,7 +44,7 @@ const MANIFEST = {
   ],
   'game.js': [],
   'gametext.js': [
-    'ABOUT_GAMBLE', 'INFO_SECTIONS', 'POPUP_ENABLED', 'POPUP_MESSAGES', 'STATUS_HINT',
+    'ABOUT_GAMBDLE', 'INFO_SECTIONS', 'POPUP_ENABLED', 'POPUP_MESSAGES', 'STATUS_HINT',
     'TUTORIAL_OFF_NOTE', 'TUTORIAL_TIPS', 'WHATS_NEW', 'buildShareText',
   ],
   'menus.js': ['applyPrefs', 'closeDropdowns', 'getPref', 'setPref', 'toggleMenu', 'togglePref'],
@@ -64,7 +66,8 @@ const MANIFEST = {
   'windows.js': [
     '_isMobile', '_openInfoModal', '_openWindow', '_reapplyDragPos', '_recenterBtnHTML',
     '_runTutorial', '_testTutorial', '_updateBalloonPosition', 'devToggleTestTutorial',
-    'initWindowDrag', 'showAbout', 'showInfo', 'showPopup', 'snapWindowToOrigin', 'toggleTutorial',
+    'initWindowDrag', 'showAbout', 'showInfo', 'showPopup', 'showProfile', 'snapWindowToOrigin',
+    'toggleTutorial',
   ],
 };
 

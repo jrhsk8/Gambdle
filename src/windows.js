@@ -199,10 +199,10 @@ function showInfo(section) {
 }
 
 // File → About Gambdle. A mini ♠ GAMBDLE logo + editable subtitle/body; the copy lives in
-// src/gametext.js (ABOUT_GAMBLE) so it can be edited without touching the UI code.
+// src/gametext.js (ABOUT_GAMBDLE) so it can be edited without touching the UI code.
 function showAbout() {
   closeDropdowns();
-  const a = (typeof ABOUT_GAMBLE !== 'undefined' && ABOUT_GAMBLE) || { subtitle: '', body: '' };
+  const a = (typeof ABOUT_GAMBDLE !== 'undefined' && ABOUT_GAMBDLE) || { subtitle: '', body: '' };
   const content = `
     <div style="text-align:center;padding:4px 4px 2px">
       <div class="logo logo-mini"><span class="logo-spade">♠</span>GAMBDLE</div>
@@ -211,6 +211,41 @@ function showAbout() {
     <div class="divider" style="margin:14px 0"></div>
     <div style="font-size:1.15rem;color:var(--ink);line-height:1.55">${a.body || ''}</div>`;
   _openInfoModal('About Gambdle', content, 'about');
+}
+
+// File → Player Profile. Lifetime stats from this device only (profileStats in core.js):
+// tier line (graded on lifetime net via NET_TIERS), stat grid, 4-week calendar, and the
+// cosmetic unlock chase. Standard cream info-window chrome, same as Help/About.
+function showProfile() {
+  closeDropdowns();
+  const p = profileStats();
+  const tier = getNetTier(p.net);
+  const stat = (v, lbl, cls = '') =>
+    `<div class="pf-stat"><b${cls ? ` class="${cls}"` : ''}>${v}</b><span>${lbl}</span></div>`;
+  const stats =
+    stat(fmt(p.streak), 'Streak') +
+    stat(fmt(p.longest), 'Longest') +
+    stat(fmt(p.best), 'Best') +
+    stat(fmt(p.avg), 'Avg') +
+    stat(p.net === 0 ? fmt(0) : sign(p.net), 'Lifetime Net', p.net > 0 ? 'pf-pos' : p.net < 0 ? 'pf-neg' : '') +
+    stat(fmt(p.busts), 'Busts');
+  const cal = p.calendar.map(c => `<i class="pf-c-${c}"></i>`).join('');
+  const badges = UNLOCKS.map(u => getPref(u.prefKey)
+    ? `<div class="pf-badge"><span class="pf-badge-ic">${u.icon}</span>${u.label}</div>`
+    : `<div class="pf-badge pf-locked"><span class="pf-badge-ic">🔒</span>${u.label}<span class="pf-badge-hint">${fmt(u.threshold)}+</span></div>`
+  ).join('');
+  const content = `
+    <div class="pf-tier">${tier.emoji} ${tier.label} · ${fmt(p.daysPlayed)} ${p.daysPlayed === 1 ? 'day' : 'days'} played</div>
+    <div class="pf-grid">${stats}</div>
+    <div class="pf-sec">Last 4 Weeks</div>
+    <div class="pf-cal">${cal}</div>
+    <div class="pf-legend">
+      <span><i class="pf-c-profit"></i>Profit</span><span><i class="pf-c-loss"></i>Loss</span>
+      <span><i class="pf-c-bust"></i>Bust</span><span><i class="pf-c-miss"></i>Missed</span>
+    </div>
+    <div class="pf-sec">Unlocks</div>
+    <div class="pf-badges">${badges}</div>`;
+  _openInfoModal('Player Profile', content, 'profile');
 }
 
 // ─── XP NOTIFICATION BALLOON ─────────────────────────────────────────────

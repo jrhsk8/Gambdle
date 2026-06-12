@@ -80,16 +80,16 @@ const TUTORIAL_OFF_NOTE =
 // their normal new-player tutorial tips above are unaffected. Honors the Help-menu "Tips" off switch.
 const WHATS_NEW = {
   enabled: true,
-  id: 'v1.25',
-  title: "Thanks for the feedback!",
-  body: "Implemented player feedback! All feedback sent (File -> Send Feedback) is carefully considered. Ideas for new daily mods are appreciated too!",
+  id: 'v1.30',
+  title: "Player Profiles!",
+  body: "Created player profiles! Check your lifetime stats, streaks, and achievements. (File -> Player Profile).",
 };
 
 // ─── ABOUT GAMBDLE ─────────────────────────────────────────────────────────
 // Shown by File → "About Gambdle". The ♠ GAMBDLE logo at the top is fixed; edit the `subtitle`
 // (the small line under the logo, like the front page) and the `body` below it freely. `body`
 // accepts simple HTML — <b>, <br>, <a href="…">, <p>, etc.
-const ABOUT_GAMBLE = {
+const ABOUT_GAMBDLE = {
   subtitle: "By jrhsk8",
   body: `https://github.com/jrhsk8/Gambdle<br>
   Discord: jrhsk8<br>
