@@ -33,6 +33,14 @@ function devSpin(){
   saveState();
   if(S.rBets.length>0)rSpin();else render();
 }
+// Jump straight to the free-entry Ladder bonus round: forces the ladder_day mod so the
+// bet screen shows the free entry (as on a real Ladder day) and lands on a fresh run.
+function devLadder(){
+  S.forcedMod = 'ladder_day';
+  resetLadderRun();
+  closeDropdowns();
+  goTo('ladder');
+}
 function devToggleUnlocks(){
   const on=!getPref('golden_back_unlocked');
   setPref('golden_back_unlocked', on);

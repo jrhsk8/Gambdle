@@ -150,7 +150,7 @@ function screenResults(){
     <div class="big-chips" style="font-family:var(--btn-f);font-size:5rem;line-height:1;letter-spacing:.04em;color:var(--gold-hi);text-shadow:2px 2px 0 rgba(0,0,0,0.45)">${fmt(S.chips)}</div>
     ${streakHtml}
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
-      ${[[g1Label,g1Net],[g2Label,g2Net],['🎡 Roulette',rNet]].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
+      ${[[g1Label,g1Net],[g2Label,g2Net],['🎡 Roulette',rNet],...(S.ladResult?[['🪜 The Ladder',S.ladResult.delta]]:[])].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
       <div class="res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
         <span style="font-size:1rem">${lbl}</span>
         <span class="res-net" style="font-family:var(--btn-f);font-size:1.35rem;color:${col(net)}">${sign(net)}</span>

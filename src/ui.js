@@ -112,11 +112,15 @@ function modBannerHTML(slim=false){
 
 // ─── CHIP & BETTING ───────────────────────────────────────────
 // Maps screen name to the S field that holds the current bet amount.
-const BET_REF={bj:'bjBet',uth:'uthAnte',poker:'pkBet',roulette:'rBet'};
+const BET_REF={bj:'bjBet',uth:'uthAnte',poker:'pkBet',roulette:'rBet',ladder:'ladBet'};
 // Returns the state key for the active screen's bet (e.g. 'bjBet', 'uthAnte').
 function curBetRef(){return BET_REF[S.screen]??'pkBet';}
 // UTH caps at 2/3 of chips so the player always has enough left for a 1× raise.
-function maxBet(){return S.screen==='uth'?Math.floor(S.chips*2/3):S.chips;}
+// The Ladder caps at 25% of the stack (free-entry days lock the stake to the mod value).
+function maxBet(){
+  if(S.screen==='ladder')return getMod('ladder_free')||ladMaxStake();
+  return S.screen==='uth'?Math.floor(S.chips*2/3):S.chips;
+}
 
 // Updates chip buttons, bet display, and action button states without a full re-render.
 function patchBetUI() {
@@ -162,6 +166,7 @@ function _inBetPhase(){
   if(S.screen==='uth')      return S.uthPhase ==='bet';
   if(S.screen==='poker')    return S.pkPhase  ==='bet';
   if(S.screen==='roulette') return S.rPhase   ==='bet';
+  if(S.screen==='ladder')   return S.ladPhase ==='bet';
   return false;
 }
 function addChip(d){if(!_inBetPhase())return;const k=curBetRef();S[k]=Math.min(S[k]+d,maxBet());sndChip();patchBetUI();}

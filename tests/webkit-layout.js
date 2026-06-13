@@ -36,6 +36,7 @@ const FIXTURES = [
   'intro', 'bj-bet', 'bj-play', 'bj-result', 'bj-result-split',
   'uth-bet', 'uth-preflop', 'uth-flop', 'uth-turn', 'uth-result',
   'roulette-bet', 'roulette-bet-max', 'roulette-spinning-max', 'results', 'borrow',
+  'ladder-bet-free', 'ladder-climb', 'ladder-crash',
 ];
 
 // ── In-page: build a screen's state (uses the page's own card()/bestOf7()/render()) ──
@@ -75,6 +76,9 @@ function buildFixture(label) {
       const pb = bestOf7([...hole, ...comm]), db = bestOf7([...dlr, ...comm]);
       S.uthHistory = [{ ante: 25, blind: 25, play: 50, playMult: 1, result: 'lose', delta: -100, anteDelta: -25, blindDelta: -25, playDelta: -50, playerBest: pb, dealerBest: db, dealerQualifies: true }];
     },
+    'ladder-bet-free':  () => { S.screen = 'ladder'; S.ladPhase = 'bet'; S.ladBet = 0; S.ladFree = false; S.ladIdx = 0; S.ladRung = 0; S.ladResult = null; S.chips = 1000; S.forcedMod = 'ladder_day'; },
+    'ladder-climb':     () => { S.screen = 'ladder'; S.ladPhase = 'climb'; S.ladBet = 250; S.ladFree = true; S.ladIdx = 3; S.ladRung = 3; S.ladResult = null; S.chips = 1000; S.forcedMod = 'ladder_day'; },
+    'ladder-crash':     () => { S.screen = 'ladder'; S.ladPhase = 'done'; S.ladBet = 250; S.ladFree = true; S.ladIdx = 4; S.ladRung = 3; S.ladResult = { delta: 0, rung: 3, outcome: 'crash', free: true }; S.chips = 1000; S.forcedMod = 'ladder_day'; },
     'roulette-bet':     () => { S.screen = 'roulette'; S.rPhase = 'bet'; S.chips = 500; S.rBet = 50; S.rPick = 17; S.rBets = []; },
     'roulette-bet-max': () => { S.screen = 'roulette'; S.rPhase = 'bet'; S.chips = 1000; S.rBet = 0; S.rPick = null; S.rBets = [{ pick: 45, bet: 50 }, { pick: 17, bet: 50 }, { pick: 40, bet: 50 }, { pick: 2, bet: 50 }, { pick: 31, bet: 50 }]; },
     'roulette-spinning-max': () => { S.screen = 'roulette'; S.rPhase = 'spinning'; S.chips = 0; S.rSpin = 17; S.rBets = [{ pick: 45, bet: 50 }, { pick: 17, bet: 50 }, { pick: 40, bet: 50 }, { pick: 37, bet: 50 }, { pick: 44, bet: 50 }]; },

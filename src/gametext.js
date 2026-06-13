@@ -60,10 +60,14 @@ const TUTORIAL_TIPS = {
     title: "Dealer Has to Qualify",
     body: "The dealer needs at least a <b>pair</b> to qualify. If they come up short you get your Ante back, even when your hand beats theirs. The <b>Blind</b> pays a bonus when you win with a <b>straight or better</b>.",
   },
+  ladder: {
+    title: "The Ladder",
+    body: "Call the next card <b>higher or lower</b>. Each correct call climbs a rung, multiplying your stake. Cash out any time, but a wrong call or a <b>tie loses the pot</b>.",
+  },
 };
 
 // Order the tips are listed and prioritised in.
-const TUTORIAL_ORDER = ['modifier', 'bj_hands', 'uth_bet', 'uth_raise', 'uth_turn', 'uth_qualify'];
+const TUTORIAL_ORDER = ['modifier', 'bj_hands', 'uth_bet', 'uth_raise', 'uth_turn', 'uth_qualify', 'ladder'];
 
 // Added once, to whichever tip a player sees first, so they know where the off switch is.
 const TUTORIAL_OFF_NOTE =
@@ -186,6 +190,7 @@ const STATUS_HINT = {
   uth:      "Hold'em · Choose action.",
   poker:    'Poker · Choose action.',
   roulette: 'Roulette · Place a bet.',
+  ladder:   'The Ladder · Higher or lower. Ties lose.',
   borrow:   'Broke · Borrow chips to continue.',
   results:  '<span class="sb-prefix">Game complete · </span>New game at midnight<span class="sb-suffix"> Arizona time</span>',
   devstats: 'Dev mode · Player statistics.',
@@ -195,6 +200,20 @@ const STATUS_HINT = {
 // The text behind the results screen's "Copy & Share" button (and the preview
 // box above it). Edit the line list freely; the (sign(...)) values are each
 // game's net chips and `trophy` is the score-tier emoji.
+// The Ladder's share line (empty array when the run wasn't played today).
+// Format: chips bare, rung in parentheses. A free-entry crash shows no chip
+// number on purpose: +0 reads flat and the crash is the story.
+function _ladShareLine(){
+  const lad = S.ladResult;
+  if (!lad) return [];
+  if (lad.outcome === 'crash') {
+    return lad.free
+      ? [`🪜 The Ladder · Crashed (Rung ${lad.rung + 1})`]
+      : [`🪜 The Ladder ${sign(lad.delta)} · Crashed (Rung ${lad.rung + 1})`];
+  }
+  return [`🪜 The Ladder ${sign(lad.delta)} (Rung ${lad.rung}${lad.outcome === 'top' ? ' · Top!' : ''})`];
+}
+
 function buildShareText(){
   const g1Net=gameNet(GAME1);
   const g2Net=gameNet(GAME2);
@@ -212,6 +231,7 @@ function buildShareText(){
     `${g1.icon} ${g1.short} (${sign(g1Net)})`,
     `${g2.icon} ${g2.short} (${sign(g2Net)})`,
     `🎡 Roulette (${sign(rNet)})`,
+    ..._ladShareLine(),
     ``,
     `${trophy} Finished with ${fmt(S.chips)} chips${topSuffix}`,
     // Keep the protocol on the URL — Discord (and most chat apps) only auto-link/embed when it's present.

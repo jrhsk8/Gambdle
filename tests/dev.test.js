@@ -42,6 +42,21 @@ describe('devApplyMod', () => {
   });
 });
 
+// ─── devLadder ───────────────────────────────────────────────────────────────
+
+describe('devLadder', () => {
+  it('forces the ladder_day mod, resets the run, and jumps to the ladder bet phase', () => {
+    S.ladPhase = 'done'; S.ladResult = { delta: 500, rung: 4, outcome: 'cash', free: true };
+    devLadder();
+    assertEqual(S.forcedMod, 'ladder_day');
+    assertEqual(S.screen, 'ladder');
+    assertEqual(S.ladPhase, 'bet', 'run reset to bet phase');
+    assert(S.ladResult === null, 'previous result cleared');
+    assertEqual(getMod('ladder_free'), 250, 'free entry active');
+    S.forcedMod = null; resetLadderRun(); S.screen = 'intro';
+  });
+});
+
 // ─── devReset ────────────────────────────────────────────────────────────────
 
 describe('devReset', () => {

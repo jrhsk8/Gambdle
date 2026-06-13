@@ -35,6 +35,8 @@
  *                           color they pick); a non-color bet spins fair. Pair with r_max_bets: 1.
  * - r_max_bets: 3           Max roulette bets per spin (default 5)
  * - r_respin: true          After spin, choose to keep the result or re-spin once
+ * - ladder_free: 250        The Ladder bonus round after roulette; free house-money entry of
+ *                           this many chips (crash costs nothing, cash out keeps the full pot)
  * - choices: [k1,k2,k3]     Player's Choice: offer these 3 preset keys; the player picks one
  *                           before the run and it becomes the active modifier for the day.
  */
@@ -60,6 +62,7 @@ const PRESET_MODIFIERS = {
   peek:            { type: 'cross',   title: "Dealer Peek",          desc: "Blackjack & Hold'em: 3 total peeks at a dealer card",  peek: 3,                                     devNote: '' },
   comeback:        { type: 'cross',   title: "Comeback",             desc: "Wins pay 2x if you are below 1000 chips",         comeback: true,                              devNote: '' },
   all_in_or_skip:  { type: 'cross',   title: "Martingale",           desc: "All wins are doubled. You can only go all in.",   all_in_or_skip: true,                        devNote: '' },
+  ladder_day:      { type: 'cross',   title: "The Ladder",           desc: "Bonus game after roulette with a free entry", ladder_free: 250, devNote: 'Hi-lo streak climb, shared sequence for everyone. Crash costs nothing, cash out keeps the full pot.' },
   // Player's Choice — before the run, the player picks ONE of the three `choices` to be the day's
   // modifier. Edit the `choices` array to set the trio (any 3 non-choice preset keys); the load-time
   // guard below enforces exactly 3 valid keys. Add more variants and slot them into CYCLE_ORDER /
@@ -114,6 +117,7 @@ const CYCLE_ORDER = [
   'uth_pocket_aces',    // Day 24 — uth
   'bj_wild_split',      // Day 25 — bj
   'uth_three_hole',     // Day 26 — uth
+  'ladder_day',         // Day 27 — cross (The Ladder bonus round)
 ];
 
 /**
@@ -154,9 +158,17 @@ const DAILY_MODIFIERS = {
   20260603: 'uth_time_travel',    // Day 30
   20260604: 'r_sweet_sixteen',    // Day 31 (overridden for the Sweet Sixteen launch)
   20260605: 'uth_river_monster',  // Day 32
+  // Days 33-37 frozen at their pre-Ladder cycle values: appending ladder_day grew the
+  // rotation 26 → 27, which would otherwise re-map these unpinned past days in archives.
+  20260606: 'r_double_all',        // Day 33
+  20260607: 'easy_dealer',         // Day 34
+  20260608: 'r_hot_zero',          // Day 35
+  20260609: 'uth_time_travel',     // Day 36
+  20260610: 'r_group_1_12',        // Day 37
   20260611: 'players_choice',      // Day 38 — launch of Player's Choice (same trio every day)
   20260612: 'uth_three_hole',      // Day 39 — launch of Triple Threat (3 hole cards)
   20260613: 'r_color_lock',        // Day 40 — launch of Loaded Colors (chosen color wins 66%)
+  20260614: 'ladder_day',          // Day 41 — launch of The Ladder (free 250 hi-lo climb after roulette)
 };
 
 /**

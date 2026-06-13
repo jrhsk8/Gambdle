@@ -1,3 +1,22 @@
+/* ── CONTENTS (grep the section banner name; line numbers drift) ──────────
+   :root vars (colors, bevels --raised/--raised-sm, safe areas --sa-t/r/b/l)
+   Base: Desktop background · Window chrome (XP-style) · WinXP inactive window ·
+     Luna themes · Panel body (felt) · Headline label · Daily modifier banner ·
+     Sunken readout box · Logo / brand · Buttons · Unified button sizing
+   Game UI: Player's Choice picker · Cards — Balatro-readable · BJ inactive
+     split hands · Split-result vertical rhythm · Overlapping card fan ·
+     BJ bet screen · Chip selector · Hand progress dots · Info row ·
+     Game manifest tile · Pay table · Roulette · Results screen ·
+     Score distribution chart · Toast · Hold-card toggle
+   Windows/menus: Info modal · Player Profile window · Dropdown menus ·
+     Mod-badge · XP Notification Balloon · Desktop-only: draggable window
+   Responsive: Mobile / small screen (≤480px, incl. Short-screen button
+     visibility) · Desktop / large screen (≥1024px, per-screen overrides:
+     Intro/BJ/UTH/Roulette/Results/Dev stats) · Tall desktop (1024×880+) ·
+     Wider tall (1280×880+) · Narrow-tall (1024×1060+) · Tallest (1280×1060+) ·
+     Large-display scaling (2560/3840 zoom tiers)
+   ─────────────────────────────────────────────────────────────────────── */
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 button { touch-action: manipulation; font-family: var(--btn-f); }
 
@@ -1227,6 +1246,56 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .window { overflow: hidden; }
   .title-bar { cursor: move; }
   .title-bar .tb-btn { cursor: pointer; }
+}
+
+/* ── The Ladder ─────────────────────────────────────────── */
+/* Fixed skeleton: every zone keeps a constant min-height so phase changes
+   never move elements — only contents swap. The action zone is a flex column
+   so the call row and the big button share one width: the big button spans
+   exactly the combined span of the two call buttons above it. */
+.lad-head  { min-height: 38px; }
+.lad-read  { min-height: 46px; font-size: 1.18rem; color: var(--cream);
+             background: rgba(0,0,0,.28); border-radius: 4px; padding: 9px 12px;
+             margin: 6px auto 8px; width: 94%; box-sizing: border-box; }
+.lad-cards { min-height: 116px; display: flex; justify-content: center; gap: 16px;
+             align-items: center; }
+.lad-msg   { min-height: 32px; font-size: 1.05rem; color: var(--cream); opacity: .9; }
+.lad-act   { min-height: 134px; display: flex; flex-direction: column; }
+.lad-hl { font-family: var(--btn-f); font-size: 1.7rem; letter-spacing: .06em; color: var(--gold-hi); }
+.lad-hl-bad  { color: #ff8a80; }
+.lad-hl-good { color: #9be79b; }
+.lad-strip { display: flex; justify-content: center; gap: 4px; margin: 8px 0; }
+.lad-rung  { flex: 0 1 44px; padding: 5px 0 4px; font-size: .95rem; text-align: center;
+             background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.25);
+             border-radius: 3px; color: var(--cream); font-family: var(--btn-f); }
+.lad-rung.done  { background: var(--gold); color: #3a2c00; border-color: var(--gold-hi); font-weight: bold; }
+.lad-rung.next  { border-color: var(--gold-hi); color: var(--gold-hi); box-shadow: 0 0 5px rgba(223,185,94,.55); }
+.lad-rung.crash { background: #b03028; color: #fff; border-color: #ff8a80; font-weight: bold; }
+.lad-gold { color: var(--gold-hi); }
+.lad-bad  { color: #ff8a80; }
+.lad-good { color: #9be79b; }
+.lad-call-row { display: flex; gap: 10px; margin-bottom: 8px; }
+.lad-call { flex: 1; font-size: 1.15rem; }
+.lad-btn-big { width: 100%; margin-top: 4px; font-size: 1.15rem; }
+.lad-chips-locked { opacity: .45; pointer-events: none; }
+
+/* Desktop: the bonus round shows little content, so fill the panel slack —
+   bigger cards, ladder tiles, readout and buttons, with more breathing room. */
+@media (min-width: 1024px) {
+  .lad-head  { min-height: 52px; }
+  .lad-hl    { font-size: 2.5rem; }
+  .lad-strip { gap: 7px; margin: 16px 0; }
+  .lad-rung  { flex-basis: 66px; font-size: 1.3rem; padding: 11px 0 9px; }
+  .lad-read  { min-height: 60px; font-size: 1.6rem; padding: 14px 18px; margin: 14px auto 16px; }
+  .lad-cards { min-height: 168px; gap: 30px; }
+  .lad-cards .card { width: 112px; height: 158px; }
+  .lad-cards .card .csuit { font-size: 4rem; }
+  .lad-cards .card .ct-r  { font-size: 1.45rem; }
+  .lad-cards .card .ct-s  { font-size: 1.15rem; }
+  .lad-msg   { min-height: 44px; font-size: 1.4rem; }
+  .lad-act   { min-height: 184px; }
+  .lad-call-row { gap: 18px; margin-bottom: 16px; }
+  .lad-call, .lad-btn-big { font-size: 1.6rem; padding: 18px 0; }
 }
 
 /* ── Mobile / small screen ──────────────────────────────── */

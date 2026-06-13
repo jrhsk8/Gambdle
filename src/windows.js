@@ -328,6 +328,7 @@ function _eligibleTips(){
   if (s === 'uth' && S.uthPhase === 'preflop') out.push('uth_raise');
   if (s === 'uth' && S.uthPhase === 'turn' && !S.uthRaised) out.push('uth_turn'); // river: raise 1x or fold, no check
   if (s === 'uth' && (S.uthPhase === 'reveal' || S.uthPhase === 'result')) out.push('uth_qualify');
+  if (s === 'ladder' && S.ladPhase === 'bet') out.push('ladder');
   return out;
 }
 

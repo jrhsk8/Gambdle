@@ -30,7 +30,7 @@ function statusBar(){
 
 // Full re-render — replaces all of #app. Use surgical DOM updates mid-hand to avoid flash.
 function render(){
-  const scr={intro:screenIntro,choice:screenChoice,bj:screenBJ,uth:screenUTH,poker:screenPoker,roulette:screenRoulette,borrow:screenBorrow,results:screenResults,devstats:screenDevStats};
+  const scr={intro:screenIntro,choice:screenChoice,bj:screenBJ,uth:screenUTH,poker:screenPoker,roulette:screenRoulette,ladder:screenLadder,borrow:screenBorrow,results:screenResults,devstats:screenDevStats};
   const inner = (scr[S.screen]||screenIntro)();
   document.getElementById('app').innerHTML=`<div class="app">
     <div class="window">
@@ -148,6 +148,10 @@ function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3(
 // Navigates between games; redirects to results early if the player is busted (<10 chips).
 // If the borrow option is still available when a bust is detected, shows the borrow screen first.
 function advanceTo(s){
+  // The Ladder mod day: the run to 'results' detours through the free bonus round once.
+  // Gated on the borrow window being closed so a busted player's borrow flow (and its
+  // return-to-game routing) happens first; if they decline, the detour fires next time.
+  if(s==='results'&&getMod('ladder_free')&&!S.ladResult&&!_canShowBorrow())s='ladder';
   if(isChipBusted()&&_canShowBorrow()){
     if(s!=='results'){
       // Mid-game transition bust (e.g., would have gone to UTH/Roulette but broke).
@@ -163,7 +167,9 @@ function advanceTo(s){
     }
     sndAdvance();goTo('borrow');return;
   }
-  if(s!=='results'&&isChipBusted())s='results';
+  // Busted players are normally forced to results, but the free ladder entry is house
+  // money — a busted player still gets (and may need) the bonus round.
+  if(s!=='results'&&!(s==='ladder'&&getMod('ladder_free'))&&isChipBusted())s='results';
   if(s==='results'&&!DEV_OVERRIDE){
     const _calc=recalcChips();
     // Fall back to the current saved value if the recalculation is non-finite (corrupted history).

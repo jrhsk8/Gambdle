@@ -1,3 +1,9 @@
+// ─── CONTENTS (grep the banner/function name; line numbers drift) ──────────
+//   BLACKJACK LOGIC: timing consts · deal/hit/stand/double · dealer peek ·
+//     bjSplit + split-hand flow · bjResolve settlement · _bjResumeAfterRefresh
+//   BLACKJACK RENDER: screenBJ (bet phase, play phase, result panel, splits)
+// ───────────────────────────────────────────────────────────────────────────
+
 // ─── BLACKJACK LOGIC ──────────────────────────────────────────
 const BJ_RESUME_MS    = 300;   // minimum re-entry delay when resuming after a page refresh
 const BJ_ADVANCE_MS   = 700;   // delay after hitting 21 or doubling before advancing play

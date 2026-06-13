@@ -1,8 +1,23 @@
+// ─── CONTENTS (grep the banner/function name; line numbers drift) ──────────
+//   GAME_VERSION · _ls storage wrapper · getDeviceId
+//   mkRng (SplitMix32) · daily/backlog/test seeds · Phoenix day math
+//     (getDailySeed, getActiveSeed, getRngSeed, getStateKey, getDayNum)
+//   computeStreak · UNLOCKS · profileStats
+//   game slots (GAME1/GAME2, GAME_META, NEXT_SCREEN) · gameNet · recalcChips
+//   SUPABASE CONFIG (URL, anon key, SUPABASE_HEADERS) · DEV_OVERRIDE
+//   modifier access: _activeMod, getMod, pendingPlayersChoice
+//   CARD UTILITIES (buildDeck, shuffle, hVal, isBJ)
+//   TEST & SEEDING (card overrides) · genDeal → DEAL (the day's shoe + deck)
+//   chips: START_CHIPS, BORROW_AMOUNT, CHIP_TIERS/getTier, NET_TIERS/getNetTier
+//   GLOBAL STATE (the S object) · borrow/bust helpers · winMult
+//   CHIP ACCOUNTING (credit, debit)
+//   RUN TRANSCRIPT (txLog) · saveState / loadState
+// ───────────────────────────────────────────────────────────────────────────
 
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.29';
+const GAME_VERSION = 'v1.30';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -156,6 +171,7 @@ const GAME_META = {
   bj:    { icon: '🃏', name: 'Blackjack',             short: 'Blackjack',    desc: '3 hands · Hit, Stand, Double, Split' },
   uth:   { icon: '♠',  name: "Ultimate Texas Hold'em", short: "Hold'em",      desc: '3 hands · Ante, Blind & Play' },
   poker: { icon: '♠',  name: '5 Card Poker',           short: '5 Card Poker', desc: '3 hands · Jacks or Better' },
+  ladder:{ icon: '🪜', name: 'The Ladder',             short: 'The Ladder',   desc: '1 run · Higher or lower, ties lose' },
 };
 
 // All games can occupy either slot; dev menu filters out the conflicting selection.
@@ -172,7 +188,7 @@ function gameNet(g){ return gameHistory(g).reduce((a,h)=>a+(Number.isFinite(h.de
 // Recomputes the run's chip total from recorded history, so a stale or edited save can't inflate a
 // score. Borrowed chips count as part of the effective starting stack. Returns NaN if history is
 // corrupt; callers fall back to the saved value. Single source of truth for loadState + advanceTo.
-function recalcChips(){ return START_CHIPS + (S.borrowUsed ? (S.borrowAmount || BORROW_AMOUNT) : 0) + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0); }
+function recalcChips(){ return START_CHIPS + (S.borrowUsed ? (S.borrowAmount || BORROW_AMOUNT) : 0) + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0) + (S.ladResult?.delta || 0); }
 const STORAGE_KEY = 'gambdle_state_';
 const ANIM_NONE = 99; // sentinel: suppress card animation on this hand
 
@@ -327,6 +343,9 @@ function genDeal(){
   // One fresh 52-card deck per poker hand; each shuffle advances the shared RNG sequence.
   const pokerDecks=Array.from({length:3},()=>shuffle(buildDeck(),rng));
   let uthDeck=shuffle(buildDeck(),rng);
+  // The Ladder: one shared 8-card hi-lo sequence (1 first card + up to 7 calls).
+  // MUST stay the last consumer of the shared rng — appending here shifts nothing above.
+  const ladderCards=shuffle(buildDeck(),rng).slice(0,8);
   let rSpinOverride=null;
 
   if(_testActive()){
@@ -360,7 +379,7 @@ function genDeal(){
   // Append the no-run-dry tail AFTER any test/seed overrides, so overrides only ever touch
   // the base 104 and the appended decks stay pristine.
   bjShoe=bjShoe.concat(_extendBjShoe(seed));
-  return{bjShoe,pokerDecks,uthDeck,rSpinOverride};
+  return{bjShoe,pokerDecks,uthDeck,ladderCards,rSpinOverride};
 }
 // DEAL is generated once at page load — the same cards for everyone on the same calendar day.
 const DEAL=genDeal();
@@ -409,6 +428,11 @@ let S={
   uthRaised:false, uthFolded:false,
   uthHole:[], uthDealer:[], uthComm:[],
   uthRevealComm:0, uthPrevRevealComm:0, uthHistory:[],
+  ladPhase:'bet',   // The Ladder: 'bet' | 'climb' | 'done'
+  ladBet:0, ladFree:false,
+  ladIdx:0,         // index of the current (face-up) card in DEAL.ladderCards
+  ladRung:0,        // rungs climbed (0..7)
+  ladResult:null,   // {delta, rung, outcome:'cash'|'crash'|'top', free} once the run ends
   rPhase:'bet', rBets:[], rBet:0, rPick:null, rResult:null,
   rSpin:null,       // the winning number (set at spin time, null until first spin)
   rSpin2:null,      // second winning number for the Double Ball modifier (r_double_ball)

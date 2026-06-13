@@ -1,3 +1,11 @@
+// ─── CONTENTS (grep the banner/function name; line numbers drift) ──────────
+//   POKER HAND EVALUATION: rankPoker (shared 5-card evaluator)
+//   UTH / POKER STATE: resetUTHHand · per-hand deck slices
+//   5-CARD POKER LOGIC: the partially built 'poker' game
+//   ULTIMATE TEXAS HOLD'EM LOGIC: deal · raise/check/fold · blind + ante
+//     pay tables · dealer qualify · showdown settlement
+//   SCREEN RENDERING: screenUTH · screenPoker · uthPayTableHTML
+// ───────────────────────────────────────────────────────────────────────────
 
 // ─── POKER HAND EVALUATION ────────────────────────────────────────────────
 

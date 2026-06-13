@@ -1,3 +1,14 @@
+// ─── CONTENTS (grep the banner/function name; line numbers drift) ──────────
+//   ROULETTE TIMING: animation/settle durations
+//   ROULETTE CONSTANTS: pockets, colors, bet groups, payouts, R_GROUP_INFO
+//   ROULETTE BOARD: betting board markup · rAddBet · bet limits (r_max_bets)
+//   ROULETTE WHEEL CANVAS: startWheelAnim drawing
+//   ROULETTE SCREENS: screenRoulette (bet + spin phases)
+//   ROULETTE ACTIONS: rSpin (server fetch + local fallback) ·
+//     spinFromRandom (PURE word→pocket mapping, server-replayed) ·
+//     modifier draws (rHotNumber, rColorBoost) · _evalBets payouts ·
+//     rFinish / rDoRespin
+// ───────────────────────────────────────────────────────────────────────────
 
 // ─── ROULETTE TIMING ─────────────────────────────────────────────────────
 const R_SPIN_MS         = 4600; // wheel animation duration (matches audio track length)
@@ -406,6 +417,12 @@ function screenRouletteBet(){
   </div>`;
 }
 
+// Label for the roulette result's advance button: on a Ladder mod day the run
+// detours to the free bonus round (see advanceTo), so prompt the climb instead.
+function _rNextLabel(){
+  return getMod('ladder_free')&&!S.ladResult ? 'Bonus Round: The Ladder →' : 'See Final Results →';
+}
+
 function screenRouletteResult(){
   const res=S.rResult,n=S.rSpin;
   if(res.skipped){
@@ -415,7 +432,7 @@ function screenRouletteResult(){
       <div class="game-manifest" style="text-align:left;margin-bottom:6px">
         <div class="irow"><span class="ik">Final chip total</span><span class="iv">${fmt(S.chips)}</span></div>
       </div>
-      <button class="btn-gold" onclick="advanceTo('results')">See Final Results →</button>
+      <button class="btn-gold" onclick="advanceTo('results')">${_rNextLabel()}</button>
     </div>`;
   }
   const bets=res.bets||[{pick:S.rPick,won:res.won,delta:res.delta,pay:R_BETS[S.rPick]?.pay}];
@@ -436,7 +453,7 @@ function screenRouletteResult(){
         <span class="ik">Final chip total</span><span class="iv">${fmt(S.chips)}</span>
       </div>
     </div>
-    <button class="btn-gold" onclick="advanceTo('results')">See Final Results →</button>
+    <button class="btn-gold" onclick="advanceTo('results')">${_rNextLabel()}</button>
   </div>`;
 }
 

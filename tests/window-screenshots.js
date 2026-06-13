@@ -46,6 +46,10 @@ const SCREENS = {
   'roulette-bet':    () => { S.screen='roulette'; S.rPhase='bet'; S.chips=450; S.rBet=50; S.rPick=17; S.rBets=[{pick:45,bet:50}]; },
   'roulette-result': () => { S.screen='roulette'; S.rPhase='result'; S.chips=900; S.rSpin=17; S.rResult={delta:350,bets:[{pick:17,won:true,delta:350,pay:35,bet:10}]}; },
   'results':         () => { S.screen='results'; S.chips=1450; S.bjHand=3; S.uthHand=3; S.bjHistory=[{delta:200},{delta:-50},{delta:100}]; S.uthHistory=[{delta:150},{delta:-100},{delta:0}]; S.rResult={delta:150,bets:[{pick:17,won:true,delta:150,pay:35,bet:10}]}; },
+  'ladder-bet-free': () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='bet'; S.ladBet=0; S.ladFree=false; S.ladIdx=0; S.ladRung=0; S.ladResult=null; S.chips=1000; },
+  'ladder-climb':    () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='climb'; S.ladBet=250; S.ladFree=true; S.ladIdx=3; S.ladRung=3; S.ladResult=null; S.chips=1000; },
+  'ladder-crash':    () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='done'; S.ladBet=250; S.ladFree=true; S.ladIdx=4; S.ladRung=3; S.ladResult={delta:0,rung:3,outcome:'crash',free:true}; S.chips=1000; },
+  'ladder-cash':     () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='done'; S.ladBet=250; S.ladFree=true; S.ladIdx=4; S.ladRung=4; S.ladResult={delta:1250,rung:4,outcome:'cash',free:true}; S.chips=2250; },
 };
 
 (async () => {

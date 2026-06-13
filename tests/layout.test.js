@@ -515,6 +515,34 @@ describe('layout — roulette screens', () => {
   }));
 });
 
+// ─── The Ladder ───────────────────────────────────────────────────────────────
+describe('layout — The Ladder screens', () => {
+  it('bet phase (free entry) fits viewport', () => checkScreen('ladder-bet-free', {
+    screen:'ladder', ladPhase:'bet', ladBet:0, ladFree:false, ladIdx:0, ladRung:0,
+    ladResult:null, chips:1000, forcedMod:'ladder_day',
+  }));
+
+  it('bet phase (standalone, chip selector) fits viewport', () => checkScreen('ladder-bet', {
+    screen:'ladder', ladPhase:'bet', ladBet:100, ladFree:false, ladIdx:0, ladRung:0,
+    ladResult:null, chips:1000,
+  }));
+
+  it('climb phase fits viewport', () => checkScreen('ladder-climb', {
+    screen:'ladder', ladPhase:'climb', ladBet:250, ladFree:true, ladIdx:3, ladRung:3,
+    ladResult:null, chips:1000, forcedMod:'ladder_day',
+  }));
+
+  it('done phase (crash) fits viewport', () => checkScreen('ladder-crash', {
+    screen:'ladder', ladPhase:'done', ladBet:250, ladFree:true, ladIdx:4, ladRung:3,
+    ladResult:{delta:0,rung:3,outcome:'crash',free:true}, chips:1000, forcedMod:'ladder_day',
+  }));
+
+  it('done phase (cash out) fits viewport', () => checkScreen('ladder-cash', {
+    screen:'ladder', ladPhase:'done', ladBet:250, ladFree:true, ladIdx:4, ladRung:4,
+    ladResult:{delta:1250,rung:4,outcome:'cash',free:true}, chips:2250, forcedMod:'ladder_day',
+  }));
+});
+
 // ─── Final results screen ─────────────────────────────────────────────────────
 describe('layout — final results', () => {
   const _fullHistory = {

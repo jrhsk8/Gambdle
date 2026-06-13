@@ -1,5 +1,8 @@
 // Headless test runner — opens tests/test.html and tests/layout-test.html in Chromium.
 // Usage: npm test  (or:  node tests/run.js)
+// Quiet by default: on all-pass it prints one line per suite; failing pages always
+// print full detail. Pass --verbose (or set GAMBDLE_TEST_VERBOSE=1) for the full
+// per-section + per-screen layout-slack report.
 // First run: npm install (installs playwright)
 
 const { chromium } = require('playwright');
@@ -69,6 +72,8 @@ function printMeasurements(measurements) {
 
 const anyFail = sections => sections.some(s => s.fails.length > 0);
 
+const VERBOSE = process.argv.includes('--verbose') || !!process.env.GAMBDLE_TEST_VERBOSE;
+
 // Parse {pass, fail} from a page's #summary text ("✅ All N tests passed" or "❌ N failed · M passed").
 function summaryCounts(summary) {
   const allPass = summary.match(/All (\d+) tests passed/);
@@ -115,22 +120,24 @@ function summaryCounts(summary) {
     ? `❌ SOME TESTS FAILED — ${totalPass} passed, ${totalFail} failed  (${unitC.pass} unit + ${layoutC.pass} layout)`
     : `✅ ALL ${totalPass} TESTS PASSED  (${unitC.pass} unit + ${layoutC.pass} layout)\n`);
 
-  // Main suite
-  console.log('SUMMARY:', main.summary, '\n');
-  printSections(main.sections);
+  // Per-page detail: failing pages always print in full; passing pages print a
+  // one-line summary unless --verbose.
+  const printPage = (label, page, isLayout) => {
+    const failed = anyFail(page.sections);
+    console.log(`\n${label}: ${page.summary}`);
+    if (failed || VERBOSE) {
+      printSections(page.sections);
+      if (isLayout) printMeasurements(page.measurements);
+    }
+  };
 
-  // Layout — mobile
-  console.log('\nLAYOUT [375×812]:', mobile.summary);
-  printSections(mobile.sections);
-  printMeasurements(mobile.measurements);
-
-  // Layout — desktop (one block per size)
+  printPage('UNIT', main, false);
+  printPage('LAYOUT [375×812]', mobile, true);
   for (let i = 0; i < desktops.length; i++) {
-    const s = DESKTOP_SIZES[i], d = desktops[i];
-    console.log(`\nLAYOUT [${s.width}×${s.height}]:`, d.summary);
-    printSections(d.sections);
-    printMeasurements(d.measurements);
+    const s = DESKTOP_SIZES[i];
+    printPage(`LAYOUT [${s.width}×${s.height}]`, desktops[i], true);
   }
+  if (!VERBOSE) console.log('\n(--verbose for per-section detail and layout slack)');
 
   const failed = anyFail(main.sections) || anyFail(mobile.sections)
     || desktops.some(d => anyFail(d.sections));

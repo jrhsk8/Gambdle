@@ -16,7 +16,7 @@ Your final chip count is your score. A new game resets every day at midnight Ari
 
 ## Daily modifiers
 
-Every day has a **modifier,** a rule twist that applies to the whole run. Examples: blackjacks pay 3:1, the dealer stands on 15, blind payouts are doubled, or you can only go all-in. The mod rotates on a fixed cycle (`CYCLE_ORDER`, currently 26 days), with date-specific overrides available in `src/modifiers.js`.
+Every day has a **modifier,** a rule twist that applies to the whole run. Examples: blackjacks pay 3:1, the dealer stands on 15, blind payouts are doubled, or a free bonus round of The Ladder after roulette. The mod rotates on a fixed cycle (`CYCLE_ORDER`, currently 27 days), with date-specific overrides available in `src/modifiers.js`.
 
 The current modifier is shown before you start and applies to all three games (some mods are game-specific, some are cross-game).
 
@@ -33,6 +33,7 @@ Unlocks trigger automatically when you set a new personal best chip count:
 | Score threshold | Unlock |
 |----------------|--------|
 | 1,500+ | Orange card back |
+| 2,000+ | Green table theme |
 | 2,500+ | Maroon table felt |
 | 3,500+ | Emoji deck |
 | 5,000+ | Whale card back |
@@ -56,7 +57,7 @@ Script load order matters and is already wired in `index.html`:
 
 ```
 modifiers.js → core.js → gametext.js → audio.js → ui.js → windows.js → menus.js
-→ bj.js → uth.js → roulette.js → dev.js → screens.js → flow.js → game.js
+→ dev.js → screens.js → flow.js → bj.js → uth.js → roulette.js → ladder.js → game.js
 ```
 
 ## File structure
@@ -75,6 +76,7 @@ modifiers.js → core.js → gametext.js → audio.js → ui.js → windows.js �
 | `src/bj.js` | Blackjack logic and screen rendering |
 | `src/uth.js` | Ultimate Texas Hold'em + 5-card poker logic and screen rendering |
 | `src/roulette.js` | Roulette board, wheel animation, bet resolution |
+| `src/ladder.js` | The Ladder (hi-lo streak-climb game; also the `ladder_day` free bonus round) |
 | `src/dev.js` | Dev menu actions, Dev Stats screen, layout-debug overlay |
 | `src/screens.js` | Intro/borrow/choice/results screens, leaderboard submit/fetch, score charts |
 | `src/flow.js` | `render()`, status bar, navigation, shared hand-flow helpers |
@@ -123,7 +125,7 @@ Edit `src/modifiers.js` to change the modifier schedule. Four things live there:
 
 **`PRESET_MODIFIERS`** — a named object for each modifier, with a `type`, `title`, `desc`, and any number of modifier keys (e.g. `bj_payout: 2.0`, `r_max_bets: 10`). Available keys are documented at the top of the file.
 
-**`CYCLE_ORDER`:** The rotating daily schedule — an array of preset keys cycled by day number (index 0 = Day 1, May 5 2026; currently 26 entries).
+**`CYCLE_ORDER`:** The rotating daily schedule — an array of preset keys cycled by day number (index 0 = Day 1, May 5 2026; currently 27 entries).
 
 **`DAILY_MODIFIERS`:** A `{ YYYYMMDD: 'preset_key' }` map for date-specific modifier overrides. These take priority over the cycle. Past days should be frozen here so future edits to `CYCLE_ORDER` don't alter archives.
 

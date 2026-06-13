@@ -522,6 +522,40 @@ describe('render — dev stats screen', () => {
   });
 });
 
+// ─── The Ladder screens ───────────────────────────────────────────────────────
+
+describe('render — The Ladder screens', () => {
+  it('bet phase (free entry day) shows the strip and free-entry button', () => {
+    withRender({ screen:'ladder', ladPhase:'bet', ladBet:0, ladFree:false, ladResult:null,
+                 forcedMod:{ ladder_free:250, title:'The Ladder', desc:'x' } }, html => {
+      assert(html.includes('lad-strip'), 'ladder strip present');
+      assert(html.includes('FREE ENTRY'), 'free entry button present');
+    });
+  });
+  it('bet phase (standalone) shows chip selector and Climb button', () => {
+    withRender({ screen:'ladder', ladPhase:'bet', ladBet:0, ladFree:false, ladResult:null,
+                 chips:1000, forcedMod:{} }, html => {
+      assert(html.includes('chip-row'), 'chip selector present');
+      assert(html.includes('Climb'), 'climb button present');
+    });
+  });
+  it('climb phase shows Higher/Lower and Cash Out', () => {
+    withRender({ screen:'ladder', ladPhase:'climb', ladBet:100, ladFree:false,
+                 ladIdx:3, ladRung:3, ladResult:null, forcedMod:{} }, html => {
+      assert(html.includes('Higher'), 'higher call present');
+      assert(html.includes('Lower'), 'lower call present');
+      assert(html.includes('Cash Out'), 'cash out present');
+    });
+  });
+  it('done phase (crash) renders the crash result', () => {
+    withRender({ screen:'ladder', ladPhase:'done', ladBet:250, ladFree:true,
+                 ladIdx:4, ladRung:3, ladResult:{delta:0,rung:3,outcome:'crash',free:true},
+                 forcedMod:{ ladder_free:250, title:'The Ladder', desc:'x' } }, html => {
+      assert(html.includes('CRASHED'), 'crash headline present');
+    });
+  });
+});
+
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 _ls.removeItem(_rsKey);
 _rsSavedSeed === null ? _ls.removeItem('gambdle_use_test_seed') : _ls.setItem('gambdle_use_test_seed', _rsSavedSeed);

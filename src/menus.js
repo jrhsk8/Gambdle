@@ -87,6 +87,8 @@ function showJumpSubmenu(trigger){
     `<div class="dd-item" onclick="goTo(GAME2);closeDropdowns()">→ ${nm(GAME2)}</div>` +
     `<div class="dd-item" onclick="goTo('roulette');closeDropdowns()">→ Roulette</div>` +
     `<div class="dd-item" onclick="devSpin()">🎡 Spin Wheel (5 bets)</div>` +
+    `<div class="dd-item" onclick="resetLadderRun();goTo('ladder');closeDropdowns()">→ The Ladder</div>` +
+    `<div class="dd-item" onclick="devLadder()">🪜 The Ladder (free entry)</div>` +
     `<div class="dd-item" onclick="goTo('results');closeDropdowns()">→ Results</div>`;
   _openSub1(html, trigger);
 }
