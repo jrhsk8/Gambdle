@@ -155,13 +155,32 @@ async function fetchDevStats() {
           ['DNF',             T.started > 0 ? `${fmt(dnf)}${pct(dnf, T.started)}` : warn('n/a')],
           ['Completion rate', T.started > 0 ? `${Math.round(T.completions / T.started * 100)}%` : warn('no starts yet')],
         ]];
+        // Drop-off funnel: where non-completers stopped. Absent on older RPCs (T.funnel undefined) and
+        // hidden when nobody dropped; buckets are device counts, % of DNFs.
+        const F = T.funnel;
+        // Seeds before the funnel shipped have no `progress` rows, so every DNF would misattribute to
+        // Blackjack. On a live day a completer always beacons UTH + Roulette on the way through, so
+        // completions>0 with zero uth+roulette means this seed predates the funnel — flag it instead.
+        const funnelPre = F && T.completions > 0 && (F.uth + F.roulette) === 0;
+        // The Ladder row only appears on ladder_day (F.ladder > 0); normal days stay 3 rows.
+        const funnelRows = F ? [
+          ['Stopped at Blackjack', `${fmt(F.bj)}${pct(F.bj, dnf)}`],
+          ['Stopped at Hold\'em',  `${fmt(F.uth)}${pct(F.uth, dnf)}`],
+          ['Stopped at Roulette',  `${fmt(F.roulette)}${pct(F.roulette, dnf)}`],
+          ...(F.ladder > 0 ? [['Stopped at the Ladder', `${fmt(F.ladder)}${pct(F.ladder, dnf)}`]] : []),
+        ] : [];
+        const funnelGroup = funnelPre
+          ? ['Drop-off · where DNFs stopped', [['Status', warn('no funnel data before v1.36')]]]
+          : (F && dnf > 0) ? ['Drop-off · where DNFs stopped', funnelRows]
+          : null;
         if (T.completions === 0) {
-          el.innerHTML = renderGroups([engagementGroup, lifetimeGroup]) +
+          el.innerHTML = renderGroups([engagementGroup, funnelGroup, lifetimeGroup].filter(Boolean)) +
             `<div style="color:var(--shadow);padding:14px 0;text-align:center">No completed runs yet for seed ${seed}.</div>`;
           return;
         }
         el.innerHTML = renderGroups([
           engagementGroup,
+          funnelGroup,
           ['Audience', [
             ['New today',  fmt(T.new_players)],
             ['Returning',  `${fmt(returning)}${pct(returning, T.fingerprinted)}`],
@@ -179,7 +198,7 @@ async function fetchDevStats() {
             ['Borrowed',   `${fmt(T.borrowed)}${pct(T.borrowed, T.started)}`],
           ]],
           lifetimeGroup,
-        ]) + _distChartHTML(d.distribution || []);
+        ].filter(Boolean)) + _distChartHTML(d.distribution || []);
         return;
       }
     }

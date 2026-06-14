@@ -181,6 +181,7 @@ function advanceTo(s){
     // Clamp at 0: balances never go negative (debit() floors at 0), so a sub-zero recalc is a corrupt save.
     S.chips=Number.isFinite(_calc)?Math.max(0,_calc):S.chips;
   }
+  if(PROGRESS_STAGES.has(s))_submitProgress(s);
   sndAdvance();goTo(s);
 }
 
@@ -233,3 +234,26 @@ async function _submitBorrow() {
     if (res.ok) _ls.setItem(key, '1');
   } catch(e) {}
 }
+
+// Fire-and-forget: records the furthest game stage this device reached today (beaconed on entry to
+// UTH and Roulette via advanceTo). Lets dev stats bucket non-completers by where they stopped.
+// Skipped in dev/test/backlog modes; deduplicated per device/day/stage via localStorage.
+// Requires a `progress` table in Supabase — see .claude/SUPABASE.md.
+async function _submitProgress(stage) {
+  const seed = getActiveSeed();
+  const key = `gambdle_progress_${seed}_${stage}`;
+  if (_ls.getItem(key) || DEV_OVERRIDE || _testActive() || _backlogSeed) return;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/progress`, {
+      method: 'POST',
+      headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ seed, fingerprint: getDeviceId(), stage }),
+    });
+    if (res.ok) _ls.setItem(key, '1');
+  } catch(e) {}
+}
+
+// The game stages a progress beacon fires on (entry to game 2, the roulette finale, and the Ladder
+// bonus round on ladder_day). Game 1 is already covered by the `starts` row, and reaching 'results'
+// is covered by the score submission. 'ladder' only occurs on ladder_day; it's a no-op otherwise.
+const PROGRESS_STAGES = new Set([GAME2, 'roulette', 'ladder']);

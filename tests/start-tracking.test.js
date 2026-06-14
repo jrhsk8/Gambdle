@@ -257,6 +257,69 @@ describe('_submitBorrow — dedup guards and payload', () => {
   });
 });
 
+// ─── Progress beacon: _submitProgress() ──────────────────────────────────────
+// Mirrors _submitStart/_submitBorrow: fire-and-forget POST, deduped per device/day/STAGE, skipped
+// in test/backlog modes. Fires on entry to UTH and Roulette (here tested with stage 'uth').
+const _progKey = (stage) => `gambdle_progress_${getActiveSeed()}_${stage}`;
+
+function withLiveProg(fn) {
+  const savedSeed = _ls.getItem('gambdle_use_test_seed');
+  const savedKey  = _ls.getItem(_progKey('uth'));
+  _ls.removeItem('gambdle_use_test_seed');
+  _ls.removeItem(_progKey('uth'));
+  try { fn(); } finally {
+    savedSeed !== null ? _ls.setItem('gambdle_use_test_seed', savedSeed) : _ls.removeItem('gambdle_use_test_seed');
+    savedKey  !== null ? _ls.setItem(_progKey('uth'), savedKey)  : _ls.removeItem(_progKey('uth'));
+  }
+}
+
+describe('_submitProgress — dedup guards and payload', () => {
+  it('skips fetch when the test seed is active', () => {
+    withFetchSpy(calls => { _submitProgress('uth'); assertEqual(calls.length, 0, 'no fetch in test mode'); });
+  });
+
+  it('skips fetch when the progress key already exists', () => {
+    withLiveProg(() => {
+      _ls.setItem(_progKey('uth'), '1');
+      withFetchSpy(calls => { _submitProgress('uth'); assertEqual(calls.length, 0, 'no fetch when already recorded'); });
+    });
+  });
+
+  it('skips fetch in backlog mode', () => {
+    withLiveProg(() => {
+      _withBacklogSeed(20261231, () => {
+        withFetchSpy(calls => { _submitProgress('uth'); assertEqual(calls.length, 0, 'no fetch in backlog mode'); });
+      });
+    });
+  });
+
+  it('POSTs once to /progress with seed + fingerprint + stage when guards pass', () => {
+    withLiveProg(() => {
+      withFetchSpy(calls => {
+        _submitProgress('uth');
+        assertEqual(calls.length, 1, 'exactly one fetch');
+        assertEqual(calls[0].opts.method, 'POST', 'uses POST');
+        assert(calls[0].url.includes('/progress'), `URL should include /progress, got: ${calls[0].url}`);
+        const body = JSON.parse(calls[0].opts.body);
+        assertEqual(body.seed, getActiveSeed(), 'body.seed matches active seed');
+        assertEqual(body.stage, 'uth', 'body.stage is uth');
+        assert(typeof body.fingerprint === 'string' && body.fingerprint.length > 0, 'non-empty fingerprint');
+      });
+    });
+  });
+
+  it('does not fire a second time once the progress key is set', () => {
+    withLiveProg(() => {
+      withFetchSpy(calls => {
+        _submitProgress('uth');
+        _ls.setItem(_progKey('uth'), '1'); // simulate the async setItem after a 200
+        _submitProgress('uth');
+        assertEqual(calls.length, 1, 'second call deduped');
+      });
+    });
+  });
+});
+
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 _stSavedSeed !== null
   ? _ls.setItem('gambdle_use_test_seed', _stSavedSeed)
