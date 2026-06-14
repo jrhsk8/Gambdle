@@ -17,7 +17,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.30';
+const GAME_VERSION = 'v1.32';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -167,11 +167,13 @@ const GAME2 = _ls.getItem('gambdle_dev_game2') || 'uth';
 
 // Metadata for every available game — add new games here.
 // short: label used in dev menu buttons and share text.
+// icon: on-screen SVG/glyph (rendered as HTML). shareIcon: plain emoji/glyph for the
+// copyable share text (buildShareText) — must stay text, never an inline <svg>.
 const GAME_META = {
-  bj:    { icon: '🃏', name: 'Blackjack',             short: 'Blackjack',    desc: '3 hands · Hit, Stand, Double, Split' },
-  uth:   { icon: '♠',  name: "Ultimate Texas Hold'em", short: "Hold'em",      desc: '3 hands · Ante, Blind & Play' },
-  poker: { icon: '♠',  name: '5 Card Poker',           short: '5 Card Poker', desc: '3 hands · Jacks or Better' },
-  ladder:{ icon: '🪜', name: 'The Ladder',             short: 'The Ladder',   desc: '1 run · Higher or lower, ties lose' },
+  bj:    { icon: icon('cards'),  shareIcon: '🃏', name: 'Blackjack',             short: 'Blackjack',    desc: '3 hands · Hit, Stand, Double, Split' },
+  uth:   { icon: '♠',            shareIcon: '♠',  name: "Ultimate Texas Hold'em", short: "Hold'em",      desc: '3 hands · Ante, Blind & Play' },
+  poker: { icon: '♠',            shareIcon: '♠',  name: '5 Card Poker',           short: '5 Card Poker', desc: '3 hands · Jacks or Better' },
+  ladder:{ icon: icon('ladder'), shareIcon: '🪜', name: 'The Ladder',             short: 'The Ladder',   desc: '1 run · Higher or lower, ties lose' },
 };
 
 // All games can occupy either slot; dev menu filters out the conflicting selection.

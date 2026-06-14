@@ -359,7 +359,7 @@ function bjDealerHTML(){
     ?`<div class="sec">Dealer${dv>21?' · BUST':''}</div>
       <div class="hand">${renderCards(S.bjDealer,'lg',S.bjDealerAnimFrom,0.85,0.1)}</div>
       ${valHTML}`
-    :`<div class="sec">Dealer Shows${peekRevealed()?' · <span style="color:var(--gold-hi);font-size:.7rem">👁 Peeked</span>':''}</div>
+    :`<div class="sec">Dealer Shows${peekRevealed()?` · <span style="color:var(--gold-hi);font-size:.7rem">${icon('eye')} Peeked</span>`:''}</div>
       <div class="dealer-hand-row">
         <div class="hand">${cardHTML(S.bjDealer[0],'lg','',S.bjDealerAnimFrom<=0?0.9:0,S.bjDealerAnimFrom<=0)} ${peekRevealed()?cardHTML(S.bjDealer[1],'lg','box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px',0,false):cardHTML('back','lg')}</div>
         ${peekBtnHTML()}
@@ -386,7 +386,7 @@ function peekBtnHTML(){
   const limit=getMod('peek');
   if(!limit||S.peeksUsed>=limit) return '';
   const left=limit-S.peeksUsed;
-  return `<div id="peek-btn-wrap"><button class="btn-peek-glow" onclick="doPeek()" style="background:rgba(196,147,58,.12);border:1.5px solid rgba(196,147,58,.5);color:var(--gold-hi);padding:11px 20px;border-radius:8px;font-size:1.25rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.15;white-space:nowrap">🔍 Peek<span style="display:block;font-size:.78rem;font-weight:400;opacity:.7;letter-spacing:.04em">${left} left today</span></button></div>`;
+  return `<div id="peek-btn-wrap"><button class="btn-peek-glow" onclick="doPeek()" style="background:rgba(196,147,58,.12);border:1.5px solid rgba(196,147,58,.5);color:var(--gold-hi);padding:11px 20px;border-radius:8px;font-size:1.25rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.15;white-space:nowrap">${icon('magnifying-glass')} Peek<span style="display:block;font-size:.78rem;font-weight:400;opacity:.7;letter-spacing:.04em">${left} left today</span></button></div>`;
 }
 
 // The current hand index for the active dealer-card screen, or -1 if peek doesn't apply here.
@@ -412,7 +412,7 @@ function doPeek(){
     const sec=document.getElementById('bj-dealer-section');
     if(sec){
       const lbl=sec.querySelector('.sec');
-      if(lbl) lbl.innerHTML='Dealer Shows · <span style="color:var(--gold-hi);font-size:.7rem">👁 Peeked</span>';
+      if(lbl) lbl.innerHTML=`Dealer Shows · <span style="color:var(--gold-hi);font-size:.7rem">${icon('eye')} Peeked</span>`;
       const hand=sec.querySelector('.hand');
       if(hand&&hand.children.length>=2){
         const old=hand.children[1];
@@ -426,7 +426,7 @@ function doPeek(){
     const lbl=document.getElementById('uth-dealer-sec');
     const hand=document.getElementById('uth-dealer-hand');
     if(lbl&&hand&&hand.children.length>=1){
-      lbl.innerHTML='Dealer · <span style="color:var(--gold-hi);font-size:.7rem">👁 Peeked</span>';
+      lbl.innerHTML=`Dealer · <span style="color:var(--gold-hi);font-size:.7rem">${icon('eye')} Peeked</span>`;
       const old=hand.children[0];
       old.insertAdjacentHTML('beforebegin',cardHTML(S.uthDealer[0],'md',glow,0.1,true));
       old.remove();
@@ -563,10 +563,10 @@ function screenBJ(){
   }
   const dv=hVal(S.bjDealer), pv=hVal(S.bjPlayer);
   const bjMult = getMod('bj_payout') || 1.5;
-  const RES_LBL={win:'You Win!',blackjack:'Blackjack! 🂡',push:'Push',bust:'You Bust!',lose:'You Lose!'};
+  const RES_LBL={win:'You Win!',blackjack:'Blackjack!',push:'Push',bust:'You Bust!',lose:'You Lose!'};
   // Name the loss for what it is when the dealer turned over a natural blackjack (the casino peek),
   // so the player understands why the hand ended before they could act.
-  const headline = res.result === 'blackjack' && bjMult === 2 ? 'Mega Blackjack! 💎'
+  const headline = res.result === 'blackjack' && bjMult === 2 ? `Mega Blackjack! ${icon('diamond',{fill:true})}`
     : res.result === 'lose' && isBJ(S.bjDealer) ? 'Dealer Blackjack'
     : RES_LBL[res.result];
   return `${hdr('Blackjack · Result')}

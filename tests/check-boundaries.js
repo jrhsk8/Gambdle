@@ -47,6 +47,7 @@ const MANIFEST = {
     'ABOUT_GAMBDLE', 'INFO_SECTIONS', 'POPUP_ENABLED', 'POPUP_MESSAGES', 'STATUS_HINT',
     'TUTORIAL_OFF_NOTE', 'TUTORIAL_TIPS', 'WHATS_NEW', 'buildShareText',
   ],
+  'icons.js': ['icon'],
   'ladder.js': [
     'LADDER_MULTS', 'ladCall', 'ladCallCorrect', 'ladCashOut', 'ladMaxStake', 'ladPotAt',
     'ladRankVal', 'ladStakeCommit', 'resetLadderRun', 'screenLadder',

@@ -85,7 +85,7 @@ function render(){
 function updateChipDisplay() {
   const el = document.getElementById('chip-badge');
   if (el) {
-    el.innerHTML = `💵 ${fmt(S.chips)}`;
+    el.innerHTML = `${icon('chip')} ${fmt(S.chips)}`;
   }
 }
 
@@ -137,7 +137,7 @@ function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnT
 // any earlier hand → the next hand. `nextScreen` is NEXT_SCREEN[game]; `nextHandCall` runs the
 // game's own next-hand function (e.g. 'bjNext()').
 function resultAdvanceBtn(isLast, nextScreen, nextHandCall) {
-  if (isChipBusted()) return { text: 'Game Over 💀', action: "advanceTo('results')" };
+  if (isChipBusted()) return { text: `Game Over ${icon('skull',{fill:true})}`, action: "advanceTo('results')" };
   if (!isLast)        return { text: 'Next Hand →',  action: nextHandCall };
   const text = nextScreen === 'roulette' ? 'Final Round: Roulette →' : `Round 2: ${GAME_META[nextScreen].name} →`;
   return { text, action: `advanceTo('${nextScreen}')` };

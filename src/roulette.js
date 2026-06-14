@@ -138,7 +138,7 @@ function rBoard(){
   };
   const boostLabel=i=>{
     if(!rMod)return'';
-    if(rMod==='hotnum'&&i===hot.num&&hot.num===0)return'🔥'; // tall zero cell: room for a below-tile label
+    if(rMod==='hotnum'&&i===hot.num&&hot.num===0)return icon('flame'); // tall zero cell: room for a below-tile label
     if(rMod==='color'&&(i===45||i===46))return'2:1';
     return'';
   };
@@ -146,7 +146,7 @@ function rBoard(){
     // A boosted mid-grid pocket (Sweet Sixteen's 16 — any non-zero hot number) gets an in-tile corner
     // flame; the below-tile r-pay-lbl is reserved for the zero cell and the color tiles, which have
     // clear space beneath them (a below-tile flame on 16 would collide with the dozens row).
-    if(rMod==='hotnum'&&i===hot.num&&hot.num!==0) return `<span class="r-fire-badge">🔥</span>`;
+    if(rMod==='hotnum'&&i===hot.num&&hot.num!==0) return `<span class="r-fire-badge">${icon('flame')}</span>`;
     const t=boostLabel(i);
     return t?`<span class="r-pay-lbl">${t}</span>`:'';
   };
@@ -341,7 +341,7 @@ function screenRouletteRespin(){
     <div style="font-size:.9rem;color:var(--cream);margin-bottom:10px">Keep this result, or use your one re-spin?</div>
     <div style="display:flex;gap:10px">
       <button class="act-btn" style="flex:1" onclick="rKeepSpin()">Keep Result</button>
-      <button class="btn-gold" style="flex:2" onclick="rDoRespin()">Re-spin 🎡</button>
+      <button class="btn-gold" style="flex:2" onclick="rDoRespin()">Re-spin ${icon('target')}</button>
     </div>
   </div>`;
 }
@@ -408,7 +408,7 @@ function screenRouletteBet(){
   return `${hdr(hdrTitle)}
   <div class="panel">
     ${board}
-    <button id="db" class="btn-gold" style="margin:10px 0" onclick="rSpin()" ${!canSpin?'disabled':''}>Final Spin 🎡</button>
+    <button id="db" class="btn-gold" style="margin:10px 0" onclick="rSpin()" ${!canSpin?'disabled':''}>Final Spin ${icon('target')}</button>
     <div class="divider"></div>
     <div class="sec" style="text-align:center">${secLabel}</div>
     ${betInfo}

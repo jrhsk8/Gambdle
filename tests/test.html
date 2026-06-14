@@ -71,6 +71,7 @@
 
   <!-- Source files — full load order including ui.js and game.js -->
   <script src="../src/modifiers.js"></script>
+  <script src="../src/icons.js"></script>
   <script src="../src/core.js"></script>
   <script src="../src/gametext.js"></script>
   <script src="../src/audio.js"></script>
@@ -108,6 +109,9 @@
 
   <!-- Test runner must load before test files -->
   <script src="runner.js"></script>
+
+  <script>section('Icons');</script>
+  <script src="icons.test.js"></script>
 
   <script>section('Core Utilities');</script>
   <script src="core.test.js"></script>

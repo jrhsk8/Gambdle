@@ -43,7 +43,7 @@ function ladStakeCommit(){
   txLog({g:'lad', a:'stake', v:S.ladBet});
   S.ladPhase = 'climb'; S.ladIdx = 0; S.ladRung = 0;
   saveState();
-  _ladAfterAction();
+  _ladAfterAction('chips');
 }
 
 // One higher/lower call against the next card in the shared sequence.
@@ -55,7 +55,7 @@ function ladCall(dir){
     S.ladRung++; S.ladIdx++;
     if (S.ladRung >= LADDER_MULTS.length) { _ladSettle('top'); return; }
     saveState();
-    _ladAfterAction();
+    _ladAfterAction('card');
   } else {
     S.ladIdx++; // advance so the killer card is the one on display
     _ladSettle('crash');
@@ -79,14 +79,18 @@ function _ladSettle(outcome){
   S.ladResult = { delta, rung: S.ladRung, outcome, free: S.ladFree };
   S.ladPhase = 'done';
   saveState();
-  _ladAfterAction();
+  // Cash out is a money event (chips); crash/top reveal a card (card sound).
+  _ladAfterAction(outcome === 'cash' ? 'chips' : 'card');
 }
 
 // Post-action repaint: surgical zone updates when the screen is live, full
 // render as fallback. Guarded so logic-only unit tests (no DOM screen) skip it.
-function _ladAfterAction(){
+// `snd`: 'chips' for stake/cash-out money events, 'card' when a card after the first
+// is revealed (climb / crash / top) — delayed so it lands like a dealt card.
+function _ladAfterAction(snd){
   if (typeof document === 'undefined' || S.screen !== 'ladder' || typeof render !== 'function') return;
-  if (S.ladPhase === 'climb' && sndCard) sndCard();
+  if (snd === 'card' && typeof sndCard === 'function') sndCard(120);
+  else if (snd === 'chips' && typeof sndChip === 'function') sndChip();
   if (!_ladZonesUpdate()) { _noAnim = true; render(); }
 }
 
@@ -116,11 +120,11 @@ function screenLadder(){
 
 function _ladHeadHTML(){
   if (S.ladPhase === 'done' && S.ladResult) {
-    return { crash: `<span class="lad-hl lad-hl-bad">💥 CRASHED!</span>`,
-             cash:  `<span class="lad-hl lad-hl-good">💰 CASHED OUT!</span>`,
-             top:   `<span class="lad-hl lad-hl-good">👑 TOP OF THE LADDER!</span>` }[S.ladResult.outcome];
+    return { crash: `<span class="lad-hl lad-hl-bad">${icon('x-circle',{fill:true})} CRASHED!</span>`,
+             cash:  `<span class="lad-hl lad-hl-good">${icon('coins',{fill:true})} CASHED OUT!</span>`,
+             top:   `<span class="lad-hl lad-hl-good">${icon('crown',{fill:true})} TOP OF THE LADDER!</span>` }[S.ladResult.outcome];
   }
-  return `<span class="lad-hl">🪜 THE LADDER</span>`;
+  return `<span class="lad-hl">THE LADDER</span>`;
 }
 
 function _ladStripHTML(){
@@ -138,21 +142,25 @@ function _ladStripHTML(){
 
 function _ladReadoutHTML(){
   const pot = ladPotAt(S.ladBet, S.ladRung);
+  // Every phase shows two side-by-side boxes (fixed equal size so they never shift
+   // between phases). Content is wrapped in a span so it wraps cleanly (label over
+   // value) and the space after the colon isn't collapsed by the flex box.
+  const box = (a, b) => `<div class="lad-read-box"><span>${a}</span></div><div class="lad-read-box"><span>${b}</span></div>`;
   if (S.ladPhase === 'bet') {
     return S.ladFree || getMod('ladder_free')
-      ? `Stack: <b>${fmt(S.chips)}</b> · Entry: <b class="lad-gold">FREE ${fmt(getMod('ladder_free')||S.ladBet)}</b>`
-      : `Stack: <b>${fmt(S.chips)}</b> · Max stake: <b>${fmt(ladMaxStake())}</b>`;
+      ? box(`Stack: <b>${fmt(S.chips)}</b>`, `Entry: <b class="lad-gold">FREE ${fmt(getMod('ladder_free')||S.ladBet)}</b>`)
+      : box(`Stack: <b>${fmt(S.chips)}</b>`, `Max stake: <b>${fmt(ladMaxStake())}</b>`);
   }
   if (S.ladPhase === 'climb') {
     const next = ladPotAt(S.ladBet, S.ladRung + 1);
-    return `Pot: <b class="lad-gold">${fmt(pot)}</b> · Next rung: <b>${fmt(next)}</b>`;
+    return box(`Pot: <b>${fmt(pot)}</b>`, `Next rung: <b>${fmt(next)}</b>`);
   }
   const r = S.ladResult;
   if (r.outcome === 'crash') {
-    return r.free ? `Free entry · Nothing lost · <b>+0 chips</b>`
-                  : `Stake lost · <b class="lad-bad">${sign(r.delta)} chips</b>`;
+    return r.free ? box(`Free entry`, `<b>+0 chips</b>`)
+                  : box(`Stake lost`, `<b class="lad-bad">${sign(r.delta)} chips</b>`);
   }
-  return `Pot ${fmt(ladPotAt(S.ladBet, r.rung))} · <b class="lad-good">${sign(r.delta)} chips</b>`;
+  return box(`Pot: <b>${fmt(ladPotAt(S.ladBet, r.rung))}</b>`, `<b class="lad-good">${sign(r.delta)} chips</b>`);
 }
 
 function _ladCardsHTML(){
@@ -167,15 +175,15 @@ function _ladCardsHTML(){
 
 function _ladMsgHTML(){
   if (S.ladPhase === 'bet')  return `Higher or lower? Cash out any time. <b class="lad-bad">Ties lose.</b>`;
-  if (S.ladPhase === 'climb') return `Rung ${S.ladRung} of ${LADDER_MULTS.length} · <b class="lad-bad">Ties lose.</b>`;
+  if (S.ladPhase === 'climb') return `Rung ${S.ladRung + 1} of ${LADDER_MULTS.length + 1} · <b class="lad-bad">Ties lose.</b>`;
   const r = S.ladResult;
   if (r.outcome === 'crash') {
     const a = DEAL.ladderCards[S.ladIdx - 1], b = DEAL.ladderCards[S.ladIdx];
     const why = a && b && a.r === b.r ? `${a.r} matched ${b.r}. Ties lose.` : `Wrong call.`;
-    return `${why} The run ends at rung ${r.rung + 1}.`;
+    return `${why} Crashed on rung ${r.rung + 1}.`;
   }
   if (r.outcome === 'top') return `All ${LADDER_MULTS.length} rungs. ×${LADDER_MULTS[LADDER_MULTS.length-1]} your stake.`;
-  return `You climbed ${r.rung} rung${r.rung===1?'':'s'} at ×${LADDER_MULTS[r.rung-1]}.`;
+  return `You climbed ${r.rung} rung${r.rung===1?'':'s'} for ${LADDER_MULTS[r.rung-1]}x profit.`;
 }
 
 function _ladActionsHTML(){
@@ -183,11 +191,11 @@ function _ladActionsHTML(){
     const free = getMod('ladder_free');
     if (free) {
       return `<div class="lad-chips-locked">${chipSel(free, free)}</div>
-      <button id="db" class="btn-gold lad-btn-big" onclick="ladStakeCommit()">🎟 FREE ENTRY · ${fmt(free)}</button>`;
+      <button id="db" class="btn-gold lad-btn-big" onclick="ladStakeCommit()">Free Entry · ${fmt(free)} →</button>`;
     }
     const valid = S.ladBet >= 25 && S.ladBet <= ladMaxStake();
     return `${chipSel(maxBet(), S.ladBet)}
-    <button id="db" class="btn-gold lad-btn-big" onclick="ladStakeCommit()" ${valid?'':'disabled'}>Climb 🪜</button>`;
+    <button id="db" class="btn-gold lad-btn-big" onclick="ladStakeCommit()" ${valid?'':'disabled'}>Climb →</button>`;
   }
   if (S.ladPhase === 'climb') {
     const pot = ladPotAt(S.ladBet, S.ladRung);
@@ -195,7 +203,7 @@ function _ladActionsHTML(){
       <button class="btn-gold lad-call" onclick="ladCall('hi')">▲ Higher</button>
       <button class="btn-gold lad-call" onclick="ladCall('lo')">▼ Lower</button>
     </div>
-    <button class="btn-gold lad-btn-big" onclick="ladCashOut()" ${S.ladRung<1?'disabled':''}>💰 Cash Out · ${fmt(pot)}</button>`;
+    <button class="btn-gold lad-btn-big" onclick="ladCashOut()" ${S.ladRung<1?'disabled':''}>Cash Out · ${fmt(pot)}</button>`;
   }
   // done: advance. Mod-day bonus always goes to results; a slotted game follows NEXT_SCREEN.
   const nxt = NEXT_SCREEN['ladder'];

@@ -88,7 +88,7 @@ function hdr(sub){
     <span class="mb-item" onclick="toggleMenu('file',this);event.stopPropagation()"><u>F</u>ile</span>
     <span class="mb-item" onclick="toggleMenu('help',this);event.stopPropagation()"><u>H</u>elp</span>
     ${DEV_OVERRIDE ? `<span class="mb-item" style="color:var(--gold)" onclick="toggleMenu('dev',this);event.stopPropagation()"><u>D</u>eveloper</span>` : ''}
-    <span class="mb-right"><span id="chip-badge" class="chip-badge">💵 ${fmt(S.chips)}</span></span>
+    <span class="mb-right"><span id="chip-badge" class="chip-badge">${icon('chip')} ${fmt(S.chips)}</span></span>
   </div>
   <div id="hdr-sub" style="display:none">${sub||''}</div>`;
 }
@@ -104,7 +104,7 @@ function modBannerHTML(slim=false){
   return `<div class="mod-banner${slim?' mod-banner-slim':''}">
     <div class="mod-banner-l">
       <div class="mod-banner-label">TODAY'S MODIFIER</div>
-      <div class="mod-banner-title">✨ ${modTitle}</div>
+      <div class="mod-banner-title">${icon('sparkle', { fill: true, cls: 'mod-star' })} ${modTitle}</div>
     </div>
     <div class="mod-banner-r">${modDesc||''}</div>
   </div>`;

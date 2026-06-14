@@ -112,12 +112,12 @@ function suitSpans(s){return s.replace(/[♠♥♦♣]/g,m=>`<span class="${_SUI
 const INFO_SECTIONS = {
   overview: {
     title: 'How to Play',
-    body: `<div><b>🎰 Gambdle</b> is a daily casino game. Everyone gets the exact same shuffles. You start with <b>1,000 chips</b>, play two card games, then finish with one random, unseeded spin of the roulette wheel. Your final chip count is your score.</div>
+    body: `<div><b>♠ Gambdle</b> is a daily casino game. Everyone gets the exact same shuffles. You start with <b>1,000 chips</b>, play two card games, then finish with one random, unseeded spin of the roulette wheel. Your final chip count is your score.</div>
       <div>A new game drops every day at midnight <b>Arizona time</b> (MST, no daylight saving). Compare your score on the leaderboard.</div>
-      <div><b>✨ Daily Modifier:</b> Every day has a special rule that changes the game for everyone, like boosted payouts or extra betting options. Look for the gold banner at the top of each game screen.</div>`
+      <div><b>${icon('sparkle')} Daily Modifier:</b> Every day has a special rule that changes the game for everyone, like boosted payouts or extra betting options. Look for the gold banner at the top of each game screen.</div>`
   },
   bj: {
-    title: '🃏 Blackjack',
+    title: `${icon('cards')} Blackjack`,
     body: `<div>You and the dealer each get two cards. Try to get as close to 21 as you can without going over. The dealer plays after you.</div>
       <div>Card values: number cards are face value, face cards (J/Q/K) are worth 10, and Aces are worth 1 or 11, whichever helps you more.</div>
       <div><b>Hit:</b> Take another card. 
@@ -139,7 +139,7 @@ const INFO_SECTIONS = {
       <div>If your hand beats the dealer's, you win. The dealer needs at least a <b>Pair</b> to "qualify". If they don't, your Ante bet is returned. You play <b>3 hands</b>.</div>`
   },
   roulette: {
-    title: '🎡 Roulette',
+    title: `${icon('target')} Roulette`,
     body: `<div>A ball is dropped onto a spinning wheel numbered 0–36. Pick where you think it'll land, set your stake, and spin. <b>One spin</b> ends the run.</div>
       <div><b>Numbers 0–36:</b> An exact match pays <b>35:1</b>. Daily modifiers that increase odds of specific numbers can make this very profitable!</div>
       <div><b>Rows (2:1 tiles):</b> Bet on one of the three rows on the board. Does not include 0.</div>
@@ -148,7 +148,7 @@ const INFO_SECTIONS = {
       <div>On most days you can place up to 5 bets before spinning. Daily modifiers may alter this.</div>`
   },
   hands: {
-    title: '🃏 Poker Hands',
+    title: `${icon('cards')} Poker Hands`,
     body: (()=>{
       const row=(name,cards,desc)=>
         `<span style="color:var(--ink);font-size:1.3rem">${name}</span><span style="color:var(--ink);font-size:1.2rem;text-align:right">${suitSpans(cards)}</span><span style="font-size:1.05rem;grid-column:1/-1;margin-bottom:4px;color:var(--shadow)">${desc}</span>`;
@@ -228,8 +228,8 @@ function buildShareText(){
   return [
     `🎰 Gambdle #${S.day}`,
     modTitle ? `Daily modifier: ${modTitle}` : ``,
-    `${g1.icon} ${g1.short} (${sign(g1Net)})`,
-    `${g2.icon} ${g2.short} (${sign(g2Net)})`,
+    `${g1.shareIcon} ${g1.short} (${sign(g1Net)})`,
+    `${g2.shareIcon} ${g2.short} (${sign(g2Net)})`,
     `🎡 Roulette (${sign(rNet)})`,
     ..._ladShareLine(),
     ``,

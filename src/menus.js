@@ -86,9 +86,9 @@ function showJumpSubmenu(trigger){
     `<div class="dd-item" onclick="goTo(GAME1);closeDropdowns()">→ ${nm(GAME1)}</div>` +
     `<div class="dd-item" onclick="goTo(GAME2);closeDropdowns()">→ ${nm(GAME2)}</div>` +
     `<div class="dd-item" onclick="goTo('roulette');closeDropdowns()">→ Roulette</div>` +
-    `<div class="dd-item" onclick="devSpin()">🎡 Spin Wheel (5 bets)</div>` +
+    `<div class="dd-item" onclick="devSpin()">${icon('target')} Spin Wheel (5 bets)</div>` +
     `<div class="dd-item" onclick="resetLadderRun();goTo('ladder');closeDropdowns()">→ The Ladder</div>` +
-    `<div class="dd-item" onclick="devLadder()">🪜 The Ladder (free entry)</div>` +
+    `<div class="dd-item" onclick="devLadder()">${icon('ladder')} The Ladder (free entry)</div>` +
     `<div class="dd-item" onclick="goTo('results');closeDropdowns()">→ Results</div>`;
   _openSub1(html, trigger);
 }
@@ -121,11 +121,11 @@ function showChipsSubmenu(trigger){
 function showModSubmenu(trigger, action) {
   action = action || 'devApplyMod';
   const cats = [
-    {key:'bj',       label:'🃏 Blackjack'},
+    {key:'bj',       label:`${icon('cards')} Blackjack`},
     {key:'uth',      label:"♠ Hold'em"},
-    {key:'cross',    label:'🔀 Cross-Game'},
-    {key:'roulette', label:'🎡 Roulette'},
-    {key:'choice',   label:"🎲 Player's Choice"},
+    {key:'cross',    label:`${icon('shuffle')} Cross-Game`},
+    {key:'roulette', label:`${icon('target')} Roulette`},
+    {key:'choice',   label:`${icon('dice-five')} Player's Choice`},
   ];
   const html = cats.map(c =>
     `<div class="dd-item" onclick="showModTypeSubmenu('${c.key}',this,'${action}');event.stopPropagation()">${c.label} <span class="dd-key">►</span></div>`
@@ -148,7 +148,7 @@ function showModifierPopup(key) {
   if (!m) return;
   const content = `<div style="font-size:1.15rem;color:var(--ink);line-height:1.55">${m.desc}</div>` +
     (m.devNote ? `<div class="divider" style="margin:14px 0 10px"></div><div style="font-size:1rem;color:var(--shadow);line-height:1.5"><b>Dev Note:</b> ${m.devNote}</div>` : '');
-  _openInfoModal(`✨ ${m.title}`, content, 'modifier');
+  _openInfoModal(`${icon('sparkle')} ${m.title}`, content, 'modifier');
 }
 
 function toggleMenu(which, trigger) {
@@ -165,7 +165,7 @@ function toggleMenu(which, trigger) {
   if (which === 'dev') {
     el.innerHTML = `
       <div class="dd-item" onclick="devReset();closeDropdowns()">↺ Reset Run</div>
-      <div class="dd-item" onclick="goTo('devstats');closeDropdowns()">📊 Player Stats</div>
+      <div class="dd-item" onclick="goTo('devstats');closeDropdowns()">${icon('chart-bar')} Player Stats</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showJumpSubmenu(this);event.stopPropagation()">Jump to <span class="dd-key">►</span></div>
       <div class="dd-item" onclick="showGameSetupSubmenu(this);event.stopPropagation()">Game Setup <span class="dd-key">►</span></div>
@@ -175,11 +175,11 @@ function toggleMenu(which, trigger) {
       <div class="dd-item" id="dd-mod-trigger" onclick="showModSubmenu(this);event.stopPropagation()">Force Modifier <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="devToggleTestTutorial();event.stopPropagation()" style="gap:12px">
-        <span>💡 Test Tutorial</span>
+        <span>${icon('lightbulb')} Test Tutorial</span>
         <input type="checkbox" id="dev-test-tutorial-cb" ${_testTutorial()?'checked':''} onclick="event.stopPropagation()" style="${_DD_CB}">
       </div>
       <div class="dd-item" onclick="devToggleLayoutDebug();event.stopPropagation()" style="gap:12px">
-        <span>📐 Layout Debug</span>
+        <span>${icon('ruler')} Layout Debug</span>
         <input type="checkbox" id="dev-layout-debug-cb" ${document.body.classList.contains('layout-debug')?'checked':''} onclick="event.stopPropagation()" style="${_DD_CB}">
       </div>`;
   } else if (which === 'file') {
@@ -189,32 +189,32 @@ function toggleMenu(which, trigger) {
       ${_backlogSeed ? `<div class="dd-item" onclick="exitBacklog()">↩ Return to Today (#${getDayNum()})</div><div class="dd-sep"></div>` : ''}
       <div class="dd-item" onclick="showBacklogSubmenu(this);event.stopPropagation()">Gambdle #${S.day}${_backlogSeed?(_backlogSeed>getDailySeed()?' · Preview':' · Archive'):''} <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
-      <div class="dd-item ${canShare?'':'dd-disabled'}" onclick="${canShare?'doShare();closeDropdowns()':''}">📋 Copy &amp; Share</div>
+      <div class="dd-item ${canShare?'':'dd-disabled'}" onclick="${canShare?'doShare();closeDropdowns()':''}">${icon('clipboard-text')} Copy &amp; Share</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="togglePref('mute');event.stopPropagation()" style="gap:12px">
-        <span>🔇 Mute Audio</span>
+        <span>${icon('speaker-simple-x')} Mute Audio</span>
         <input type="checkbox" id="file-mute-cb" ${getPref('mute')?'checked':''} onclick="togglePref('mute');event.stopPropagation()" style="${cbStyle}">
       </div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showFeedbackDialog();closeDropdowns()">✉ Send Feedback</div>
+      <div class="dd-item" onclick="showFeedbackDialog();closeDropdowns()">${icon('envelope')} Send Feedback</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showPrefsSubmenu(this);event.stopPropagation()">Preferences <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showProfile()">👤 Player Profile</div>
+      <div class="dd-item" onclick="showProfile()">${icon('user')} Player Profile</div>
       <div class="dd-item" onclick="showAbout()">♠ About Gambdle</div>`;
   } else {
     el.innerHTML = `
       <div class="dd-item" onclick="showInfo('overview');closeDropdowns()">How to Play</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showInfo('bj');closeDropdowns()">🃏 Blackjack</div>
+      <div class="dd-item" onclick="showInfo('bj');closeDropdowns()">${icon('cards')} Blackjack</div>
       <div class="dd-item" onclick="showInfo('uth');closeDropdowns()">♠ Ultimate Hold'em</div>
-      <div class="dd-item" onclick="showInfo('roulette');closeDropdowns()">🎡 Roulette</div>
+      <div class="dd-item" onclick="showInfo('roulette');closeDropdowns()">${icon('target')} Roulette</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showInfo('hands');closeDropdowns()">🂡 Poker Hands</div>
+      <div class="dd-item" onclick="showInfo('hands');closeDropdowns()">${icon('cards')} Poker Hands</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showModSubmenu(this,'showModifierPopup');event.stopPropagation()">✨ Daily Modifiers <span class="dd-key">►</span></div>
+      <div class="dd-item" onclick="showModSubmenu(this,'showModifierPopup');event.stopPropagation()">${icon('sparkle')} Daily Modifiers <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="toggleTutorial();event.stopPropagation()">💡 Tips: ${getPref('tutorial_off') ? 'Off' : 'On'}</div>`;
+      <div class="dd-item" onclick="toggleTutorial();event.stopPropagation()">${icon('lightbulb')} Tips: ${getPref('tutorial_off') ? 'Off' : 'On'}</div>`;
   }
 
   const left = Math.min(rect.left, window.innerWidth - 200);
@@ -319,10 +319,10 @@ function resetAllPrefs(){
   closeDropdowns();
 }
 const PICKER_ITEMS = {
-  deck:     { pref:'deck',     options:[{val:'default',label:'Default'},{val:'emoji',label:'Emoji',lock:'deck_emoji_unlocked',hint:'🔒 3500+'}]},
-  cardback: { pref:'cardback', options:[{val:'default',label:'Default'},{val:'orange',label:'Orange',lock:'orange_back_unlocked',hint:'🔒 1500+'},{val:'whale',label:'Whale 🐋',lock:'whale_back_unlocked',hint:'🔒 5000+'},{val:'gold',label:'Golden',lock:'golden_back_unlocked',hint:'🔒 10000+'}]},
-  felt:     { pref:'felt',     options:[{val:'default',label:'Green'},{val:'maroon',label:'Maroon',lock:'maroon_felt_unlocked',hint:'🔒 2500+'}]},
-  theme:    { pref:'theme',    options:[{val:'default',label:'Luna Blue'},{val:'olive',label:'Olive Green'},{val:'silver',label:'Silver'},{val:'green',label:'Luna Green',lock:'green_theme_unlocked',hint:'🔒 2000+'}]},
+  deck:     { pref:'deck',     options:[{val:'default',label:'Default'},{val:'emoji',label:'Emoji',lock:'deck_emoji_unlocked',hint:`${icon('lock')} 3500+`}]},
+  cardback: { pref:'cardback', options:[{val:'default',label:'Default'},{val:'orange',label:'Orange',lock:'orange_back_unlocked',hint:`${icon('lock')} 1500+`},{val:'whale',label:'Whale 🐋',lock:'whale_back_unlocked',hint:`${icon('lock')} 5000+`},{val:'gold',label:'Golden',lock:'golden_back_unlocked',hint:`${icon('lock')} 10000+`}]},
+  felt:     { pref:'felt',     options:[{val:'default',label:'Green'},{val:'maroon',label:'Maroon',lock:'maroon_felt_unlocked',hint:`${icon('lock')} 2500+`}]},
+  theme:    { pref:'theme',    options:[{val:'default',label:'Luna Blue'},{val:'olive',label:'Olive Green'},{val:'silver',label:'Silver'},{val:'green',label:'Luna Green',lock:'green_theme_unlocked',hint:`${icon('lock')} 2000+`}]},
 };
 function _showPickerSub(pickerKey,trigger){
   const {pref,options}=PICKER_ITEMS[pickerKey];
@@ -355,8 +355,8 @@ function togglePref(k){
   const cb=document.getElementById(PREF_CB_IDS[k]);
   if(cb)cb.checked=!!getPref(k);
   if(k==='mute'){
-    const icon=document.getElementById('sb-mute-icon');
-    if(icon){icon.textContent=getPref('mute')?'🔇':'🔊';icon.title=getPref('mute')?'Unmute':'Mute';}
+    const el=document.getElementById('sb-mute-icon');
+    if(el){el.textContent=getPref('mute')?'🔇':'🔊';el.title=getPref('mute')?'Unmute':'Mute';}
   }
 }
 

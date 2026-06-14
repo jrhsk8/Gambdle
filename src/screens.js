@@ -7,21 +7,26 @@
 // ─── SCREEN RENDERING ────────────────────────────────────────────────────
 
 function screenIntro(){
+  // Three groups (title · call-to-action · program). The panel distributes them with
+  // space-between, so on slack layouts (desktop, tall phones) they spread across the
+  // felt with breathing room, while within each group the spacing stays tight.
   return `${hdr('New Game')}
-  <div class="panel">
-    <div style="text-align:center;padding:14px 4px 6px">
-      <div class="logo"><span class="logo-spade">♠</span>GAMBDLE</div>
-      <div class="logo-sub">Daily Game #${S.day}</div>
+  <div class="panel intro-panel">
+    <div class="intro-body">
+      <div class="intro-grp intro-title">
+        <div class="logo"><span class="logo-spade">♠</span>GAMBDLE</div>
+        <div class="logo-sub">Daily Game #${S.day}</div>
+      </div>
+      <div class="intro-grp intro-cta">
+        <div class="intro-lead">You start with <b>${fmt(S.chips)} chips</b>.</div>
+        <div class="intro-sub">Your final stack is your leaderboard score.</div>
+        <button class="btn-gold btn-lg intro-start" onclick="startGame()">► Start new game</button>
+      </div>
+      <div class="intro-grp">
+        <div class="intro-prog-label">Today's program:</div>
+        ${renderIntroGameRows()}
+      </div>
     </div>
-    <div class="divider"></div>
-    <div style="text-align:center;padding:4px 4px">
-      <div style="font-size:1.8rem;color:var(--cream)">You start with <b style="color:var(--gold-hi)">${fmt(S.chips)} chips</b>.</div>
-      <div style="font-size:1.4rem;color:var(--cream);opacity:0.7;margin-top:4px">Your final stack is your leaderboard score.</div>
-    </div>
-    <button class="btn-gold btn-lg" style="margin: 10px 0" onclick="startGame()">► Start new game</button>
-    <div class="divider"></div>
-    <div style="font-size:1.4rem;color:var(--cream);opacity:0.7;letter-spacing:0.16em;text-transform:uppercase;margin:2px 2px 4px">Today's program:</div>
-    ${renderIntroGameRows()}
   </div>`;
 }
 
@@ -30,15 +35,13 @@ function renderIntroGameRows() {
   const games = [
     [g1.icon, g1.name, g1.desc],
     [g2.icon, g2.name, g2.desc],
-    ['🎡', 'Roulette', 'One spin · Anything is possible'],
+    [icon('target'), 'Roulette', 'One spin · Anything is possible'],
   ];
+  // One line per game: "1. Blackjack · 3 hands" (desc trimmed to the hand/spin count).
   const rows = games.map((g, i) => `
     <div class="gm-row">
       <span class="rnd-ic">${g[0]}</span>
-      <div>
-        <div class="rnd-nm">${i+1}. ${g[1]}</div>
-        <div class="rnd-dc">${g[2]}</div>
-      </div>
+      <div class="rnd-nm">${i+1}. ${g[1]} <span class="rnd-dc">· ${g[2].split(' · ')[0]}</span></div>
     </div>`).join('<div class="gm-sep"></div>');
   return `<div class="game-manifest">${rows}</div>`;
 }
@@ -55,7 +58,7 @@ function screenBorrow(){
     ?`<span style="font-size:.95rem;opacity:0.55"> (min bet: ${fmt(minC)})</span>`:'';
   return`${hdr('Busted!')}
   <div class="panel" style="text-align:center">
-    <div style="font-size:2.5rem;margin:10px 0 4px">💸</div>
+    <div style="font-size:2.5rem;margin:10px 0 4px">${icon('coins')}</div>
     <div class="result-hl" style="color:var(--lose)">You're broke!</div>
     <div class="result-sub" style="color:var(--shadow)">0 chips remaining</div>
     <div class="divider" style="margin:10px 0"></div>
@@ -63,7 +66,7 @@ function screenBorrow(){
       Borrow <b style="color:var(--gold-hi)">${fmt(amt)} chips</b>${minNote} to keep playing.<br>
       <span style="font-size:1rem;opacity:0.7">Deducted from tomorrow's starting stack.</span>
     </div>
-    <button class="btn-gold btn-lg" onclick="borrowChips()">💸 Borrow ${fmt(amt)} chips</button>
+    <button class="btn-gold btn-lg" onclick="borrowChips()">${icon('coins')} Borrow ${fmt(amt)} chips</button>
     <button class="ch-clear" style="margin-top:12px;" onclick="declineBorrow()">✕ Accept defeat → Results</button>
   </div>`;
 }
@@ -90,7 +93,7 @@ function declineBorrow(){
 
 // ─── PLAYER'S CHOICE PICKER ───────────────────────────────────────────────────
 // Icon per modifier type, used on the picker buttons (presets carry a `type`, not an icon).
-const _PC_ICON = { bj:'♠️', uth:'🤠', roulette:'🎡', cross:'✨', choice:'🎲' };
+const _PC_ICON = { bj:icon('cards'), uth:icon('cowboy-hat'), roulette:icon('target'), cross:icon('shuffle'), choice:icon('dice-five') };
 
 function screenChoice(){
   const choices = pendingPlayersChoice();
@@ -98,7 +101,7 @@ function screenChoice(){
   if(!choices) return screenIntro();
   const cards = choices.map(c=>`
     <button class="pc-option" onclick="pickModifier('${c.key}')">
-      <span class="pc-icon">${_PC_ICON[c.type]||'✨'}</span>
+      <span class="pc-icon">${_PC_ICON[c.type]||icon('sparkle')}</span>
       <span class="pc-text">
         <span class="pc-title">${c.title}</span>
         <span class="pc-desc">${c.desc}</span>
@@ -142,15 +145,17 @@ function screenResults(){
   // Daily streak (today counts even though saveState hasn't persisted it yet). Only shown
   // for the live day — a backlog/archive run shouldn't claim a current streak.
   const streak = _backlogSeed ? 0 : computeStreak(getDailySeed(), true).current;
-  const streakHtml = streak >= 1 ? `<div class="results-streak">🔥 ${streak}-Day Streak</div>` : '';
+  const streakHtml = streak >= 1 ? `<div class="results-streak">${icon('flame', { fill: true, cls: 'streak-flame' })} ${streak}-Day Streak</div>` : '';
 
   return `${hdr('Daily Results')}
   <div class="panel results-panel" style="text-align:center">
-    <div class="results-tier" style="font-size:1.05rem;color:var(--cream);text-transform:uppercase;letter-spacing:0.16em;margin-bottom:2px">${tier}</div>
-    <div class="big-chips" style="font-family:var(--btn-f);font-size:5rem;line-height:1;letter-spacing:.04em;color:var(--gold-hi);text-shadow:2px 2px 0 rgba(0,0,0,0.45)">${fmt(S.chips)}</div>
-    ${streakHtml}
+    <div class="results-hero">
+      <div class="results-tier" style="color:var(--cream);text-transform:uppercase;letter-spacing:0.16em;margin-bottom:2px">${tier}</div>
+      <div class="big-chips" style="font-family:var(--btn-f);font-size:5rem;line-height:1;letter-spacing:.04em;color:var(--gold-hi);text-shadow:2px 2px 0 rgba(0,0,0,0.45)">${fmt(S.chips)}</div>
+      ${streakHtml}
+    </div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
-      ${[[g1Label,g1Net],[g2Label,g2Net],['🎡 Roulette',rNet],...(S.ladResult?[['🪜 The Ladder',S.ladResult.delta]]:[])].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
+      ${[[g1Label,g1Net],[g2Label,g2Net],[`${icon('target')} Roulette`,rNet],...(S.ladResult?[[`${icon('ladder')} The Ladder`,S.ladResult.delta]]:[])].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
       <div class="res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
         <span style="font-size:1rem">${lbl}</span>
         <span class="res-net" style="font-family:var(--btn-f);font-size:1.35rem;color:${col(net)}">${sign(net)}</span>
@@ -168,7 +173,7 @@ function screenResults(){
     </div>
     ${chartHtml}
     <div class="share-box">${shareText}</div>
-    <button class="btn-gold" onclick="doShare()">📋 Copy &amp; Share</button>
+    <button class="btn-gold" onclick="doShare()">${icon('clipboard-text')}Copy &amp; Share</button>
   </div>`;
 }
 

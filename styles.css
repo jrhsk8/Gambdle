@@ -179,13 +179,18 @@ body {
 .menu-bar .mb-item u { text-decoration: underline; }
 .menu-bar .mb-right { margin-left: auto; }
 .chip-badge {
+  display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--btn-f); font-size: 1.45rem; font-weight: 700; letter-spacing: 0.02em;
   color: var(--ink); background: var(--panel);
   border: 1px solid var(--shadow); border-radius: 2px;
-  padding: 0 8px; line-height: 1.4;
+  padding: 0 8px; line-height: 1;
   margin: 2px 0;
   box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
 }
+/* line-height:1 on the badge keeps its height governed by the chip glyph (≈ the
+   original emoji badge height) so the menu bar doesn't grow. The glyph reads a touch
+   larger than the digits and is vertically centered by the flex box. */
+.chip-badge .ic { width: 1.05em; height: 1.05em; vertical-align: 0; }
 
 .status-bar {
   background: var(--panel);
@@ -295,6 +300,9 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 .mod-banner-l { flex-shrink: 0; white-space: nowrap; }
 .mod-banner-label { font-size: 1rem; color: var(--shadow); letter-spacing: 0.14em; }
 .mod-banner-title { font-size: 1.7rem; font-weight: 700; line-height: 1.1; color: var(--ink); margin-top: 1px; }
+/* Daily-mod star: solid gold with a dark outline so it pops on the pale-gold banner.
+   stroke-width is in viewBox units (256 = 1em), so it scales with the title font. */
+.ic.mod-star { color: #ffd11a; stroke: var(--ink); stroke-width: 24px; stroke-linejoin: round; paint-order: stroke; }
 .mod-banner-r { font-size: 1.35rem; color: var(--ink); text-align: right; line-height: 1.3; min-width: 0; }
 
 /* ── Sunken readout box (stack, bet etc.) ───────────────── */
@@ -319,6 +327,21 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 }
 .logo-spade { color: var(--ink); margin-right: 0.12em; }
 .logo-sub { font-size: 1.5rem; color: var(--shadow); letter-spacing: 0.18em; margin-top: 8px; text-transform: uppercase; }
+/* Intro: distribute the three groups (title · CTA · program) down the panel so they
+   spread across the felt on slack layouts; within each group spacing stays tight. */
+/* The daily-mod banner is injected as the panel's first child and stays pinned at the
+   top (original spacing). The content lives in .intro-body, which fills the remaining
+   felt and distributes the three groups with even breathing room between them. */
+.intro-panel { display: flex; flex-direction: column; }
+.intro-body { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 16px; }
+.intro-title { text-align: center; }
+.intro-cta { text-align: center; }
+.intro-lead { font-size: 1.8rem; color: var(--cream); }
+.intro-lead b { color: var(--gold-hi); }
+.intro-sub { font-size: 1.4rem; color: var(--cream); opacity: 0.7; margin-top: 4px; }
+.intro-start { margin-top: 16px; }
+.intro-prog-label { font-size: 1.4rem; color: var(--cream); opacity: 0.7; letter-spacing: 0.16em;
+                    text-transform: uppercase; margin: 0 2px 8px; text-align: center; }
 /* Mini logo for the About window (smaller than the start-screen 5.4rem). */
 .logo-mini { font-size: 3rem; }
 
@@ -333,6 +356,7 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
   letter-spacing: 0.04em; cursor: pointer;
   white-space: nowrap;
 }
+.btn-gold .ic { margin-right: 0.45em; } /* breathing room between a leading icon and the label */
 .btn-gold:active { transform: translate(1px,1px); box-shadow: inset 2.5px 2.5px 0 var(--gold-lo), inset -1.5px -1.5px 0 var(--gold-hi); }
 .btn-gold:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 /* btn-lg (Start / Borrow CTAs) is intentionally outside the unified-button system. */
@@ -433,6 +457,10 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 }
 .ctl { top: 5px; left: 7px; }
 .cbr { bottom: 5px; right: 7px; transform: rotate(180deg); }
+/* On small cards, pull the corner indices tight to the edge so the center suit glyph
+   has room to breathe (and can run a touch larger) without crowding the corners. */
+.card.sm .ctl { top: 3px; left: 4px; }
+.card.sm .cbr { bottom: 3px; right: 4px; }
 .ct-r { font-family: var(--display); font-weight: 700; line-height: 0.95; }
 .ct-s { font-family: var(--f); line-height: 1; margin-top: 1px; }
 /* Suit glyphs are flat text, never emoji. The trailing U+FE0E in cardHTML handles older engines;
@@ -456,6 +484,8 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 .card.lg .csuit { font-size: 3.4rem; }
 .card.md .csuit { font-size: 2.8rem; }
 .card.sm .csuit { font-size: 2.2rem; }
+/* Inline SVG icons (see src/icons.js). Sized in em, color via currentColor. */
+.ic { width: 1em; height: 1em; vertical-align: -0.15em; flex: 0 0 auto; }
 /* The ♦ glyph is the narrowest suit in virtually every system font (Tahoma: ♦≈27px vs ♣≈35px at the
    same size), so a diamond reads visibly smaller than ♠♥♣ — most noticeable on the tiny split cards
    where the centre suit is the only suit shown. Scale diamonds up so all four suits look balanced.
@@ -463,13 +493,6 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
    about the default centre origin, keeps the glyph centred and the corner rank in place. */
 .card.suit-d .csuit { transform: scale(1.12); }
 .card.suit-d .ct-s  { transform: scale(1.1); }
-
-/* Tiniest cards (split aside/result hands + split result dealer): one centred
-   suit reads cleaner than three cramped pips. Drop the two corner suit glyphs,
-   keep the corner ranks + the single centre suit. */
-.bj-split-aside .ct-s,
-.bj-sr-hands .ct-s,
-.bj-sr-dealer .ct-s { display: none; }
 
 .card.red, .card.red .ct-r, .card.red .ct-s, .card.red .csuit { color: var(--red); }
 .card.blk, .card.blk .ct-r, .card.blk .ct-s, .card.blk .csuit { color: var(--ink); }
@@ -825,7 +848,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .gm-sep { height: 1px; background: var(--ink); }
 .rnd-ic { font-size: 1.6rem; line-height: 1; }
 .rnd-nm { font-size: 2.1rem; font-weight: 700; line-height: 1; letter-spacing: 0.02em; }
-.rnd-dc { font-size: 1.6rem; color: var(--shadow); margin-top: 2px; }
+.rnd-dc { font-size: 1.6rem; color: var(--shadow); font-weight: 400; }
 
 /* ── Pay table ──────────────────────────────────────────── */
 .ptable { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px;
@@ -1000,6 +1023,17 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   margin: 5px 0 9px; white-space: nowrap;
   text-shadow: 1px 1px 0 rgba(0,0,0,0.4);
 }
+/* Tier + chip total + streak grow into one block that floats centered in the gap
+   between the modifier banner and the results box: flex:1 absorbs the panel's
+   vertical slack here, so the manifest/chart/share settle below as a group. When
+   the panel is tight (360×780, short desktop) the slack is ~0 and it just stacks. */
+.results-hero {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  flex: 1 1 auto; min-height: 0;
+}
+.results-tier { font-size: 1.15rem; }
+/* Daily-streak flame: a bold solid flame in fiery orange (line + the gold streak text). */
+.ic.streak-flame { color: #f9731e; }
 
 .dist-bars {
   display: flex; align-items: flex-end; gap: 4px;
@@ -1133,15 +1167,15 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   font-family: var(--btn-f);
 }
 .dd-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 3px 18px 3px 22px; gap: 24px;
+  display: flex; align-items: center;
+  padding: 3px 18px 3px 22px; gap: 8px;
   font-size: 1.05rem; color: var(--ink);
   cursor: pointer; white-space: nowrap; user-select: none;
 }
 .dd-item:hover:not(.dd-disabled) { background: #316AC5; color: #fff; }
 .dd-item:hover:not(.dd-disabled) .dd-key { color: rgba(255,255,255,0.7); }
 .dd-disabled { color: var(--shadow); cursor: default; }
-.dd-key { font-size: 0.8rem; color: var(--shadow); }
+.dd-key { margin-left: auto; padding-left: 16px; font-size: 0.8rem; color: var(--shadow); }
 .dd-sep { height: 0; margin: 3px 2px; border-top: 1px solid var(--shadow); border-bottom: 1px solid var(--highlight); }
 .dd-submenu { z-index: 401; }
 .dd-item.dd-active { background: var(--gold-lo); color: var(--cream); }
@@ -1254,26 +1288,51 @@ body.cardback-whale .card.back::before { content: '🐋'; }
    so the call row and the big button share one width: the big button spans
    exactly the combined span of the two call buttons above it. */
 .lad-head  { min-height: 38px; }
-.lad-read  { min-height: 46px; font-size: 1.18rem; color: var(--cream);
-             background: rgba(0,0,0,.28); border-radius: 4px; padding: 9px 12px;
-             margin: 6px auto 8px; width: 94%; box-sizing: border-box; }
-.lad-cards { min-height: 116px; display: flex; justify-content: center; gap: 16px;
+/* Pot/stake bar: the project's sunken-cream readout (matches BJ/UTH stack boxes). */
+/* Readout: a flex row of one or more sunken boxes. Most phases use a single box;
+   the climb phase splits Pot / Next rung into two side-by-side boxes (see ladder.js). */
+.lad-read  { height: 56px; margin: 6px auto 8px; width: 94%; box-sizing: border-box;
+             display: flex; gap: 8px; justify-content: center; }
+/* Two equal, FIXED-size boxes (always 50/50, fixed height) so they never resize or
+   shift between phases regardless of the text. Long values wrap inside the box
+   (label over value) rather than changing its footprint. */
+.lad-read-box { flex: 1 1 0; min-width: 0; font-size: 1.25rem; color: var(--ink); font-family: var(--btn-f);
+             background: var(--panel2); border: 1px solid var(--ink);
+             box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
+             padding: 4px 10px; box-sizing: border-box; line-height: 1.15; text-align: center;
+             display: flex; align-items: center; justify-content: center; }
+.lad-cards { min-height: 124px; display: flex; justify-content: center; gap: 16px;
              align-items: center; }
+.lad-cards .card { width: 88px; height: 124px; }
+.lad-cards .card .csuit { font-size: 3.2rem; }
+.lad-cards .card .ct-r  { font-size: 1.25rem; }
+.lad-cards .card .ct-s  { font-size: 1rem; }
 .lad-msg   { min-height: 32px; font-size: 1.05rem; color: var(--cream); opacity: .9; }
-.lad-act   { min-height: 134px; display: flex; flex-direction: column; }
+/* Action zone: fixed height, contents bottom-anchored so the primary button
+   (Free Entry / Cash Out / See Results) sits at the SAME Y in every phase and
+   never jumps; Higher/Lower then lines up with the bet row above it. */
+.lad-act   { min-height: 190px; display: flex; flex-direction: column; }
+.lad-act > *:first-child { margin-top: auto; }
 .lad-hl { font-family: var(--btn-f); font-size: 1.7rem; letter-spacing: .06em; color: var(--gold-hi); }
 .lad-hl-bad  { color: #ff8a80; }
 .lad-hl-good { color: #9be79b; }
 .lad-strip { display: flex; justify-content: center; gap: 4px; margin: 8px 0; }
+/* Rung tiles styled like the hand-progress pills (cream panel, gold "current"). */
 .lad-rung  { flex: 0 1 44px; padding: 5px 0 4px; font-size: .95rem; text-align: center;
-             background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.25);
-             border-radius: 3px; color: var(--cream); font-family: var(--btn-f); }
-.lad-rung.done  { background: var(--gold); color: #3a2c00; border-color: var(--gold-hi); font-weight: bold; }
-.lad-rung.next  { border-color: var(--gold-hi); color: var(--gold-hi); box-shadow: 0 0 5px rgba(223,185,94,.55); }
-.lad-rung.crash { background: #b03028; color: #fff; border-color: #ff8a80; font-weight: bold; }
-.lad-gold { color: var(--gold-hi); }
-.lad-bad  { color: #ff8a80; }
-.lad-good { color: #9be79b; }
+             font-family: var(--btn-f); background: var(--panel); color: var(--shadow);
+             border: 1px solid var(--ink); }
+.lad-rung.done  { background: var(--gold); color: var(--ink); font-weight: 700;
+                  box-shadow: inset 2px 2px 0 var(--gold-lo), inset -1px -1px 0 var(--gold-hi); }
+.lad-rung.next  { color: var(--gold-lo); font-weight: 700; border-color: var(--gold);
+                  box-shadow: var(--raised-sm); }
+.lad-rung.crash { background: var(--lose); color: #fff; font-weight: 700;
+                  box-shadow: inset 1px 1px 0 var(--lose-hi), inset -1px -1px 0 #7a0000; }
+.lad-gold { color: var(--gold-lo); }
+.lad-bad  { color: var(--lose-hi); }
+.lad-good { color: var(--win-hi); }
+.lad-read .lad-gold { color: var(--gold-lo); }
+.lad-read .lad-bad  { color: var(--lose); }
+.lad-read .lad-good { color: var(--win-lo); }
 .lad-call-row { display: flex; gap: 10px; margin-bottom: 8px; }
 .lad-call { flex: 1; font-size: 1.15rem; }
 .lad-btn-big { width: 100%; margin-top: 4px; font-size: 1.15rem; }
@@ -1286,14 +1345,15 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .lad-hl    { font-size: 2.5rem; }
   .lad-strip { gap: 7px; margin: 16px 0; }
   .lad-rung  { flex-basis: 66px; font-size: 1.3rem; padding: 11px 0 9px; }
-  .lad-read  { min-height: 60px; font-size: 1.6rem; padding: 14px 18px; margin: 14px auto 16px; }
-  .lad-cards { min-height: 168px; gap: 30px; }
-  .lad-cards .card { width: 112px; height: 158px; }
-  .lad-cards .card .csuit { font-size: 4rem; }
-  .lad-cards .card .ct-r  { font-size: 1.45rem; }
-  .lad-cards .card .ct-s  { font-size: 1.15rem; }
+  .lad-read  { height: 72px; margin: 14px auto 16px; gap: 12px; }
+  .lad-read-box { font-size: 1.6rem; padding: 6px 14px; }
+  .lad-cards { min-height: 184px; gap: 32px; }
+  .lad-cards .card { width: 124px; height: 174px; }
+  .lad-cards .card .csuit { font-size: 4.4rem; }
+  .lad-cards .card .ct-r  { font-size: 1.55rem; }
+  .lad-cards .card .ct-s  { font-size: 1.2rem; }
   .lad-msg   { min-height: 44px; font-size: 1.4rem; }
-  .lad-act   { min-height: 184px; }
+  .lad-act   { min-height: 210px; }
   .lad-call-row { gap: 18px; margin-bottom: 16px; }
   .lad-call, .lad-btn-big { font-size: 1.6rem; padding: 18px 0; }
 }
@@ -1368,6 +1428,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .card.lg .csuit { font-size: 2.2rem; }
   .card.md .csuit { font-size: 1.85rem; }
   .card.sm .csuit { font-size: 1.5rem; }
+  /* Live play board (UTH): mobile had no per-board glyph tuning (desktop tunes it in
+     its own media blocks), so the center suit ran oversized for the sm community cards.
+     With the corner indices now pulled tight to the edge (.card.sm above), 1.4rem sits
+     comfortably clear of them while staying prominent. */
+  .panel:has(#uth-actions-ui) .card.sm .csuit { font-size: 1.4rem; }
   /* Roulette board — reduce row heights; horizontal scroll is acceptable */
   .rboard, .rboard-sub { grid-template-columns: 22px repeat(12, 1fr) 32px; }
   .r2to1, .rout { font-size: 0.95rem; }
@@ -1423,8 +1488,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      hero number, consistent section gaps) while staying clear of the status bar even
      after the async ~110px distribution chart renders. */
   .panel.results-panel { gap: 8px; }
-  .big-chips { font-size: 3.5rem !important; line-height: 1; }
-  .results-streak { font-size: 1.4rem; margin: 0; }
+  .big-chips { font-size: 3.9rem !important; line-height: 1; }
+  .results-streak { font-size: 1.55rem; margin: 0; }
   .res-row { padding: 3px 10px !important; }
   .results-panel .game-manifest { margin-bottom: 2px !important; }
   .results-panel #dist-title { margin-top: 2px !important; }
@@ -1480,19 +1545,26 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bj-split-aside .card.sm .csuit { font-size: 1.2rem; }
   /* BJ 4-way split result — compact result hand cards */
   .bj-sr-hands .card.sm { width: 39px; height: 55px; }
-  .bj-sr-hands .card.sm .csuit { font-size: 0.98rem; }
+  /* Match the prominent center glyph of the showdown / dealer cards (~0.55 of card
+     height) now that the corner indices are tucked tight — see the tiny-card block above. */
+  .bj-sr-hands .card.sm .csuit { font-size: 1.4rem; }
   .bj-sr-hands .hand-val { font-size: 1.1rem !important; }
   .bj-sr-hands .sec { font-size: 0.84rem !important; }
+  /* 4-way cards are the smallest (39–40px): shrink the corner rank+suit so the
+     now-restored corner suit sits proportionately (like the bigger split cards)
+     and stays clear of the center pip. */
+  .sr-4 .card.sm .ct-r { font-size: 0.62rem; }
+  .sr-4 .card.sm .ct-s { font-size: 0.5rem; }
   /* 2-/3-hand result splits show one row (vs the 4-way 2×2 grid) and have far
      more vertical room — grow their cards to fill it. (.sr-N set in bj.js.) */
   .sr-2 .bj-sr-dealer .card.sm { width: 50px; height: 70px; }
   .sr-2 .bj-sr-hands .card.sm { width: 56px; height: 78px; }
-  .sr-2 .card.sm .csuit { font-size: 1.4rem; }
+  .sr-2 .card.sm .csuit { font-size: 1.9rem; }
   .sr-2 .hand-val { font-size: 1.45rem !important; }
   .sr-2 .bj-sr-hands .sec { font-size: 1rem !important; }
   .sr-3 .bj-sr-dealer .card.sm { width: 46px; height: 64px; }
   .sr-3 .bj-sr-hands .card.sm { width: 50px; height: 70px; }
-  .sr-3 .card.sm .csuit { font-size: 1.25rem; }
+  .sr-3 .card.sm .csuit { font-size: 1.7rem; }
   .sr-3 .hand-val { font-size: 1.3rem !important; }
   .sr-3 .bj-sr-hands .sec { font-size: 0.92rem !important; }
   /* UTH showdown — override inline divider margins */
@@ -1506,6 +1578,23 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel > div[style*="gap:16px"] { gap: 6px !important; margin-bottom: 4px !important; }
   .panel > div[style*="gap:16px"] .card.sm { width: 48px; height: 68px; }
   .panel > div[style*="gap:16px"] .hand-val { font-size: 1.4rem !important; }
+  /* Tiny result/summary cards (UTH showdown, BJ split & multi-hand results, non-split
+     BJ result): push the corner indices hard into the corners and tuck the corner suit
+     up snug under the rank, freeing the most center space on the smallest cards. The
+     `.card` keeps specificity (0,3,0) at/above the global `.card.sm .ctl` so it wins
+     here by source order; covers both sm and md cards in these contexts. */
+  .uth-result-panel .card .ctl,
+  .bj-sr-hands .card .ctl, .bj-sr-dealer .card .ctl,
+  .bj-split-aside .card .ctl,
+  .panel > div[style*="gap:16px"] .card .ctl { top: 1px; left: 2px; }
+  .uth-result-panel .card .cbr,
+  .bj-sr-hands .card .cbr, .bj-sr-dealer .card .cbr,
+  .bj-split-aside .card .cbr,
+  .panel > div[style*="gap:16px"] .card .cbr { bottom: 1px; right: 2px; }
+  .uth-result-panel .card .ct-s,
+  .bj-sr-hands .card .ct-s, .bj-sr-dealer .card .ct-s,
+  .bj-split-aside .card .ct-s,
+  .panel > div[style*="gap:16px"] .card .ct-s { margin-top: -1px; }
   /* UTH play (preflop/flop/turn): reclaim space around the bet chips. */
   .uth-bet-chips { margin: 4px 0 !important; }
   .uth-bet-chip { padding: 4px 14px !important; }
@@ -1529,6 +1618,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 @media (max-width: 480px) and (min-height: 845px) {
   .panel.results-panel { gap: 18px; }
+  /* Tall phones have spare felt — grow the centered hero. */
+  .results-panel .results-tier { font-size: 1.3rem; }
+  .results-panel .big-chips { font-size: 4.3rem !important; }
+  .results-panel .results-streak { font-size: 1.72rem; }
 }
 /* Short phones (360×780) have the smallest panel gap, so the chart's bucket labels (22px below
    the bars, out of flow) nearly touch the share box. Add chart bottom margin to clear them,
@@ -1904,9 +1997,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      the narrowest (1024) window. width:50% is of the panel content box. */
   .results-panel .share-box,
   .results-panel > .btn-gold:last-child { width: 50%; min-width: 340px; max-width: 460px; margin-left: auto; margin-right: auto; }
-  /* Center the results group; the daily-mod banner stays pinned at the top. */
-  .results-panel > .results-tier { margin-top: auto; }
-  .results-panel > .btn-gold:last-child { margin-bottom: auto; }
+  /* .results-hero (flex:1) absorbs the slack between the banner and the box and floats
+     the tier/chips/streak centered in it, so the manifest/chart/share/button group settles
+     at the bottom. No auto-margins here — they'd claim the free space and starve that grow. */
 
   /* ── Dev stats / borrow / 5-card poker ────────── */
   /* Devstats has lots of slack — base font rules absorb it.
@@ -2027,6 +2120,17 @@ body.cardback-whale .card.back::before { content: '🐋'; }
    always fits the narrow (1024 wide → 576px inner) panel without wrapping. */
 @media (min-width: 1024px) and (min-height: 880px) {
   :root { --btn-h: 50px; --btn-fs: 1.42rem; }
+  /* Roomy desktop: grow the centered results hero above its tight 1280×800 base. */
+  .results-panel .results-tier { font-size: 1.32rem; }
+  .results-panel .big-chips { font-size: 3.55rem !important; }
+  .results-panel .results-streak { font-size: 1.62rem; }
+  /* Intro has little content; on tall desktop spend the felt slack on bigger elements.
+     Tiles grow modestly so the long Hold'em name still fits one line on the narrow 1024 panel. */
+  .intro-panel .logo { font-size: 5rem; }
+  .intro-panel .logo-sub { font-size: 1.65rem; }
+  .intro-lead { font-size: 2.2rem; }
+  .intro-sub { font-size: 1.65rem; }
+  .intro-prog-label { font-size: 1.6rem; }
   /* Split play leaves deep vertical slack on tall desktop (~160px at 1440×900) —
      spend it on the active hand. Width tracks normal play's 118px ceiling so a
      multi-card fan still fits the narrow 1024 panel. Aside hands grow modestly. */
@@ -2119,9 +2223,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      height-neutral rather than overflowing). Result rows + chip number are kept compact here so
      the larger chart-to-share gap fits even with a long daily modifier (which wraps the share box). */
   .results-panel { gap: 6px !important; }
-  .results-panel .big-chips { font-size: 3.05rem !important; }
-  .results-panel .results-tier { font-size: 1.1rem; }
-  .results-panel .results-streak { font-size: 1.45rem; margin: 4px 0 7px; }
+  .results-panel .big-chips { font-size: 4.4rem !important; }
+  .results-panel .results-tier { font-size: 1.6rem; }
+  .results-panel .results-streak { font-size: 2rem; margin: 4px 0 7px; }
   .results-panel .res-row { padding: 3px 16px !important; }
   .results-panel .res-row span:first-child,
   .results-panel .res-row .ik,
@@ -2173,6 +2277,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
 /* ── Wider tall desktop (1280×880+) — wider panel can fit larger chips. */
 @media (min-width: 1280px) and (min-height: 880px) {
+  /* Wide + tall: the program tiles have room to grow and still stay one line. */
+  .intro-panel .gm-row { padding: 13px 18px; gap: 16px; }
+  .intro-panel .rnd-ic { font-size: 1.8rem; }
+  .intro-panel .rnd-nm { font-size: 2.1rem; }
+  .intro-panel .rnd-dc { font-size: 1.5rem; }
   .panel:has(#uth-summary) .chbtn { width: 76px; height: 76px; }
   .panel:has(#uth-summary) .chbtn > span { font-size: 1.35rem; }
   .panel:has(#uth-summary) .chip-row { gap: 14px; margin: 4px 0 14px; }
@@ -2198,6 +2307,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
    576px), so we lean on font + padding scale-ups instead. */
 @media (min-width: 1024px) and (min-height: 1060px) {
   :root { --btn-h: 52px; --btn-fs: 1.48rem; }
+  /* Even more felt at 1080h+ — push the intro elements larger still (tiles kept to a
+     size that still fits the long Hold'em name on one line at the narrow 1024 width). */
+  .intro-panel .logo { font-size: 6rem; }
+  .intro-panel .logo-sub { font-size: 1.85rem; }
+  .intro-lead { font-size: 2.6rem; }
+  .intro-sub { font-size: 1.9rem; }
+  .intro-prog-label { font-size: 1.8rem; }
   /* BJ normal play — narrow-but-tall window: hold card width back so a
      multi-card fan still fits the 1024 panel; lean on height + fonts. */
   .panel:has(#bj-player-hand) .card.lg { width: 118px; height: 168px; }
@@ -2269,7 +2385,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      to keep it from overflowing when the chart is present. Result-row padding stays modest so
      the chart's reserved top/bottom label margins fit (esp. the narrow-tall 1024×1080). */
   .results-panel { gap: 8px !important; }
-  .results-panel .big-chips { font-size: 3.8rem !important; }
+  .results-panel .big-chips { font-size: 5.6rem !important; }
+  .results-panel .results-tier { font-size: 1.85rem; }
+  .results-panel .results-streak { font-size: 2.35rem; }
   .results-panel .res-row { padding: 5px 16px !important; }
   .results-panel .res-row span:first-child,
   .results-panel .res-row .ik,
@@ -2335,6 +2453,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
    Locked to min-width 1280 because the 82px chip row + larger ptable rows
    would not fit the 576px inner width of a 1024-wide panel. */
 @media (min-width: 1280px) and (min-height: 1060px) {
+  /* Widest + tallest: biggest one-line program tiles. */
+  .intro-panel .gm-row { padding: 18px 22px; gap: 18px; }
+  .intro-panel .rnd-ic { font-size: 2.1rem; }
+  .intro-panel .rnd-nm { font-size: 2.5rem; }
+  .intro-panel .rnd-dc { font-size: 1.7rem; }
   /* BJ normal play — wide + tall window has the room for the biggest cards. */
   .panel:has(#bj-player-hand) .card.lg { width: 132px; height: 186px; }
   .panel:has(#bj-player-hand) .card.lg .csuit { font-size: 5rem; }

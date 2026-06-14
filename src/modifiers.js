@@ -181,6 +181,7 @@ const DAILY_MODIFIERS = {
 const DAILY_SEED_OVERRIDES = {
   // 20260528: 20260601,
   20260609: 20260103,
+  20260614: 20260104,
 };
 
 // Validate CYCLE_ORDER entries at load time

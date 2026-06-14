@@ -529,7 +529,7 @@ describe('render — The Ladder screens', () => {
     withRender({ screen:'ladder', ladPhase:'bet', ladBet:0, ladFree:false, ladResult:null,
                  forcedMod:{ ladder_free:250, title:'The Ladder', desc:'x' } }, html => {
       assert(html.includes('lad-strip'), 'ladder strip present');
-      assert(html.includes('FREE ENTRY'), 'free entry button present');
+      assert(html.includes('Free Entry'), 'free entry button present');
     });
   });
   it('bet phase (standalone) shows chip selector and Climb button', () => {

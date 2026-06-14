@@ -571,7 +571,7 @@ function screenUTH(){
   </div>`;
 
   const dealerRow=(reveal=false)=>`<div id="uth-dealer-container" style="text-align:center">
-    <div id="uth-dealer-sec" class="sec">${reveal?'Dealer':peekRevealed()?'Dealer · <span style="color:var(--gold-hi);font-size:.7rem">👁 Peeked</span>':'Dealer (Face Down)'}</div>
+    <div id="uth-dealer-sec" class="sec">${reveal?'Dealer':peekRevealed()?`Dealer · <span style="color:var(--gold-hi);font-size:.7rem">${icon('eye')} Peeked</span>`:'Dealer (Face Down)'}</div>
     <div class="dealer-hand-row">
       <div id="uth-dealer-hand" class="hand">${reveal
         ?renderCards(S.uthDealer,'md',0,0.9,0.1)

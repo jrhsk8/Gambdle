@@ -232,7 +232,7 @@ function showProfile() {
   const cal = p.calendar.map(c => `<i class="pf-c-${c}"></i>`).join('');
   const badges = UNLOCKS.map(u => getPref(u.prefKey)
     ? `<div class="pf-badge"><span class="pf-badge-ic">${u.icon}</span>${u.label}</div>`
-    : `<div class="pf-badge pf-locked"><span class="pf-badge-ic">🔒</span>${u.label}<span class="pf-badge-hint">${fmt(u.threshold)}+</span></div>`
+    : `<div class="pf-badge pf-locked"><span class="pf-badge-ic">${icon('lock')}</span>${u.label}<span class="pf-badge-hint">${fmt(u.threshold)}+</span></div>`
   ).join('');
   const content = `
     <div class="pf-tier">${tier.emoji} ${tier.label} · ${fmt(p.daysPlayed)} ${p.daysPlayed === 1 ? 'day' : 'days'} played</div>
