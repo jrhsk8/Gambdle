@@ -621,11 +621,40 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .hand-val.bust { color: var(--lose-hi); }
 .hand-val.bj { color: var(--gold-hi); }
 
-.uth-summary { font-size: 1.7rem; }
-/* Keep the inner "Ante X + Blind Y = Z chips total" line on one row even when
-   the parent uses grid/flex layout. Each <b> is otherwise free to promote to
-   its own row when chip counts get large. */
-.uth-summary span { white-space: nowrap; display: inline-block; max-width: 100%; }
+/* UTH bet screen — middle column that takes the role the BJ bet table plays: flex:1 so it eats all
+   the panel slack, pinning the chip selector + Deal button to the exact same spot as Blackjack, and
+   space-evenly so the pay table + its caption are spread evenly through whatever slack exists. */
+.uth-bet-center {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  gap: 6px;
+}
+/* Pay-table box + its caption as one group, caption hugging right below the box. The group is
+   centred in the slack the spacer holds. */
+.uth-pt-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; width: 100%;
+}
+.uth-pt-wrap #uth-pt-head { margin: 0; }            /* caption sits right under the box */
+/* Wider on every layout (was content-width); grows toward this cap on roomy screens. */
+.panel:has(#uth-summary) .ptable { width: 100%; max-width: 440px; }
+/* The Ante+Blind+total summary now lives INSIDE the bet box (replacing the plain "Bet" readout),
+   so it must stay compact enough to match the Blackjack bet box's size. */
+.uth-bet-sum {
+  font-family: var(--btn-f); color: var(--ink);
+  font-size: 1.05rem; line-height: 1.12; text-align: center;
+  white-space: nowrap;
+}
+/* The summary sits inside the bet box, sharing one row with the Clear and All In buttons (the bet box
+   flexes to take the leftover width). Text is compact (numbers only) so a single non-wrapping line fits
+   beside the buttons at every size; centred vertically in the box and enlarged toward the clamp cap. */
+.panel:has(#uth-summary) .bet-amt { align-items: center; }
+.panel:has(#uth-summary) #uth-summary.uth-bet-sum {
+  font-size: clamp(0.72rem, 2.2vw, 1.35rem);
+  margin: 0 !important; line-height: 1.12;
+  white-space: nowrap; text-align: center;
+}
 
 /* ── BJ inactive split hands ────────────────────────────── */
 .bj-split-aside { display: flex; justify-content: space-evenly; margin-bottom: 10px; }
@@ -755,7 +784,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .bet-row { display: flex; align-items: stretch; gap: 10px; }
 .bet-amt {
   flex: 1 1 auto; min-width: 0;
-  padding: 0 14px;
+  padding: 0 8px;
   background: var(--panel); border: 1px solid var(--ink);
   box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
   display: flex; flex-direction: row; align-items: baseline; justify-content: center; gap: 8px;
@@ -765,7 +794,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .bet-amt span:last-child { font-family: var(--btn-f); font-size: 1em; color: var(--gold); line-height: 1.05; }
 .ch-clear, .ch-allin {
   flex-shrink: 0;
-  padding: 0 14px; cursor: pointer;
+  padding: 0 10px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   font-family: var(--btn-f);
   background: var(--panel); color: var(--ink);
@@ -779,6 +808,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
 /* ── Hand progress dots (pills) ─────────────────────────── */
 .dots-row { display: flex; gap: 8px; margin: 4px 0 4px; }
+/* UTH wraps its dots in #uth-dots-container (for surgical re-renders). On the bet screen, make that
+   wrapper generate no box (display:contents) so the .dots-row becomes a direct flex child of the panel
+   exactly like Blackjack — otherwise the wrapper absorbs the row's vertical margins and sits a few px
+   taller, nudging the chip selector out of pixel-alignment with the BJ bet screen. */
+.panel:has(#uth-summary) #uth-dots-container { display: contents; }
 .hand-dot {
   flex: 1; min-width: 0; padding: 4px 10px;
   background: var(--panel); color: var(--shadow);
@@ -1053,7 +1087,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   font-size: 0.9rem; color: var(--gold-hi); white-space: nowrap;
 }
 .dist-lbl {
-  position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
+  position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%);
   font-size: 0.9rem; color: var(--gold); white-space: nowrap;
 }
 .dist-you-line {
@@ -1121,7 +1155,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .pf-stat b.pf-neg { color: var(--lose); }
 .pf-stat span { font-size: 0.72rem; color: var(--shadow); text-transform: uppercase; letter-spacing: 0.08em; }
 .pf-sec { font-size: 0.78rem; color: var(--shadow); text-transform: uppercase; letter-spacing: 0.1em; margin: 10px 0 5px; }
-.pf-cal { display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px; }
+.pf-cal { display: grid; grid-template-columns: auto repeat(7, 1fr); gap: 4px 5px; align-items: center; }
+.pf-cal-wk { font-size: 0.62rem; color: var(--shadow); text-align: right; padding-right: 3px; white-space: nowrap; }
 .pf-cal i, .pf-legend i { display: block; aspect-ratio: 1; border-radius: 2px; border: 1px solid rgba(0,0,0,0.18); }
 .pf-c-profit { background: var(--win); }
 .pf-c-loss   { background: #e08878; }  /* lighter red: finished down but not busted */
@@ -1470,6 +1505,16 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Scoped to the bet row: outside it (e.g. the borrow screen's full-width Accept-defeat
      button in a column panel) flex:1 would make the button grow to fill leftover height. */
   .bet-row .ch-clear, .bet-row .ch-allin { flex: 1; }
+  /* UTH + BJ bet: keep the bet box on the SAME row as Clear + All In (override the full-width
+     bet-amt above), with the buttons sized to content so the box gets the leftover width. BJ matches
+     UTH here so the chip selector lands at the identical height on phones (its bet box would otherwise
+     be a full-width 2-row block and push the chips up). */
+  .panel:has(#uth-summary) .bet-row,
+  .panel:has(.bj-bet-table) .bet-row { flex-wrap: nowrap; }
+  .panel:has(#uth-summary) .bet-amt,
+  .panel:has(.bj-bet-table) .bet-amt { flex: 1 1 auto; }
+  .panel:has(#uth-summary) .ch-clear, .panel:has(#uth-summary) .ch-allin,
+  .panel:has(.bj-bet-table) .ch-clear, .panel:has(.bj-bet-table) .ch-allin { flex: 0 0 auto; }
   /* BJ bet table — compact slots on mobile */
   .bj-bet-table { gap: 4px; padding: 2px 0; }
   .card-slot { width: 44px; height: 62px; border-width: 1.5px; }
@@ -1487,14 +1532,14 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      so spare height collects at the bottom; use some of it to fill the page (larger
      hero number, consistent section gaps) while staying clear of the status bar even
      after the async ~110px distribution chart renders. */
-  .panel.results-panel { gap: 8px; }
-  .big-chips { font-size: 3.9rem !important; line-height: 1; }
-  .results-streak { font-size: 1.55rem; margin: 0; }
-  .res-row { padding: 3px 10px !important; }
+  .panel.results-panel { gap: 6px; }
+  .big-chips { font-size: 3.1rem !important; line-height: 1; }
+  .results-streak { font-size: 1.35rem; margin: 0; }
+  .res-row { padding: 2px 10px !important; }
   .results-panel .game-manifest { margin-bottom: 2px !important; }
   .results-panel #dist-title { margin-top: 2px !important; }
-  .dist-bars { height: 45px; margin-top: 11px; margin-bottom: 11px; }
-  .share-box { padding: 7px 10px; font-size: 0.94rem; line-height: 1.22; }
+  .dist-bars { height: 40px; margin-top: 8px; margin-bottom: 8px; }
+  .share-box { padding: 5px 10px; font-size: 0.9rem; line-height: 1.18; }
   /* BJ split result */
   .bj-split-result .result-hl { font-size: 1.55rem; margin-bottom: 0; }
   .bj-split-result .result-sub { font-size: 1.08rem; margin-bottom: 0; }
@@ -1614,21 +1659,30 @@ body.cardback-whale .card.back::before { content: '🐋'; }
    rather than leaving dead space at the bottom. Tiered by height so the 360×780 floor (which
    has little slack and must fit without scrolling) keeps its tight 8px gap. */
 @media (max-width: 480px) and (min-height: 800px) {
-  .panel.results-panel { gap: 13px; }
+  .panel.results-panel { gap: 9px; }
 }
 @media (max-width: 480px) and (min-height: 845px) {
-  .panel.results-panel { gap: 18px; }
-  /* Tall phones have spare felt — grow the centered hero. */
-  .results-panel .results-tier { font-size: 1.3rem; }
-  .results-panel .big-chips { font-size: 4.3rem !important; }
-  .results-panel .results-streak { font-size: 1.72rem; }
+  /* Tall phones have a little spare felt, but the async chart still makes the screen tall, so keep
+     gaps + hero modest enough that the whole results screen fits without scrolling (it must fit the
+     393×852 floor; the racy old test hid the overflow). The chart keeps a bit more bottom margin so
+     the bucket labels clear the share box. */
+  .panel.results-panel { gap: 9px; }
+  .results-panel .results-tier { font-size: 1.15rem; }
+  .results-panel .big-chips { font-size: 3.2rem !important; }
+  .results-panel .results-streak { font-size: 1.4rem; }
+  .results-panel .dist-bars { height: 36px; margin-bottom: 16px; }
 }
 /* Short phones (360×780) have the smallest panel gap, so the chart's bucket labels (22px below
    the bars, out of flow) nearly touch the share box. Add chart bottom margin to clear them,
    funded by the ~30px of bottom slack on this floor. Taller phones already have the room via
    the bigger panel gap above, so this is scoped to short windows only. */
 @media (max-width: 480px) and (max-height: 799px) {
-  .panel.results-panel .dist-bars { margin-bottom: 21px; }
+  /* Short phones (360×780): the "You" marker sits ~20px above the bars and was overlapping the
+     "Score Distribution" title. Add top room so it clears the title, and shrink the hero chips to
+     fund that height (so the screen still fits with no scroll). margin-bottom still clears the
+     bucket labels from the share box. */
+  .panel.results-panel .dist-bars { margin-top: 15px; margin-bottom: 21px; }
+  .panel.results-panel .big-chips { font-size: 2.8rem !important; }
 }
 
 /* ── Desktop / large screen ─────────────────────────────── */
@@ -1852,7 +1906,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   }
   .panel:has(#uth-actions-ui) .divider { margin: 1px 0; }
   .panel:has(#uth-actions-ui) .sec { font-size: 1.2rem; margin-bottom: 1px; }
-  .panel:has(#uth-actions-ui) .hand-dot { padding: 3px 12px; font-size: 1.22rem; }
   .panel:has(#uth-actions-ui) .card.md { width: 72px; height: 102px; }
   .panel:has(#uth-actions-ui) .card.sm { width: 54px; height: 76px; }
   .panel:has(#uth-actions-ui) .card.md .csuit { font-size: 2.45rem; }
@@ -1887,7 +1940,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      remaining slack at larger viewports gets eaten by the ptable/chip/dot
      scale-ups, not by an invisible padding band around the summary text. */
   .panel:has(#uth-summary) { gap: 6px; justify-content: flex-start; }
-  .panel:has(#uth-summary) .dot-detail { display: none; }
   .panel:has(#uth-summary) #uth-summary { font-size: 1.4rem; margin: 0 !important; }
   /* chbtn flex-shrink: 1 lets the chips squish a hair when the panel is at its
      min width (620px → 576px inner), so 7 chips always fit without wrapping. */
@@ -1897,7 +1949,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .bet-amt { padding: 6px 14px; }
   .panel:has(#uth-summary) .bet-amt span:last-child { font-size: 1.75rem; }
   .panel:has(#uth-summary) #db { padding: 10px 16px; font-size: 1.4rem; margin-top: 2px !important; }
+  .panel:has(.bj-bet-table) #db { margin-top: 2px !important; }  /* match UTH bet's bet->Deal gap so the chip selector lands at the same Y */
   .panel:has(#uth-summary) > .divider { margin: 5px 0; }
+  .panel:has(.bj-bet-table) > .dots-row + .divider { margin-top: 5px; }  /* match UTH bet's dots->divider gap */
   .panel:has(#uth-summary) .ptable { padding: 6px 18px; gap: 2px 24px; }
   .panel:has(#uth-summary) .pname { font-size: 1.3rem; }
   .panel:has(#uth-summary) .ppay  { font-size: 1.25rem; }
@@ -2118,6 +2172,15 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* ── Tall desktop (1024×880+) — fill more slack on the UTH bet panel.
    Chip/font scale-ups use the SAME chbtn width as the base so the chip row
    always fits the narrow (1024 wide → 576px inner) panel without wrapping. */
+/* Short desktop windows (e.g. 1280x800, 1024x640): the big desktop card slots make the BJ bet-table
+   too tall to fit, overflowing the panel and pushing the chip selector ~76px below where the (more
+   compact) UTH pay table puts it. Shrink the slots here so BJ fits like UTH and the chips align. */
+@media (min-width: 1024px) and (max-height: 879px) {
+  .panel:has(> #db:last-child) .bj-bet-table { gap: 6px; padding: 4px 0; }
+  .panel:has(> #db:last-child) .card-slot { width: 56px; height: 78px; }
+  .panel:has(> #db:last-child) .bj-bet-slot-lbl { font-size: 1rem; }
+  .panel:has(> #db:last-child) .felt-rules { font-size: 0.95rem; padding: 4px 0; }
+}
 @media (min-width: 1024px) and (min-height: 880px) {
   :root { --btn-h: 50px; --btn-fs: 1.42rem; }
   /* Roomy desktop: grow the centered results hero above its tight 1280×800 base. */
@@ -2149,16 +2212,15 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bj-split-aside .card.sm { width: 54px; height: 76px; }
   .bj-split-aside .card.sm .csuit { font-size: 1.7rem; }
   .bj-split-aside .card.sm .ct-r { font-size: 0.95rem; }
-  .panel:has(#uth-summary) .dots-row { gap: 10px; margin: 4px 0; }
-  .panel:has(#uth-summary) .hand-dot { padding: 6px 14px; font-size: 1.4rem; }
   .panel:has(#uth-summary) #uth-summary { font-size: 1.5rem; margin: 4px 0 !important; }
   .panel:has(#uth-summary) .chip-row { gap: 10px; margin: 4px 0 12px; }
   .panel:has(#uth-summary) .chbtn { width: 70px; height: 70px; }
   .panel:has(#uth-summary) .chbtn > span { font-size: 1.3rem; }
   .panel:has(#uth-summary) .bet-amt span:last-child { font-size: 1.85rem; }
-  .panel:has(#uth-summary) .ptable { padding: 8px 20px; gap: 3px 24px; }
-  .panel:has(#uth-summary) .pname { font-size: 1.4rem; }
-  .panel:has(#uth-summary) .ppay  { font-size: 1.35rem; }
+  /* Roomy desktop: grow the pay-table box into some of the slack (wider + larger text). */
+  .panel:has(#uth-summary) .ptable { padding: 13px 30px; gap: 5px 32px; max-width: 540px; }
+  .panel:has(#uth-summary) .pname { font-size: 1.65rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 1.55rem; }
 
   /* BJ normal play — grow cards/UI on taller windows */
   .panel:has(#bj-player-hand) .card.lg { width: 104px; height: 146px; }
@@ -2239,7 +2301,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-actions-ui) { gap: 4px; }
   .panel:has(#uth-actions-ui) .divider { margin: 3px 0; }
   .panel:has(#uth-actions-ui) .sec { font-size: 1.4rem; margin-bottom: 2px; }
-  .panel:has(#uth-actions-ui) .hand-dot { padding: 5px 14px; font-size: 1.4rem; }
   .panel:has(#uth-actions-ui) .card.md { width: 82px; height: 116px; }
   .panel:has(#uth-actions-ui) .card.sm { width: 62px; height: 88px; }
   .panel:has(#uth-actions-ui) .card.md .csuit { font-size: 2.8rem; }
@@ -2285,11 +2346,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .chbtn { width: 76px; height: 76px; }
   .panel:has(#uth-summary) .chbtn > span { font-size: 1.35rem; }
   .panel:has(#uth-summary) .chip-row { gap: 14px; margin: 4px 0 14px; }
-  .panel:has(#uth-summary) .hand-dot { padding: 8px 14px; font-size: 1.5rem; }
   .panel:has(#uth-summary) #uth-summary { font-size: 1.6rem; margin: 6px 0 !important; }
-  .panel:has(#uth-summary) .ptable { padding: 10px 20px; gap: 4px 24px; }
-  .panel:has(#uth-summary) .pname { font-size: 1.45rem; }
-  .panel:has(#uth-summary) .ppay  { font-size: 1.4rem; }
+  /* Tallest desktops have the most slack — grow the pay-table box a little more. */
+  .panel:has(#uth-summary) .ptable { padding: 15px 34px; gap: 6px 34px; max-width: 560px; }
+  .panel:has(#uth-summary) .pname { font-size: 1.75rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 1.65rem; }
   /* 2-/3-hand result splits — wide window removes the narrow-panel width cap,
      so cards can grow larger than the 1024-tier value. */
   .sr-2 .bj-sr-dealer .card.sm { width: 92px; height: 129px; }
@@ -2396,12 +2457,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .results-panel .share-box { font-size: 1.04rem; padding: 7px 14px; }
   .dist-bars { height: 50px; margin: 16px 4px 28px; }
 
-  .panel:has(#uth-summary) .dots-row { gap: 10px; margin: 4px 0; }
-  .panel:has(#uth-summary) .hand-dot { padding: 8px 14px; font-size: 1.5rem; }
   .panel:has(#uth-summary) #uth-summary { font-size: 1.6rem; margin: 4px 0 !important; }
   .panel:has(#uth-summary) .chip-row { gap: 10px; margin: 4px 0 12px; }
   .panel:has(#uth-summary) #db { padding: 12px 18px; font-size: 1.5rem; margin-top: 4px !important; }
+  .panel:has(.bj-bet-table) #db { margin-top: 4px !important; }  /* match UTH bet's bet->Deal gap */
   .panel:has(#uth-summary) > .divider { margin: 8px 0; }
+  .panel:has(.bj-bet-table) > .dots-row + .divider { margin-top: 8px; }  /* match UTH bet's dots->divider gap */
   .panel:has(#uth-summary) .ptable { padding: 12px 22px; gap: 6px 26px; }
   .panel:has(#uth-summary) .pname { font-size: 1.65rem; }
   .panel:has(#uth-summary) .ppay  { font-size: 1.6rem; }
@@ -2410,7 +2471,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-actions-ui) { gap: 6px; }
   .panel:has(#uth-actions-ui) .divider { margin: 5px 0; }
   .panel:has(#uth-actions-ui) .sec { font-size: 1.55rem; margin-bottom: 3px; }
-  .panel:has(#uth-actions-ui) .hand-dot { padding: 8px 14px; font-size: 1.55rem; }
   .panel:has(#uth-actions-ui) .card.md { width: 94px; height: 132px; }
   .panel:has(#uth-actions-ui) .card.sm { width: 72px; height: 100px; }
   .panel:has(#uth-actions-ui) .card.md .csuit { font-size: 3.2rem; }
@@ -2484,8 +2544,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .sr-3 .card.sm .csuit { font-size: 2.5rem; }
   .sr-3 .hand-val { font-size: 2rem !important; }
 
-  .panel:has(#uth-summary) .dots-row { gap: 10px; margin: 6px 0; }
-  .panel:has(#uth-summary) .hand-dot { padding: 9px 14px; font-size: 1.6rem; }
   .panel:has(#uth-summary) #uth-summary { font-size: 1.7rem; margin: 6px 0 !important; }
   .panel:has(#uth-summary) .chip-row { gap: 14px; margin: 4px 0 14px; }
   .panel:has(#uth-summary) .chbtn { width: 82px; height: 82px; }
@@ -2493,7 +2551,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .bet-amt { padding: 8px 16px; }
   .panel:has(#uth-summary) .bet-amt span:last-child { font-size: 2rem; }
   .panel:has(#uth-summary) #db { padding: 12px 18px; font-size: 1.55rem; margin-top: 4px !important; }
+  .panel:has(.bj-bet-table) #db { margin-top: 4px !important; }  /* match UTH bet's bet->Deal gap */
   .panel:has(#uth-summary) > .divider { margin: 8px 0; }
+  .panel:has(.bj-bet-table) > .dots-row + .divider { margin-top: 8px; }  /* match UTH bet's dots->divider gap */
   .panel:has(#uth-summary) .ptable { padding: 12px 22px; gap: 6px 26px; }
   .panel:has(#uth-summary) .pname { font-size: 1.6rem; }
   .panel:has(#uth-summary) .ppay  { font-size: 1.55rem; }

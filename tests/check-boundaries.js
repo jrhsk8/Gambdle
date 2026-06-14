@@ -60,7 +60,7 @@ const MANIFEST = {
     'submitAndFetchLeaderboard',
   ],
   'ui.js': [
-    '_refreshShareBox', 'aiosRow', 'allIn', 'cardHTML', 'chipSel', 'col', 'doShare', 'fmt',
+    '_refreshShareBox', 'aiosRow', 'allIn', 'cardHTML', 'chipSel', 'col', 'doShare', 'fmt', 'fmtK',
     'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn', 'patchBetUI', 'renderCards',
     'runningTotalRow', 'sign', 'toast',
   ],

@@ -17,7 +17,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.32';
+const GAME_VERSION = 'v1.34';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -155,7 +155,24 @@ function profileStats() {
     const sc = byIndex[i];
     calendar.push(sc === undefined ? 'miss' : sc === 0 ? 'bust' : sc >= START_CHIPS ? 'profit' : 'loss');
   }
-  return { daysPlayed, streak, longest, best, avg, net, busts, calendar };
+  const calDates = _calLabels(getDailySeed());
+  return { daysPlayed, streak, longest, best, avg, net, busts, calendar, calDates };
+}
+
+// "M/D" date label (no leading zeros) for each of profileStats's 28 calendar cells, in the same
+// order: oldest first, index 27 = today. `todaySeed` is a YYYYMMDD integer; walks back one
+// calendar day per cell, so Date arithmetic handles every month/year boundary. Pure.
+function _calLabels(todaySeed) {
+  const y = Math.floor(todaySeed / 10000);
+  const mo = Math.floor((todaySeed % 10000) / 100);
+  const d = todaySeed % 100;
+  const cur = new Date(Date.UTC(y, mo - 1, d));
+  const labels = [];
+  for (let i = 27; i >= 0; i--) {
+    labels[i] = `${cur.getUTCMonth() + 1}/${cur.getUTCDate()}`;
+    cur.setUTCDate(cur.getUTCDate() - 1);
+  }
+  return labels;
 }
 
 // Creates a card object; s accepts shorthand ('s','h','d','c') or a direct suit symbol.

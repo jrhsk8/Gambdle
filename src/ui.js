@@ -1,5 +1,18 @@
 // ─── UI HELPERS ───────────────────────────────────────────
 const fmt=n=>n.toLocaleString();
+// Compact number for tight readouts (bet box, blind pay-table payouts): full below 1,000; above it,
+// k (thousands) / m (millions) with up to 2 decimals, trailing zeros trimmed. 1500->1.5k, 12500->12.5k,
+// 100000->100k, 1000000->1m, 1250000->1.25m. Keeps the sign for negatives.
+function fmtK(n){
+  const a=Math.abs(n);
+  if(a<1000) return fmt(n);
+  const sgn=n<0?'-':'';
+  let div=a<1e6?1e3:1e6, unit=a<1e6?'k':'m';
+  let v=Math.round(a/div*100)/100;
+  if(unit==='k'&&v>=1000){ v=Math.round(v/1000*100)/100; unit='m'; } // 999,999 -> 1m, not 1000k
+  const s=Number.isInteger(v)?String(v):v.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+  return sgn+s+unit;
+}
 const sign=n=>n>=0?'+'+fmt(n):fmt(n);
 const col=n=>n>0?'#1fa845':n<0?'#e03535':'#000';
 
@@ -32,15 +45,17 @@ function renderCards(cards, sz, animFrom=ANIM_NONE, interval=0, base=0, ex='') {
   }).join('');
 }
 
-function chipSel(maxC,curBet,denoms,extraBtn=''){
+// betAmtHTML (optional) overrides the contents of the bet-amount box; when omitted it shows the
+// default "Bet <value>" readout (#bv). UTH passes its Ante+Blind+total summary here instead.
+function chipSel(maxC,curBet,denoms,extraBtn='',betAmtHTML){
   const ds=(denoms||[10,25,50,100,250,500,1000]);
   const btns=ds.map(d=>`<button class="chbtn ch-${d}" data-v="${d}" onclick="addChip(${d})" ${curBet+d>maxC?'disabled':''}><span>${d}</span></button>`).join('');
+  const amt=betAmtHTML!=null?betAmtHTML
+    :`<span style="font-size:.68rem;color:var(--shadow);text-transform:uppercase;letter-spacing:.15em">Bet</span>
+      <span id="bv" style="font-family:var(--btn-f);font-size:2.2rem;font-weight:700;color:var(--ink)">${fmt(curBet)}</span>`;
   return`<div class="chip-row">${btns}</div>
   <div class="bet-row">
-    <div class="bet-amt">
-      <span style="font-size:.68rem;color:var(--shadow);text-transform:uppercase;letter-spacing:.15em">Bet</span>
-      <span id="bv" style="font-family:var(--btn-f);font-size:2.2rem;font-weight:700;color:var(--ink)">${fmt(curBet)}</span>
-    </div>
+    <div class="bet-amt">${amt}</div>
     ${extraBtn}
     <button class="ch-clear" onclick="clearBet()">✕ Clear</button>
     <button id="ai" class="ch-allin" onclick="allIn()" ${maxC===0?'disabled':''}>All In</button>
@@ -130,8 +145,10 @@ function patchBetUI() {
   const minChipsMod = getMod('min_chips') || 0;
   const isBetValid = bet >= minChipsMod;
   const bv=document.getElementById('bv');
-  if(!bv){ render(); return; }
-  bv.textContent = fmt(bet);
+  // Re-render only if no chip-bet UI is on screen at all. UTH replaces #bv with its Ante+Blind
+  // summary (updated below via #uth-summary), so a missing #bv alone is fine — patch surgically.
+  if(!bv && !document.querySelector('.chbtn')){ render(); return; }
+  if(bv) bv.textContent = fmt(bet);
   document.querySelectorAll('.chbtn').forEach(b => {
     b.disabled = bet + (+b.dataset.v) > max;
   });

@@ -111,11 +111,11 @@ function _uthPayRows(){
 // Pay-table body: once a blind is staked, show the actual chip payout per hand; otherwise the ratio.
 function uthPayTableHTML(blind){
   return _uthPayRows().map(([n,cat,ratio])=>{
-    const display=(blind>0&&cat!==null)?fmt(uthBlindDelta(cat,blind)):ratio;
+    const display=(blind>0&&cat!==null)?fmtK(uthBlindDelta(cat,blind)):ratio;
     return `<span class="pname">${n}</span><span class="ppay">${display}</span>`;
   }).join('');
 }
-function uthPayTableHead(blind){ return `Blind Pay Table${blind>0?` · Blind ${fmt(blind)}`:''}`; }
+function uthPayTableHead(blind){ return `Blind Pay Table${blind>0?` · ${fmtK(blind)} chips`:''}`; }
 
 // ─── UTH / POKER STATE ───────────────────────────────────────────────────
 const UTH_CARD_START_MS    = 300;  // delay before first community card animates in
@@ -531,23 +531,30 @@ function screenUTH(){
   if(ph==='bet'){
     const maxAnte=S.chips;
     const aios=getMod('all_in_or_skip');
+    // Pay table box with its caption hugging right below it (the .uth-pt-wrap group), inside a flex:1
+    // spacer that mirrors the BJ bet table: it eats the panel slack so the chip selector + Deal button
+    // land exactly where Blackjack puts them, and centres the box-group in whatever slack exists.
+    const center=`<div class="uth-bet-center">
+            <div class="uth-pt-wrap">
+              <div id="uth-ptable" class="ptable">${uthPayTableHTML(_uthBlindPortion())}</div>
+              <div id="uth-pt-head" class="sec">${uthPayTableHead(_uthBlindPortion())}</div>
+            </div>
+          </div>`;
+    // The Ante+Blind+total summary lives inside the bet box (replacing the plain "Bet" readout);
+    // keep id="uth-summary" so patchBetUI can live-update it and the bet-screen CSS hook still matches.
+    const betSummary=`<div id="uth-summary" class="uth-bet-sum">Ante <b style="color:var(--gold)">${fmtK(_uthAntePortion())}</b> + Blind <b style="color:var(--gold)">${fmtK(_uthBlindPortion())}</b> = <b style="color:var(--gold-hi)">${fmtK(S.uthAnte)}</b> chips</div>`;
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
       <div class="divider"></div>
       ${aios
         ?`<div class="sec" style="text-align:center"><span class="sec-game-prefix">Hold'em · </span>All In or Skip · Wins Pay 2×</div>
+          ${center}
           ${aiosRow('S.uthAnte=S.chips;uthDeal()', 'uthSkip()')}`
         :`<div class="sec" style="text-align:center"><span class="sec-game-prefix">Hold'em · </span>Place Bet (Ante + Blind)</div>
-          ${chipSel(maxAnte,S.uthAnte,[10,25,50,100,250,500,1000])}
-          <div id="uth-summary" class="uth-summary" style="text-align:center;margin:10px 0;color:var(--cream)">
-            <span>Ante <b style="color:var(--gold)">${fmt(_uthAntePortion())}</b> + Blind <b style="color:var(--gold)">${fmt(_uthBlindPortion())}</b> = <b style="color:var(--gold-hi)">${fmt(S.uthAnte)}</b> chips total</span>
-          </div>
-          <button id="db" class="btn-gold" style="margin-top:4px" onclick="uthDeal()" ${S.uthAnte===0?'disabled':''}>Deal →</button>`}
-
-      <div class="divider"></div>
-      <div id="uth-pt-head" class="sec">${uthPayTableHead(_uthBlindPortion())}</div>
-      <div id="uth-ptable" class="ptable">${uthPayTableHTML(_uthBlindPortion())}</div>
+          ${center}
+          ${chipSel(maxAnte,S.uthAnte,[10,25,50,100,250,500,1000],'',betSummary)}
+          <button id="db" class="btn-gold" style="margin-top:6px" onclick="uthDeal()" ${S.uthAnte===0?'disabled':''}>Deal →</button>`}
     </div>`;
   }
 

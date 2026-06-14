@@ -229,7 +229,11 @@ function showProfile() {
     stat(fmt(p.avg), 'Avg') +
     stat(p.net === 0 ? fmt(0) : sign(p.net), 'Lifetime Net', p.net > 0 ? 'pf-pos' : p.net < 0 ? 'pf-neg' : '') +
     stat(fmt(p.busts), 'Busts');
-  const cal = p.calendar.map(c => `<i class="pf-c-${c}"></i>`).join('');
+  const cells = p.calendar.map(c => `<i class="pf-c-${c}"></i>`);
+  // 4 week rows of 7 days, oldest first (today is the last cell); each row labeled with its start date.
+  const cal = [0, 7, 14, 21].map(r =>
+    `<span class="pf-cal-wk">${p.calDates[r]}</span>${cells.slice(r, r + 7).join('')}`
+  ).join('');
   const badges = UNLOCKS.map(u => getPref(u.prefKey)
     ? `<div class="pf-badge"><span class="pf-badge-ic">${u.icon}</span>${u.label}</div>`
     : `<div class="pf-badge pf-locked"><span class="pf-badge-ic">${icon('lock')}</span>${u.label}<span class="pf-badge-hint">${fmt(u.threshold)}+</span></div>`

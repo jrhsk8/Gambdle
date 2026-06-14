@@ -105,7 +105,7 @@ describe('UTH blind pay table — stays in sync with the bet box', () => {
       assert(pt.textContent !== before, 'pay table must re-render after a chip insert');
       assert(!/500x/.test(pt.textContent) && !/3:2/.test(pt.textContent),
         `ratios should be replaced by chip payouts once a blind is staked, got: ${pt.textContent}`);
-      assert(/Blind 50/.test(head.textContent), `header should show the staked blind, got: ${head.textContent}`);
+      assert(/50 chips/.test(head.textContent), `header should show the staked blind, got: ${head.textContent}`);
     });
   });
 

@@ -392,3 +392,16 @@ describe('credit / debit', () => {
     withChips(1000, () => { credit(0.5, 'test'); assert(Number.isInteger(S.chips), 'chips remain integer'); });
   });
 });
+
+describe('fmtK — compact k/m abbreviation', () => {
+  const cases = [
+    [0, '0'], [50, '50'], [999, '999'],
+    [1000, '1k'], [1500, '1.5k'], [12500, '12.5k'], [125000, '125k'], [100000, '100k'],
+    [1000000, '1m'], [1250000, '1.25m'], [2500000, '2.5m'], [999999, '1m'],
+    [-1500, '-1.5k'],
+  ];
+  for (const [n, want] of cases) {
+    it(`${n} -> ${want}`, () => assertEqual(fmtK(n), want, `fmtK(${n})`));
+  }
+  it('keeps full commas below 1,000', () => assertEqual(fmtK(750), '750'));
+});

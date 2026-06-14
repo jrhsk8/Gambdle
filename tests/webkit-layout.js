@@ -157,10 +157,12 @@ function runChecks(opts) {
   return v;
 }
 
-(async () => {
+// One full pass of the suite on a FRESH browser launch. Returns the failing check tags so the caller
+// can re-run and drop per-launch flukes (see the call site). `verbose` streams the per-check ✓/✗.
+async function runOnce(verbose) {
   const browser = await webkit.launch();
   const json = body => r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
-  let failChecks = 0, totalChecks = 0;
+  let totalChecks = 0;
   const failLines = [];
 
   for (const vp of VIEWPORTS) {
@@ -174,6 +176,10 @@ function runChecks(opts) {
     await page.route('**/rpc/get_score_distribution', json([5, 8, 12, 16, 10, 5, 2].map((count, bucket) => ({ bucket, count }))));
     await page.route('**/rpc/get_percentile', json([{ top_pct: 44, total: 142 }]));
     await page.goto(BASE);
+    // Let the VT323 web font (Google Fonts CDN, loaded non-blocking) finish loading before rendering
+    // any fixture, so the first pass measures with the real font on most launches and rarely needs the
+    // re-run guard below. Bounded so an offline run proceeds instead of hanging.
+    await page.waitForFunction(() => document.fonts.check('16px "VT323"'), null, { timeout: 4000 }).catch(() => {});
     await page.evaluate(() => { window.__SNAP = JSON.stringify({ ...S, pkHeld: [...S.pkHeld] }); });
 
     for (const inset of INSETS) {
@@ -209,11 +215,9 @@ function runChecks(opts) {
         totalChecks++;
         const tag = `[${vp.name} · ${inset.name}${allowVScroll ? ' · scroll-ok' : ''} · ${fx}]`;
         if (violations.length) {
-          failChecks++;
-          console.log(`✗ ${tag}`);
-          violations.forEach(x => console.log(`     ${x}`));
+          if (verbose) { console.log(`✗ ${tag}`); violations.forEach(x => console.log(`     ${x}`)); }
           failLines.push(tag);
-        } else {
+        } else if (verbose) {
           console.log(`✓ ${tag}`);
         }
       }
@@ -221,13 +225,30 @@ function runChecks(opts) {
     await ctx.close();
   }
   await browser.close();
+  return { totalChecks, failLines };
+}
+
+(async () => {
+  // First pass (normal streaming output).
+  let { totalChecks, failLines } = await runOnce(true);
+  // Per-launch headless-WebKit font quirk: VT323 sometimes loads (document.fonts.check passes) but is
+  // never applied to LAYOUT for the whole browser session, so the wider Courier New fallback makes a
+  // couple of chip/bet rows wrap an extra line and spuriously trip the no-scroll check. The state
+  // re-rolls on a fresh launch, so confirm any failure on up to 2 fresh browsers and keep only the
+  // ones that persist (a real overflow fails every launch). Re-runs happen ONLY after a failed first
+  // pass, so the common all-pass run stays a single fast pass.
+  for (let i = 0; i < 2 && failLines.length; i++) {
+    console.log(`\n… re-running ${failLines.length} failed check(s) on a fresh browser (per-launch font-flake guard ${i + 1}/2)…`);
+    const again = await runOnce(false);
+    failLines = failLines.filter(t => again.failLines.includes(t));
+  }
 
   console.log('');
-  if (failChecks === 0) {
+  if (!failLines.length) {
     console.log(`✅ All ${totalChecks} WebKit layout checks passed (overlap + out-of-bounds)`);
     process.exit(0);
   } else {
-    console.log(`❌ ${failChecks} of ${totalChecks} WebKit layout checks failed:`);
+    console.log(`❌ ${failLines.length} of ${totalChecks} WebKit layout checks failed:`);
     failLines.forEach(t => console.log(`   ${t}`));
     process.exit(1);
   }

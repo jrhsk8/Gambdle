@@ -148,10 +148,14 @@ function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3(
 // Navigates between games; redirects to results early if the player is busted (<10 chips).
 // If the borrow option is still available when a bust is detected, shows the borrow screen first.
 function advanceTo(s){
-  // The Ladder mod day: the run to 'results' detours through the free bonus round once.
-  // Gated on the borrow window being closed so a busted player's borrow flow (and its
-  // return-to-game routing) happens first; if they decline, the detour fires next time.
-  if(s==='results'&&getMod('ladder_free')&&!S.ladResult&&!_canShowBorrow())s='ladder';
+  // The Ladder mod day: a completed run to 'results' detours once through the free bonus round, but
+  // only after roulette has resolved (rResult set) and the ladder hasn't been played yet. The two
+  // states that DON'T earn it both move straight to results (so the chip recalc below runs): a player
+  // who borrowed and then recovered, and a player who busted without ever borrowing. Equivalently the
+  // detour fires when bust and borrow agree (isChipBusted()===S.borrowUsed): a clean finish (neither)
+  // or a borrowed-and-still-busted finish. The old `!_canShowBorrow()` gate was too broad and
+  // detoured those two excluded states into the ladder, skipping the results recalc.
+  if(s==='results'&&getMod('ladder_free')&&!S.ladResult&&S.rResult!==null&&(isChipBusted()===S.borrowUsed))s='ladder';
   if(isChipBusted()&&_canShowBorrow()){
     if(s!=='results'){
       // Mid-game transition bust (e.g., would have gone to UTH/Roulette but broke).

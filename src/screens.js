@@ -145,7 +145,7 @@ function screenResults(){
   // Daily streak (today counts even though saveState hasn't persisted it yet). Only shown
   // for the live day — a backlog/archive run shouldn't claim a current streak.
   const streak = _backlogSeed ? 0 : computeStreak(getDailySeed(), true).current;
-  const streakHtml = streak >= 1 ? `<div class="results-streak">${icon('flame', { fill: true, cls: 'streak-flame' })} ${streak}-Day Streak</div>` : '';
+  const streakHtml = streak >= 1 ? `<div class="results-streak">🔥 ${streak}-Day Streak</div>` : '';
 
   return `${hdr('Daily Results')}
   <div class="panel results-panel" style="text-align:center">
