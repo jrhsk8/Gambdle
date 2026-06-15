@@ -210,7 +210,7 @@ function _ladActionsHTML(){
   const target = (!S.ladFree && nxt) ? nxt : 'results';
   const label = target === 'results' ? 'See Final Results →'
               : target === 'roulette' ? 'Final Round: Roulette →'
-              : `Round 2: ${GAME_META[target].name} →`;
+              : `Round 2: ${GAME_META[target].short} →`;
   return `<div class="lad-call-row">
     <button class="btn-gold lad-call" disabled>▲ Higher</button>
     <button class="btn-gold lad-call" disabled>▼ Lower</button>

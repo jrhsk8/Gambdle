@@ -38,12 +38,19 @@ const SIZES = [
 const SCREENS = {
   'intro':           () => { S.screen='intro'; S.chips=1000; },
   'choice':          () => { S.forcedMod='players_choice'; S.screen='choice'; S.pcPick=null; S.chips=1000; },
+  'bj-bet':          () => { S.screen='bj'; S.bjPhase='bet'; S.chips=1000; S.bjBet=50; S.bjHand=0; S.bjHistory=[]; },
   'bj-play':         () => { S.screen='bj'; S.bjPhase='play'; S.chips=950; S.bjBet=50; S.bjHand=0; S.bjHistory=[]; S.bjPlayer=[card('A','s'),card('10','h')]; S.bjDealer=[card('Q','c'),card('7','s')]; S.bjDealerReveal=false; S.bjSplit=false; },
   'bj-result':       () => { S.screen='bj'; S.bjPhase='result'; S.chips=900; S.bjBet=50; S.bjHand=1; S.bjSplit=false; S.bjDealerReveal=true; S.bjPlayer=[card('K','s'),card('9','h')]; S.bjDealer=[card('10','d'),card('8','c'),card('3','s')]; S.bjResult={result:'win',delta:50}; S.bjHistory=[{bet:50,result:'win',delta:50,player:[...S.bjPlayer],dealer:[...S.bjDealer]}]; },
+  // Last hand of 3 → the inter-game advance button ("Round 2: Hold'em →"), the longest single-button label.
+  'bj-result-last':  () => { S.screen='bj'; S.bjPhase='result'; S.chips=900; S.bjBet=50; S.bjHand=3; S.bjSplit=false; S.bjDealerReveal=true; S.bjPlayer=[card('K','s'),card('9','h')]; S.bjDealer=[card('10','d'),card('8','c'),card('3','s')]; S.bjResult={result:'win',delta:50}; S.bjHistory=[{bet:50,result:'win',delta:50,player:[...S.bjPlayer],dealer:[...S.bjDealer]}]; },
   'uth-bet':         () => { S.screen='uth'; S.uthPhase='bet'; S.chips=1000; S.uthAnte=100; S.uthHand=0; S.uthHistory=[]; },
   'uth-flop':        () => { S.screen='uth'; S.uthPhase='flop'; S.chips=1100; S.uthAnte=100; S.uthHand=0; S.uthHistory=[]; S.uthHole=[card('A','s'),card('K','d')]; S.uthDealer=[card('2','c'),card('7','h')]; S.uthComm=[card('8','h'),card('6','s'),card('Q','h'),card('5','d'),card('A','d')]; S.uthRevealComm=3; S.uthRaised=false; },
   'uth-showdown':    () => { S.screen='uth'; S.uthPhase='result'; S.chips=1100; S.uthHand=1; S.uthHole=[card('A','s'),card('K','d')]; S.uthDealer=[card('2','c'),card('7','h')]; S.uthComm=[card('A','h'),card('K','s'),card('Q','h'),card('5','d'),card('3','c')]; const pb=bestOf7([...S.uthHole,...S.uthComm]),db=bestOf7([...S.uthDealer,...S.uthComm]); S.uthHistory=[{ante:50,blind:50,play:100,playMult:1,result:'win',delta:200,anteDelta:50,blindDelta:0,playDelta:100,playerBest:pb,dealerBest:db,dealerQualifies:true}]; },
   'roulette-bet':    () => { S.screen='roulette'; S.rPhase='bet'; S.chips=450; S.rBet=50; S.rPick=17; S.rBets=[{pick:45,bet:50}]; },
+  'roulette-bet-max':() => { S.screen='roulette'; S.rPhase='bet'; S.chips=750; S.rBet=0; S.rPick=null; S.rBets=[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}]; },
+  // setTimeout(0) defers drawStaticWheel until after the harness's render() creates the canvas, so the
+  // wheel face appears (it's normally painted by rSpin, not render).
+  'roulette-spinning':() => { S.screen='roulette'; S.rPhase='spinning'; S.chips=0; S.rSpin=17; S.rBets=[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}]; setTimeout(()=>drawStaticWheel(),0); },
   'roulette-result': () => { S.screen='roulette'; S.rPhase='result'; S.chips=900; S.rSpin=17; S.rResult={delta:350,bets:[{pick:17,won:true,delta:350,pay:35,bet:10}]}; },
   'results':         () => { S.screen='results'; S.chips=1450; S.bjHand=3; S.uthHand=3; S.bjHistory=[{delta:200},{delta:-50},{delta:100}]; S.uthHistory=[{delta:150},{delta:-100},{delta:0}]; S.rResult={delta:150,bets:[{pick:17,won:true,delta:150,pay:35,bet:10}]}; },
   'ladder-bet-free': () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='bet'; S.ladBet=0; S.ladFree=false; S.ladIdx=0; S.ladRung=0; S.ladResult=null; S.chips=1000; },

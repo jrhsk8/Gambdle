@@ -33,7 +33,7 @@
  * - r_color_double: true    Red and Black bets pay 2:1
  * - r_color_boost: 66       Player's single Red/Black bet wins this % of the time (dynamic to whichever
  *                           color they pick); a non-color bet spins fair. Pair with r_max_bets: 1.
- * - r_max_bets: 3           Max roulette bets per spin (default 5)
+ * - r_max_bets: 3           Max roulette bets per spin (default 6)
  * - r_respin: true          After spin, choose to keep the result or re-spin once
  * - ladder_free: 250        The Ladder bonus round after roulette; free house-money entry of
  *                           this many chips (crash costs nothing, cash out keeps the full pot)

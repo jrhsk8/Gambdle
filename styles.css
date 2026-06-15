@@ -67,6 +67,15 @@ button { touch-action: manipulation; font-family: var(--btn-f); }
      same control a different size from one game to the next. */
   --btn-h:  44px;
   --btn-fs: 1.3rem;
+  /* Fixed bet-box width — identical across every screen at a given size, so the bet inlay box is
+     pixel-perfect the same wherever it appears (bet phase, play, reveal, result). It never stretches
+     with the window; the controls AROUND it do. 350 fits flanked by Clear + All In within the tightest
+     desktop panel (1024); it widens to 420 at >=1280 and narrows to the phone panel on mobile. */
+  --bet-box-w: 350px;
+  /* Near-full-panel control width: the bet-row (Clear + box + All In), Deal, and the play/result
+     button row all stretch to this, so they're wider than the fixed box and span most of the window.
+     width:100% lets it shrink on panels narrower than this. */
+  --ctrl-w: 680px;
   --btn-px: 14px;
   /* iOS Safari safe-area insets (Dynamic Island/status bar, home indicator, landscape
      notch). Defaults to env() which is 0 off-iOS; declared as vars so the layout tests
@@ -393,6 +402,28 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 .act-btn:disabled { opacity: 0.38; cursor: not-allowed; }
 .act-btn.primary { background: var(--gold); box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2.5px -2.5px 0 var(--gold-lo); }
 
+/* ── Game controls cluster (play / reveal / result) ────────
+   The fixed-width bet inlay box stacked above the main game button row. The cluster stretches to the
+   near-full-panel --ctrl-w, and the buttons fill it — so they're WIDER than the centered box (which
+   stays --bet-box-w). The box and the buttons both carry --btn-h, so their heights line up. */
+.game-controls {
+  width: 100%; max-width: var(--ctrl-w); margin-left: auto; margin-right: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.game-controls > * { margin: 0 !important; }
+/* Multi-button play rows fill the cluster (full control width) so 3-4 buttons never cramp. */
+.game-controls .act-btns, .game-controls > #uth-actions-ui { width: 100%; }
+.game-controls > #uth-actions-ui { display: flex; flex-direction: column; align-items: center; }
+/* A LONE action button (Next Hand/Game, See Results, See Turn & River, Showdown, Draw — the single
+   advances stacked under the box; Deal/Final Spin live in #db) matches the bet box width and centers,
+   so the action button is exactly as wide as the box above it. Multi-button rows above are .act-btns. */
+.game-controls > .btn-gold,
+.game-controls > #uth-actions-ui > .btn-gold { width: var(--bet-box-w); }
+.game-controls > .bet-amt { width: var(--bet-box-w); }
+/* The bet inlay box is the .bet-amt readout used outside the bet phase. The centered variant holds
+   UTH's single-line "Ante · Blind · Raise" summary, so it overrides the left/right span layout. */
+.bet-inlay-center { justify-content: center; gap: 6px; color: var(--ink); white-space: nowrap; }
+
 /* ── Player's Choice picker ────────────────────────────────
    Options are raised buttons (not the flat gold banner) so they read as "pick me".
    Always horizontal bars stacked vertically (icon beside text) at every width; the
@@ -637,8 +668,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   gap: 4px; width: 100%;
 }
 .uth-pt-wrap #uth-pt-head { margin: 0; }            /* caption sits right under the box */
-/* Wider on every layout (was content-width); grows toward this cap on roomy screens. */
-.panel:has(#uth-summary) .ptable { width: 100%; max-width: 440px; }
+/* Compact + inlaid (recessed): a small, sunken pay table keeps the centre of the UTH bet screen open
+   to breathe. Per-breakpoint font/padding are shrunk in the desktop @media blocks below. */
+.panel:has(#uth-summary) .ptable { width: 100%; max-width: 320px;
+  box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight); }
 /* The Ante+Blind+total summary now lives INSIDE the bet box (replacing the plain "Bet" readout),
    so it must stay compact enough to match the Blackjack bet box's size. */
 .uth-bet-sum {
@@ -676,7 +709,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .bj-split-result > .result-hl,
 .bj-split-result > .bj-sr-dealer,
 .bj-split-result > .bj-sr-hands,
-.bj-split-result > .irow { margin-top: auto !important; }
+.bj-split-result > .game-controls { margin-top: auto !important; }
 /* Keep the +0-chips sub-line tight under the headline (one unit) — no auto gap. */
 .bj-split-result > .result-sub { margin-top: 0 !important; }
 /* Breathing room inside the result dealer block: DEALER → card → value → divider.
@@ -781,17 +814,36 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .ch-500  { --c-base: #c06818; --c-stripe: #ffffff; --c-accent: #1a60ae; }
 .ch-1000 { --c-base: #5522a8; --c-stripe: #ffffff; --c-accent: #dfb95e; }
 
-.bet-row { display: flex; align-items: stretch; gap: 10px; }
+/* The bet-row stretches to the near-full-panel --ctrl-w and centers. The box keeps its fixed
+   --bet-box-w; Clear (left) + All In (right) flex-grow to fill the rest, so [Clear][box][All In]
+   spans most of the window. flex-wrap lets Clear/All In drop below the box on panels too narrow to
+   flank it (tight desktop / phone). */
+.bet-row { display: flex; flex-wrap: wrap; align-items: stretch; justify-content: center; gap: 10px;
+  width: 100%; max-width: var(--ctrl-w); margin-left: auto; margin-right: auto; }
+.bet-row > .bet-amt { flex: 0 0 auto; width: var(--bet-box-w); }
+.bet-row > .ch-clear, .bet-row > .ch-allin { flex: 1 1 0; min-width: 0; }
 .bet-amt {
-  flex: 1 1 auto; min-width: 0;
+  /* flex:0 0 auto (NOT a flex-basis of --bet-box-w): in .game-controls (a column flex) a flex-basis
+     would set the box HEIGHT. Width is pinned via `width` so it's the cross-axis size there and the
+     main size in the bet-row — identical --bet-box-w either way; height stays --btn-h. */
+  flex: 0 0 auto; width: var(--bet-box-w); min-width: 0;
   padding: 0 8px;
+  color: var(--ink);
   background: var(--panel); border: 1px solid var(--ink);
   box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
-  display: flex; flex-direction: row; align-items: baseline; justify-content: center; gap: 8px;
+  /* The amount is vertically centered in the box; the "Bet" label centers against the amount to its
+     right (align-items:center), not on its baseline. */
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px;
 }
-/* "Bet" label sits to the LEFT of the amount on one line. */
-.bet-amt span:first-child { font-family: var(--btn-f); font-size: 0.7em; color: var(--shadow); letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.05; }
-.bet-amt span:last-child { font-family: var(--btn-f); font-size: 1em; color: var(--gold); line-height: 1.05; }
+/* Uniform horizontal padding so the box is pixel-identical across every screen (the unified-button rule
+   above already forces vertical padding to 0). !important beats the scattered per-screen/per-breakpoint
+   .panel:has(...) .bet-amt padding overrides — the box is fixed-width with centered content, so one
+   padding value reads the same everywhere. */
+.bet-amt { padding-left: 14px !important; padding-right: 14px !important; }
+/* "Bet" label sits to the LEFT of the amount on one line. Both are black (the plain box uses ink for
+   amount + label; UTH/roulette keep their gold emphasis numbers via inner <b>). */
+.bet-amt span:first-child { font-family: var(--btn-f); font-size: 0.7em; color: var(--ink); letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.05; }
+.bet-amt span:last-child { font-family: var(--btn-f); font-size: 1em; color: var(--ink); line-height: 1.05; }
 .ch-clear, .ch-allin {
   flex-shrink: 0;
   padding: 0 10px; cursor: pointer;
@@ -826,7 +878,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .hand-dot.cur  { background: var(--gold); color: var(--ink); font-weight: 700;
   box-shadow: inset 2px 2px 0 var(--gold-lo), inset -1px -1px 0 var(--gold-hi); }
 .hand-dot.won  { color: var(--ink); font-weight: 700; opacity: 0.6; }
-.hand-dot.lost { color: var(--lose); font-weight: 700; opacity: 0.6; }
+.hand-dot.lost { color: var(--ink); font-weight: 700; opacity: 0.6; }
+.hand-dot.won  .dot-detail { color: var(--win); }
+.hand-dot.lost .dot-detail { color: var(--lose); }
 .hand-dot.push { color: var(--shadow); opacity: 0.6; }
 .hand-dot.pend { color: var(--shadow); opacity: 0.6; }
 
@@ -901,15 +955,70 @@ body.cardback-whale .card.back::before { content: '🐋'; }
    never scrolls vertically on any view; horizontal scroll stays for narrow
    mobile widths only. */
 .r-board-wrap { overflow-x: auto; overflow-y: hidden; flex-shrink: 0; margin: 0 -10px; padding: 0 10px 4px; -webkit-overflow-scrolling: touch; }
-/* The placed-bets list is the designated "give": if the board + controls + a full
-   set of bets can't fit a short window, this list scrolls internally — the board
-   (flex-shrink:0) and the window stay put. */
-#r-placed { min-height: 0; overflow-y: auto; }
-/* The Final Spin button and the "select a tile" bet-info match the centered
-   chip-cluster width rather than spanning the whole panel. Values track the
-   chip row at each breakpoint (mobile/desktop overrides below). */
-.panel:has(#r-placed) > #db,
-.panel:has(#r-placed) #r-bet-info { width: 100%; max-width: 468px; margin-left: auto !important; margin-right: auto !important; }
+/* Slack-absorbing spacer (mirrors .bj-bet-table / .uth-bet-center): bottom-anchors the chip selector
+   + Final Spin to the SAME spot as the other bet screens, so placing bets never scoots the controls. */
+.r-bet-center { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; }
+/* Two stacked boxes fill the spacer: the SELECTION box (natural height) then the BETS tracker (grows to
+   fill the felt). */
+.r-bet-center { gap: 6px; }
+/* Selection box: shows the picked tile + its payout (one centered line); a prompt when nothing's picked. */
+.r-sel-box { background: var(--panel); border: 1px solid var(--ink); box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
+  flex: 0 0 auto; padding: 5px 12px; text-align: center; font-family: var(--btn-f); color: var(--ink);
+  font-size: 1.35rem; }
+.rsb-prompt { color: var(--shadow); text-align: center; }
+/* Three fixed-width columns so a long label or big payout never shifts the other sections. */
+.rsb-box { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+.rsb-on   { flex: 1 1 42%; text-align: left; white-space: nowrap; overflow: hidden; }
+.rsb-on b { font-weight: 700; }        /* wheel color comes from the rbz-red/blk/grn class on the same <b> */
+.rsb-pays { flex: 0 0 26%; text-align: center; color: var(--shadow); white-space: nowrap; }
+.rsb-win  { flex: 1 1 32%; text-align: right; color: var(--ink); font-weight: 700; white-space: nowrap; }
+/* Bets tracker: grows to fill the remaining slack (capped); title pinned to the TOP, grid below it. */
+.r-bets-zone { background: var(--panel); border: 1px solid var(--ink); box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
+  padding: 6px 12px; margin: 0; overflow-y: auto;
+  flex: 1 1 auto; min-height: 72px; max-height: 190px;
+  display: flex; flex-direction: column; justify-content: flex-start; }
+.rbz-title { text-align: center; font-family: var(--btn-f); color: var(--ink); font-size: 1.5rem;
+  letter-spacing: 0.04em; padding: 2px 0 8px; }
+.rbz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; }
+.rbz-item { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0; gap: 8px; }
+.rbz-lbl { font-size: 1.4rem; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.rbz-red { color: #a32f24; }  /* wheel colors, matching the board tiles */
+.rbz-blk { color: #1f1c18; }
+.rbz-grn { color: #156c3a; }
+/* tabular-nums + fixed-width right-aligned slots so the stake and winnings line up in columns down each
+   grid column regardless of how many digits the payout has. */
+.rbz-win { font-family: var(--btn-f); font-size: 1.15rem; color: var(--shadow); display: flex; align-items: baseline; gap: 3px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rbz-bet { text-align: right; min-width: 2.2em; }
+.rbz-won { color: var(--ink); font-weight: 700; text-align: right; min-width: 3.4em; }
+.rbz-win button { background: none; border: none; color: var(--shadow); cursor: pointer; font-size: 1.25rem; padding: 0 2px; line-height: 1; }
+.rbz-open { color: var(--shadow); opacity: 0.5; font-size: 1.2rem; }
+/* Single-bet mod (r_max_bets:1): one centered slot, larger text in both boxes (more room with one bet). */
+.panel:has(#r-bets-zone) .r-one .rbz-grid { grid-template-columns: 1fr; justify-items: center; }
+.panel:has(#r-bets-zone) .r-one .rbz-item { justify-content: center; gap: 14px; }
+.panel:has(#r-bets-zone) .r-one .r-sel-box { font-size: 1.5rem; }
+.panel:has(#r-bets-zone) .r-one .rbz-title { font-size: 1.75rem; }
+.panel:has(#r-bets-zone) .r-one .rbz-lbl { font-size: 1.85rem; }
+.panel:has(#r-bets-zone) .r-one .rbz-win { font-size: 1.4rem; }
+.panel:has(#r-bets-zone) .r-one .rbz-open { font-size: 1.6rem; }
+/* Three-bet mod (r_max_bets:3): single centered column so 3 slots stack evenly instead of 2+1 lopsided. */
+.panel:has(#r-bets-zone) .r-three .rbz-grid { grid-template-columns: 1fr; justify-items: center; }
+.panel:has(#r-bets-zone) .r-three .rbz-item { justify-content: center; gap: 14px; }
+.btn-icon-gap { margin-left: 6px; }
+/* Roulette's selection + bets boxes keep the centered chip-cluster width. */
+.panel:has(#r-bets-zone) #r-sel-box,
+.panel:has(#r-bets-zone) #r-bets-zone { width: 100%; max-width: 468px; margin-left: auto !important; margin-right: auto !important; }
+/* Spin screen reuses the bare .r-bets-zone class (no #id), so the id-scoped rule above doesn't reach
+   it — match its width + centering here, keyed off the spin panel's wheel canvas. */
+.panel:has(#rwheel) .r-bets-zone { width: 100%; max-width: 468px; margin: 0 auto; }
+/* Blackjack/UTH/Poker Deal and roulette's Final Spin (the lone commit button on each bet screen) match
+   the bet box width and center, so the action button is exactly as wide as the box. */
+.panel:has(.bj-bet-table) > #db,
+.panel:has(#uth-summary) > #db,
+.panel:has(.ptable) > #db,
+.panel:has(#r-bets-zone) > #db { width: 100%; max-width: var(--bet-box-w); margin-left: auto !important; margin-right: auto !important; }
+/* The play/result control cluster is capped to the bet-box width so the box (and the buttons under it)
+   match the bet box on every screen. */
+.game-controls { margin-left: auto !important; margin-right: auto !important; }
 .rboard, .rboard-sub {
   display: grid;
   grid-template-columns: 30px repeat(12, 1fr) 42px;
@@ -960,12 +1069,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 @keyframes btn-peek-pulse { 50% { box-shadow: 0 0 0 1px #ff8c00, 0 0 14px 4px rgba(255,140,0,0.55); border-color: #ff8c00 !important; } }
 .btn-timetravel-glow { border-color: #2b7fff !important; box-shadow: 0 0 0 1px #2b7fff, 0 0 10px 2px rgba(43,127,255,0.4); animation: btn-timetravel-pulse 1.1s ease-in-out infinite; }
 @keyframes btn-timetravel-pulse { 50% { box-shadow: 0 0 0 1px #5aa0ff, 0 0 14px 4px rgba(90,160,255,0.55); border-color: #5aa0ff !important; } }
-.rn.r-group-win { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px #22c55e; }
-.rn.r-group-partial { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px #ca8a04; }
-.rout.r-group-win, .r2to1.r-group-win { box-shadow: var(--raised), 0 0 0 2px #22c55e; }
-.rout.r-group-partial, .r2to1.r-group-partial { box-shadow: var(--raised), 0 0 0 2px #ca8a04; }
-.r-group-lose { opacity: 0.42; }
-.r-group-banned { opacity: 0.22; cursor: not-allowed; pointer-events: none; }
+/* Force-group mod: tiles that can't win (outside the group) or are guaranteed wins (cover the whole
+   group) are blocked — greyed and unclickable. No win/lose highlighting; the playable area + the
+   today's-modifier banner communicate the forced group. */
+.r-blocked { opacity: 0.22; cursor: not-allowed; pointer-events: none; }
 
 .r-chip {
   position: absolute; top: -6px; right: -6px;
@@ -1007,28 +1114,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   animation: popIn 0.5s cubic-bezier(.34,1.56,.64,1) both;
 }
 @keyframes popIn { from { transform: scale(.5) rotate(-20deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
-
-/* During-spin bet list — compact pills under the wheel so you don't forget what's in play.
-   Each is a raised tan tag (tile name) with the stake on a small gold chip badge, echoing the
-   board's betting chips. Wrap and stay terse so a full 5-bet set fits without scrolling. */
-.r-spin-bets { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 7px; margin: 9px auto 0; max-width: 94%; }
-.r-spin-bet {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: var(--panel2); color: var(--ink);
-  border: 1px solid var(--shadow); border-radius: 4px;
-  box-shadow: var(--raised-sm);
-  padding: 2px 3px 2px 9px; font-size: 1.05rem; line-height: 1.25; white-space: nowrap;
-}
-.r-spin-bet b { color: var(--ink); font-weight: 700; letter-spacing: 0.02em; }
-.r-spin-amt {
-  flex-shrink: 0;
-  width: 30px; height: 30px; border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-family: var(--btn-f); font-weight: 700; font-size: 0.9rem; line-height: 1;
-  background: var(--gold); color: var(--ink);
-  border: 1px solid var(--ink);
-  box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2px -2px 0 var(--gold-lo);
-}
 
 /* ── Results screen ─────────────────────────────────────── */
 .score-row {
@@ -1396,11 +1481,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* ── Mobile / small screen ──────────────────────────────── */
 @media (max-width: 480px) {
   body { font-size: 24px; }
-  :root { --btn-h: 40px; --btn-fs: 1.1rem; --btn-px: 8px; }
+  /* On phones the box fills the control width (so it cleanly takes its own row and Clear/All In wrap
+     below it); box == ctrl width here, equal rather than the box being narrower as on desktop. */
+  :root { --btn-h: 40px; --btn-fs: 1.1rem; --btn-px: 8px; --bet-box-w: 316px; --ctrl-w: 316px; }
   /* Reduce outer chrome — the 30px bottom padding was the biggest offender */
   /* Cap the shell at the viewport so it can never grow past it (the XP window
      must stay put). Content that would exceed it is handled by the inner
-     overflow:hidden + the one designated scroll region (#r-placed), never by
+     overflow:hidden + the one designated scroll region (#r-bets-zone), never by
      the window expanding. All non-roulette screens already fit within 100svh. */
   /* 100dvh (not svh) tracks the *currently visible* viewport, so the window never
      hides under Safari's floating bottom toolbar; the safe-area padding keeps the
@@ -1477,20 +1564,39 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* A full bet list must fit a window that can't grow, with the board fully
      visible and nothing scrolling. Keep the inter-element margins and the
      placed-bets rows tight so 5 bets still fit at 375×812. */
-  .panel:has(#r-placed) > #db { margin: 4px auto !important; }
-  /* Match the mobile chip cluster (40px chips → ~316px). */
-  .panel:has(#r-placed) > #db,
-  .panel:has(#r-placed) #r-bet-info { max-width: 316px; }
-  .panel:has(#r-placed) { gap: 4px; }
-  .panel:has(#r-placed) .chip-row { margin-bottom: 2px; }
-  .panel:has(#r-placed) > .divider { margin: 2px 0; }
-  .panel:has(#r-placed) #r-placed .divider { margin: 2px 0 !important; }
-  .panel:has(#r-placed) #r-placed .sec { font-size: 0.8rem; }
-  .panel:has(#r-placed) #r-placed .irow { padding: 1px 6px !important; line-height: 1.05; }
-  .panel:has(#r-placed) .chbtn { width: 36px; height: 36px; }
-  .panel:has(#r-placed) #r-placed .ik,
-  .panel:has(#r-placed) #r-placed .iv { font-size: 0.86rem; }
-  .panel:has(#r-placed) > .divider { margin: 1px 0; }
+  .panel:has(#r-bets-zone) > #db { margin: 4px auto !important; }
+  /* Match the mobile chip cluster (40px chips → ~316px). (.game-controls keeps its --bet-box-w cap.) */
+  .panel:has(#r-bets-zone) > #db,
+  .panel:has(.bj-bet-table) > #db,
+  .panel:has(#uth-summary) > #db { max-width: 316px; }
+  .panel:has(#r-bets-zone) #r-bets-zone { max-width: 316px; min-height: 52px; }
+  .panel:has(#r-bets-zone) #r-sel-box { max-width: 316px; font-size: 0.85rem; padding: 2px 8px; }
+  .panel:has(#r-bets-zone) .r-bet-center { gap: 3px; }
+  .panel:has(#r-bets-zone) { gap: 4px; }
+  /* Roulette's chip selector now matches BJ/UTH — full-size chips at the same vertical spot — by letting
+     the bets-zone (flex + scrollable) give up the height. The roulette panel's tighter `gap:4px` shaves
+     2px off the chip->bet-row gap vs BJ/UTH, so add it back onto the chip-row margin to land the chips
+     at the identical Y (verified by the chip-selector-parity test). */
+  .panel:has(#r-bets-zone) .chip-row { margin-bottom: 16px; }
+  .panel:has(#r-bets-zone) > .divider { margin: 2px 0; }
+  .panel:has(#r-bets-zone) .rbz-title { font-size: 1.15rem; padding: 0 0 3px; }
+  .panel:has(#r-bets-zone) .rbz-item { line-height: 1.05; }
+  .panel:has(#r-bets-zone) .rbz-win { font-size: 0.82rem; }
+  /* Spin-screen bets box: same mobile cap + font-shrink as the bet screen's #r-bets-zone, so the
+     full bet set fits 360 without horizontal scroll. */
+  .panel:has(#rwheel) .r-bets-zone { max-width: 316px; }
+  .panel:has(#rwheel) .rbz-title { font-size: 1.15rem; padding: 0 0 3px; }
+  .panel:has(#rwheel) .rbz-item { line-height: 1.05; }
+  .panel:has(#rwheel) .rbz-win { font-size: 0.82rem; }
+  .panel:has(#rwheel) .rbz-lbl { font-size: 1rem; }
+  /* Single-bet mod on mobile: enlarge, but keep the selection line short enough not to overflow 360. */
+  .panel:has(#r-bets-zone) .r-one .r-sel-box { font-size: 1rem; }
+  .panel:has(#r-bets-zone) .r-one .rbz-title { font-size: 1.35rem; }
+  .panel:has(#r-bets-zone) .r-one .rbz-lbl { font-size: 1.45rem; }
+  .panel:has(#r-bets-zone) .r-one .rbz-win { font-size: 1.05rem; }
+  .panel:has(#r-bets-zone) .r-one .rbz-open { font-size: 1.3rem; }
+  .panel:has(#r-bets-zone) .rbz-lbl { font-size: 1rem; }
+  .panel:has(#r-bets-zone) > .divider { margin: 1px 0; }
   .r-board-wrap { padding-bottom: 1px; }
   .r-board-wrap { margin: 0 -8px; padding: 0 8px 4px; scrollbar-width: none; -ms-overflow-style: none; }
   .r-board-wrap::-webkit-scrollbar { display: none; }
@@ -1498,23 +1604,24 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .chip-row { flex-wrap: nowrap; gap: 6px; }
   .chbtn { width: 40px; height: 40px; }
   .ch-1000 > span { font-size: 0.95rem; }
-  /* Bet row */
-  .bet-row { flex-wrap: wrap; gap: 8px; }
-  .bet-amt { flex: 1 1 100%; }
-  .bet-row:has(#pb-add) .bet-amt, #pb-add { flex: 1 1 45%; }
-  /* Scoped to the bet row: outside it (e.g. the borrow screen's full-width Accept-defeat
-     button in a column panel) flex:1 would make the button grow to fill leftover height. */
-  .bet-row .ch-clear, .bet-row .ch-allin { flex: 1; }
-  /* UTH + BJ bet: keep the bet box on the SAME row as Clear + All In (override the full-width
-     bet-amt above), with the buttons sized to content so the box gets the leftover width. BJ matches
-     UTH here so the chip selector lands at the identical height on phones (its bet box would otherwise
-     be a full-width 2-row block and push the chips up). */
-  .panel:has(#uth-summary) .bet-row,
-  .panel:has(.bj-bet-table) .bet-row { flex-wrap: nowrap; }
-  .panel:has(#uth-summary) .bet-amt,
-  .panel:has(.bj-bet-table) .bet-amt { flex: 1 1 auto; }
-  .panel:has(#uth-summary) .ch-clear, .panel:has(#uth-summary) .ch-allin,
-  .panel:has(.bj-bet-table) .ch-clear, .panel:has(.bj-bet-table) .ch-allin { flex: 0 0 auto; }
+  /* Bet row — the box stays the fixed --bet-box-w (pixel-identical to the play/result inlay box), so
+     at phone width it can't be flanked by Clear + All In on one row; instead it sits on its own
+     centered row with Clear (left) + All In (right) wrapping to the row beneath it. */
+  /* Cap the whole bet-row to the bet-box width and center it, so the box (filling 100% of the row) is
+     exactly --bet-box-w — pixel-identical to the play/result box — and Clear (left) + All In (right)
+     wrap to the row beneath it instead of squeezing in beside it. Scope the fill to the bet-row only;
+     the play/result box lives in .game-controls (a column flex) and keeps the base width. */
+  .bet-row { gap: 8px; }
+  /* Stacked order on phones: box on its own row, then the buttons share the row beneath it — Clear,
+     (roulette) Place Bet, All In. Keeping Place Bet on the SAME row as Clear/All In (rather than its own
+     row) means roulette has the same control-row count as BJ/UTH, so the chip selector lands at the
+     identical vertical position on every bet screen. (Sizing comes from the base rules + --ctrl-w var.) */
+  .bet-row > .bet-amt { order: 0; }
+  .bet-row > .ch-clear { order: 1; }
+  /* Place Bet gets ~2x the grow of Clear/All In so its longer label fits and it reads as the primary
+     action (largest of the three), matching the desktop bet-row. */
+  .bet-row > #pb-add { order: 2; flex: 2 1 0; width: auto; min-width: 0; }
+  .bet-row > .ch-allin { order: 3; }
   /* BJ bet table — compact slots on mobile */
   .bj-bet-table { gap: 4px; padding: 2px 0; }
   .card-slot { width: 44px; height: 62px; border-width: 1.5px; }
@@ -1563,7 +1670,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      active hand stretch (flex:0) and pull the buttons up under it; spare height
      falls to the bottom of the panel rather than gapping value→buttons. */
   .panel:has(.bj-split-active) .bj-split-active { flex: 0 1 auto !important; }
-  .panel:has(.bj-split-active) > div:last-child { margin-top: 14px !important; }
+  .panel:has(.bj-split-active) > div:last-child { margin-top: 6px !important; }
+  /* Tighten the dividers + control-cluster gap on the dense split-play screen so the bet inlay box
+     + buttons fit under a full mod banner (the inlay box added a full button-height row here). */
+  .panel:has(.bj-split-active) .divider { margin: 2px 0; }
+  .panel:has(.bj-split-active) .game-controls { gap: 5px; }
   /* UTH */
   .uth-summary { font-size: 0.9rem; }
   /* UTH blind pay table */
@@ -1585,9 +1696,14 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .uth-result-panel .card.sm { width: 44px; height: 62px; }
   /* BJ 4-way split play — shrink aside cards + dealer spacing */
   #bj-dealer-section { margin-bottom: 6px !important; }
-  .bj-split-aside { margin-bottom: 4px; }
-  .bj-split-aside .card.sm { width: 47px; height: 66px; }
-  .bj-split-aside .card.sm .csuit { font-size: 1.2rem; }
+  /* The face-down dealer's value line is a hidden spacer (.hand-val-ghost) reserving the reveal
+     height. On the tight mobile play screens, collapse it to reclaim the dealer-card→separator gap —
+     the slack the bet inlay box + action buttons now need under a full mod banner. The reveal
+     re-renders to its own visible-value layout, so nothing is clipped there. */
+  #bj-dealer-section .hand-val-ghost { height: 0 !important; min-height: 0 !important; margin: 0 !important; line-height: 0 !important; }
+  .bj-split-aside { margin-bottom: 2px; }
+  .bj-split-aside .card.sm { width: 43px; height: 60px; }
+  .bj-split-aside .card.sm .csuit { font-size: 1.1rem; }
   /* BJ 4-way split result — compact result hand cards */
   .bj-sr-hands .card.sm { width: 39px; height: 55px; }
   /* Match the prominent center glyph of the showdown / dealer cards (~0.55 of card
@@ -1647,9 +1763,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   #db { margin: 3px 0 !important; }
   /* Hide the "Roulette · " / etc. prefix on mobile — title bar already shows the game */
   .sec-game-prefix { display: none; }
-  #r-placed .divider { margin: 2px 0 !important; }
-  #r-placed .sec { font-size: 0.85rem; margin-bottom: 1px; }
-  #r-placed .irow { padding: 1px 6px !important; margin-bottom: 0 !important; }
+  .r-bets-zone .rbz-title { font-size: 1.3rem; padding-bottom: 4px; }
+  .r-bets-zone .rbz-item { margin-bottom: 0 !important; }
   /* Emoji deck */
   body.deck-emoji .ct-s::after { font-size: 0.72em; }
 }
@@ -1690,6 +1805,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
    the panel (parallels the mobile philosophy). Extra space is absorbed by
    chrome, fonts, padding, chips, roulette/board cells, and scoped card
    growth only where the 1280x800 layout has measured slack. */
+/* Real desktops (>=1280) have room for a wider fixed bet box; 1024 keeps 350 so Clear + box + All In
+   still flank without clipping in the tightest panel. */
+@media (min-width: 1280px) { :root { --bet-box-w: 420px; } }
+
 @media (min-width: 1024px) {
   /* Shell — fluid window, capped well below viewport so the desktop frames it.
      Width:  620px at 1024w  →  810px at 1440w  →  880px at 1920w (capped).
@@ -1769,10 +1888,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bet-amt span:first-child { font-size: 1.05rem; }
   .bet-amt span:last-child { font-size: 1.65rem; }
   .ch-clear, .ch-allin { padding: 7px 16px; font-size: 1.15rem; }
-  .bet-row > .bet-amt { order: 1; }
-  .bet-row > .ch-clear { order: 2; }
-  #pb-add { order: 3; width: auto; }
-  .bet-row > .ch-allin { order: 4; }
+  /* order/flex for the stacked bet-row come from the main (max-width:480px) block above. */
 
   /* Action buttons */
   .act-btn { padding: 12px 14px; font-size: 1.5rem; }
@@ -1949,12 +2065,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .bet-amt { padding: 6px 14px; }
   .panel:has(#uth-summary) .bet-amt span:last-child { font-size: 1.75rem; }
   .panel:has(#uth-summary) #db { padding: 10px 16px; font-size: 1.4rem; margin-top: 2px !important; }
-  .panel:has(.bj-bet-table) #db { margin-top: 2px !important; }  /* match UTH bet's bet->Deal gap so the chip selector lands at the same Y */
+  .panel:has(.bj-bet-table) #db,
+  .panel:has(#r-bets-zone) #db { margin-top: 2px !important; }  /* match UTH bet's bet->Deal gap so the chip selector lands at the same Y */
   .panel:has(#uth-summary) > .divider { margin: 5px 0; }
   .panel:has(.bj-bet-table) > .dots-row + .divider { margin-top: 5px; }  /* match UTH bet's dots->divider gap */
-  .panel:has(#uth-summary) .ptable { padding: 6px 18px; gap: 2px 24px; }
-  .panel:has(#uth-summary) .pname { font-size: 1.3rem; }
-  .panel:has(#uth-summary) .ppay  { font-size: 1.25rem; }
+  .panel:has(#uth-summary) .ptable { padding: 5px 14px; gap: 1px 18px; }
+  .panel:has(#uth-summary) .pname { font-size: 1rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 0.95rem; }
 
   /* ── UTH play (preflop / flop / turn) ─────────── */
   /* 4 sections + dividers + bet chips + actions — keep things tight */
@@ -1998,17 +2115,31 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .rboard-sub { grid-auto-rows: 38px; grid-template-columns: 34px repeat(12, 1fr) 46px; }
   .rn { font-size: 1.3rem; }
   .r2to1, .rout { font-size: 1.45rem; }
-  /* Final Spin + bet-info track the desktop chip cluster (56px chips → 452px). */
-  .panel:has(#r-placed) > #db,
-  .panel:has(#r-placed) #r-bet-info { max-width: 452px; }
+  /* Roulette's selection + bets boxes track the desktop chip cluster (56px chips → 452px). */
+  .panel:has(#r-bets-zone) #r-bets-zone,
+  .panel:has(#r-bets-zone) #r-sel-box { max-width: 452px; }
+  /* Deal / Final Spin match the bet box width (see base rule). */
+  .panel:has(.bj-bet-table) > #db,
+  .panel:has(#uth-summary) > #db,
+  .panel:has(.ptable) > #db,
+  .panel:has(#r-bets-zone) > #db { max-width: var(--bet-box-w); }
+  /* Roulette packs Clear + box + Place Bet + All In on ONE line: the box shrinks to 200px (its parity
+     is a bj/uth-only guarantee), Clear + All In are content-sized, and Place Bet flex-grows so it's the
+     largest of the three buttons. (Phones stack the bet-row via the order rules instead.) */
+  /* nowrap keeps all four on one line; the box (flex-shrink:1) absorbs the overflow on the tight 1024
+     panel, shrinking from 200px so Place Bet (whose nowrap text can't shrink) never wraps. */
+  .panel:has(#r-bets-zone) .bet-row { flex-wrap: nowrap; }
+  .panel:has(#r-bets-zone) .bet-row > .bet-amt { flex: 0 1 auto; width: 200px; min-width: 0; }
+  .panel:has(#r-bets-zone) .bet-row > .ch-clear,
+  .panel:has(#r-bets-zone) .bet-row > .ch-allin { flex: 0 0 auto; }
+  .panel:has(#r-bets-zone) .bet-row > #pb-add { flex: 1 1 0; width: auto; }
   /* Compact the placed-bets list so a full set of bets fits a short desktop
      window without pushing the panel over (the list still scrolls as a last
      resort, but should not need to at the default 5-bet max). */
-  .panel:has(#r-placed) #r-placed .divider { margin: 5px 0 !important; }
-  .panel:has(#r-placed) #r-placed .sec { font-size: 1.1rem; margin-bottom: 2px; }
-  .panel:has(#r-placed) #r-placed .irow { padding: 3px 12px !important; margin-bottom: 2px !important; }
-  .panel:has(#r-placed) #r-placed .ik,
-  .panel:has(#r-placed) #r-placed .iv { font-size: 1.05rem; }
+  .panel:has(#r-bets-zone) .rbz-title { font-size: 1.55rem; padding-bottom: 6px; }
+  .panel:has(#r-bets-zone) .rbz-item { padding: 2px 0 !important; margin-bottom: 3px !important; }
+  .panel:has(#r-bets-zone) .rbz-lbl { font-size: 1.4rem; }
+  .panel:has(#r-bets-zone) .rbz-win { font-size: 1.15rem; }
 
   /* ── Results screen ───────────────────────────── */
   /* big-chips + result-row padding kept tight here: 1280×800 (the only desktop in this base
@@ -2067,8 +2198,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(> #db:last-child) .chbtn > span { font-size: 1.3rem; }
   .panel:has(> #db:last-child) .bet-row { gap: 12px; }
   .panel:has(> #db:last-child) .bet-amt { padding: 8px 18px; }
-  .panel:has(> #db:last-child) .bet-amt span:first-child { font-size: 0.9rem; }
-  .panel:has(> #db:last-child) .bet-amt span:last-child { font-size: 2rem; }
+  /* Bet-box label/value font-size intentionally NOT overridden here: the bet-phase box uses the same
+     base .bet-amt span rules as the play/result betInlay box, so the readout looks identical. */
   .panel:has(> #db:last-child) .ch-clear,
   .panel:has(> #db:last-child) .ch-allin { padding: 9px 18px; font-size: 1.2rem; }
   .panel:has(> #db:last-child) > #db { padding: 12px 18px; font-size: 1.55rem; }
@@ -2141,11 +2272,14 @@ body.cardback-whale .card.back::before { content: '🐋'; }
     justify-content: center;
     min-height: 0;
   }
+  /* The bet box + button cluster is BOTTOM-anchored (not centered): the dealer's margin-top:auto above
+     absorbs the panel's spare height, so the box sits at the same distance from the panel bottom on
+     every screen (sparse or dense) and never jumps vertically. */
   .panel:has(#bj-player-hand) > div:last-child,
   .panel:has(.bj-split-active) > div:last-child,
   .panel:has(#uth-actions-ui) #uth-actions-ui {
     margin-top: 0 !important;
-    margin-bottom: auto;
+    margin-bottom: 0;
   }
 
   /* Spend result-screen slack on cards; tight split/showdown layouts stay compact. */
@@ -2218,9 +2352,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .chbtn > span { font-size: 1.3rem; }
   .panel:has(#uth-summary) .bet-amt span:last-child { font-size: 1.85rem; }
   /* Roomy desktop: grow the pay-table box into some of the slack (wider + larger text). */
-  .panel:has(#uth-summary) .ptable { padding: 13px 30px; gap: 5px 32px; max-width: 540px; }
-  .panel:has(#uth-summary) .pname { font-size: 1.65rem; }
-  .panel:has(#uth-summary) .ppay  { font-size: 1.55rem; }
+  .panel:has(#uth-summary) .ptable { padding: 6px 16px; gap: 2px 20px; max-width: 340px; }
+  .panel:has(#uth-summary) .pname { font-size: 1.1rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 1.05rem; }
 
   /* BJ normal play — grow cards/UI on taller windows */
   .panel:has(#bj-player-hand) .card.lg { width: 104px; height: 146px; }
@@ -2348,9 +2482,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .chip-row { gap: 14px; margin: 4px 0 14px; }
   .panel:has(#uth-summary) #uth-summary { font-size: 1.6rem; margin: 6px 0 !important; }
   /* Tallest desktops have the most slack — grow the pay-table box a little more. */
-  .panel:has(#uth-summary) .ptable { padding: 15px 34px; gap: 6px 34px; max-width: 560px; }
-  .panel:has(#uth-summary) .pname { font-size: 1.75rem; }
-  .panel:has(#uth-summary) .ppay  { font-size: 1.65rem; }
+  .panel:has(#uth-summary) .ptable { padding: 7px 18px; gap: 2px 22px; max-width: 360px; }
+  .panel:has(#uth-summary) .pname { font-size: 1.15rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 1.1rem; }
   /* 2-/3-hand result splits — wide window removes the narrow-panel width cap,
      so cards can grow larger than the 1024-tier value. */
   .sr-2 .bj-sr-dealer .card.sm { width: 92px; height: 129px; }
@@ -2459,13 +2593,14 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
   .panel:has(#uth-summary) #uth-summary { font-size: 1.6rem; margin: 4px 0 !important; }
   .panel:has(#uth-summary) .chip-row { gap: 10px; margin: 4px 0 12px; }
-  .panel:has(#uth-summary) #db { padding: 12px 18px; font-size: 1.5rem; margin-top: 4px !important; }
-  .panel:has(.bj-bet-table) #db { margin-top: 4px !important; }  /* match UTH bet's bet->Deal gap */
+  .panel:has(#uth-summary) #db { padding: 12px 18px; font-size: 1.5rem; margin-top: 2px !important; }
+  .panel:has(.bj-bet-table) #db,
+  .panel:has(#r-bets-zone) #db { margin-top: 2px !important; }  /* match UTH bet's bet->Deal gap + the play box->button gap so the box Y matches */
   .panel:has(#uth-summary) > .divider { margin: 8px 0; }
   .panel:has(.bj-bet-table) > .dots-row + .divider { margin-top: 8px; }  /* match UTH bet's dots->divider gap */
-  .panel:has(#uth-summary) .ptable { padding: 12px 22px; gap: 6px 26px; }
-  .panel:has(#uth-summary) .pname { font-size: 1.65rem; }
-  .panel:has(#uth-summary) .ppay  { font-size: 1.6rem; }
+  .panel:has(#uth-summary) .ptable { padding: 6px 16px; gap: 2px 20px; max-width: 340px; }
+  .panel:has(#uth-summary) .pname { font-size: 1.1rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 1.05rem; }
 
   /* UTH mid-hand (preflop/flop/turn) — largest cards/UI on the tallest windows */
   .panel:has(#uth-actions-ui) { gap: 6px; }
@@ -2550,13 +2685,14 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .chbtn > span { font-size: 1.4rem; }
   .panel:has(#uth-summary) .bet-amt { padding: 8px 16px; }
   .panel:has(#uth-summary) .bet-amt span:last-child { font-size: 2rem; }
-  .panel:has(#uth-summary) #db { padding: 12px 18px; font-size: 1.55rem; margin-top: 4px !important; }
-  .panel:has(.bj-bet-table) #db { margin-top: 4px !important; }  /* match UTH bet's bet->Deal gap */
+  .panel:has(#uth-summary) #db { padding: 12px 18px; font-size: 1.55rem; margin-top: 2px !important; }
+  .panel:has(.bj-bet-table) #db,
+  .panel:has(#r-bets-zone) #db { margin-top: 2px !important; }  /* match UTH bet's bet->Deal gap + the play box->button gap so the box Y matches */
   .panel:has(#uth-summary) > .divider { margin: 8px 0; }
   .panel:has(.bj-bet-table) > .dots-row + .divider { margin-top: 8px; }  /* match UTH bet's dots->divider gap */
-  .panel:has(#uth-summary) .ptable { padding: 12px 22px; gap: 6px 26px; }
-  .panel:has(#uth-summary) .pname { font-size: 1.6rem; }
-  .panel:has(#uth-summary) .ppay  { font-size: 1.55rem; }
+  .panel:has(#uth-summary) .ptable { padding: 6px 16px; gap: 2px 20px; max-width: 360px; }
+  .panel:has(#uth-summary) .pname { font-size: 1.1rem; }
+  .panel:has(#uth-summary) .ppay  { font-size: 1.05rem; }
 }
 
 /* ── Large-display scaling ──────────────────────────────────────────────

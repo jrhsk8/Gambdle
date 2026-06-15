@@ -106,21 +106,20 @@ const chipLbl = amt => amt >= 1000 ? Math.floor(amt / 1000) + 'K' : String(amt);
 
 // ─── ROULETTE BOARD ──────────────────────────────────────────────────────
 
+// Under a force-group mod the winner is guaranteed to fall in a number group. A bet is BLOCKED if it can
+// never win (no overlap with the group) or always wins (it covers every number in the group — the exact
+// group tile, or any superset like 19-36 over 25-36). Only genuinely-uncertain bets stay open. No mod → open.
+function rBetBlocked(i){
+  const fg=getMod('r_force_group'),grp=fg?R_GROUP_INFO[fg]:null;
+  if(!grp||i==null)return false;
+  const covered=getRBetNums(i);
+  if(!covered.some(n=>grp.nums.has(n)))return true;        // no overlap — can never win
+  const cs=new Set(covered);
+  for(const n of grp.nums){if(!cs.has(n))return false;}    // missing a group number — uncertain, keep open
+  return true;                                             // covers the whole group — guaranteed win
+}
 function rBoard(){
-  const fg=getMod('r_force_group');
-  const grp=fg?R_GROUP_INFO[fg]:null;
-  const bannedIdx=grp?grp.bannedIdx:-1;
-  const sel=i=>S.rPick===i&&i!==bannedIdx?'r-sel':'';
-  const groupCls=i=>{
-    if(!grp)return'';
-    if(i===bannedIdx)return'r-group-banned';
-    const covered=getRBetNums(i);
-    if(!covered.length)return'r-group-lose';
-    const wins=covered.filter(n=>grp.nums.has(n)).length;
-    if(wins===0)return'r-group-lose';
-    if(wins===covered.length)return'r-group-win';
-    return'r-group-partial';
-  };
+  const sel=i=>S.rPick===i&&!rBetBlocked(i)?'r-sel':'';
   const placedTotals=S.rBets.reduce((m,b)=>{m.set(b.pick,(m.get(b.pick)||0)+b.bet);return m;},new Map());
   const chip=i=>{
     if(placedTotals.has(i))return`<span class="r-chip r-chip-placed">${chipLbl(placedTotals.get(i))}</span>`;
@@ -153,21 +152,21 @@ function rBoard(){
   const numBtns=Array.from({length:37},(_,n)=>{
     const gc=n===0?'1':String(Math.floor((n-1)/3)+2);
     const gr=n===0?'1/4':String(n%3===0?1:n%3===2?2:3);
-    const gh=groupCls(n);
-    return`<button class="rn ${rCls(n)} ${sel(n)} ${boost(n)} ${gh}" data-idx="${n}" style="grid-column:${gc};grid-row:${gr}" onclick="pickBet(${n})">${n}${lbl(n)}${chip(n)}</button>`;
+    const blk=rBetBlocked(n);
+    return`<button class="rn ${rCls(n)} ${sel(n)} ${boost(n)} ${blk?'r-blocked':''}" data-idx="${n}" style="grid-column:${gc};grid-row:${gr}" onclick="pickBet(${n})" ${blk?'disabled':''}>${n}${lbl(n)}${chip(n)}</button>`;
   }).join('');
   const col2to1=[0,1,2].map(r=>{
-    const idx=37+r;const gh=groupCls(idx);
-    return`<button class="r2to1 ${sel(idx)} ${boost(idx)} ${gh}" data-idx="${idx}" style="grid-column:14;grid-row:${r+1}" onclick="pickBet(${idx})" ${gh==='r-group-banned'?'disabled':''}>2:1${lbl(idx)}${chip(idx)}</button>`;
+    const idx=37+r;const blk=rBetBlocked(idx);
+    return`<button class="r2to1 ${sel(idx)} ${boost(idx)} ${blk?'r-blocked':''}" data-idx="${idx}" style="grid-column:14;grid-row:${r+1}" onclick="pickBet(${idx})" ${blk?'disabled':''}>2:1${lbl(idx)}${chip(idx)}</button>`;
   }).join('');
   const dozBtns=[[40,'2/6'],[41,'6/10'],[42,'10/14']].map(([idx,gc])=>{
-    const gh=groupCls(idx);
-    return`<button class="rout ${sel(idx)} ${boost(idx)} ${gh}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})" ${gh==='r-group-banned'?'disabled':''}>${R_BETS[idx].lbl}${lbl(idx)}${chip(idx)}</button>`;
+    const blk=rBetBlocked(idx);
+    return`<button class="rout ${sel(idx)} ${boost(idx)} ${blk?'r-blocked':''}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})" ${blk?'disabled':''}>${R_BETS[idx].lbl}${lbl(idx)}${chip(idx)}</button>`;
   }).join('');
   const outData=[[43,'2/4',''],[44,'4/6',''],[45,'6/8','rout-r'],[46,'8/10','rout-b'],[47,'10/12',''],[48,'12/14','']];
   const outBtns=outData.map(([idx,gc,ex])=>{
-    const gh=groupCls(idx);
-    return`<button class="rout ${ex} ${sel(idx)} ${boost(idx)} ${gh}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})" ${gh==='r-group-banned'?'disabled':''}>${R_BETS[idx].lbl}${lbl(idx)}${chip(idx)}</button>`;
+    const blk=rBetBlocked(idx);
+    return`<button class="rout ${ex} ${sel(idx)} ${boost(idx)} ${blk?'r-blocked':''}" data-idx="${idx}" style="grid-column:${gc}" onclick="pickBet(${idx})" ${blk?'disabled':''}>${R_BETS[idx].lbl}${lbl(idx)}${chip(idx)}</button>`;
   }).join('');
   return`<div class="rboard">${numBtns}${col2to1}</div>
     <div class="rboard-sub">${dozBtns}</div>
@@ -347,39 +346,27 @@ function screenRouletteRespin(){
 }
 
 function screenRouletteSpinning(){
-  const bets=S.rBets;
-  const total=bets.reduce((a,b)=>a+b.bet,0);
-  // One line whether there's 1 bet or 10: a single bet names the pick, multiple bets
-  // are summarized as "N Bets · X chips". Listing every bet here used to overflow a
-  // fixed window (mobile and the short 1280×800 desktop); the full per-bet breakdown
-  // is shown again on the result screen.
-  const betLabel=bets.length===1
-    ?`Bet on <b style="color:var(--ink)">${rBetLabel(bets[0].pick,true)}</b> &nbsp;·&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`
-    :`<b style="color:var(--ink)">${bets.length} Bets</b> &nbsp;·&nbsp; <b style="color:var(--gold)">${fmt(total)} chips</b>`;
-  // For multiple bets, list them as compact pills below the wheel so the player can see
-  // exactly what's riding on the spin (a single bet is already named in the line above).
-  // Kept terse (bold tile name + stake, no payout rows) so a full 5-bet set still fits.
-  const betPills=bets.length>1
-    ?`<div class="r-spin-bets">${bets.map(b=>`<span class="r-spin-bet"><b>${rBetLabel(b.pick)}</b><span class="r-spin-amt">${chipLbl(b.bet)}</span></span>`).join('')}</div>`
-    :'';
+  const maxBets=getMod('r_max_bets')||6;
+  // Show the real "Your Bets" tracker (read-only, no × remove buttons) during the spin so the
+  // player sees exactly what's riding. The box uses the bare .r-bets-zone class (not the
+  // #r-bets-zone id), so the bet-screen's id-scoped width/centering + mobile font-shrink rules
+  // don't reach it; those are re-scoped to this panel via `.panel:has(#rwheel)` in styles.css.
+  // It inherits the inlaid shadow from the class rule.
   return `${hdr('Roulette · Spinning!')}
   <div class="panel">
-    ${gameDots([], 0, 'play', 2)}
-    <div class="divider"></div>
     <div class="wheel-outer">
       <div class="wheel-pointer"></div>
       <canvas id="rwheel" width="300" height="300"></canvas>
     </div>
-    <div style="text-align:center;font-size:1.8rem;color:var(--cream);margin-top:4px">${betLabel}</div>
-    ${betPills}
+    <div class="r-bets-zone">${rBetsZone(S.rBets,maxBets,true)}</div>
   </div>`;
 }
 
 function screenRouletteBet(){
-  const maxBets=getMod('r_max_bets')||5;
+  const maxBets=getMod('r_max_bets')||6;
   const aios=getMod('all_in_or_skip');
-  const fg=getMod('r_force_group');
-  if(fg&&R_GROUP_INFO[fg]&&S.rPick===R_GROUP_INFO[fg].bannedIdx){S.rPick=null;S.rBet=0;}
+  // Clear a now-illegal pick (e.g. a force-group mod blocks the previously-selected tile).
+  if(rBetBlocked(S.rPick)){S.rPick=null;S.rBet=0;}
   const pb=S.rPick!==null?R_BETS[S.rPick]:null;
   const boardPad=getMod('r_color_double')||getMod('r_payout_mult')?'padding-bottom:28px':'';
   const board=`<div class="r-board-wrap" ${boardPad?`style="${boardPad}"`:''}>${rBoard()}</div>`;
@@ -404,16 +391,16 @@ function screenRouletteBet(){
   const canAdd=(S.rBets.length<maxBets||pickAlreadyBet)&&pb&&S.rBet>0;
   const canSpin=S.rBets.length>0;
   const hdrTitle=maxBets===1?'Roulette · 1 Spin':`Roulette · Up to ${maxBets} Bets`;
-  const secLabel=maxBets===1?'<span class="sec-game-prefix">Roulette · </span>Place Your Bet':'<span class="sec-game-prefix">Roulette · </span>Place Your Bets';
   return `${hdr(hdrTitle)}
   <div class="panel">
     ${board}
-    <button id="db" class="btn-gold" style="margin:10px 0" onclick="rSpin()" ${!canSpin?'disabled':''}>Final Spin ${icon('target')}</button>
     <div class="divider"></div>
-    <div class="sec" style="text-align:center">${secLabel}</div>
-    ${betInfo}
+    <div class="r-bet-center${maxBets===1?' r-one':''}${maxBets===3?' r-three':''}">
+      <div id="r-sel-box" class="r-sel-box">${rSelBox(S.rPick,S.rBet)}</div>
+      <div id="r-bets-zone" class="r-bets-zone">${rBetsZone(S.rBets,maxBets)}</div>
+    </div>
     ${chipSel(S.chips,S.rBet,null,`<button id="pb-add" class="btn-gold" onclick="rAddBet()" ${!canAdd?'disabled':''}>Place Bet (${S.rBets.length}/${maxBets})</button>`)}
-    <div id="r-placed">${rPlacedInner(S.rBets,maxBets)}</div>
+    <button id="db" class="btn-gold" style="margin-top:6px" onclick="rSpin()" ${!canSpin?'disabled':''}>Final Spin ${icon('target',{cls:'btn-icon-gap'})}</button>
   </div>`;
 }
 
@@ -466,19 +453,18 @@ function rSkip(){
 }
 
 function pickBet(i){
-  const _fg=getMod('r_force_group');
-  if(_fg&&R_GROUP_INFO[_fg]&&i===R_GROUP_INFO[_fg].bannedIdx)return;
+  if(rBetBlocked(i))return;
+  // The bets box doesn't depend on the selected tile (its title is keyed on bet count only), so tile
+  // selection only updates the board highlight + chip UI — never re-renders the box. No flicker.
   if(S.rPick===i){
     S.rPick=null;
     document.querySelectorAll('[data-idx]').forEach(b=>b.classList.remove('r-sel'));
     document.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
-    const info=document.getElementById('r-bet-info');
-    if(info){const irow=info.querySelector('.irow');if(irow)irow.innerHTML=`<span class="ik" style="color:var(--shadow)">Select a tile to bet on</span><span class="iv"></span>`;}
     patchBetUI();saveState();return;
   }
   S.rPick=i;
-  const info = document.getElementById('r-bet-info');
-  if(!info){ render(); return; }
+  // The bet screen is rendered iff the board tiles exist; if not, fall back to a full render.
+  if(!document.querySelector('[data-idx]')){ render(); return; }
 
   document.querySelectorAll('[data-idx]').forEach(b => b.classList.remove('r-sel'));
   const btn = document.querySelector(`[data-idx="${i}"]`);
@@ -486,30 +472,40 @@ function pickBet(i){
 
   document.querySelectorAll('.r-chip-sel').forEach(c => c.remove());
 
-  const pb = R_BETS[i];
-  const irow = info.querySelector('.irow');
-  if(irow){
-    irow.style.visibility = '';
-    irow.querySelector('.ik').innerHTML = `Bet on: <b style="color:var(--ink)">${rBetLabel(i,true)}</b>`;
-    irow.querySelector('.iv').textContent = pb.pay+':1 payout';
-  }
-
   patchBetUI();
   saveState();
 }
-function rPlacedInner(bets,maxBets){
-  if(!bets.length)return'';
-  return`<div class="divider" style="margin:10px 0"></div>
-    <div class="sec">Placed Bets (${bets.length}/${maxBets})</div>
-    ${bets.map((b,i)=>{const d=R_BETS[b.pick];return`<div class="irow" style="margin-bottom:4px">
-      <span class="ik"><span style="font-weight:700;color:var(--ink)">${rBetLabel(b.pick)}</span> · Pays ${d.pay}:1</span>
-      <span style="display:flex;align-items:center;gap:8px"><span class="iv">${fmt(b.bet)}</span>
-        <button onclick="rRemoveBet(${i})" style="background:none;border:none;color:var(--shadow);cursor:pointer;font-size:1rem;padding:2px 6px">×</button>
-      </span></div>`;}).join('')}`;
+// Wheel-color text class for a placed bet's tile label: number bets follow the pocket color
+// (0 green, reds red, rest black); the red/black even-money bets match. Everything else is neutral.
+function rBetCls(pick){
+  const d=R_BETS[pick]; if(!d) return '';
+  if(d.type==='num'){ const n=+d.lbl; return n===0?'rbz-grn':REDS.has(n)?'rbz-red':'rbz-blk'; }
+  if(d.type==='col2') return d.val==='red'?'rbz-red':'rbz-blk';
+  return '';
+}
+// The SELECTION box (top): the tile the player has currently selected and its payout. `pick` is S.rPick
+// (or null), `curBet` the staked chip amount. While a tile is selected and a stake is set, it shows the
+// live winnings for THAT tile at the current stake (updated via patchBetUI as the stake changes).
+function rSelBox(pick,curBet){
+  if(pick==null)return`<div class="rsb-prompt">Select a tile to bet on</div>`;
+  const d=R_BETS[pick];
+  // Three fixed-width columns (CSS), so varying label/payout length never shifts the other sections.
+  return`<div class="rsb-box"><span class="rsb-on">Bet on <b class="${rBetCls(pick)}">${rBetLabel(pick)}</b></span><span class="rsb-pays">pays ${d.pay}:1</span><span class="rsb-win">${curBet>0?'win +'+fmt(curBet*d.pay):''}</span></div>`;
+}
+// The BETS-TRACKER box (below): "Your Bets n/max" + a 2-column grid of maxBets slots. Each placed bet
+// shows its potential winnings (bet × pay); unused slots stay faint, so the box is always full.
+function rBetsZone(bets,maxBets,readOnly){
+  let cells='';
+  for(let i=0;i<maxBets;i++){
+    const b=bets[i];
+    if(b){const d=R_BETS[b.pick];cells+=`<div class="rbz-item"><span class="rbz-lbl ${rBetCls(b.pick)}">${rBetLabel(b.pick)}</span><span class="rbz-win"><span class="rbz-bet">${fmt(b.bet)}</span> → <b class="rbz-won">+${fmt(b.bet*d.pay)}</b>${readOnly?'':`<button onclick="rRemoveBet(${i})">×</button>`}</span></div>`;}
+    else cells+=`<div class="rbz-item rbz-open"><span>Open slot</span><span>· · ·</span></div>`;
+  }
+  return`<div class="rbz-title">Your Bets ${bets.length}/${maxBets}</div><div class="rbz-grid">${cells}</div>`;
 }
 /** Adds current rPick+rBet to the placed bets list (multi-bet mode). */
 function rAddBet(){
-  const maxBets=getMod('r_max_bets')||5;
+  const maxBets=getMod('r_max_bets')||6;
   const isNew=!S.rBets.find(b=>b.pick===S.rPick);
   if(S.rPick===null||!S.rBet||(isNew&&S.rBets.length>=maxBets))return;
 
@@ -533,16 +529,14 @@ function rAddBet(){
   if(existingChip)existingChip.textContent=chipLbl(total);
   else boardBtn.insertAdjacentHTML('beforeend',`<span class="r-chip r-chip-placed">${chipLbl(total)}</span>`);
 
-  const info=document.getElementById('r-bet-info');
-  const irow=info?.querySelector('.irow');
-  if(irow)irow.innerHTML=`<span class="ik" style="color:var(--shadow)">Select a tile to bet on</span><span class="iv"></span>`;
-
   const bv=document.getElementById('bv');
   if(bv)bv.textContent=fmt(S.rBet); // keep showing the retained amount, not 0
   document.querySelectorAll('.chbtn').forEach(b=>{b.disabled=S.rBet+(+b.dataset.v)>S.chips;});
 
-  const placed=document.getElementById('r-placed');
-  if(placed)placed.innerHTML=rPlacedInner(S.rBets,maxBets);
+  const z=document.getElementById('r-bets-zone');
+  if(z)z.innerHTML=rBetsZone(S.rBets,maxBets);
+  const sb=document.getElementById('r-sel-box');
+  if(sb)sb.innerHTML=rSelBox(S.rPick,S.rBet);
 
   const pba=document.getElementById('pb-add');
   if(pba){pba.textContent=`Place Bet (${S.rBets.length}/${maxBets})`;pba.disabled=true;}
@@ -685,6 +679,7 @@ async function rSpin(){
   S.rSpin=null;S.rSpin2=null;
   S.rPhase='spinning';
   render();updateChipDisplay();
+  drawStaticWheel();   // paint the wheel face now, so it appears WITH its gold ring (not after the resolve round-trip)
   // Preload the audio now so its duration is available by the time startWheelAnim runs.
   _rouletteAudio = getPref('mute') ? null : new Audio('assets/sounds/roulette ball.mp3');
   if (_rouletteAudio) { _rouletteAudio.volume = 0.5; _rouletteAudio.load(); }
@@ -693,7 +688,19 @@ async function rSpin(){
     S.rSpin=sp.n;S.rSpin2=sp.n2;
   }finally{_rSpinPending=false;}
   saveState();
-  setTimeout(startWheelAnim,60);
+  // Real pre-spin hold: the static wheel (drawn at render) covers the wait, so the wheel sits with
+  // its ring for a beat before the ball drops in. Animation starts from wAngle=0/e=0, matching the
+  // static frame, so there's no jump.
+  setTimeout(startWheelAnim,500);
+}
+// Paints the wheel at rest (no ball) the instant the spin screen renders, so the face shows together
+// with its CSS gold ring instead of the ring appearing first during the _resolveSpinNumber round-trip.
+function drawStaticWheel(){
+  const cnv=document.getElementById('rwheel');
+  if(!cnv)return;
+  const size=Math.min(320,Math.floor((cnv.parentElement?.clientWidth||360)-24));
+  cnv.width=size;cnv.height=size;
+  drawWheel(cnv,0,[]);
 }
 // Evaluates all placed bets and applies any active payout modifiers, returning enriched bet objects.
 function _evalBets(bets, spin) {

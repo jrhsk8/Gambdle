@@ -11,7 +11,12 @@ const _ltSavedSeed = _ls.getItem('gambdle_use_test_seed');
 _ls.setItem('gambdle_use_test_seed', '1');
 _ls.removeItem('gambdle_forced_mod');
 
-const _ltSnap = JSON.stringify({ ...S, pkHeld: [...S.pkHeld] });
+// Every real play-day has an active modifier, so its banner (~2 lines, ~55px) is ALWAYS on screen.
+// Fixtures that render without one under-measure real height and can pass while overflowing in
+// production. Bake a representative worst-case banner — bj_wild_split ("Big Splitter", a 2-line
+// desc, and thematically the day splits actually happen) — into the base snapshot so every screen
+// is measured WITH a banner; fixtures that need a different mod (e.g. ladder_day) still override it.
+const _ltSnap = JSON.stringify({ ...S, forcedMod: 'bj_wild_split', pkHeld: [...S.pkHeld] });
 const _ltRestore = () => {
   const r = JSON.parse(_ltSnap); r.pkHeld = new Set(r.pkHeld); Object.assign(S, r);
 };
@@ -496,9 +501,9 @@ describe('layout — roulette screens', () => {
     chips:450, rSpin:36, rBets:[{pick:46,bet:50}],
   }));
 
-  // Five bets is the binding case for the spinning screen — the bets are now listed as
-  // compact pills below the wheel (bold tile + stake, no payout rows) so the full set must
-  // still fit without scrolling. This is why the pill list is kept terse.
+  // Five bets is the binding case for the spinning screen — the read-only "Your Bets" box
+  // below the wheel lists the full set, so it (capped + scrollable) plus the wheel must still
+  // fit the viewport without the panel itself scrolling.
   it('spinning phase with a full set of bets fits viewport', () => checkScreen('roulette-spinning-max', {
     screen:'roulette', rPhase:'spinning', chips:0, rSpin:17,
     rBets:[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}],
@@ -778,6 +783,189 @@ describe('layout — buttons share one height + font per window size', () => {
     for (const b of btns) {
       assert(Math.abs(b.fs - expected) <= 1,
         `button font drift: ${b.where} ("${b.txt}") is ${b.fs}px, expected --btn-fs ${expected}px`);
+    }
+  });
+});
+
+// ─── Bet box parity ───────────────────────────────────────────────────────────
+// The bet box (.bet-amt) must be pixel-identical — same size AND format — on EVERY screen it appears
+// (bet phase, play, reveal, result, across all games), and every in-game button must share one height
+// across those screens. Runs once per viewport (the harness re-runs this file at each binding size),
+// comparing screens AT that viewport.
+describe('layout - bet box parity', () => {
+  const BOX_SCREENS = [
+    ['bj-bet',       { screen:'bj', bjPhase:'bet', chips:1000, bjBet:500, bjHand:0, bjHistory:[] }],
+    ['uth-bet',      { screen:'uth', uthPhase:'bet', chips:1000, uthAnte:500, uthHand:0, uthHistory:[] }],
+    ['poker-bet',    { screen:'poker', pkPhase:'bet', chips:1000, pkBet:500, pkHand:0, pkHistory:[] }],
+    ['ladder-bet',   { screen:'ladder', ladPhase:'bet', ladBet:200, ladFree:false, ladIdx:0, ladRung:0, ladResult:null, chips:1000 }],
+    // NOTE: roulette-bet is intentionally NOT here — its box is shrunk to pack Clear + box + Place Bet
+    // + All In onto one line, so the pixel-width parity is a bj/uth/poker/ladder guarantee, not roulette.
+    ['bj-play',      { screen:'bj', bjPhase:'play', chips:950, bjBet:150, bjHand:0, bjHistory:[], bjPlayer:_bjPair, bjDealer:_bjDealer }],
+    ['bj-split',     { screen:'bj', bjPhase:'play', chips:600, bjBet:100, bjHand:0, bjHistory:[], bjPlayer:[], bjDealer:_bjDealer, bjSplit:true, bjSplitActive:0, bjSplitHands:[_bjPair,_bjPair], bjSplitBets:[100,100], bjSplitDone:[false,false], bjSplitDoubled:[false,false], bjSplitAnimFrom:[0,0] }],
+    ['uth-preflop',  { screen:'uth', uthPhase:'preflop', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:0, uthPrevRevealComm:0, uthHand:0, uthHistory:[] }],
+    ['uth-flop',     { screen:'uth', uthPhase:'flop', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:3, uthPrevRevealComm:3, uthHand:0, uthHistory:[] }],
+    ['uth-turn',     { screen:'uth', uthPhase:'turn', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:5, uthPrevRevealComm:5, uthHand:0, uthHistory:[] }],
+    ['uth-reveal',   { screen:'uth', uthPhase:'reveal', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:5, uthPrevRevealComm:5, uthHand:1, uthHistory:[{ante:50,blind:50,play:0,playMult:0,result:'win',delta:0,anteDelta:0,blindDelta:0,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:true}] }],
+    ['bj-result',    { screen:'bj', bjPhase:'result', chips:1100, bjBet:150, bjHand:1, bjSplit:false, bjDealerReveal:true, bjPlayer:_bjPair, bjDealer:_bjDealer, bjResult:{result:'win',delta:150}, bjHistory:[{bet:150,result:'win',delta:150,player:_bjPair,dealer:_bjDealer}] }],
+  ];
+
+  function measureBox(state) {
+    const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+    Object.assign(S, base, state);
+    render();
+    const el = document.querySelector('.bet-amt');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    return {
+      w: Math.round(r.width),
+      h: Math.round(r.height),
+      padTop: cs.paddingTop, padRight: cs.paddingRight, padBottom: cs.paddingBottom, padLeft: cs.paddingLeft,
+      borderTop: cs.borderTopWidth, borderRight: cs.borderRightWidth, borderBottom: cs.borderBottomWidth, borderLeft: cs.borderLeftWidth,
+      bg: cs.backgroundColor, color: cs.color, alignItems: cs.alignItems, justifyContent: cs.justifyContent
+    };
+  }
+
+  it('bet box is the same size + format on every screen', () => {
+    const measured = BOX_SCREENS.map(([label, st]) => ({ label, box: measureBox(st) }));
+    for (const m of measured) {
+      assert(m.box !== null, `bet box parity: no .bet-amt on screen "${m.label}"`);
+    }
+    const ref = measured[0];
+    for (const m of measured.slice(1)) {
+      assert(Math.abs(m.box.w - ref.box.w) <= 1, `bet box parity: "${m.label}" width ${m.box.w} != ${ref.box.w} (ref "${ref.label}")`);
+      assert(Math.abs(m.box.h - ref.box.h) <= 1, `bet box parity: "${m.label}" height ${m.box.h} != ${ref.box.h} (ref "${ref.label}")`);
+      const strProps = ['padTop','padRight','padBottom','padLeft','borderTop','borderRight','borderBottom','borderLeft','bg','color','alignItems','justifyContent'];
+      for (const prop of strProps) {
+        assert(m.box[prop] === ref.box[prop], `bet box parity: "${m.label}" ${prop} "${m.box[prop]}" != "${ref.box[prop]}" (ref "${ref.label}")`);
+      }
+    }
+  });
+
+  it('every in-game button shares one height across all bet-box screens', () => {
+    const selector = '.act-btn, .btn-gold:not(.btn-lg), .ch-clear, .ch-allin, .bet-amt';
+    const collected = [];
+    for (const [label, st] of BOX_SCREENS) {
+      const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+      Object.assign(S, base, st);
+      render();
+      document.querySelectorAll(selector).forEach(el => {
+        const height = el.getBoundingClientRect().height;
+        if (height > 0) {
+          collected.push({ label, cls: el.className.split(' ')[0], h: Math.round(height) });
+        }
+      });
+    }
+    assert(collected.length > 0, 'button height parity: no buttons found with height > 0');
+    const refH = collected[0].h;
+    const refLabel = collected[0].label;
+    for (const e of collected.slice(1)) {
+      assert(e.h === refH, `button height parity: "${e.label}" .${e.cls} is ${e.h}px, expected ${refH}px (ref "${refLabel}")`);
+    }
+  });
+
+  // The box must sit at the SAME vertical position on every BJ/UTH screen — it must not jump as you
+  // move bet → play → reveal → result. Measured as the gap from the box bottom to the panel bottom
+  // (the panel height is constant at a given viewport, so equal gap = identical absolute Y). Poker /
+  // ladder / roulette bet screens are excluded: they intentionally place content (pay table, bet
+  // boxes) below the box, so their box sits higher by design.
+  // uth-reveal is a 2.3s auto-transition with no button row under the box, so its anchor differs; the
+  // interactive bet/play/result screens are what must not jump.
+  const VPOS_SCREENS = BOX_SCREENS.filter(([l]) => (l.startsWith('bj-') || l.startsWith('uth-')) && l !== 'uth-reveal');
+  it('bet box sits at the same vertical position on every BJ/UTH screen', () => {
+    if (!_isDesktop()) return; // phones stack Clear/All In below the box on the bet screen, so the
+                               // bet box necessarily sits a row higher there than on play — a desktop guarantee.
+    const measured = VPOS_SCREENS.map(([label, st]) => {
+      const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+      Object.assign(S, base, st);
+      render();
+      const box = document.querySelector('.bet-amt');
+      const panel = document.querySelector('.panel');
+      assert(box && panel, `bet box vpos: box/panel missing on "${label}"`);
+      const gap = Math.round(panel.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom);
+      return { label, gap };
+    });
+    const ref = measured[0];
+    for (const m of measured.slice(1)) {
+      assert(Math.abs(m.gap - ref.gap) <= 1,
+        `bet box vpos: "${m.label}" is ${m.gap}px from panel bottom, expected ${ref.gap}px (ref "${ref.label}") — the box jumped vertically`);
+    }
+  });
+
+  // A LONE action button (the single advance: Next Hand/Game, See Results, etc.) must match the bet box
+  // width; a MULTI-button play row (.act-btns: Hit/Stand/Double/Split, Raise/Check/Fold) stays wider, at
+  // the near-full-panel control width, so 3-4 buttons don't cramp. Checked on the play/result screens
+  // that stack a button (row) under the box inside .game-controls.
+  it('lone action button == bet box width; multi-button rows stay wider (play/result)', () => {
+    if (!_isDesktop()) return; // on phones the box fills the control width, so everything is equal there.
+    const PLAY = BOX_SCREENS.filter(([l]) => ['bj-play','bj-split','uth-preflop','uth-flop','uth-turn','bj-result'].includes(l));
+    for (const [label, st] of PLAY) {
+      const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+      Object.assign(S, base, st);
+      render();
+      const gc = document.querySelector('.game-controls');
+      assert(gc, `btn-width: no .game-controls on "${label}"`);
+      const box = gc.querySelector('.bet-amt');
+      assert(box, `btn-width: box missing on "${label}"`);
+      const boxW = box.getBoundingClientRect().width;
+      const actBtns = gc.querySelector('.act-btns');
+      if (actBtns) {  // multi-button play row — stays wider than the box
+        const w = actBtns.getBoundingClientRect().width;
+        assert(w > boxW + 1,
+          `btn-width: "${label}" multi-button row (${Math.round(w)}px) should be wider than the box (${Math.round(boxW)}px)`);
+      } else {        // lone advance button — matches the box width
+        const solo = gc.querySelector('.btn-gold');
+        assert(solo, `btn-width: no action button on "${label}"`);
+        const w = solo.getBoundingClientRect().width;
+        assert(Math.abs(w - boxW) <= 1,
+          `btn-width: "${label}" lone button (${Math.round(w)}px) should match the box (${Math.round(boxW)}px)`);
+      }
+    }
+  });
+});
+
+// ─── Chip selector parity ─────────────────────────────────────────────────────
+// The chip selector (the denomination buttons) must be the same size + position on every bet screen,
+// so it never moves or resizes from game to game. Runs once per viewport.
+describe('layout - chip selector parity', () => {
+  // SPEC: the chip selector must be the same size + position on EVERY bet screen (all games). Asserted
+  // here on BJ / UTH / Roulette; Poker + Ladder should match too and can be added once verified.
+  const CHIP_SCREENS = [
+    ['bj-bet',       { screen:'bj', bjPhase:'bet', chips:1000, bjBet:500, bjHand:0, bjHistory:[] }],
+    ['uth-bet',      { screen:'uth', uthPhase:'bet', chips:1000, uthAnte:500, uthHand:0, uthHistory:[] }],
+    ['roulette-bet', { screen:'roulette', rPhase:'bet', chips:1000, rBet:50, rPick:17, rBets:[{pick:45,bet:50}] }],
+  ];
+
+  function measureChips(state) {
+    const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+    Object.assign(S, base, state);
+    render();
+    const row = document.querySelector('.chip-row');
+    const btn = document.querySelector('.chip-row .chbtn');
+    const panel = document.querySelector('.panel');
+    if (!row || !btn || !panel) return null;
+    const rr = row.getBoundingClientRect(), br = btn.getBoundingClientRect(), pr = panel.getBoundingClientRect();
+    return {
+      rowW: Math.round(rr.width),
+      vGap: Math.round(pr.bottom - rr.bottom),     // chip row bottom → panel bottom (bottom-anchored controls)
+      leftInset: Math.round(rr.left - pr.left),     // horizontal position / centering inside the panel
+      btnW: Math.round(br.width),
+      btnH: Math.round(br.height)
+    };
+  }
+
+  it('chip selector is the same size + position on every bet screen', () => {
+    const measured = CHIP_SCREENS.map(([label, st]) => ({ label, chips: measureChips(st) }));
+    for (const m of measured) {
+      assert(m.chips !== null, `chip parity: no .chip-row/.chbtn on "${m.label}"`);
+    }
+    const ref = measured[0];
+    const props = ['rowW', 'vGap', 'leftInset', 'btnW', 'btnH'];
+    for (const m of measured.slice(1)) {
+      for (const prop of props) {
+        assert(Math.abs(m.chips[prop] - ref.chips[prop]) <= 1,
+          `chip parity: "${m.label}" ${prop} ${m.chips[prop]} != ${ref.chips[prop]} (ref "${ref.label}") — the chip selector moved/resized between screens`);
+      }
     }
   });
 });

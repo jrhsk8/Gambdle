@@ -10,6 +10,12 @@ function closeDropdowns() {
   document.querySelectorAll('.dropdown, .dd-submenu').forEach(d => d.remove());
 }
 
+// The trigger element whose first-level submenu (.dd-sub1) is currently open. Lets _openSub1 tell a
+// re-click of the SAME trigger (toggle closed) from a click on a DIFFERENT submenu trigger (switch to
+// it in one click) instead of just closing whatever's open. Stale values are harmless — _openSub1
+// only consults it while a .dd-sub1 is actually in the DOM.
+let _sub1Trigger = null;
+
 // Mobile: inlines submenus directly below the trigger item instead of floating them.
 function _showInlineSub(trigger, html, level) {
   const wasOpen = trigger.classList.contains(`dd-item--open-${level}`);
@@ -51,14 +57,21 @@ function _positionSubmenu(sub, trigger) {
     sub.style.top = Math.max(4, window.innerHeight - sr.height - 4) + 'px';
 }
 
-// Opens a first-level floating submenu (or inline on mobile). Toggling re-click closes it.
+// Opens a first-level floating submenu (or inline on mobile). Re-clicking the SAME trigger toggles it
+// closed; clicking a DIFFERENT submenu trigger switches to it in one click (keyed by trigger, like
+// _openSub2's dataset.key) rather than just closing whatever was open.
 function _openSub1(html, trigger) {
   if (_isMobile()) { _showInlineSub(trigger, html, 1); return; }
-  if (document.querySelector('.dd-sub1')) { document.querySelectorAll('.dd-submenu').forEach(d=>d.remove()); return; }
+  if (document.querySelector('.dd-sub1') && _sub1Trigger === trigger) {
+    document.querySelectorAll('.dd-submenu').forEach(d=>d.remove());
+    _sub1Trigger = null;
+    return;
+  }
   document.querySelectorAll('.dd-submenu').forEach(d=>d.remove());
   const sub = document.createElement('div');
   sub.className = 'dropdown dd-submenu dd-sub1';
   sub.innerHTML = html;
+  _sub1Trigger = trigger;
   _positionSubmenu(sub, trigger);
 }
 
@@ -186,8 +199,8 @@ function toggleMenu(which, trigger) {
     const canShare = S.screen === 'results';
     const cbStyle='width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0';
     el.innerHTML = `
-      ${_backlogSeed ? `<div class="dd-item" onclick="exitBacklog()">↩ Return to Today (#${getDayNum()})</div><div class="dd-sep"></div>` : ''}
-      <div class="dd-item" onclick="showBacklogSubmenu(this);event.stopPropagation()">Gambdle #${S.day}${_backlogSeed?(_backlogSeed>getDailySeed()?' · Preview':' · Archive'):''} <span class="dd-key">►</span></div>
+      ${_backlogSeed ? `<div class="dd-item" onclick="exitBacklog()">${icon('target')} Return to Today (#${getDayNum()})</div><div class="dd-sep"></div>` : ''}
+      <div class="dd-item" onclick="showBacklogSubmenu(this);event.stopPropagation()">${icon('eye')} Gambdle #${S.day}${_backlogSeed?(_backlogSeed>getDailySeed()?' · Preview':' · Archive'):''} <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
       <div class="dd-item ${canShare?'':'dd-disabled'}" onclick="${canShare?'doShare();closeDropdowns()':''}">${icon('clipboard-text')} Copy &amp; Share</div>
       <div class="dd-sep"></div>
@@ -198,16 +211,16 @@ function toggleMenu(which, trigger) {
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showFeedbackDialog();closeDropdowns()">${icon('envelope')} Send Feedback</div>
       <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showPrefsSubmenu(this);event.stopPropagation()">Preferences <span class="dd-key">►</span></div>
+      <div class="dd-item" onclick="showPrefsSubmenu(this);event.stopPropagation()">${icon('ruler')} Preferences <span class="dd-key">►</span></div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showProfile()">${icon('user')} Player Profile</div>
-      <div class="dd-item" onclick="showAbout()">♠ About Gambdle</div>`;
+      <div class="dd-item" onclick="showAbout()">${icon('sparkle')} About Gambdle</div>`;
   } else {
     el.innerHTML = `
-      <div class="dd-item" onclick="showInfo('overview');closeDropdowns()">How to Play</div>
+      <div class="dd-item" onclick="showInfo('overview');closeDropdowns()">${icon('magnifying-glass')} How to Play</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showInfo('bj');closeDropdowns()">${icon('cards')} Blackjack</div>
-      <div class="dd-item" onclick="showInfo('uth');closeDropdowns()">♠ Ultimate Hold'em</div>
+      <div class="dd-item" onclick="showInfo('uth');closeDropdowns()">${icon('cowboy-hat')} Ultimate Hold'em</div>
       <div class="dd-item" onclick="showInfo('roulette');closeDropdowns()">${icon('target')} Roulette</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showInfo('hands');closeDropdowns()">${icon('cards')} Poker Hands</div>

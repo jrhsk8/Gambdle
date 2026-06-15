@@ -50,14 +50,18 @@ function renderCards(cards, sz, animFrom=ANIM_NONE, interval=0, base=0, ex='') {
 function chipSel(maxC,curBet,denoms,extraBtn='',betAmtHTML){
   const ds=(denoms||[10,25,50,100,250,500,1000]);
   const btns=ds.map(d=>`<button class="chbtn ch-${d}" data-v="${d}" onclick="addChip(${d})" ${curBet+d>maxC?'disabled':''}><span>${d}</span></button>`).join('');
+  // Same markup as the play/result betInlay readout (label span + value span), with NO inline font
+  // styling, so the CSS .bet-amt span:first/last-child rules render the bet-phase box IDENTICALLY to the
+  // play screen. #bv stays on the value span for live patching (patchBetUI / roulette rAddBet).
   const amt=betAmtHTML!=null?betAmtHTML
-    :`<span style="font-size:.68rem;color:var(--shadow);text-transform:uppercase;letter-spacing:.15em">Bet</span>
-      <span id="bv" style="font-family:var(--btn-f);font-size:2.2rem;font-weight:700;color:var(--ink)">${fmt(curBet)}</span>`;
+    :`<span>Bet</span><span id="bv">${fmt(curBet)}</span>`;
+  // Clear sits to the LEFT of the bet box; All In stays on the right. extraBtn (roulette's Place Bet)
+  // rides between the box and All In.
   return`<div class="chip-row">${btns}</div>
   <div class="bet-row">
+    <button class="ch-clear" onclick="clearBet()">✕ Clear</button>
     <div class="bet-amt">${amt}</div>
     ${extraBtn}
-    <button class="ch-clear" onclick="clearBet()">✕ Clear</button>
     <button id="ai" class="ch-allin" onclick="allIn()" ${maxC===0?'disabled':''}>All In</button>
   </div>`;
 }
@@ -154,7 +158,7 @@ function patchBetUI() {
   });
   const db=document.getElementById('db');
   if(db){
-    const maxBets=getMod('r_max_bets')||5;
+    const maxBets=getMod('r_max_bets')||6;
     // Roulette uses the S.rBets array, not the scalar rBet; Spin button enables when any bet is placed.
     db.disabled=(k==='rBet'?S.rBets.length===0:(bet===0||!isBetValid));
     const pba=document.getElementById('pb-add');
@@ -162,11 +166,17 @@ function patchBetUI() {
   }
   const ai=document.getElementById('ai');
   if(ai)ai.disabled=max===0 || max < minChipsMod;
+  // Roulette: the selection box shows the picked tile's payout for the current stake — keep it in step as
+  // the player changes the chip amount or picks a tile (pickBet calls patchBetUI). Mirrors the UTH update.
+  if(k==='rBet'){
+    const sb=document.getElementById('r-sel-box');
+    if(sb) sb.innerHTML=rSelBox(S.rPick, bet);
+  }
   const us=document.getElementById('uth-summary');
   if(us) {
     // Match the render's split: ante rounds up, blind rounds down (see _uthAntePortion/_uthBlindPortion).
     const ante=Math.ceil(bet/2), blind=Math.floor(bet/2);
-    us.innerHTML = `Ante <b style="color:var(--gold)">${fmt(ante)}</b> + Blind <b style="color:var(--gold)">${fmt(blind)}</b> = <b style="color:var(--gold-hi)">${fmt(bet)}</b> chips total`;
+    us.innerHTML = `Ante <b style="color:var(--gold)">${fmt(ante)}</b> + Blind <b style="color:var(--gold)">${fmt(blind)}</b> = <b style="color:var(--ink)">${fmt(bet)}</b> chips total`;
     // Keep the blind pay table (and its header) in step with the staked blind.
     const pt=document.getElementById('uth-ptable');
     if(pt) pt.innerHTML = uthPayTableHTML(blind);
@@ -191,8 +201,20 @@ function clearBet(){if(!_inBetPhase())return;S[curBetRef()]=0;patchBetUI();}
 function allIn(){if(!_inBetPhase())return;S[curBetRef()]=maxBet();sndChip();patchBetUI();}
 
 // ─── SHARED SNIPPET HELPERS ───────────────────────────────────
-const runningTotalRow = () => `<div class="irow" style="margin-top:12px"><span class="ik">Running total</span><span class="iv">${fmt(S.chips)} chips</span></div>`;
 const nextBtn = (action, text) => `<button class="btn-gold" style="margin-top:12px" onclick="${action}">${text}</button>`;
+
+// ─── BET INLAY BOX + GAME CONTROLS ────────────────────────────
+// The bet inlay box is the .bet-amt readout reused OUTSIDE the bet phase — on the play, reveal, and
+// result screens — so the player's stake (and, after a hand, their new total) always shows in the same
+// box in the same place. It's height-locked to --btn-h by the unified-button rule, so it lines up with
+// the buttons placed beneath it. betInlay = the plain "LABEL value" readout (Blackjack stake, post-hand
+// total); betInlaySum = a single centered summary line (UTH's Ante · Blind · Raise breakdown), with an
+// optional id so it can be patched in place mid-hand.
+const betInlay = (label, value) => `<div class="bet-amt bet-inlay"><span>${label}</span><span>${value}</span></div>`;
+const betInlaySum = (html, id='') => `<div class="bet-amt bet-inlay bet-inlay-center"${id?` id="${id}"`:''}>${html}</div>`;
+// The bottom control cluster: the bet inlay box stacked above the main game button(s), width-capped and
+// centered to match the Deal / Final Spin button so the controls sit in the same spot on every screen.
+const gameControls = (inlayHTML, buttonsHTML) => `<div class="game-controls">${inlayHTML}${buttonsHTML}</div>`;
 const aiosRow = (allInOnClick, skipOnClick) => `<div style="display:flex;gap:10px;margin-top:8px">
     <button class="btn-gold" style="flex:2" onclick="${allInOnClick}">All In (${fmt(S.chips)}) →</button>
     <button class="ch-clear" style="flex:1;padding:17px" onclick="${skipOnClick}">Skip Hand</button>

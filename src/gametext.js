@@ -84,9 +84,9 @@ const TUTORIAL_OFF_NOTE =
 // their normal new-player tutorial tips above are unaffected. Honors the Help-menu "Tips" off switch.
 const WHATS_NEW = {
   enabled: true,
-  id: 'v1.30',
-  title: "Player Profiles!",
-  body: "Created player profiles! Check your lifetime stats, streaks, and achievements. (File -> Player Profile).",
+  id: 'v1.38',
+  title: "UI Update!",
+  body: "The UI across the whole game has been tweaked to be more consistent and make more sense Feedback is always appreciated!",
 };
 
 // ─── ABOUT GAMBDLE ─────────────────────────────────────────────────────────

@@ -676,3 +676,26 @@ describe('r_force_group — group boundary integrity', () => {
     }
   });
 });
+
+// rBetBlocked: a bet is blocked under a force-group mod when it can never win (no overlap) or always
+// wins (covers the whole group — the exact tile OR a superset). Indices: 40=1-12, 42=25-36, 45=Red, 48=19-36.
+describe('rBetBlocked — force-group bet blocking', () => {
+  const withGroup = (mod, fn) => { const p = S.forcedMod; S.forcedMod = mod; try { fn(); } finally { S.forcedMod = p; } };
+  it('non-group mod: nothing is blocked', () => {
+    withGroup('r_multi_bet', () => { assert(!rBetBlocked(30), '#30 open'); assert(!rBetBlocked(48), '19-36 open'); });
+  });
+  it('group 25-36: in-group number open, out-of-group number blocked', () => {
+    withGroup('r_group_25_36', () => {
+      assert(!rBetBlocked(30), '#30 (in group) should be open');
+      assert(rBetBlocked(5),   '#5 (out of group) should be blocked');
+    });
+  });
+  it('group 25-36: exact group + guaranteed superset blocked; partial / no-overlap handled', () => {
+    withGroup('r_group_25_36', () => {
+      assert(rBetBlocked(42),  '25-36 dozen (exact group) blocked');
+      assert(rBetBlocked(48),  '19-36 (covers all of 25-36 → guaranteed) blocked');
+      assert(rBetBlocked(40),  '1-12 dozen (no overlap) blocked');
+      assert(!rBetBlocked(45), 'Red (partial overlap, uncertain) open');
+    });
+  });
+});

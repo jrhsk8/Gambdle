@@ -374,10 +374,12 @@ describe('render — roulette bet phase', () => {
     });
   });
 
-  it('r_force_group modifier: renders board with group highlighting', () => {
+  it('r_force_group modifier: blocks out-of-group + guaranteed-win tiles, no win/lose highlighting', () => {
     withRender({ screen:'roulette', rPhase:'bet', chips:500, rBet:0, rBets:[], rPick:null, forcedMod:'r_group_1_12' }, html => {
-      assert(html.includes('rboard'),       'board present');
-      assert(html.includes('r-group-win') || html.includes('r-group-lose'), 'group classes applied');
+      assert(html.includes('rboard'),    'board present');
+      assert(html.includes('r-blocked'), 'out-of-group / guaranteed tiles are blocked');
+      assert(!html.includes('r-group-win') && !html.includes('r-group-lose') && !html.includes('r-group-partial'),
+        'win/lose/partial highlighting removed');
     });
   });
 
@@ -400,29 +402,27 @@ describe('render — roulette spinning / result phases', () => {
     });
   });
 
-  it('spinning: multiple bets show a compact pill list (count summary + each tile), no payout rows', () => {
+  it('spinning: shows the read-only Your Bets box (each tile listed, no remove buttons)', () => {
     withRender({
       screen:'roulette', rPhase:'spinning', chips:0, rSpin:17,
       rBets:[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}],
     }, html => {
-      assert(html.includes('5 Bets'),         'shows bet-count summary');
-      assert(html.includes('250 chips'),      'shows total wagered (5×50)');
-      assert(html.includes('r-spin-bets'),    'renders the pill list so you can see your bets');
-      // Each bet's tile name is listed (bold) so nothing is forgotten mid-spin.
+      assert(html.includes('Your Bets 5/'), 'shows the bets-tracker title with count');
+      // Each bet's tile name is listed so nothing is forgotten mid-spin.
       assert(html.includes('Red'),  'lists Red (pick 45)');
       assert(html.includes('#17'),  'lists #17 (pick 17)');
       assert(html.includes('1-12'), 'lists 1-12 (pick 40)');
-      // Still terse — no full per-bet payout rows (those overflowed the window before).
-      assert(!html.includes('Pays'), 'no per-bet payout rows during the spin');
+      // Read-only during the spin: no × remove buttons.
+      assert(!html.includes('rRemoveBet'), 'no remove buttons while the wheel is spinning');
     });
   });
 
-  it('spinning: a single bet still names the pick', () => {
+  it('spinning: a single bet is listed in the Your Bets box', () => {
     withRender({
       screen:'roulette', rPhase:'spinning', chips:450, rSpin:36, rBets:[{pick:46,bet:50}],
     }, html => {
-      assert(html.includes('Bet on'), 'single bet names the pick');
-      assert(html.includes('Black'),  'shows the pick label (idx 46 = Black)');
+      assert(html.includes('Your Bets 1/'), 'shows the bets-tracker title');
+      assert(html.includes('Black'),         'shows the pick label (idx 46 = Black)');
     });
   });
 

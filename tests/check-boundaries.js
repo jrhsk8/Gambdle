@@ -54,15 +54,15 @@ const MANIFEST = {
   ],
   'menus.js': ['applyPrefs', 'closeDropdowns', 'getPref', 'setPref', 'toggleMenu', 'togglePref'],
   'modifiers.js': ['CYCLE_ORDER', 'DAILY_MODIFIERS', 'DAILY_SEED_OVERRIDES', 'PRESET_MODIFIERS'],
-  'roulette.js': ['_resolveSpinNumber', '_rouletteAudio', 'rSpin', 'screenRoulette', 'startWheelAnim'],
+  'roulette.js': ['_resolveSpinNumber', '_rouletteAudio', 'rBetsZone', 'rSelBox', 'rSpin', 'screenRoulette', 'startWheelAnim'],
   'screens.js': [
     'fetchScoreDistribution', 'screenBorrow', 'screenChoice', 'screenIntro', 'screenResults',
     'submitAndFetchLeaderboard',
   ],
   'ui.js': [
-    '_refreshShareBox', 'aiosRow', 'allIn', 'cardHTML', 'chipSel', 'col', 'doShare', 'fmt', 'fmtK',
-    'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn', 'patchBetUI', 'renderCards',
-    'runningTotalRow', 'sign', 'toast',
+    '_refreshShareBox', 'aiosRow', 'allIn', 'betInlay', 'betInlaySum', 'cardHTML', 'chipSel', 'col',
+    'doShare', 'fmt', 'fmtK', 'gameControls', 'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn',
+    'patchBetUI', 'renderCards', 'sign', 'toast',
   ],
   'uth.js': [
     'UTH_CARD_INTERVAL_MS', 'resetUTHHand', 'screenPoker', 'screenUTH', 'uthPayTableHTML',

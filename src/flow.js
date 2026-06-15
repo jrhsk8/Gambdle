@@ -118,7 +118,9 @@ function _nextHand(resetFn) {
 }
 
 // Produces the standard result panel used by BJ, UTH-fold, etc.
-// detailHTML is injected between the delta line and the running total.
+// detailHTML is injected between the delta line and the bottom control cluster: the bet inlay box
+// now shows the player's new running total after the hand, with the advance button beneath it
+// (width-matched to the Deal / Final Spin button via .game-controls).
 function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnText, panelCls='') {
   return `<div class="panel ${panelCls}" style="text-align:center">
     ${dotsHTML}
@@ -126,8 +128,7 @@ function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnT
     <div class="result-hl" style="color:${col(delta)}">${headlineHTML}</div>
     <div class="result-sub" style="color:${col(delta)}">${sign(delta)} chips</div>
     ${detailHTML}
-    ${runningTotalRow()}
-    ${nextBtn(btnAction, btnText)}
+    ${gameControls(betInlay('Total', fmt(S.chips)), `<button class="btn-gold" onclick="${btnAction}">${btnText}</button>`)}
   </div>`;
 }
 
@@ -139,7 +140,9 @@ function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnT
 function resultAdvanceBtn(isLast, nextScreen, nextHandCall) {
   if (isChipBusted()) return { text: `Game Over ${icon('skull',{fill:true})}`, action: "advanceTo('results')" };
   if (!isLast)        return { text: 'Next Hand →',  action: nextHandCall };
-  const text = nextScreen === 'roulette' ? 'Final Round: Roulette →' : `Round 2: ${GAME_META[nextScreen].name} →`;
+  // Use the SHORT game name ("Hold'em", not "Ultimate Texas Hold'em") so the label fits the
+  // box-width advance button on one line at every breakpoint (the narrow 1024 panel especially).
+  const text = nextScreen === 'roulette' ? 'Final Round: Roulette →' : `Round 2: ${GAME_META[nextScreen].short} →`;
   return { text, action: `advanceTo('${nextScreen}')` };
 }
 

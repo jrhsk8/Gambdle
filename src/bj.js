@@ -354,7 +354,7 @@ function bjDealerHTML(){
   const dv=hVal(S.bjDealer);
   const valHTML = S.bjDealerReveal
     ? `<div class="hand-val ${dv>21?'bust':''}">${hValDisplay(S.bjDealer)}${dv>21?' BUST':''}</div>`
-    : `<div class="hand-val" style="visibility:hidden">&nbsp;</div>`;
+    : `<div class="hand-val hand-val-ghost" style="visibility:hidden">&nbsp;</div>`;
   return S.bjDealerReveal
     ?`<div class="sec">Dealer${dv>21?' · BUST':''}</div>
       <div class="hand">${renderCards(S.bjDealer,'lg',S.bjDealerAnimFrom,0.85,0.1)}</div>
@@ -373,8 +373,7 @@ function bjActionBtns(bust,done21,can2,canSplit){
   // _bjResolving (mid-animation / the dealer peek) disables every action — the matching click
   // handlers already bail on it, so this just keeps the buttons from looking live while locked.
   const locked=S.bjDealerReveal||_bjResolving;
-  return`<div class="divider"></div>
-  <div class="act-btns">
+  return`<div class="act-btns">
     <button class="act-btn" onclick="bjHit()" ${bust||done21||locked?'disabled':''}>Hit</button>
     <button class="act-btn" onclick="bjStand()" ${done21||locked?'disabled':''}>Stand</button>
     <button class="act-btn" onclick="bjDouble()" ${!can2||bust||done21||locked?'disabled':''}>Double</button>
@@ -468,7 +467,7 @@ function screenBJ(){
             </div>
           </div>
           ${chipSel(S.chips,S.bjBet)}
-          <button id="db" class="btn-gold" style="margin-top:6px" onclick="bjDeal()" ${S.bjBet===0?'disabled':''}>Deal →</button>`;})()}
+          <button id="db" class="btn-gold" style="margin-top:6px" onclick="bjDeal()" ${S.bjBet===0?'disabled':''}>Deal ${icon('shuffle',{cls:'btn-icon-gap'})}</button>`;})()}
     </div>`;
   }
   if(ph==='play'){
@@ -500,8 +499,9 @@ function screenBJ(){
             ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div class="bj-celebrate-txt">Blackjack!</div></div>`
             :`<div id="bj-active-val" class="hand-val ${bust?'bust':done21?'bj':''}">${bust?pvStr+' BUST':done21?'21!':pvStr}</div>`}
         </div>
+        <div class="divider"></div>
         <div style="margin-top:auto;">
-          ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canResplit)}
+          ${gameControls(betInlay('Total Bet', fmt(S.bjSplitBets.reduce((a,b)=>a+b,0))), (S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canResplit))}
         </div>
 </div>`;
     }
@@ -525,9 +525,9 @@ function screenBJ(){
         </div>`
       :`<div id="bj-player-val" class="hand-val ${bust?'bust':done21?'bj':''}">${bust?pvStr+' BUST':done21?'21!':pvStr}</div>`}
   </div>
-  <div style="margin-top:auto;">
-    ${(S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canSplit)}
-    <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${fmt(S.bjBet)} chips</span></div>
+  <div class="divider"></div>
+  <div>
+    ${gameControls(betInlay('Bet', fmt(S.bjBet)), (S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canSplit))}
   </div>
 </div>`;
   }
