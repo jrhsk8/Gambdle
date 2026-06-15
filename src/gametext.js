@@ -86,7 +86,7 @@ const WHATS_NEW = {
   enabled: true,
   id: 'v1.38',
   title: "UI Update!",
-  body: "The UI across the whole game has been tweaked to be more consistent and make more sense Feedback is always appreciated!",
+  body: "The UI across the whole game has been tweaked to be more consistent and make more sense. Feedback is always appreciated!",
 };
 
 // ─── ABOUT GAMBDLE ─────────────────────────────────────────────────────────
