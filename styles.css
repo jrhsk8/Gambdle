@@ -1003,6 +1003,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* Three-bet mod (r_max_bets:3): single centered column so 3 slots stack evenly instead of 2+1 lopsided. */
 .panel:has(#r-bets-zone) .r-three .rbz-grid { grid-template-columns: 1fr; justify-items: center; }
 .panel:has(#r-bets-zone) .r-three .rbz-item { justify-content: center; gap: 14px; }
+/* Few-bet days (1 or 3 slots) don't fill the reserved box, so vertically center the title+slots as a
+   group instead of bunching them against the top with dead felt below. (6-bet fills the box, so its
+   default flex-start is untouched.) */
+.panel:has(#r-bets-zone) .r-one #r-bets-zone,
+.panel:has(#r-bets-zone) .r-three #r-bets-zone { justify-content: center; }
 .btn-icon-gap { margin-left: 6px; }
 /* Roulette's selection + bets boxes keep the centered chip-cluster width. */
 .panel:has(#r-bets-zone) #r-sel-box,
@@ -1595,33 +1600,39 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#r-bets-zone) .r-one .rbz-lbl { font-size: 1.45rem; }
   .panel:has(#r-bets-zone) .r-one .rbz-win { font-size: 1.05rem; }
   .panel:has(#r-bets-zone) .r-one .rbz-open { font-size: 1.3rem; }
+  /* Mobile can't grow the window, so the box would flex-grow to the full 190px multi-bet reservation
+     even on a 1- or 3-bet day, leaving its handful of slots stranded at the top. Cap it just above the
+     filled-content height (kept above the content so it stays slack-bound and never resizes as bets are
+     placed), then center the sel-box + box group in the reclaimed felt. */
+  .panel:has(#r-bets-zone) .r-three #r-bets-zone { max-height: 132px; }
+  .panel:has(#r-bets-zone) .r-one #r-bets-zone { max-height: 84px; }
+  .panel:has(#r-bets-zone) .r-three,
+  .panel:has(#r-bets-zone) .r-one { justify-content: center; }
   .panel:has(#r-bets-zone) .rbz-lbl { font-size: 1rem; }
   .panel:has(#r-bets-zone) > .divider { margin: 1px 0; }
   .r-board-wrap { padding-bottom: 1px; }
   .r-board-wrap { margin: 0 -8px; padding: 0 8px 4px; scrollbar-width: none; -ms-overflow-style: none; }
   .r-board-wrap::-webkit-scrollbar { display: none; }
-  /* Chip selector */
-  .chip-row { flex-wrap: nowrap; gap: 6px; }
-  .chbtn { width: 40px; height: 40px; }
+  /* Chip selector. Bigger chips than before (40→44px): the inline bet-row below frees the row the bet
+     box used to occupy on its own, and 7×44 + 6×5px gaps = 338px still clears the 360px floor's ~344px
+     panel content width on a single nowrap row (guarded by the "chip selector stays on a single row"
+     tests). */
+  .chip-row { flex-wrap: nowrap; gap: 5px; }
+  .chbtn { width: 44px; height: 44px; }
   .ch-1000 > span { font-size: 0.95rem; }
-  /* Bet row — the box stays the fixed --bet-box-w (pixel-identical to the play/result inlay box), so
-     at phone width it can't be flanked by Clear + All In on one row; instead it sits on its own
-     centered row with Clear (left) + All In (right) wrapping to the row beneath it. */
-  /* Cap the whole bet-row to the bet-box width and center it, so the box (filling 100% of the row) is
-     exactly --bet-box-w — pixel-identical to the play/result box — and Clear (left) + All In (right)
-     wrap to the row beneath it instead of squeezing in beside it. Scope the fill to the bet-row only;
-     the play/result box lives in .game-controls (a column flex) and keeps the base width. */
-  .bet-row { gap: 8px; }
-  /* Stacked order on phones: box on its own row, then the buttons share the row beneath it — Clear,
-     (roulette) Place Bet, All In. Keeping Place Bet on the SAME row as Clear/All In (rather than its own
-     row) means roulette has the same control-row count as BJ/UTH, so the chip selector lands at the
-     identical vertical position on every bet screen. (Sizing comes from the base rules + --ctrl-w var.) */
-  .bet-row > .bet-amt { order: 0; }
-  .bet-row > .ch-clear { order: 1; }
-  /* Place Bet gets ~2x the grow of Clear/All In so its longer label fits and it reads as the primary
-     action (largest of the three), matching the desktop bet-row. */
-  .bet-row > #pb-add { order: 2; flex: 2 1 0; width: auto; min-width: 0; }
-  .bet-row > .ch-allin { order: 3; }
+  /* Bet row — inline on phones too: [✕ Clear][box][All In] on ONE row, matching desktop. The box
+     flex-shrinks to fill whatever the natural-width buttons leave (the same shrink roulette's box already
+     uses on desktop to pack its 4 items, styles.css:2145). nowrap keeps it on one line; the box gives up
+     width before anything wraps. This frees the row the box used to occupy on its own — spent on larger
+     chips above. The box is no longer pixel-width-identical to the play/result inlay box at phone width;
+     that width parity is now a desktop guarantee (it already was for roulette, at every size). */
+  .bet-row { gap: 6px; flex-wrap: nowrap; max-width: none; }
+  /* No `order` overrides: source order is Clear, box, (roulette) Place Bet, All In — so it reads
+     [✕ Clear][box][Place Bet][All In] left-to-right, exactly like the desktop bet-row. */
+  .bet-row > .bet-amt { flex: 1 1 auto; width: auto; min-width: 0; }
+  .bet-row > .ch-clear, .bet-row > .ch-allin { flex: 0 0 auto; }
+  /* Roulette's Place Bet: natural width (may shrink), so the box keeps the rest of the row. */
+  .bet-row > #pb-add { flex: 0 1 auto; width: auto; min-width: 0; }
   /* BJ bet table — compact slots on mobile */
   .bj-bet-table { gap: 4px; padding: 2px 0; }
   .card-slot { width: 44px; height: 62px; border-width: 1.5px; }

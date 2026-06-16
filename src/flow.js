@@ -158,7 +158,7 @@ function advanceTo(s){
   // detour fires when bust and borrow agree (isChipBusted()===S.borrowUsed): a clean finish (neither)
   // or a borrowed-and-still-busted finish. The old `!_canShowBorrow()` gate was too broad and
   // detoured those two excluded states into the ladder, skipping the results recalc.
-  if(s==='results'&&getMod('ladder_free')&&!S.ladResult&&S.rResult!==null&&(isChipBusted()===S.borrowUsed))s='ladder';
+  if(s==='results')s=next(s,{ladderFree:getMod('ladder_free'),ladPlayed:!!S.ladResult,rResolved:S.rResult!==null,busted:isChipBusted(),borrowUsed:S.borrowUsed});
   if(isChipBusted()&&_canShowBorrow()){
     if(s!=='results'){
       // Mid-game transition bust (e.g., would have gone to UTH/Roulette but broke).
@@ -188,12 +188,11 @@ function advanceTo(s){
   sndAdvance();goTo(s);
 }
 
-// Returns the screen to navigate to after a borrow, based on where the player is mid-run.
+// Returns the screen to navigate to after a borrow, based on where the player is mid-run:
+// stay on the current game if it has hands left, else its Run-order successor (via next()).
 function _borrowReturnScreen(){
-  if(S.screen==='bj')    return S.bjHand<3  ?'bj'    :NEXT_SCREEN['bj'];
-  if(S.screen==='uth')   return S.uthHand<3 ?'uth'   :NEXT_SCREEN['uth'];
-  if(S.screen==='poker') return S.pkHand<3  ?'poker' :NEXT_SCREEN['poker'];
-  return S.screen;
+  const hand={bj:S.bjHand,uth:S.uthHand,poker:S.pkHand}[S.screen];
+  return hand===undefined ? S.screen : next(S.screen,{handsLeft:hand<3});
 }
 function startGame(){
   sndChip('allin');

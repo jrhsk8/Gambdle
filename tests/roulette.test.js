@@ -823,3 +823,26 @@ describe('rAddBet — keeps the bet amount (capped to remaining chips)', () => {
     });
   });
 });
+
+// ─── resolveRoulette — pure settlement folds the win multiplier (Candidate 02) ───
+// The win-multiplier folds into one signed net delta: only a positive net is scaled, a losing spin
+// is never multiplied. Pure: (bets, spin, mods) → {betResults, delta, result}. mods omits the payout
+// modifiers here (undefined → falsy), so this isolates the win-mult fold.
+describe('resolveRoulette — folds win multiplier into one net delta (pure)', () => {
+  const _b = (pick, bet) => ({ pick, bet });
+  it('scales only a positive net by wm', () => {
+    const base = resolveRoulette([_b(17, 10)], 17, { wm: 1 });
+    const boosted = resolveRoulette([_b(17, 10)], 17, { wm: 2 });
+    assert(base.delta > 0, 'a straight-up hit nets positive');
+    assertEqual(boosted.delta, base.delta * 2, 'wm doubles the winning net');
+    assertEqual(boosted.result, 'win');
+  });
+  it('never multiplies a losing spin', () => {
+    const r = resolveRoulette([_b(17, 10)], 18, { wm: 5 });
+    assertEqual(r.delta, -10); assertEqual(r.result, 'lose');
+  });
+  it('a zero net is a push', () => {
+    const r = resolveRoulette([], 0, { wm: 3 });
+    assertEqual(r.delta, 0); assertEqual(r.result, 'push');
+  });
+});

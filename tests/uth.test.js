@@ -350,6 +350,7 @@ describe('uthFold — records loss and advances state', () => {
     }, () => {
       uthFold();
       const h = S.uthHistory[0];
+      assertEqual(h.slot, 'uth', 'canonical slot');
       assertEqual(h.result, 'fold');
       assertEqual(h.ante, 100, 'ante half of uthAnte');
       assertEqual(h.blind, 100, 'blind half of uthAnte');
@@ -413,6 +414,7 @@ describe('uthResolve — chip math', () => {
       // chips: 500 + 200 + 200 + 100 = 1000
       assertEqual(S.chips, 1000);
       const h = S.uthHistory[0];
+      assertEqual(h.slot, 'uth', 'canonical slot');
       assertEqual(h.result, 'win');
       assertEqual(h.dealerQualifies, true);
       assertEqual(h.playDelta, 100);
@@ -548,6 +550,48 @@ describe('uthResolve / uthFold — settle exactly once', () => {
       assertEqual(S.uthHistory.length, 1, 'no duplicate fold entry');
       assertEqual(S.uthHand, 1, 'hand counter not advanced twice');
     });
+  });
+});
+
+// ─── Pure UTH resolver (PRD integrity Phase 2 · Candidate 02) ─────────────────
+// The three-way ante/blind/play settlement tested through its interface — synthetic bestOf7 results
+// {cat, score} in, the per-leg deltas + result out. No S, no DOM, no credit.
+describe('resolveUTH — three-way settlement (pure)', () => {
+  const baseMods = { wm: 1, doublePlay: false, hardQualify: false, blindExtended: false, blindBoost: 1 };
+  it('a win pays play, ante (dealer qualifies), and the blind by category', () => {
+    const r = resolveUTH({ cat: 4, score: 6000 }, { cat: 4, score: 5000 }, 100, 100, 100, baseMods);
+    assertEqual(r.result, 'win');
+    assertEqual(r.dealerQualifies, true);
+    assertEqual(r.anteDelta, 100);
+    assertEqual(r.playDelta, 100);
+    assertEqual(r.blindDelta, uthBlindDelta(4, 100, { extended: false, boost: 1 }));
+    assertEqual(r.delta, r.anteDelta + r.blindDelta + r.playDelta);
+  });
+  it('a win where the dealer does not qualify pushes the ante', () => {
+    const r = resolveUTH({ cat: 4, score: 6000 }, { cat: 0, score: 200 }, 100, 100, 100, baseMods);
+    assertEqual(r.result, 'win');
+    assertEqual(r.dealerQualifies, false);
+    assertEqual(r.anteDelta, 0, 'ante pushes when the dealer does not qualify');
+  });
+  it('a tie pushes all three legs to zero', () => {
+    const r = resolveUTH({ cat: 4, score: 5000 }, { cat: 4, score: 5000 }, 100, 100, 100, baseMods);
+    assertEqual(r.result, 'push'); assertEqual(r.delta, 0);
+  });
+  it('a loss forfeits ante, blind, and play', () => {
+    const r = resolveUTH({ cat: 1, score: 1000 }, { cat: 4, score: 5000 }, 100, 100, 50, baseMods);
+    assertEqual(r.result, 'lose');
+    assertEqual(r.anteDelta, -100); assertEqual(r.blindDelta, -100); assertEqual(r.playDelta, -50);
+    assertEqual(r.delta, -250);
+  });
+  it('hard qualify needs at least two pair (cat>=2)', () => {
+    const r = resolveUTH({ cat: 4, score: 6000 }, { cat: 1, score: 900 }, 100, 100, 100, { ...baseMods, hardQualify: true });
+    assertEqual(r.dealerQualifies, false);
+  });
+  it('the win multiplier scales every winning leg', () => {
+    const r = resolveUTH({ cat: 4, score: 6000 }, { cat: 4, score: 5000 }, 100, 100, 100, { ...baseMods, wm: 2 });
+    assertEqual(r.anteDelta, 200);
+    assertEqual(r.playDelta, 200);
+    assertEqual(r.blindDelta, uthBlindDelta(4, 100, { extended: false, boost: 1 }) * 2);
   });
 });
 

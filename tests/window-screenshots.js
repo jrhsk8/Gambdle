@@ -12,12 +12,12 @@
 // doesn't matter and you never need to pass an empty placeholder (PowerShell drops
 // empty-string args, which made positional filters fragile).
 //
-// Writes screenshots/windows/<size>__<screen>.png  (the screenshots/ folder is git-ignored).
-// First time: npx playwright install chromium  (npm install already pulls Chromium in).
+// Writes screenshots/<GAME_VERSION>/windows/<size>__<screen>.png  (screenshots/ is git-ignored).
+// Renders are tagged by game version and version folders >3 versions old are auto-pruned; see
+// tests/screenshot-versioning.js. First time: npx playwright install chromium  (npm install pulls it in).
 const { chromium } = require('playwright');
-const fs = require('fs');
+const { versionedOutDir } = require('./screenshot-versioning');
 const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
-const OUT = __dirname + '/../screenshots/windows';
 
 // Window sizes to capture. Mobile uses the phone shell; everything ≥1024 uses the
 // desktop chrome; the last two exercise the large-display zoom steps.
@@ -55,8 +55,8 @@ const SCREENS = {
   'results':         () => { S.screen='results'; S.chips=1450; S.bjHand=3; S.uthHand=3; S.bjHistory=[{delta:200},{delta:-50},{delta:100}]; S.uthHistory=[{delta:150},{delta:-100},{delta:0}]; S.rResult={delta:150,bets:[{pick:17,won:true,delta:150,pay:35,bet:10}]}; },
   'ladder-bet-free': () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='bet'; S.ladBet=0; S.ladFree=false; S.ladIdx=0; S.ladRung=0; S.ladResult=null; S.chips=1000; },
   'ladder-climb':    () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='climb'; S.ladBet=250; S.ladFree=true; S.ladIdx=3; S.ladRung=3; S.ladResult=null; S.chips=1000; },
-  'ladder-crash':    () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='done'; S.ladBet=250; S.ladFree=true; S.ladIdx=4; S.ladRung=3; S.ladResult={delta:0,rung:3,outcome:'crash',free:true}; S.chips=1000; },
-  'ladder-cash':     () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='done'; S.ladBet=250; S.ladFree=true; S.ladIdx=4; S.ladRung=4; S.ladResult={delta:1250,rung:4,outcome:'cash',free:true}; S.chips=2250; },
+  'ladder-crash':    () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='done'; S.ladBet=250; S.ladFree=true; S.ladIdx=4; S.ladRung=3; S.ladResult={delta:0,rung:3,result:'crash',free:true}; S.chips=1000; },
+  'ladder-cash':     () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='done'; S.ladBet=250; S.ladFree=true; S.ladIdx=4; S.ladRung=4; S.ladResult={delta:1250,rung:4,result:'cash',free:true}; S.chips=2250; },
 };
 
 (async () => {
@@ -75,10 +75,10 @@ const SCREENS = {
   const screens = Object.entries(SCREENS).filter(([name]) =>
     !screenArgs.length || screenArgs.some(a => name.includes(a)));
 
-  // Wipe the output dir each run so it only ever holds the current set (stale/renamed
-  // shots otherwise pile up). Only the windows/ subfolder — leave the WebKit shots alone.
-  fs.rmSync(OUT, { recursive: true, force: true });
-  fs.mkdirSync(OUT, { recursive: true });
+  // Resolve screenshots/<version>/windows, fresh each run so it only holds the current set
+  // (stale/renamed shots otherwise pile up), and prune version folders >3 versions old. Only this
+  // version's windows/ subfolder is wiped — the WebKit shots and other versions are left alone.
+  const OUT = versionedOutDir('windows');
   const browser = await chromium.launch();
   const json = body => r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   let count = 0;
@@ -112,5 +112,5 @@ const SCREENS = {
   }
 
   await browser.close();
-  console.log(`wrote ${count} screenshots to screenshots/windows/`);
+  console.log(`wrote ${count} screenshots to ${OUT}`);
 })().catch(e => { console.error(e); process.exit(1); });

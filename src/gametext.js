@@ -206,12 +206,12 @@ const STATUS_HINT = {
 function _ladShareLine(){
   const lad = S.ladResult;
   if (!lad) return [];
-  if (lad.outcome === 'crash') {
+  if (lad.result === 'crash') {
     return lad.free
       ? [`🪜 The Ladder · Crashed (Rung ${lad.rung + 1})`]
       : [`🪜 The Ladder ${sign(lad.delta)} · Crashed (Rung ${lad.rung + 1})`];
   }
-  return [`🪜 The Ladder ${sign(lad.delta)} (Rung ${lad.rung}${lad.outcome === 'top' ? ' · Top!' : ''})`];
+  return [`🪜 The Ladder ${sign(lad.delta)} (Rung ${lad.rung}${lad.result === 'top' ? ' · Top!' : ''})`];
 }
 
 function buildShareText(){

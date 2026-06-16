@@ -148,6 +148,7 @@ describe('bjResolve — history record', () => {
   it('history entry has bet, result, delta, player, dealer arrays', () => {
     withBJ({ player: [['K','s'],['9','h']], dealer: [['7','d'],['J','c']], bet: 150, chips: 850 }, () => {
       const h = S.bjHistory[0];
+      assertEqual(h.slot, 'bj', 'canonical slot');
       assertEqual(h.bet, 150);
       assertEqual(typeof h.result, 'string');
       assertEqual(typeof h.delta, 'number');
@@ -356,6 +357,7 @@ describe('bjResolve — split: history records aggregated delta', () => {
       chips:  800,
     }, () => {
       assertEqual(S.bjHistory.length, 1);
+      assertEqual(S.bjHistory[0].slot, 'bj', 'canonical slot');
       assertEqual(S.bjHistory[0].bet, 200, 'history bet should be sum of split bets');
       assertEqual(S.bjHistory[0].result, 'split');
       assertEqual(S.bjHistory[0].delta, 200);
@@ -512,6 +514,47 @@ describe('bjDeal peek — supporting guards', () => {
       bjResult:{result:'lose',delta:-100}, bjHand:1, bjHistory:[{bet:100,result:'lose',delta:-100,player:[],dealer:[]}] });
     try { assert(screenBJ().includes('Dealer Blackjack'), 'headline names the dealer blackjack'); }
     finally { _bjRestoreS(); }
+  });
+});
+
+// ─── Pure BJ resolvers (PRD integrity Phase 2 · Candidate 02) ─────────────────
+// The payout × modifier ladder tested through its interface — no S, no DOM. `delta` is signed net
+// profit (stake debited at deal), so a win returns bet+delta to the player back in bjResolve.
+describe('resolveBJHand — the payout ladder (pure)', () => {
+  const base = { wm: 1, bjMult: 1.5, ddm: 1 };
+  it('natural blackjack pays floor(bet*bjMult*wm)', () => {
+    assertDeepEqual(resolveBJHand({ pv: 21, pBJ: true, dv: 20, dBJ: false, bet: 100, ...base }), { result: 'blackjack', delta: 150 });
+  });
+  it('blackjack pay floors an odd half-chip', () => {
+    assertDeepEqual(resolveBJHand({ pv: 21, pBJ: true, dv: 18, dBJ: false, bet: 25, ...base }), { result: 'blackjack', delta: 37 });
+  });
+  it('player and dealer blackjack push to zero', () => {
+    assertDeepEqual(resolveBJHand({ pv: 21, pBJ: true, dv: 21, dBJ: true, bet: 100, ...base }), { result: 'push', delta: 0 });
+  });
+  it('player bust loses the bet regardless of dealer', () => {
+    assertDeepEqual(resolveBJHand({ pv: 23, pBJ: false, dv: 18, dBJ: false, bet: 100, ...base }), { result: 'bust', delta: -100 });
+  });
+  it('beating the dealer wins bet*wm*ddm', () => {
+    assertDeepEqual(resolveBJHand({ pv: 20, pBJ: false, dv: 18, dBJ: false, bet: 100, wm: 2, bjMult: 1.5, ddm: 2 }), { result: 'win', delta: 400 });
+  });
+  it('equal totals push; a lower total loses', () => {
+    assertDeepEqual(resolveBJHand({ pv: 19, pBJ: false, dv: 19, dBJ: false, bet: 100, ...base }), { result: 'push', delta: 0 });
+    assertDeepEqual(resolveBJHand({ pv: 17, pBJ: false, dv: 19, dBJ: false, bet: 100, ...base }), { result: 'lose', delta: -100 });
+  });
+  it('a dealer bust wins even on a low player total', () => {
+    assertDeepEqual(resolveBJHand({ pv: 12, pBJ: false, dv: 24, dBJ: false, bet: 100, ...base }), { result: 'win', delta: 100 });
+  });
+});
+describe('resolveBJSplitHand — no blackjack branch, wild-split mult (pure)', () => {
+  it('a split 21 is an ordinary win, not a blackjack', () => {
+    assertDeepEqual(resolveBJSplitHand({ pv: 21, dv: 19, bet: 100, wm: 1, ddm: 1, spm: 1 }), { result: 'win', delta: 100 });
+  });
+  it('wild split doubles the winning profit', () => {
+    assertDeepEqual(resolveBJSplitHand({ pv: 20, dv: 18, bet: 100, wm: 1, ddm: 1, spm: 2 }), { result: 'win', delta: 200 });
+  });
+  it('bust loses the sub-hand bet; equal totals push', () => {
+    assertDeepEqual(resolveBJSplitHand({ pv: 25, dv: 18, bet: 100, wm: 1, ddm: 1, spm: 2 }), { result: 'bust', delta: -100 });
+    assertDeepEqual(resolveBJSplitHand({ pv: 18, dv: 18, bet: 100, wm: 1, ddm: 1, spm: 1 }), { result: 'push', delta: 0 });
   });
 });
 

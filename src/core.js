@@ -17,7 +17,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.37';
+const GAME_VERSION = 'v1.45';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -200,14 +200,87 @@ const GAME2_OPTIONS = GAME1_OPTIONS;
 // Navigation sequence: after each game advance to the next, roulette is always last.
 const NEXT_SCREEN = { [GAME1]: GAME2, [GAME2]: 'roulette' };
 
+// Pure Run-order resolver — the one place that answers "what screen comes next?". `cur` is the
+// screen being left (a game slot, or a results-bound destination); `f` carries the run facts the
+// choice needs, all passed in (no S/DOM read), so it's unit-testable without a DOM:
+//   handsLeft  — the current game still has hands to play → stay on this slot
+//   ladderFree — active ladder_free bonus stake (truthy on a bonus day)
+//   ladPlayed  — the free bonus round has already run
+//   rResolved  — roulette has resolved
+//   busted, borrowUsed — gate the detour; it fires only when the two agree
+// Order: a game slot → its NEXT_SCREEN successor (roulette is last); anything with no successor →
+// results; and a results-bound finish on a bonus day detours once into the free Ladder round.
+function next(cur, f = {}){
+  if(f.handsLeft) return cur;
+  let s = NEXT_SCREEN[cur] || 'results';
+  if(s==='results' && f.ladderFree && !f.ladPlayed && f.rResolved && f.busted===f.borrowUsed) s='ladder';
+  return s;
+}
+
+// ─── CANONICAL SETTLED-ROUND RECORD ─────────────────────────────────────────
+// Every game records the outcome of a settled round in ONE shape via mkRound, so the score basis
+// (recalcChips) and integrity Phase-2 server replay read a single record format instead of three
+// (the per-game history arrays, the rResult singleton, the ladResult singleton). The envelope is
+// {slot, delta, result}: `delta` is the signed net chips — the only field score derivation reads —
+// and `detail` carries each game's display payload (cards, bets, rung, …). Only the *record* is
+// unified; each game keeps its own phase guard and credit math (the stake is debited at deal and the
+// guards key off per-game phase, so settlement is genuinely game-specific). slot ∈ a game slot
+// ('bj'/'uth'/'pk') or 'r' (roulette) / 'lad' (the ladder).
+// Allowed detail keys per slot — the typo guard. A key not listed is almost certainly a mistyped
+// field (e.g. `antDelta` for `anteDelta`) that would silently corrupt the record and only surface as
+// a Phase-2 replay mismatch. ('pk' = 5 Card Poker — still recorded, though not yet on the board.)
+const ROUND_DETAIL_KEYS = {
+  bj:  ['bet', 'player', 'dealer'],
+  uth: ['ante', 'blind', 'play', 'playMult', 'anteDelta', 'blindDelta', 'playDelta', 'playerBest', 'dealerBest', 'dealerQualifies'],
+  pk:  ['bet', 'pts'],
+  r:   ['bets', 'skipped'],
+  lad: ['rung', 'free'],
+};
+// Validate the record shape only in dev (?dev=true) and under the test harness. A never-anticipated
+// production shape must never crash a live Run mid-game, but a typo should blow up loudly the moment
+// it is written — caught here, not days later as a server-replay mismatch. See PRD integrity Phase 2.
+const _strictRounds = () => !!DEV_OVERRIDE || !!(typeof window !== 'undefined' && window.__GAMBDLE_TEST__);
+function _validateRound(slot, detail){
+  const allowed = ROUND_DETAIL_KEYS[slot];
+  if(!allowed) throw new Error(`mkRound: unknown slot '${slot}'`);
+  for(const k of Object.keys(detail)) if(!allowed.includes(k))
+    throw new Error(`mkRound: '${slot}' detail has unexpected key '${k}'. Typo? Expected one of: ${allowed.join(', ')}`);
+}
+function mkRound(slot, delta, result, detail = {}){
+  if(_strictRounds()) _validateRound(slot, detail);
+  return { slot, delta, result, ...detail };
+}
+
 // Game-agnostic history and net helpers — used by results screen and share text.
 function gameHistory(g){ return g==='bj'?S.bjHistory:g==='uth'?S.uthHistory:S.pkHistory; }
 // Non-finite deltas (undefined, NaN) are skipped rather than poisoning the whole sum.
 function gameNet(g){ return gameHistory(g).reduce((a,h)=>a+(Number.isFinite(h.delta)?h.delta:0),0); }
+// Every settled round of this run, in canonical form: the two played game slots' histories plus the
+// roulette and ladder records (singletons — each runs once). The single list recalcChips and a
+// future server replay iterate, with no per-game special-casing.
+function settledRounds(){ return [...gameHistory(GAME1), ...gameHistory(GAME2), ...(S.rResult ? [S.rResult] : []), ...(S.ladResult ? [S.ladResult] : [])]; }
 // Recomputes the run's chip total from recorded history, so a stale or edited save can't inflate a
 // score. Borrowed chips count as part of the effective starting stack. Returns NaN if history is
 // corrupt; callers fall back to the saved value. Single source of truth for loadState + advanceTo.
-function recalcChips(){ return START_CHIPS + (S.borrowUsed ? (S.borrowAmount || BORROW_AMOUNT) : 0) + gameNet(GAME1) + gameNet(GAME2) + (S.rResult?.delta || 0) + (S.ladResult?.delta || 0); }
+// Credit only the borrow ACTUALLY taken: borrowChips() sets S.borrowAmount (≥ BORROW_AMOUNT);
+// declineBorrow() also sets borrowUsed (to gate the re-prompt + the ladder detour) but takes no
+// loan, leaving borrowAmount 0. So a declined "Accept defeat" must add 0, not fall back to
+// BORROW_AMOUNT — otherwise giving up hands out a free 50 the Transcript never records, and the
+// server replay (which only sees logged borrows) would disagree with the client.
+function recalcChips(){ return START_CHIPS + (S.borrowUsed ? S.borrowAmount : 0) + settledRounds().reduce((a,r)=>a+(Number.isFinite(r.delta)?r.delta:0),0); }
+// Backward-compat: upgrade pre-v1.42 settled records to the canonical {slot,result,…} shape on load.
+// Score is unaffected (delta was always present and is what recalcChips reads); this keeps the
+// result-screen readers — which now use the unified `result` field (ladder's old `outcome`) — working
+// for a Run saved mid-result before this version shipped. Idempotent.
+function _normalizeRounds(){
+  [['bj', S.bjHistory], ['uth', S.uthHistory], ['pk', S.pkHistory]].forEach(([g, arr]) => {
+    if (Array.isArray(arr)) arr.forEach(r => { if (r && r.slot == null) r.slot = g; });
+  });
+  const r = S.rResult;
+  if (r && r.slot == null) { r.slot = 'r'; if (r.result == null) r.result = r.skipped ? 'skipped' : r.delta > 0 ? 'win' : r.delta < 0 ? 'lose' : 'push'; }
+  const l = S.ladResult;
+  if (l && l.slot == null) { l.slot = 'lad'; if (l.result == null) l.result = l.outcome; }
+}
 const STORAGE_KEY = 'gambdle_state_';
 const ANIM_NONE = 99; // sentinel: suppress card animation on this hand
 
@@ -353,18 +426,36 @@ function _extendBjShoe(seed){
   return shuffle(buildDeck(),rng2).concat(shuffle(buildDeck(),rng2));
 }
 
-// Pre-generates all cards and spin data for the daily run.
-function genDeal(){
-  const seed=getRngSeed();
+// Pristine daily deal for an explicit RNG seed — the canonical card layout BEFORE any
+// test/seed overrides. genDeal() layers overrides on the base 104 then re-assembles; the
+// Phase-2 replay engine rebuilds from this same construction so client and server agree
+// byte-for-byte (see .claude/LEADERBOARD-INTEGRITY.md). PURE: (seed) → fresh arrays, no S/DOM.
+// RNG draw ORDER is load-bearing — bjShoe shuffle, then the 3 poker decks, then the uthDeck,
+// then the ladder cards. _extendBjShoe seeds its own independent rng, so the no-run-dry tail is
+// appended without shifting the shared sequence (do not reorder these lines).
+function buildDeal(seed){
   const rng=mkRng(seed);
   const shoe=[];for(let i=0;i<2;i++)shoe.push(...buildDeck());
-  let bjShoe=shuffle(shoe,rng);
+  const bjShoe=shuffle(shoe,rng).concat(_extendBjShoe(seed)); // base 104 + no-run-dry tail
   // One fresh 52-card deck per poker hand; each shuffle advances the shared RNG sequence.
   const pokerDecks=Array.from({length:3},()=>shuffle(buildDeck(),rng));
-  let uthDeck=shuffle(buildDeck(),rng);
+  const uthDeck=shuffle(buildDeck(),rng);
   // The Ladder: one shared 8-card hi-lo sequence (1 first card + up to 7 calls).
   // MUST stay the last consumer of the shared rng — appending here shifts nothing above.
   const ladderCards=shuffle(buildDeck(),rng).slice(0,8);
+  return{bjShoe,pokerDecks,uthDeck,ladderCards,rSpinOverride:null};
+}
+
+// Pre-generates all cards and spin data for the daily run — buildDeal() plus the test/seed
+// overrides. Overrides only ever touch the base 104 (the no-run-dry tail is split off and
+// re-appended), so they keep the appended decks pristine and the layout deterministic per day.
+function genDeal(){
+  const seed=getRngSeed();
+  const deal=buildDeal(seed);
+  let bjShoe=deal.bjShoe.slice(0,104);          // base 104, overrides apply here only
+  const tail=deal.bjShoe.slice(104);            // no-run-dry tail, re-appended after overrides
+  let uthDeck=deal.uthDeck;
+  const pokerDecks=deal.pokerDecks, ladderCards=deal.ladderCards;
   let rSpinOverride=null;
 
   if(_testActive()){
@@ -395,9 +486,9 @@ function genDeal(){
     if(CARD_SEED_OVERRIDE.rSpin != null) rSpinOverride=CARD_SEED_OVERRIDE.rSpin;
   }
 
-  // Append the no-run-dry tail AFTER any test/seed overrides, so overrides only ever touch
+  // Re-append the no-run-dry tail AFTER any test/seed overrides, so overrides only ever touch
   // the base 104 and the appended decks stay pristine.
-  bjShoe=bjShoe.concat(_extendBjShoe(seed));
+  bjShoe=bjShoe.concat(tail);
   return{bjShoe,pokerDecks,uthDeck,ladderCards,rSpinOverride};
 }
 // DEAL is generated once at page load — the same cards for everyone on the same calendar day.
@@ -563,6 +654,8 @@ function loadState() {
   if (parsed) {
     if (Array.isArray(parsed.pkHeld)) parsed.pkHeld = new Set(parsed.pkHeld);
     S = { ...S, ...parsed, day: getActiveDayNum() };
+    _normalizeRounds(); // upgrade any pre-v1.42 settled records to the canonical shape before anything reads them
+
     // Migrate: old saves used 'poker' as a generic game-2 screen key; now it means 5-card poker specifically.
     if (S.screen === 'poker' && GAME2 !== 'poker') S.screen = GAME2;
     // Guard: if no game has been started at all, chips must equal START_CHIPS regardless of saved value.

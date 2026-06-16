@@ -296,6 +296,30 @@ function bjRevealDealer(){
   setTimeout(step,BJ_HIT_MS);
 }
 
+// ─── BLACKJACK RESOLVERS (pure) ───────────────────────────────────────────────
+// The payout × modifier decision for one settled hand, lifted out of bjResolve so the win/loss math
+// is testable in isolation and (Phase 2) replayable by the engine. PURE: hand values + bet + resolved
+// multipliers in, {result, delta} out — no S, no DOM, no credit. The caller draws the dealer, applies
+// chips (derivable from result), and records. `delta` is signed net profit; the stake was debited at
+// deal, so the caller credits bet+delta on a win, bet on a push, nothing on a loss/bust.
+//   wm = winMult()  ·  bjMult = bj_payout (blackjack pay, default 1.5)  ·  ddm = doubled-profit mult
+function resolveBJHand({pv, pBJ, dv, dBJ, bet, wm, bjMult, ddm}){
+  if(pBJ&&dBJ)     return {result:'push',      delta:0};
+  if(pBJ)          return {result:'blackjack', delta:Math.floor(bet*bjMult*wm)};
+  if(pv>21)        return {result:'bust',      delta:-bet};
+  if(dv>21||pv>dv) return {result:'win',       delta:bet*wm*ddm};
+  if(pv===dv)      return {result:'push',      delta:0};
+  return {result:'lose', delta:-bet};
+}
+// A split sub-hand can't be a natural blackjack (21 after a split is an ordinary 21), so there is no
+// blackjack branch; `spm` is the wild-split winning multiplier.
+function resolveBJSplitHand({pv, dv, bet, wm, ddm, spm}){
+  if(pv>21)        return {result:'bust', delta:-bet};
+  if(dv>21||pv>dv) return {result:'win',  delta:bet*wm*ddm*spm};
+  if(pv===dv)      return {result:'push', delta:0};
+  return {result:'lose', delta:-bet};
+}
+
 /** Settles all bets and records history. dealerDrawn=true means the dealer already animated; false means we skip straight to resolve (e.g. player blackjack). */
 function bjResolve(dealerDrawn=false){
   // Idempotency guard (see _resolveRoulette): settle a hand exactly once. bjResolve is fired
@@ -311,31 +335,25 @@ function bjResolve(dealerDrawn=false){
     let totalDelta=0;
     const spm=getMod('bj_wild_split')?2:1; // wild split: winning hands pay 2× profit
     const handResults=S.bjSplitHands.map((hand,i)=>{
-      const bet=S.bjSplitBets[i],pv=hVal(hand);
+      const bet=S.bjSplitBets[i];
       const ddm=getMod('bj_double_bonus')&&S.bjSplitDoubled[i]?2:1; // double-down profit multiplier
-      let result,delta;
-      if(pv>21){result='bust';delta=-bet;}
-      else if(dv>21||pv>dv){result='win';delta=bet*wm*ddm*spm;credit(bet+delta,'bj-split-win');}
-      else if(pv===dv){result='push';delta=0;credit(bet,'bj-split-push');}
-      else{result='lose';delta=-bet;}
+      const {result,delta}=resolveBJSplitHand({pv:hVal(hand),dv,bet,wm,ddm,spm});
+      if(result==='win')credit(bet+delta,'bj-split-win');
+      else if(result==='push')credit(bet,'bj-split-push');
       totalDelta+=delta;return{result,delta,bet};
     });
     S.bjSplitResults=handResults;
     S.bjResult={result:'split',delta:totalDelta};
-    S.bjHistory.push({bet:S.bjSplitBets.reduce((a,b)=>a+b,0),result:'split',delta:totalDelta,player:S.bjSplitHands.map(h=>[...h]),dealer:[...S.bjDealer]});
+    S.bjHistory.push(mkRound('bj',totalDelta,'split',{bet:S.bjSplitBets.reduce((a,b)=>a+b,0),player:S.bjSplitHands.map(h=>[...h]),dealer:[...S.bjDealer]}));
   }else{
-    const pv=hVal(S.bjPlayer),pBJ=isBJ(S.bjPlayer);
     const bjMult = getMod('bj_payout') || 1.5;
     const ddm=getMod('bj_double_bonus')&&S.bjDoubled?2:1; // double-down profit multiplier
-    let result,delta;
-    if(pBJ&&dBJ){result='push';delta=0;credit(S.bjBet,'bj-push');}
-    else if(pBJ){result='blackjack';delta=Math.floor(S.bjBet*bjMult*wm);credit(S.bjBet+delta,'bj-blackjack');}
-    else if(pv>21){result='bust';delta=-S.bjBet;}
-    else if(dv>21||pv>dv){result='win';delta=S.bjBet*wm*ddm;credit(S.bjBet+delta,'bj-win');}
-    else if(pv===dv){result='push';delta=0;credit(S.bjBet,'bj-push');}
-    else{result='lose';delta=-S.bjBet;}
+    const {result,delta}=resolveBJHand({pv:hVal(S.bjPlayer),pBJ:isBJ(S.bjPlayer),dv,dBJ,bet:S.bjBet,wm,bjMult,ddm});
+    if(result==='blackjack')credit(S.bjBet+delta,'bj-blackjack');
+    else if(result==='win')credit(S.bjBet+delta,'bj-win');
+    else if(result==='push')credit(S.bjBet,'bj-push');
     S.bjResult={result,delta};
-    S.bjHistory.push({bet:S.bjBet,result,delta,player:[...S.bjPlayer],dealer:[...S.bjDealer]});
+    S.bjHistory.push(mkRound('bj',delta,result,{bet:S.bjBet,player:[...S.bjPlayer],dealer:[...S.bjDealer]}));
   }
   S.bjHand++;S.bjPhase='result';render();
   updateChipDisplay();

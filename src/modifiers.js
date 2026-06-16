@@ -169,6 +169,7 @@ const DAILY_MODIFIERS = {
   20260612: 'uth_three_hole',      // Day 39 — launch of Triple Threat (3 hole cards)
   20260613: 'r_color_lock',        // Day 40 — launch of Loaded Colors (chosen color wins 66%)
   20260614: 'ladder_day',          // Day 41 — launch of The Ladder (free 250 hi-lo climb after roulette)
+  20260616: 'r_double_ball',       // Day 43
 };
 
 /**

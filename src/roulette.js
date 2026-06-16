@@ -449,7 +449,7 @@ function screenRouletteResult(){
 /** Skip the roulette spin (all_in_or_skip modifier). Records delta 0 and goes to result. */
 function rSkip(){
   txLog({g:'r',a:'skip'});
-  S.rResult={delta:0,skipped:true};S.rPhase='result';render();
+  S.rResult=mkRound('r',0,'skipped',{skipped:true});S.rPhase='result';render();
 }
 
 function pickBet(i){
@@ -560,24 +560,25 @@ function rAllIn(){
   debit(S.chips,'roulette-allin');
   rSpin();
 }
-// The active "hot number" pocket boost as {num, boost}, or null. Drives both Hot Zero (pocket 0)
-// and Sweet Sixteen (pocket 16) — same shape, one path. `boost` is the likelihood multiplier vs a
-// fair wheel: 10 means the pocket lands 10× as often as its normal 1/37 (see _pickSpin).
-function rHotNumber(){
-  const n=getMod('r_hot_number');
-  if(n!=null) return {num:n, boost:getMod('r_hot_boost')||0};
-  return null;
+// The active "hot number" pocket boost as {num, boost}, or null, from an explicit modifier
+// accessor. Drives both Hot Zero (pocket 0) and Sweet Sixteen (pocket 16) — same shape, one path.
+// `boost` is the likelihood multiplier vs a fair wheel: 10 means the pocket lands 10× as often as
+// its normal 1/37 (see _pickSpin). `mod` is a key→value reader (getMod in-page; a preset reader
+// server-side), so the replay engine builds the same bundle without globals.
+function _hotFor(mod){
+  const n=mod('r_hot_number');
+  return n!=null ? {num:n, boost:mod('r_hot_boost')||0} : null;
 }
-
-// The dynamic color boost (Loaded Colors) for the player's single Red/Black bet, or null. Reads the
-// locked bet — the mod caps the board at one bet, so the boosted color is simply whichever the player
-// picked. Returns the chosen color's 18 pockets plus the other 19 (the other color + green 0). A
-// non-color single bet (or no bet) returns null, so the wheel spins fair. `pct` is the win likelihood
-// of the chosen color, e.g. 66 ⇒ it lands 66% of the time instead of the usual 18/37 (≈48.6%).
-function rColorBoost(){
-  const pct=getMod('r_color_boost');
+// The dynamic color boost (Loaded Colors) for the player's single Red/Black bet, or null, from an
+// explicit (mod, bets). The mod caps the board at one bet, so the boosted color is whichever the
+// player picked. Returns the chosen color's 18 pockets plus the other 19 (the other color + green 0).
+// A non-color single bet (or no bet) returns null, so the wheel spins fair. `pct` is the win
+// likelihood of the chosen color, e.g. 66 ⇒ it lands 66% of the time instead of the usual ≈48.6%.
+// `bets` are {pick,bet} objects (the locked set); the engine converts its [[pick,amt]] pairs first.
+function _colorBoostFor(mod, bets){
+  const pct=mod('r_color_boost');
   if(pct==null) return null;
-  const b=S.rBets[0];
+  const b=bets[0];
   if(!b||R_BETS[b.pick]?.type!=='col2') return null;
   const nums=getRBetNums(b.pick);            // 18 pockets of the chosen color (red=45, black=46)
   const chosen=new Set(nums);
@@ -585,18 +586,42 @@ function rColorBoost(){
   for(let p=0;p<=36;p++) if(!chosen.has(p)) others.push(p); // 19 pockets: other color + green 0
   return {nums, others, pct};
 }
+// In-page adapters: read today's globals through getMod / the locked S.rBets.
+function rHotNumber(){ return _hotFor(getMod); }
+function rColorBoost(){ return _colorBoostFor(getMod, S.rBets); }
 
-// Maps random words (4 uint32s) to the winning pocket(s), honoring the day's modifier
-// distribution. Pure and deterministic: the same words always give the same numbers, so the
-// server can recompute the outcome from its stored `spins` row at replay time without knowing
-// the modifier config. (The 2^32 % 37 modulo bias is ~1e-8 relative — irrelevant for gameplay.)
-function spinFromRandom(words){
-  if(DEAL.rSpinOverride!=null)return{n:DEAL.rSpinOverride,n2:null};
+// Pure spin-distribution bundle from an explicit (mod, bets, override) — the replay-friendly core
+// of spinMods(). Same shape spinFromRandom needs, built without globals so the Phase-2 engine can
+// replay a stored Spin from the day's modifier config + the transcript's locked bets.
+function spinModsFor(mod, bets, override){
+  return {
+    override:   override!=null ? override : null,
+    forceGroup: mod('r_force_group'),
+    hot:        _hotFor(mod),
+    colorBoost: _colorBoostFor(mod, bets),
+    doubleBall: !!mod('r_double_ball'),
+  };
+}
+
+// Snapshots the day's spin-distribution Modifiers into the plain bundle spinFromRandom needs. The
+// global reads (getMod / DEAL / the locked bet) live HERE, not in spinFromRandom, so the server can
+// replay a stored Spin by rebuilding the same bundle from the day's config. See LEADERBOARD-INTEGRITY.md.
+function spinMods(){
+  return spinModsFor(getMod, S.rBets, DEAL.rSpinOverride);
+}
+
+// Maps random words (4 uint32s) to the winning pocket(s), honoring the day's modifier distribution.
+// PURE: a function of (words, mods) only — the same inputs always give the same numbers, so the
+// server recomputes the outcome from its stored `spins` row plus the day's rebuilt `mods` bundle.
+// `mods` defaults to a snapshot of today's globals (spinMods) so in-page callers and tests may omit
+// it; the server passes its own. (The 2^32 % 37 modulo bias is ~1e-8 relative — irrelevant.)
+function spinFromRandom(words, mods = spinMods()){
+  if(mods.override!=null)return{n:mods.override,n2:null};
   const w=i=>words[i]>>>0;
   let n;
-  const fg=getMod('r_force_group');
-  const hot=rHotNumber();
-  const cb=rColorBoost();
+  const fg=mods.forceGroup;
+  const hot=mods.hot;
+  const cb=mods.colorBoost;
   if(fg&&R_GROUP_INFO[fg]){const ns=[...R_GROUP_INFO[fg].nums];n=ns[w(0)%ns.length];}
   // Hot number (true Nx): a two-stage draw that keeps the wheel at its normal 37 pockets instead
   // of diluting it. With probability boost/37 the ball is on the hot pocket — so a boost of 10
@@ -615,7 +640,7 @@ function spinFromRandom(words){
   else n=w(0)%37;
   // Double Ball: a second, distinct pocket — `n+1+k` for k uniform over 0..35 walks the other 36
   // pockets exactly once each, so it's uniform over them and distinct from n by construction.
-  const n2=getMod('r_double_ball')?(n+1+w(2)%36)%37:null;
+  const n2=mods.doubleBall?(n+1+w(2)%36)%37:null;
   return{n,n2};
 }
 
@@ -662,7 +687,7 @@ async function _spinWords(bets){
 }
 
 // Fetches the spin words (server or fallback) and maps them to the winning number(s).
-async function _resolveSpinNumber(bets){ return spinFromRandom(await _spinWords(bets)); }
+async function _resolveSpinNumber(bets){ return spinFromRandom(await _spinWords(bets), spinMods()); }
 
 // In-flight lock so a double-tap can't start two word fetches.
 let _rSpinPending=false;
@@ -702,28 +727,53 @@ function drawStaticWheel(){
   cnv.width=size;cnv.height=size;
   drawWheel(cnv,0,[]);
 }
-// Evaluates all placed bets and applies any active payout modifiers, returning enriched bet objects.
-function _evalBets(bets, spin) {
-  const multMod = getMod('r_payout_mult');
-  const numPayMod = getMod('r_number_pay');
-  const colorDoubleMod = getMod('r_color_double');
-  // Double Ball: a bet wins if EITHER ball lands on it. Pays once at normal odds — the
-  // player edge is the doubled coverage, not a doubled payout.
-  const spin2 = getMod('r_double_ball') ? S.rSpin2 : null;
+// Pure payout-modifier bundle from an explicit (mod, spin2) — the replay-friendly core of
+// evalBetMods(). `spin2` is the Double Ball second pocket; it only carries through when the mod is
+// active, matching the in-page snapshot. The engine passes the mapped second pocket from replay.
+function evalBetModsFor(mod, spin2){
+  return {
+    payoutMult:  mod('r_payout_mult'),
+    numberPay:   mod('r_number_pay'),
+    colorDouble: mod('r_color_double'),
+    spin2:       mod('r_double_ball') ? spin2 : null,
+  };
+}
+// Snapshots the day's payout Modifiers + the Double Ball second pocket into the plain bundle the
+// pure evaluators need, so the server can replay a spin from stored bets + words. The global reads
+// live here, not in _evalBets/resolveRoulette (same pattern as spinMods). `spin2` is the second
+// pocket only when Double Ball is active.
+function evalBetMods(){
+  return evalBetModsFor(getMod, S.rSpin2);
+}
+// Evaluates all placed bets against the spun pocket(s), applying any payout Modifiers, returning
+// enriched bet objects. PURE in its params: `mods` defaults to a snapshot of today's globals so
+// in-page callers and tests may omit it; the server passes its own. (Double Ball: a bet wins if
+// EITHER ball lands on it — pays once at normal odds, the edge is coverage, not a bigger payout.)
+function _evalBets(bets, spin, mods = evalBetMods()) {
+  const spin2 = mods.spin2;
   return bets.map(b => {
     const bDef = R_BETS[b.pick];
     const won = evalBet(b.pick, spin) || (spin2 != null && evalBet(b.pick, spin2));
     let pay = bDef.pay;
     if (won) {
-      if (multMod) pay *= multMod;
-      else if (numPayMod && bDef.type === 'num') pay = numPayMod;
-      else if (colorDoubleMod && bDef.type === 'col2') pay *= 2;
+      if (mods.payoutMult) pay *= mods.payoutMult;
+      else if (mods.numberPay && bDef.type === 'num') pay = mods.numberPay;
+      else if (mods.colorDouble && bDef.type === 'col2') pay *= 2;
     }
     const delta = won ? b.bet * pay : -b.bet;
     return {...b, won, delta, pay};
   });
 }
-// Settles all bets: returns stake + profit for winners, then applies win multiplier on top.
+// Pure Roulette Resolver: per-bet results plus the win-multiplier folded into one signed net delta.
+// (bets, spin, {…payout mods, spin2, wm}) → {betResults, delta, result}. No S, no DOM, no credit —
+// the caller credits stake+delta and records. This is the settlement the engine replays.
+function resolveRoulette(bets, spin, mods){
+  const betResults = _evalBets(bets, spin, mods);
+  let delta = betResults.reduce((s,b) => s + b.delta, 0);
+  if (mods.wm>1 && delta>0) delta *= mods.wm;
+  return { betResults, delta, result: delta>0?'win':delta<0?'lose':'push' };
+}
+// Settles all bets: returns stake + profit for winners, with the win multiplier folded into delta.
 function _resolveRoulette(){
   // Idempotency guard: only ever credit a spin once. A duplicate/late rFinish — flaky mobile
   // audio firing both `onended` and `error`, a bfcache restore, a double-tap, or a refresh race
@@ -732,14 +782,15 @@ function _resolveRoulette(){
   // after the leaderboard submission). rResult is only ever set by a completed resolve (or a
   // skip), so if it's already set the round is done — bail before touching chips.
   if(S.rResult) return;
-  const betResults = _evalBets(S.rBets, S.rSpin);
-  let totalDelta = betResults.reduce((s,b) => s + b.delta, 0);
-  betResults.forEach(b => { if (b.won) credit(b.bet * (1 + b.pay), 'roulette-win'); }); // return stake + profit
-  const wm=winMult();
-  if(wm>1&&totalDelta>0){credit(totalDelta,'roulette-winmult');totalDelta*=wm;} // apply win multiplier bonus on top
-  S.rResult={delta:totalDelta,bets:betResults};
+  // The whole staked amount was debited at placement, so returning stake + delta lands the balance
+  // exactly `delta` from break-even in one credit, and `delta` is the one number recorded for the
+  // score / server replay.
+  const {betResults, delta, result} = resolveRoulette(S.rBets, S.rSpin, {...evalBetMods(), wm: winMult()});
+  const stake = S.rBets.reduce((s,b) => s + b.bet, 0);
+  credit(stake + delta, 'roulette');
+  S.rResult = mkRound('r', delta, result, {bets:betResults});
   S.rPhase='result';render();updateChipDisplay();
-  if(totalDelta>0)setTimeout(sndBigWin,400);
+  if(delta>0)setTimeout(sndBigWin,400);
 }
 // Called when the wheel animation finishes — goes to respin phase if unused, otherwise resolves.
 function rFinish(){

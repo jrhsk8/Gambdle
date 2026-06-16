@@ -539,12 +539,12 @@ describe('layout — The Ladder screens', () => {
 
   it('done phase (crash) fits viewport', () => checkScreen('ladder-crash', {
     screen:'ladder', ladPhase:'done', ladBet:250, ladFree:true, ladIdx:4, ladRung:3,
-    ladResult:{delta:0,rung:3,outcome:'crash',free:true}, chips:1000, forcedMod:'ladder_day',
+    ladResult:{delta:0,rung:3,result:'crash',free:true}, chips:1000, forcedMod:'ladder_day',
   }));
 
   it('done phase (cash out) fits viewport', () => checkScreen('ladder-cash', {
     screen:'ladder', ladPhase:'done', ladBet:250, ladFree:true, ladIdx:4, ladRung:4,
-    ladResult:{delta:1250,rung:4,outcome:'cash',free:true}, chips:2250, forcedMod:'ladder_day',
+    ladResult:{delta:1250,rung:4,result:'cash',free:true}, chips:2250, forcedMod:'ladder_day',
   }));
 });
 
@@ -788,10 +788,13 @@ describe('layout — buttons share one height + font per window size', () => {
 });
 
 // ─── Bet box parity ───────────────────────────────────────────────────────────
-// The bet box (.bet-amt) must be pixel-identical — same size AND format — on EVERY screen it appears
-// (bet phase, play, reveal, result, across all games), and every in-game button must share one height
-// across those screens. Runs once per viewport (the harness re-runs this file at each binding size),
-// comparing screens AT that viewport.
+// The bet box (.bet-amt) must be pixel-identical — same FORMAT (padding/border/bg/color/height) on EVERY
+// screen it appears (bet phase, play, reveal, result, across all games), and every in-game button must
+// share one height across those screens. WIDTH parity: on desktop the bet-phase box matches the
+// play/result box (one --bet-box-w everywhere); on phones the bet-phase box is shrunk so [Clear][box]
+// [All In] pack onto one row (the same shrink roulette already uses at every size), so width parity there
+// holds only among the play/result boxes. Runs once per viewport (the harness re-runs this file at each
+// binding size), comparing screens AT that viewport.
 describe('layout - bet box parity', () => {
   const BOX_SCREENS = [
     ['bj-bet',       { screen:'bj', bjPhase:'bet', chips:1000, bjBet:500, bjHand:0, bjHistory:[] }],
@@ -827,18 +830,25 @@ describe('layout - bet box parity', () => {
   }
 
   it('bet box is the same size + format on every screen', () => {
-    const measured = BOX_SCREENS.map(([label, st]) => ({ label, box: measureBox(st) }));
+    const measured = BOX_SCREENS.map(([label, st]) => ({ label, betPhase: label.endsWith('-bet'), box: measureBox(st) }));
     for (const m of measured) {
       assert(m.box !== null, `bet box parity: no .bet-amt on screen "${m.label}"`);
     }
+    // Format (padding/border/bg/color/align) + height are identical on EVERY screen, at every viewport.
     const ref = measured[0];
+    const strProps = ['padTop','padRight','padBottom','padLeft','borderTop','borderRight','borderBottom','borderLeft','bg','color','alignItems','justifyContent'];
     for (const m of measured.slice(1)) {
-      assert(Math.abs(m.box.w - ref.box.w) <= 1, `bet box parity: "${m.label}" width ${m.box.w} != ${ref.box.w} (ref "${ref.label}")`);
       assert(Math.abs(m.box.h - ref.box.h) <= 1, `bet box parity: "${m.label}" height ${m.box.h} != ${ref.box.h} (ref "${ref.label}")`);
-      const strProps = ['padTop','padRight','padBottom','padLeft','borderTop','borderRight','borderBottom','borderLeft','bg','color','alignItems','justifyContent'];
       for (const prop of strProps) {
         assert(m.box[prop] === ref.box[prop], `bet box parity: "${m.label}" ${prop} "${m.box[prop]}" != "${ref.box[prop]}" (ref "${ref.label}")`);
       }
+    }
+    // Width parity: desktop pins every box to --bet-box-w; phones shrink the bet-phase box to pack the
+    // inline [Clear][box][All In] row, so there the box width is a play/result-screen guarantee only.
+    const widthGroup = _isDesktop() ? measured : measured.filter(m => !m.betPhase);
+    const wref = widthGroup[0];
+    for (const m of widthGroup.slice(1)) {
+      assert(Math.abs(m.box.w - wref.box.w) <= 1, `bet box width parity: "${m.label}" width ${m.box.w} != ${wref.box.w} (ref "${wref.label}")`);
     }
   });
 
@@ -873,8 +883,9 @@ describe('layout - bet box parity', () => {
   // interactive bet/play/result screens are what must not jump.
   const VPOS_SCREENS = BOX_SCREENS.filter(([l]) => (l.startsWith('bj-') || l.startsWith('uth-')) && l !== 'uth-reveal');
   it('bet box sits at the same vertical position on every BJ/UTH screen', () => {
-    if (!_isDesktop()) return; // phones stack Clear/All In below the box on the bet screen, so the
-                               // bet box necessarily sits a row higher there than on play — a desktop guarantee.
+    if (!_isDesktop()) return; // on phones the bet-screen box lives in the inline [Clear][box][All In]
+                               // bet-row (shrunk to fit), not the play screen's game-controls column, so its
+                               // width/anchor differ from play there by design — this is a desktop guarantee.
     const measured = VPOS_SCREENS.map(([label, st]) => {
       const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
       Object.assign(S, base, st);

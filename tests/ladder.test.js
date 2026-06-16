@@ -97,7 +97,7 @@ describe('Ladder — climb and settle', () => {
     withLadCards(_lcSeq, () => withLad({ladPhase:'climb',ladBet:100,ladFree:false,ladIdx:0,ladRung:0,chips:1000,forcedMod:{},screen:null}, () => {
       ladCall('lo'); // 5 → 9 is higher
       assertEqual(S.ladPhase,'done');
-      assertEqual(S.ladResult.outcome,'crash');
+      assertEqual(S.ladResult.result,'crash');
       assertEqual(S.ladResult.delta,-100);
       assertEqual(S.chips,900);
     }));
@@ -105,7 +105,7 @@ describe('Ladder — climb and settle', () => {
   it('tie crashes even on a correct-direction call', () => {
     withLadCards(_lcSeq, () => withLad({ladPhase:'climb',ladBet:100,ladFree:true,ladIdx:4,ladRung:4,chips:1000,forcedMod:{ladder_free:250},screen:null}, () => {
       ladCall('hi'); // 8 → 8 ties
-      assertEqual(S.ladResult.outcome,'crash');
+      assertEqual(S.ladResult.result,'crash');
       assertEqual(S.ladResult.delta,0,'free entry crash costs nothing');
       assertEqual(S.chips,1000);
       assertEqual(S.ladResult.rung,4,'records rungs climbed');
@@ -114,7 +114,7 @@ describe('Ladder — climb and settle', () => {
   it('cash out: standalone credits pot minus stake', () => {
     withLad({ladPhase:'climb',ladBet:100,ladFree:false,ladIdx:3,ladRung:3,chips:1000,forcedMod:{},screen:null}, () => {
       ladCashOut(); // pot = 100×3.2 = 320
-      assertEqual(S.ladResult.outcome,'cash');
+      assertEqual(S.ladResult.result,'cash');
       assertEqual(S.ladResult.delta,220);
       assertEqual(S.chips,1220);
     });
@@ -137,7 +137,7 @@ describe('Ladder — climb and settle', () => {
     const seq=['2','3','4','5','6','7','8','9'].map(_lc); // hi correct 7 times
     withLadCards(seq, () => withLad({ladPhase:'climb',ladBet:250,ladFree:true,ladIdx:6,ladRung:6,chips:0,forcedMod:{ladder_free:250},screen:null}, () => {
       ladCall('hi'); // 8 → 9, rung 7 = top
-      assertEqual(S.ladResult.outcome,'top');
+      assertEqual(S.ladResult.result,'top');
       assertEqual(S.ladResult.rung,7);
       assertEqual(S.ladResult.delta,5250);
       assertEqual(S.chips,5250);
@@ -153,23 +153,23 @@ describe('Ladder — climb and settle', () => {
 
 describe('Ladder — share text', () => {
   it('cash out: chips bare, rung in parentheses', () => {
-    withLad({ladResult:{delta:1250,rung:4,outcome:'cash',free:true}}, () => {
+    withLad({ladResult:{delta:1250,rung:4,result:'cash',free:true}}, () => {
       assert(buildShareText().includes('🪜 The Ladder +1,250 (Rung 4)'), buildShareText());
     });
   });
   it('top of the ladder gets the Top! tag', () => {
-    withLad({ladResult:{delta:5250,rung:7,outcome:'top',free:true}}, () => {
+    withLad({ladResult:{delta:5250,rung:7,result:'top',free:true}}, () => {
       assert(buildShareText().includes('🪜 The Ladder +5,250 (Rung 7 · Top!)'), buildShareText());
     });
   });
   it('free-entry crash: no chip number, owns the drama', () => {
-    withLad({ladResult:{delta:0,rung:3,outcome:'crash',free:true}}, () => {
+    withLad({ladResult:{delta:0,rung:3,result:'crash',free:true}}, () => {
       const line = buildShareText().split('\n').find(l => l.includes('🪜'));
       assertEqual(line, '🪜 The Ladder · Crashed (Rung 4)', 'exact line, no +0');
     });
   });
   it('real-bet crash shows the loss', () => {
-    withLad({ladResult:{delta:-100,rung:3,outcome:'crash',free:false}}, () => {
+    withLad({ladResult:{delta:-100,rung:3,result:'crash',free:false}}, () => {
       assert(buildShareText().includes('🪜 The Ladder -100 · Crashed (Rung 4)'), buildShareText());
     });
   });
@@ -206,7 +206,7 @@ describe('Ladder — routing', () => {
     });
   });
   it('no detour once the run is played', () => {
-    withLad({forcedMod:{ladder_free:250},ladPhase:'done',ladResult:{delta:0,rung:1,outcome:'crash',free:true},chips:1000,rResult:{delta:0},screen:'roulette'}, () => {
+    withLad({forcedMod:{ladder_free:250},ladPhase:'done',ladResult:{delta:0,rung:1,result:'crash',free:true},chips:1000,rResult:{delta:0},screen:'roulette'}, () => {
       advanceTo('results');
       assertEqual(S.screen,'results');
     });
@@ -238,7 +238,7 @@ describe('Ladder — roulette advance prompt', () => {
     });
   });
   it('says final results once the ladder is played', () => {
-    withLad({forcedMod:{ladder_free:250},ladResult:{delta:0,rung:1,outcome:'crash',free:true}}, () => {
+    withLad({forcedMod:{ladder_free:250},ladResult:{delta:0,rung:1,result:'crash',free:true}}, () => {
       assertEqual(_rNextLabel(), 'See Final Results →');
     });
   });
@@ -246,5 +246,29 @@ describe('Ladder — roulette advance prompt', () => {
     withLad({forcedMod:{},ladResult:null}, () => {
       assertEqual(_rNextLabel(), 'See Final Results →');
     });
+  });
+});
+
+// ─── Pure Ladder resolver (PRD integrity Phase 2 · Candidate 02) ──────────────
+// The settled-run chip outcome tested through its interface — (outcome, bet, rung, free) → {delta,
+// result}. No S, no DOM, no credit. Expected pots come from the pure ladPotAt so the test tracks the
+// real multiplier table.
+describe('resolveLadder — settled-run chip outcome (pure)', () => {
+  it('a staked crash loses the bet; a free crash costs nothing', () => {
+    assertEqual(resolveLadder('crash', 250, 3, false).delta, -250);
+    assertEqual(resolveLadder('crash', 250, 3, true).delta, 0);
+  });
+  it('a staked cash-out nets pot − bet; a free cash-out keeps the whole pot', () => {
+    const pot = ladPotAt(250, 3);
+    assertEqual(resolveLadder('cash', 250, 3, false).delta, pot - 250);
+    assertEqual(resolveLadder('cash', 250, 3, true).delta, pot);
+  });
+  it('reaching the top settles like a cash-out', () => {
+    const pot = ladPotAt(250, 5);
+    assertEqual(resolveLadder('top', 250, 5, false).delta, pot - 250);
+    assertEqual(resolveLadder('top', 250, 5, true).delta, pot);
+  });
+  it('carries the outcome through as result', () => {
+    assertEqual(resolveLadder('cash', 250, 2, false).result, 'cash');
   });
 });

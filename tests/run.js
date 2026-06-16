@@ -16,6 +16,14 @@ if (boundaryProblems.length) {
 }
 console.log('MODULE BOUNDARIES: ✅ clean\n');
 
+// Engine bundle (server-replay) must be regenerated whenever a bundled src file changes — the
+// submit-score Edge Function imports it, so a stale bundle means client and server disagree.
+const bundleStale = require('./build-engine-bundle').checkFresh();
+if (bundleStale) {
+  console.error(`❌ ENGINE BUNDLE: ${bundleStale}`);
+  process.exit(1);
+}
+
 const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/';
 
 // Opens a page, optionally at a specific viewport, waits for tests to finish,
@@ -83,6 +91,15 @@ function summaryCounts(summary) {
 }
 
 (async () => {
+  // Server-replay engine bundle: load it in Node and assert closure-completeness + the
+  // RNG-independent goldens + seed-parameterized modifier resolution (tests/engine-bundle.node.test.js).
+  const bundle = await require('./engine-bundle.node.test').run();
+  console.log(bundle.fail
+    ? `❌ ENGINE BUNDLE: ${bundle.fail}/${bundle.total} failed`
+    : `ENGINE BUNDLE: ✅ all ${bundle.total} checks passed\n`);
+  for (const f of bundle.fails) console.log(`  FAIL ${f.name}  ${f.extra}`);
+  if (bundle.fail) process.exit(1);
+
   const browser = await chromium.launch();
 
   // Desktop sizes — covers the fluid clamp range and the narrow-but-tall case

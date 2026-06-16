@@ -549,7 +549,7 @@ describe('render — The Ladder screens', () => {
   });
   it('done phase (crash) renders the crash result', () => {
     withRender({ screen:'ladder', ladPhase:'done', ladBet:250, ladFree:true,
-                 ladIdx:4, ladRung:3, ladResult:{delta:0,rung:3,outcome:'crash',free:true},
+                 ladIdx:4, ladRung:3, ladResult:{delta:0,rung:3,result:'crash',free:true},
                  forcedMod:{ ladder_free:250, title:'The Ladder', desc:'x' } }, html => {
       assert(html.includes('CRASHED'), 'crash headline present');
     });

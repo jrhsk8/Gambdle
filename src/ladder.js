@@ -30,7 +30,8 @@ function ladCallCorrect(cur, next, dir){
 function ladPotAt(stake, rung){ return rung === 0 ? stake : Math.round(stake * LADDER_MULTS[rung - 1]); }
 
 // Max standalone stake: 25% of stack (min 25, never above the stack itself).
-function ladMaxStake(){ return Math.min(S.chips, Math.max(25, Math.floor(S.chips * 0.25))); }
+// The rule lives in the pure bet-intake core (bet.js); this just feeds it the live stack.
+function ladMaxStake(){ return ladderMaxStake(S.chips); }
 
 // Commits the stake and starts the climb. On ladder_free mod days the entry is
 // locked to the mod value (house money — S.ladFree). Standalone stakes must be
@@ -68,15 +69,23 @@ function ladCashOut(){
   _ladSettle('cash');
 }
 
+// Pure Ladder Resolver: the chip outcome of a settled run. (outcome, bet, rung, free) → {delta,
+// result}. No S, no DOM, no credit. Free entry: a crash costs nothing and a non-crash keeps the full
+// pot; a staked run risks the bet (crash loses it, cash-out/top nets pot − bet).
+function resolveLadder(outcome, bet, rung, free){
+  const pot = ladPotAt(bet, rung);
+  const delta = outcome === 'crash' ? (free ? 0 : -bet)
+                                    : (free ? pot : pot - bet);
+  return { delta, result: outcome };
+}
+
 // Ends the run: applies the chip delta and records ladResult for recalcChips,
 // the results screen, and the share text. Free entry: crash costs nothing,
 // cash out keeps the full pot.
 function _ladSettle(outcome){
-  const pot = ladPotAt(S.ladBet, S.ladRung);
-  const delta = outcome === 'crash' ? (S.ladFree ? 0 : -S.ladBet)
-                                    : (S.ladFree ? pot : pot - S.ladBet);
+  const { delta } = resolveLadder(outcome, S.ladBet, S.ladRung, S.ladFree);
   if (delta > 0) credit(delta, 'ladder'); else if (delta < 0) debit(-delta, 'ladder');
-  S.ladResult = { delta, rung: S.ladRung, outcome, free: S.ladFree };
+  S.ladResult = mkRound('lad', delta, outcome, { rung: S.ladRung, free: S.ladFree });
   S.ladPhase = 'done';
   saveState();
   // Cash out is a money event (chips); crash/top reveal a card (card sound).
@@ -122,13 +131,13 @@ function _ladHeadHTML(){
   if (S.ladPhase === 'done' && S.ladResult) {
     return { crash: `<span class="lad-hl lad-hl-bad">${icon('x-circle',{fill:true})} CRASHED!</span>`,
              cash:  `<span class="lad-hl lad-hl-good">${icon('coins',{fill:true})} CASHED OUT!</span>`,
-             top:   `<span class="lad-hl lad-hl-good">${icon('crown',{fill:true})} TOP OF THE LADDER!</span>` }[S.ladResult.outcome];
+             top:   `<span class="lad-hl lad-hl-good">${icon('crown',{fill:true})} TOP OF THE LADDER!</span>` }[S.ladResult.result];
   }
   return `<span class="lad-hl">THE LADDER</span>`;
 }
 
 function _ladStripHTML(){
-  const crashed = S.ladResult?.outcome === 'crash';
+  const crashed = S.ladResult?.result === 'crash';
   return LADDER_MULTS.map((m, i) => {
     const rung = i + 1;
     let cls = 'lad-rung';
@@ -156,7 +165,7 @@ function _ladReadoutHTML(){
     return box(`Pot: <b>${fmt(pot)}</b>`, `Next rung: <b>${fmt(next)}</b>`);
   }
   const r = S.ladResult;
-  if (r.outcome === 'crash') {
+  if (r.result === 'crash') {
     return r.free ? box(`Free entry`, `<b>+0 chips</b>`)
                   : box(`Stake lost`, `<b class="lad-bad">${sign(r.delta)} chips</b>`);
   }
@@ -165,7 +174,7 @@ function _ladReadoutHTML(){
 
 function _ladCardsHTML(){
   const cards = DEAL.ladderCards;
-  const crashed = S.ladResult?.outcome === 'crash';
+  const crashed = S.ladResult?.result === 'crash';
   // After a crash ladIdx sits on the killer card; show the pair that ended it.
   const cur = crashed ? cards[S.ladIdx - 1] : cards[S.ladIdx];
   const right = crashed ? cardHTML(cards[S.ladIdx], 'md', '', 0, false)
@@ -177,12 +186,12 @@ function _ladMsgHTML(){
   if (S.ladPhase === 'bet')  return `Higher or lower? Cash out any time. <b class="lad-bad">Ties lose.</b>`;
   if (S.ladPhase === 'climb') return `Rung ${S.ladRung + 1} of ${LADDER_MULTS.length + 1} · <b class="lad-bad">Ties lose.</b>`;
   const r = S.ladResult;
-  if (r.outcome === 'crash') {
+  if (r.result === 'crash') {
     const a = DEAL.ladderCards[S.ladIdx - 1], b = DEAL.ladderCards[S.ladIdx];
     const why = a && b && a.r === b.r ? `${a.r} matched ${b.r}. Ties lose.` : `Wrong call.`;
     return `${why} Crashed on rung ${r.rung + 1}.`;
   }
-  if (r.outcome === 'top') return `All ${LADDER_MULTS.length} rungs. ×${LADDER_MULTS[LADDER_MULTS.length-1]} your stake.`;
+  if (r.result === 'top') return `All ${LADDER_MULTS.length} rungs. ×${LADDER_MULTS[LADDER_MULTS.length-1]} your stake.`;
   return `You climbed ${r.rung} rung${r.rung===1?'':'s'} for ${LADDER_MULTS[r.rung-1]}x profit.`;
 }
 

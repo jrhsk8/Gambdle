@@ -134,12 +134,9 @@ function modBannerHTML(slim=false){
 const BET_REF={bj:'bjBet',uth:'uthAnte',poker:'pkBet',roulette:'rBet',ladder:'ladBet'};
 // Returns the state key for the active screen's bet (e.g. 'bjBet', 'uthAnte').
 function curBetRef(){return BET_REF[S.screen]??'pkBet';}
-// UTH caps at 2/3 of chips so the player always has enough left for a 1× raise.
-// The Ladder caps at 25% of the stack (free-entry days lock the stake to the mod value).
-function maxBet(){
-  if(S.screen==='ladder')return getMod('ladder_free')||ladMaxStake();
-  return S.screen==='uth'?Math.floor(S.chips*2/3):S.chips;
-}
+// Adapter over the pure bet-cap math (bet.js): resolve the live chips + active modifier,
+// hand them to maxFor. The per-game cap rules (UTH 2/3, Ladder 25% / free-entry) live there.
+function maxBet(){ return maxFor(S.screen, S.chips, { ladderFree: getMod('ladder_free') }); }
 
 // Updates chip buttons, bet display, and action button states without a full re-render.
 function patchBetUI() {
@@ -196,9 +193,12 @@ function _inBetPhase(){
   if(S.screen==='ladder')   return S.ladPhase ==='bet';
   return false;
 }
-function addChip(d){if(!_inBetPhase())return;const k=curBetRef();S[k]=Math.min(S[k]+d,maxBet());sndChip();patchBetUI();}
-function clearBet(){if(!_inBetPhase())return;S[curBetRef()]=0;patchBetUI();}
-function allIn(){if(!_inBetPhase())return;S[curBetRef()]=maxBet();sndChip();patchBetUI();}
+// Thin adapters over the pure bet-intake core (bet.js): resolve the active bet key, call
+// the pure function, write the returned value back to S, then sound + surgical patch. The
+// bet-phase guard stays here (a phase concern, not bet math).
+function addChip(d){if(!_inBetPhase())return;const k=curBetRef();S[k]=addToBet(S[k],d,maxBet());sndChip();patchBetUI();}
+function clearBet(){if(!_inBetPhase())return;S[curBetRef()]=clearedBet();patchBetUI();}
+function allIn(){if(!_inBetPhase())return;S[curBetRef()]=allInAmount(S.screen,S.chips,{ladderFree:getMod('ladder_free')});sndChip();patchBetUI();}
 
 // ─── SHARED SNIPPET HELPERS ───────────────────────────────────
 const nextBtn = (action, text) => `<button class="btn-gold" style="margin-top:12px" onclick="${action}">${text}</button>`;

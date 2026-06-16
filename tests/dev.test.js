@@ -46,7 +46,7 @@ describe('devApplyMod', () => {
 
 describe('devLadder', () => {
   it('forces the ladder_day mod, resets the run, and jumps to the ladder bet phase', () => {
-    S.ladPhase = 'done'; S.ladResult = { delta: 500, rung: 4, outcome: 'cash', free: true };
+    S.ladPhase = 'done'; S.ladResult = { delta: 500, rung: 4, result: 'cash', free: true };
     devLadder();
     assertEqual(S.forcedMod, 'ladder_day');
     assertEqual(S.screen, 'ladder');

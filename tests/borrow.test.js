@@ -359,6 +359,24 @@ describe('advanceTo(results) — recalculates chips including borrow', () => {
     });
   });
 
+  it('declined borrow (borrowUsed=true, borrowAmount=0) adds NO phantom 50', () => {
+    // Regression: declineBorrow sets borrowUsed=true (to gate the re-prompt + the ladder detour)
+    // but takes no loan, so borrowAmount stays 0. recalc must add 0 — not fall back to BORROW_AMOUNT.
+    // The bug credited a free 50 the Transcript never records, so the server replay (0) disagreed
+    // with the client (50). A busted player who accepts defeat scores their real total.
+    const bjH = [{ bet:1000, result:'lose', delta:-1000, player:[], dealer:[] }];
+    withBrwState({
+      screen: 'roulette', chips: 0,
+      borrowUsed: true, borrowAmount: 0,
+      rResult: { delta: 0 }, rPhase: 'result',
+      bjHistory: bjH, uthHistory: [], bjHand: 1, uthHand: 0,
+    }, () => {
+      advanceTo('results');
+      // Fix: 1000 + 0 (no loan) − 1000 = 0. The bug would yield 1000 + 50 − 1000 = 50.
+      assertEqual(S.chips, 0, 'declined borrow must not add a phantom 50');
+    });
+  });
+
   it('uses S.borrowAmount not BORROW_AMOUNT (handles modifier-inflated borrow)', () => {
     const bjH = [{ bet:1000, result:'lose', delta:-1000, player:[], dealer:[] }];
     const customBorrowAmt = 150; // simulates min_chips=150 modifier

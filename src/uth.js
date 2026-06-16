@@ -83,9 +83,9 @@ function bestOf7(cards){
 
 // Blind bonus payout: cat is the hand category (9=Royal Flush … 0=High Card).
 // Base amounts match the standard UTH blind paytable; boost/extended come from modifiers.
-function uthBlindDelta(cat,blind){
-  const extended=getMod('uth_blind_extended');
-  const boost=getMod('uth_blind_boost')||1;
+function uthBlindDelta(cat,blind,mods={extended:getMod('uth_blind_extended'),boost:getMod('uth_blind_boost')||1}){
+  const extended=mods.extended;
+  const boost=mods.boost||1;
   let base=0;
   if(cat===9)base=blind*500;       // Royal Flush
   else if(cat===8)base=blind*50;   // Straight Flush
@@ -182,7 +182,7 @@ function pkDraw(){
   const profit=res.p>0?S.pkBet*res.p*wm:0;
   const delta=res.p>0?profit:-S.pkBet;
   if(res.p>0)credit(S.pkBet+profit,'pk-win');
-  S.pkHistory.push({bet:S.pkBet,result:res.n,pts:res.p,delta});
+  S.pkHistory.push(mkRound('pk',delta,res.n,{bet:S.pkBet,pts:res.p}));
   const replaceIdxs=[0,1,2,3,4].filter(i=>!S.pkHeld.has(i));
   S.pkRevealStep=0;S.pkPhase='draw';
   _noAnim=true;render();updateChipDisplay();
@@ -324,13 +324,36 @@ function uthFold(){
   txLog({g:'uth',a:'fold',h:S.uthHand,st:S.uthPhase});
   S.uthFolded=true;
   const ante=_uthAntePortion(),blind=_uthBlindPortion();
-  S.uthHistory.push({ante,blind,play:0,playMult:0,result:'fold',delta:-(ante+blind),anteDelta:-ante,blindDelta:-blind,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false});
+  S.uthHistory.push(mkRound('uth',-(ante+blind),'fold',{ante,blind,play:0,playMult:0,anteDelta:-ante,blindDelta:-blind,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false}));
   S.uthHand++;S.uthPhase='reveal';
   updateUthCommunityCards();
   setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();},2300);
 }
 // Settles the UTH hand: three independent payouts (play, ante, blind) each have their own rules.
 // Play: 1:1 if player wins. Ante: 1:1 only if dealer qualifies. Blind: paytable if Straight+.
+// Pure UTH Resolver: the three-way ante/blind/play settlement. PURE — bestOf7 results (`pb`/`db`,
+// each {cat, score}), the three stakes, and the resolved mods in; the per-leg deltas + net + result
+// out. No S, no DOM, no credit. The caller credits each leg (the stake was debited at deal/raise) and
+// records. mods: { wm, doublePlay, hardQualify, blindExtended, blindBoost }.
+function resolveUTH(pb, db, ante, blind, play, mods){
+  const dealerQualifies = db.cat >= (mods.hardQualify ? 2 : 1);
+  const cmp = pb.score - db.score;
+  const wm = mods.wm;
+  let anteDelta=0, blindDelta=0, playDelta=0;
+  if(cmp>0){
+    const playMult = mods.doublePlay ? 2 : 1;
+    playDelta = play*playMult*wm;
+    anteDelta = dealerQualifies ? ante*wm : 0;
+    blindDelta = uthBlindDelta(pb.cat, blind, {extended:mods.blindExtended, boost:mods.blindBoost}) * wm;
+  }else if(cmp===0){
+    anteDelta=0; blindDelta=0; playDelta=0;
+  }else{
+    playDelta=-play; anteDelta=-ante; blindDelta=-blind;
+  }
+  const delta = anteDelta+blindDelta+playDelta;
+  return { anteDelta, blindDelta, playDelta, delta, dealerQualifies, result: cmp>0?'win':cmp===0?'push':'lose' };
+}
+
 function uthResolve(){
   // Idempotency guard (see _resolveRoulette): settle a hand exactly once. A double-tap on the
   // resolving action or a stray call must not credit the three payouts and push a second history
@@ -339,25 +362,21 @@ function uthResolve(){
   const ante=_uthAntePortion(),blind=_uthBlindPortion(),play=S.uthPlay;
   const pb=bestOf7([...S.uthHole,...S.uthComm]);
   const db2=bestOf7([...S.uthDealer,...S.uthComm]);
-  const dealerQualifies=db2.cat>=(getMod('uth_hard_qualify')?2:1);
-  const cmp=pb.score-db2.score;
-  const wm=winMult();
-  let anteDelta=0,blindDelta=0,playDelta=0;
-  if(cmp>0){
-    const playMult=getMod('uth_double_play')?2:1;
-    playDelta=play*playMult*wm;credit(play+playDelta,'uth-play');
-    if(dealerQualifies){anteDelta=ante*wm;credit(ante+anteDelta,'uth-ante');}
-    else{anteDelta=0;credit(ante,'uth-ante-push');}
-    const bd=uthBlindDelta(pb.cat,blind);
-    blindDelta=bd*wm;credit(blind+blindDelta,'uth-blind');
-  }else if(cmp===0){
-    anteDelta=0;blindDelta=0;playDelta=0;
+  const {anteDelta,blindDelta,playDelta,delta,dealerQualifies,result}=resolveUTH(pb,db2,ante,blind,play,{
+    wm:winMult(), doublePlay:!!getMod('uth_double_play'), hardQualify:!!getMod('uth_hard_qualify'),
+    blindExtended:getMod('uth_blind_extended'), blindBoost:getMod('uth_blind_boost')||1,
+  });
+  // Apply chips per leg (stake debited at deal/raise). Win: return each stake + profit; the ante
+  // pushes (stake back, no profit) when the dealer doesn't qualify. A tie returns all three stakes;
+  // a loss keeps nothing. Same credits/reasons as before — only the delta math moved into resolveUTH.
+  if(result==='win'){
+    credit(play+playDelta,'uth-play');
+    if(dealerQualifies)credit(ante+anteDelta,'uth-ante'); else credit(ante,'uth-ante-push');
+    credit(blind+blindDelta,'uth-blind');
+  }else if(result==='push'){
     credit(ante+blind+play,'uth-push');
-  }else{
-    playDelta=-play;anteDelta=-ante;blindDelta=-blind;
   }
-  const delta=anteDelta+blindDelta+playDelta;
-  S.uthHistory.push({ante,blind,play,playMult:S.uthPlayMult,result:cmp>0?'win':cmp===0?'push':'lose',delta,anteDelta,blindDelta,playDelta,playerBest:pb,dealerBest:db2,dealerQualifies});
+  S.uthHistory.push(mkRound('uth',delta,result,{ante,blind,play,playMult:S.uthPlayMult,anteDelta,blindDelta,playDelta,playerBest:pb,dealerBest:db2,dealerQualifies}));
   S.uthHand++;S.uthPhase='reveal';
   S.uthRevealComm=5;
   updateUthCommunityCards();

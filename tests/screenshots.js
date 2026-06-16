@@ -5,9 +5,10 @@
 // Run: npm run screenshots   →   writes screenshots/*.png  (the folder is git-ignored)
 // First time: npx playwright install webkit
 const { webkit } = require('playwright');
-const fs = require('fs');
+const { versionedOutDir } = require('./screenshot-versioning');
 const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
-const OUT = __dirname + '/../screenshots';
+// screenshots/<GAME_VERSION>/webkit/  — versioned + auto-pruned (see screenshot-versioning.js).
+const OUT = versionedOutDir('webkit');
 const SA_T = 59, SA_B = 55;
 
 // Each fixture sets S for a screen, using the page's own card()/bestOf7().
@@ -31,7 +32,6 @@ const FIXTURES = {
 };
 
 (async () => {
-  fs.mkdirSync(OUT, { recursive: true });
   const browser = await webkit.launch();
   const json = body => r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
@@ -67,5 +67,5 @@ const FIXTURES = {
     await page.screenshot({ path: `${OUT}/${name}.png` });
   }
   await browser.close();
-  console.log('wrote', Object.keys(FIXTURES).length, 'screenshots to screenshots/');
+  console.log('wrote', Object.keys(FIXTURES).length, 'screenshots to', OUT);
 })().catch(e => { console.error(e); process.exit(1); });
