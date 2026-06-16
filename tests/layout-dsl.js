@@ -87,6 +87,12 @@
           const d = LM.alignDeltas(a, b).widthDelta;
           if (Math.abs(d) > tol) throw new Error(`${ctx}: ${sel} and ${sel2} widths differ by ${Math.round(d)}px (±${tol})`);
         },
+        widerThan(sel2, min = 1) {
+          const a = $(sel), b = $(sel2);
+          need(ctx, [sel, a], [sel2, b]);
+          const wa = a.getBoundingClientRect().width, wb = b.getBoundingClientRect().width;
+          if (wa - wb < min) throw new Error(`${ctx}: ${sel} (${Math.round(wa)}px) should be wider than ${sel2} (${Math.round(wb)}px) by ≥ ${min}px`);
+        },
         centered(within = '.panel', tol = DEFAULT_TOL) {
           const e = $(sel), c = $(within);
           need(ctx, [sel, e], [within, c]);
@@ -121,6 +127,7 @@
         el: (sel) => ({
           sameLeft:  (s2, tol) => it(`${ctx} · ${sel} sameLeft ${s2}`,  () => bare.el(sel).sameLeft(s2, tol)),
           sameWidth: (s2, tol) => it(`${ctx} · ${sel} sameWidth ${s2}`, () => bare.el(sel).sameWidth(s2, tol)),
+          widerThan: (s2, min) => it(`${ctx} · ${sel} widerThan ${s2}`, () => bare.el(sel).widerThan(s2, min)),
           centered:  (wn, tol) => it(`${ctx} · ${sel} centered`,        () => bare.el(sel).centered(wn, tol)),
         }),
       };

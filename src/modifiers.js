@@ -14,6 +14,8 @@
  * - bj_first_ace: true      Player's first card each BJ hand is always an Ace
  * - bj_wild_split: true     Any two cards can be split (max 4 hands); split wins pay 2×
  * - min_chips: 50           Minimum chip requirement
+ * - chip_div: 100           Show chips at 1/100 scale (a 10-chip stack that scores ×100); display-only,
+ *                           the internal balance/score/leaderboard stay full-scale. Pair with min_chips: 100.
  * - peek: 3                 Number of free dealer hole-card peeks per day (one per hand)
  * - comeback: true          Below starting chips (1000)? Wins pay 2×
  * - uth_blind_boost: 2.0    Blind bonus payouts multiplier
@@ -63,6 +65,7 @@ const PRESET_MODIFIERS = {
   comeback:        { type: 'cross',   title: "Comeback",             desc: "Wins pay 2x if you are below 1000 chips",         comeback: true,                              devNote: '' },
   all_in_or_skip:  { type: 'cross',   title: "Martingale",           desc: "All wins are doubled. You can only go all in.",   all_in_or_skip: true,                        devNote: '' },
   ladder_day:      { type: 'cross',   title: "The Ladder",           desc: "Bonus game after roulette with a free entry", ladder_free: 250, devNote: 'Hi-lo streak climb, shared sequence for everyone. Crash costs nothing, cash out keeps the full pot.' },
+  pocket_change:   { type: 'cross',   title: "Pocket Change",        desc: "Play with just 10 chips. Your final score is multiplied by 100.", chip_div: 100, min_chips: 100, devNote: 'Your chips wear the grey 10-chip look but each is worth 1. Internal balance/score/integrity all stay full-scale, so only the readouts shrink.' },
   // Player's Choice — before the run, the player picks ONE of the three `choices` to be the day's
   // modifier. Edit the `choices` array to set the trio (any 3 non-choice preset keys); the load-time
   // guard below enforces exactly 3 valid keys. Add more variants and slot them into CYCLE_ORDER /
@@ -86,38 +89,43 @@ const PRESET_MODIFIERS = {
 };
 
 /**
- * Daily cycling order — modifiers rotate through this list by day number.
- * Day 1 (May 5, 2026) = index 0. Repeats every N days where N = array length.
- * Edit this list to change the rotation.
+ * Daily cycling order — modifiers rotate through this list by slot index (day-1 mod length).
+ * Reordered (v1.51) to ALTERNATE roulette and non-roulette days and to vary the non-roulette
+ * gameplay type (uth / bj / cross) day to day. With 13 roulette and 15 non-roulette entries a
+ * perfect 1:1 alternation is impossible, so exactly two adjacent non-roulette pairs exist
+ * (slots 6&7 and 17&18); both pair DIFFERENT types so no two same-type days ever touch.
+ * All days through the launch of Pocket Change (Jun 17, Day 44) are pinned in DAILY_MODIFIERS,
+ * so this reorder only affects Day 45 (Jun 18) onward — no past archive shifts.
  */
 const CYCLE_ORDER = [
-  'r_hot_numbers',      // Day 1  — roulette
-  'r_double_ball',      // Day 2  — roulette (was double_pay)
-  'r_color_double',     // Day 3  — roulette
-  'uth_river_monster',  // Day 4  — uth (was uth_blind_boost)
-  'r_sweet_sixteen',    // Day 5  — roulette (was r_multi_bet)
-  'comeback',           // Day 6  — cross
-  'r_double_all',       // Day 7  — roulette
-  'easy_dealer',        // Day 8  — bj
-  'r_hot_zero',         // Day 9  — roulette
-  'uth_time_travel',    // Day 10 — uth (was uth_hard_qualify)
-  'r_group_1_12',       // Day 11 — roulette
-  'peek',               // Day 12 — cross
-  'r_group_13_24',      // Day 13 — roulette
-  'bj_double_bonus',    // Day 14 — bj
-  'r_group_25_36',      // Day 15 — roulette
-  'uth_blind_extended', // Day 16 — uth
-  'r_group_1_18',       // Day 17 — roulette
-  'players_choice',     // Day 18 — cross
-  'r_group_19_36',      // Day 19 — roulette
-  'uth_double_play',    // Day 20 — uth
-  'r_respin',           // Day 21 — roulette
-  'r_color_lock',       // Day 22 — roulette (replaced all_in_or_skip)
-  'bj_first_ace',       // Day 23 — bj
-  'uth_pocket_aces',    // Day 24 — uth
-  'bj_wild_split',      // Day 25 — bj
-  'uth_three_hole',     // Day 26 — uth
-  'ladder_day',         // Day 27 — cross (The Ladder bonus round)
+  'r_hot_numbers',      // 1  — roulette
+  'uth_river_monster',  // 2  — uth
+  'r_group_1_12',       // 3  — roulette
+  'comeback',           // 4  — cross
+  'r_double_ball',      // 5  — roulette
+  'easy_dealer',        // 6  — bj   ┐ non-roulette pair (bj→uth)
+  'uth_double_play',    // 7  — uth  ┘
+  'r_group_13_24',      // 8  — roulette
+  'peek',               // 9  — cross
+  'r_color_double',     // 10 — roulette
+  'uth_blind_extended', // 11 — uth
+  'r_group_25_36',      // 12 — roulette
+  'bj_double_bonus',    // 13 — bj
+  'r_sweet_sixteen',    // 14 — roulette
+  'pocket_change',      // 15 — cross (Pocket Change — launched Jun 17 via DAILY_MODIFIERS)
+  'r_group_1_18',       // 16 — roulette
+  'uth_three_hole',     // 17 — uth   ┐ non-roulette pair (uth→cross)
+  'players_choice',     // 18 — cross ┘
+  'r_double_all',       // 19 — roulette
+  'bj_first_ace',       // 20 — bj
+  'r_group_19_36',      // 21 — roulette
+  'uth_time_travel',    // 22 — uth
+  'r_hot_zero',         // 23 — roulette
+  'ladder_day',         // 24 — cross (The Ladder bonus round)
+  'r_respin',           // 25 — roulette
+  'bj_wild_split',      // 26 — bj
+  'r_color_lock',       // 27 — roulette
+  'uth_pocket_aces',    // 28 — uth
 ];
 
 /**
@@ -169,7 +177,9 @@ const DAILY_MODIFIERS = {
   20260612: 'uth_three_hole',      // Day 39 — launch of Triple Threat (3 hole cards)
   20260613: 'r_color_lock',        // Day 40 — launch of Loaded Colors (chosen color wins 66%)
   20260614: 'ladder_day',          // Day 41 — launch of The Ladder (free 250 hi-lo climb after roulette)
+  20260615: 'r_group_25_36',       // Day 42 — frozen at its pre-reorder cycle value before the v1.51 CYCLE_ORDER reshuffle
   20260616: 'r_double_ball',       // Day 43
+  20260617: 'pocket_change',       // Day 44 — launch of Pocket Change (10-chip stack, score ×100)
 };
 
 /**
@@ -185,6 +195,7 @@ const DAILY_SEED_OVERRIDES = {
   20260614: 20260104,
   20260615: 20250422,
   20260616: 20250425,
+  20260617: 20250426,
 };
 
 // Validate CYCLE_ORDER entries at load time

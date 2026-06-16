@@ -18,8 +18,8 @@ function screenIntro(){
         <div class="logo-sub">Daily Game #${S.day}</div>
       </div>
       <div class="intro-grp intro-cta">
-        <div class="intro-lead">You start with <b>${fmt(S.chips)} chips</b>.</div>
-        <div class="intro-sub">Your final stack is your leaderboard score.</div>
+        <div class="intro-lead">You start with <b>${cfmt(S.chips)} chips</b>.</div>
+        <div class="intro-sub">${chipScale()>1?`Your final stack × ${chipScale()} is your leaderboard score.`:'Your final stack is your leaderboard score.'}</div>
         <button class="btn-gold btn-lg intro-start" onclick="startGame()">► Start new game</button>
       </div>
       <div class="intro-grp">
@@ -53,20 +53,21 @@ function screenBorrow(){
   const retLabel=ret==='roulette'?'Final Round: Roulette →'
     :(GAME_META[ret]?`${GAME_META[ret].icon} ${GAME_META[ret].name} →`:ret+' →');
   const amt=_effectiveBorrowAmount();
+  const amtTxt=cfmt(amt), chipW=amtTxt==='1'?'chip':'chips';
   const minC=getMod('min_chips')||0;
   const minNote=minC>BORROW_AMOUNT
-    ?`<span style="font-size:.95rem;opacity:0.55"> (min bet: ${fmt(minC)})</span>`:'';
+    ?`<span style="font-size:.95rem;opacity:0.55"> (min bet: ${cfmt(minC)})</span>`:'';
   return`${hdr('Busted!')}
   <div class="panel" style="text-align:center">
-    <div style="font-size:2.5rem;margin:10px 0 4px">${icon('coins')}</div>
+    <div style="font-size:2.5rem;margin:10px 0 4px;color:var(--gold-hi)">${icon('coins',{fill:true})}</div>
     <div class="result-hl" style="color:var(--lose)">You're broke!</div>
-    <div class="result-sub" style="color:var(--shadow)">0 chips remaining</div>
+    <div class="result-sub borrow-rem" style="color:var(--lose)">0 chips remaining</div>
     <div class="divider" style="margin:10px 0"></div>
     <div style="font-size:1.2rem;color:var(--cream);padding:0 8px 12px;line-height:1.55">
-      Borrow <b style="color:var(--gold-hi)">${fmt(amt)} chips</b>${minNote} to keep playing.<br>
+      Borrow <b style="color:var(--gold-hi)">${amtTxt} ${chipW}</b>${minNote} to keep playing.<br>
       <span style="font-size:1rem;opacity:0.7">Deducted from tomorrow's starting stack.</span>
     </div>
-    <button class="btn-gold btn-lg" onclick="borrowChips()">${icon('coins')} Borrow ${fmt(amt)} chips</button>
+    <button class="btn-gold btn-lg" onclick="borrowChips()">${icon('coins',{fill:true})} Borrow ${fmt(amt)} chips</button>
     <button class="ch-clear" style="margin-top:12px;" onclick="declineBorrow()">✕ Accept defeat → Results</button>
   </div>`;
 }
@@ -152,6 +153,7 @@ function screenResults(){
     <div class="results-hero">
       <div class="results-tier" style="color:var(--cream);text-transform:uppercase;letter-spacing:0.16em;margin-bottom:2px">${tier}</div>
       <div class="big-chips" style="font-family:var(--btn-f);font-size:5rem;line-height:1;letter-spacing:.04em;color:var(--gold-hi);text-shadow:2px 2px 0 rgba(0,0,0,0.45)">${fmt(S.chips)}</div>
+      ${chipScale()>1?`<div class="big-chips-note" style="font-size:.8rem;color:var(--cream);opacity:.7;text-transform:uppercase;letter-spacing:.14em;margin-top:2px">${(S.chips/chipScale()).toLocaleString(undefined,{maximumFractionDigits:2})} chips × ${chipScale()}</div>`:''}
       ${streakHtml}
     </div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
@@ -172,8 +174,10 @@ function screenResults(){
       </div>
     </div>
     ${chartHtml}
-    <div class="share-box">${shareText}</div>
-    <button class="btn-gold" onclick="doShare()">${icon('clipboard-text')}Copy &amp; Share</button>
+    <div class="share-cluster">
+      <div class="share-box">${shareText}</div>
+      <button class="btn-gold" onclick="doShare()">${icon('clipboard-text')}Copy &amp; Share</button>
+    </div>
   </div>`;
 }
 

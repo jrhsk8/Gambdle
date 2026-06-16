@@ -505,13 +505,13 @@ function screenBJ(){
         <div class="divider"></div>
         ${S.bjSplitHands.length>1?`<div class="bj-split-aside">
           ${S.bjSplitHands.map((hand,i)=>{if(i===ai)return'';const hv=hVal(hand);const isDone=S.bjSplitDone[i];return`<div style="text-align:center;opacity:${isDone?0.55:0.8}">
-            <div class="sec bj-split-lbl">Hand ${i+1} (${fmt(S.bjSplitBets[i])})</div>
+            <div class="sec bj-split-lbl">Hand ${i+1} (${cfmt(S.bjSplitBets[i])})</div>
             <div class="hand hand-fan" style="justify-content:center">${renderCards(hand,'sm')}</div>
             <div class="bj-split-val" style="color:${hv>21?'var(--lose)':'var(--shadow)'}">${hv}${hv>21?' BUST':''}</div>
           </div>`;}).join('')}
         </div>`:''}
         <div class="bj-split-active" style="text-align:center;flex:1;">
-          <div class="sec bj-active-lbl">Hand ${ai+1} <span class="bj-active-bet">· Bet ${fmt(S.bjSplitBets[ai])}</span></div>
+          <div class="sec bj-active-lbl">Hand ${ai+1} <span class="bj-active-bet">· Bet ${cfmt(S.bjSplitBets[ai])}</span></div>
           <div id="bj-active-hand" class="hand">${renderCards(activeHand,'lg',af,0.4,0.1)}</div>
           ${S.bjCelebrating||isBJ(activeHand)
             ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div class="bj-celebrate-txt">Blackjack!</div></div>`
@@ -519,7 +519,7 @@ function screenBJ(){
         </div>
         <div class="divider"></div>
         <div style="margin-top:auto;">
-          ${gameControls(betInlay('Total Bet', fmt(S.bjSplitBets.reduce((a,b)=>a+b,0))), (S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canResplit))}
+          ${gameControls(betInlay('Total Bet', cfmt(S.bjSplitBets.reduce((a,b)=>a+b,0))), (S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canResplit))}
         </div>
 </div>`;
     }
@@ -545,7 +545,7 @@ function screenBJ(){
   </div>
   <div class="divider"></div>
   <div>
-    ${gameControls(betInlay('Bet', fmt(S.bjBet)), (S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canSplit))}
+    ${gameControls(betInlay('Bet', cfmt(S.bjBet)), (S.bjCelebrating||done21)?'':bjActionBtns(bust,done21,can2,canSplit))}
   </div>
 </div>`;
   }
@@ -571,7 +571,7 @@ function screenBJ(){
       <div class="bj-sr-hands" style="display:flex;flex-wrap:${S.bjSplitHands.length===4?'wrap':'nowrap'};justify-content:space-evenly;gap:8px;margin-bottom:14px">
         ${S.bjSplitHands.map((hand,i)=>{const r=S.bjSplitResults[i];const hv=hVal(hand);return`<div style="text-align:center;${S.bjSplitHands.length===4?'flex:0 0 calc(50% - 8px);min-width:0':'flex:1'}">
           <div class="sec" style="font-size:.85rem">Hand ${i+1}: <span style="color:${col(r.delta)}">${RES_LBL2[r.result]||r.result}</span></div>
-          <div style="font-size:1rem;color:${col(r.delta)};margin-bottom:4px">${sign(r.delta)}</div>
+          <div style="font-size:1rem;color:${col(r.delta)};margin-bottom:4px">${csign(r.delta)}</div>
           <div class="hand hand-fan" style="justify-content:center">${renderCards(hand,'sm')}</div>
           ${_handValDiv(hv,'font-size:1.4rem')}
         </div>`;}).join('')}

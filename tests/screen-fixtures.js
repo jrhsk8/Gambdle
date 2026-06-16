@@ -198,6 +198,18 @@
         S.uthRevealComm = 5; S.uthRaised = false;
       },
     },
+    'uth-reveal': {
+      // The transient "Dealer Reveals" frame (auto-advances to the result after ~2.3s). Pinned fully
+      // revealed so the lab/screenshots can review a screen that otherwise never sits still.
+      group: "Hold'em",
+      setup: () => {
+        S.screen = 'uth'; S.uthPhase = 'reveal'; S.chips = 1100; S.uthAnte = 100; S.uthHand = 1;
+        S.uthHole = [card('A','s'), card('K','d')]; S.uthDealer = [card('2','c'), card('7','h')];
+        S.uthComm = [card('8','h'), card('6','s'), card('Q','h'), card('5','d'), card('A','d')];
+        S.uthRevealComm = 5; S.uthPrevRevealComm = 5; S.uthRaised = true;
+        S.uthHistory = [{ ante:50, blind:50, play:100, playMult:1, result:'win', delta:200, anteDelta:50, blindDelta:0, playDelta:100, playerBest:null, dealerBest:null, dealerQualifies:true }];
+      },
+    },
     'uth-showdown': {
       group: "Hold'em",
       setup: () => {

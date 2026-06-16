@@ -35,6 +35,12 @@
     .size-tag { position: absolute; top: -16px; left: 0; font-size: 10px; color: #777; }
     /* Gallery grid */
     #gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 22px 14px; }
+    /* All-sizes view: fit every binding size into the visible stage with no scrolling, as large as
+       possible. The column count + cell size are computed in JS (grid-template-columns set inline);
+       frames are centered in their cells since aspect ratios vary. */
+    #gallery.fit { display: grid; gap: 16px; align-content: start; justify-items: center; }
+    #gallery.fit .cap { text-align: center; }
+    #gallery.fit .frame-box { margin: 0 auto; }
     .cell { }
     .cell .cap { font-size: 11px; color: #9a9; margin: 0 0 4px; }
     .cell .frame-box { margin: 0; }
@@ -50,22 +56,36 @@
       <input class="wh" id="ch" type="number" min="320" placeholder="H">
     </span>
     <label>Modifier <select id="sel-mod"></select></label>
-    <label><input type="checkbox" id="cb-gallery"> Gallery</label>
+    <label title="Every Screen at the chosen size"><input type="checkbox" id="cb-gallery"> Gallery</label>
+    <label title="This Screen at every binding size"><input type="checkbox" id="cb-sizes"> All sizes</label>
     <span class="spacer"></span>
     <span class="hint">live-reloads on styles.css / src/ edits</span>
   </div>
   <div id="stage"></div>
 
-  <!-- Populate the dropdowns from the real registry + modifier presets. These define globals only;
+  <!-- Populate the dropdowns from the real registry + modifier presets. Relative paths (../) so the
+       lab works both served (npm run lab) and opened directly via file://. These define globals only;
        their setup()/render() closures aren't invoked here (the iframe runs the game). -->
-  <script src="/src/modifiers.js"></script>
-  <script src="/tests/screen-fixtures.js"></script>
+  <script src="../src/modifiers.js"></script>
+  <script src="../tests/screen-fixtures.js"></script>
 
   <script>
     const SIZES = ['360x780', '375x812', '393x852', '1024x1080', '1280x800', '1440x900', '1920x1080', '2560x1440', '3840x2160'];
     const $ = id => document.getElementById(id);
     const screenSel = $('sel-screen'), sizeSel = $('sel-size'), modSel = $('sel-mod'),
-          galleryCb = $('cb-gallery'), custom = $('custom'), cw = $('cw'), ch = $('ch'), stage = $('stage');
+          galleryCb = $('cb-gallery'), sizesCb = $('cb-sizes'),
+          custom = $('custom'), cw = $('cw'), ch = $('ch'), stage = $('stage');
+
+    // If the registry / preset scripts didn't load, say so clearly instead of showing an empty UI.
+    if (typeof SCREEN_FIXTURES === 'undefined' || typeof PRESET_MODIFIERS === 'undefined') {
+      stage.innerHTML = '<div style="color:#e89; padding:32px; font:13px monospace; line-height:1.7; max-width:560px">'
+        + '⚠ <b>The lab scripts did not load.</b><br>'
+        + 'Run <b style="color:#c49341">npm run lab</b> and open the URL it prints '
+        + '(<b>http://localhost:5180/</b>), or open <b>lab/index.html</b> directly from the repo.<br>'
+        + '<span style="color:#888">(If you opened it from outside the repo folder, the relative paths to '
+        + 'src/ and tests/ can\'t resolve.)</span></div>';
+      throw new Error('UI Lab: SCREEN_FIXTURES / PRESET_MODIFIERS failed to load');
+    }
 
     // ── Build dropdowns ──────────────────────────────────────────────────────
     // Screens grouped by their registry `group` label.
@@ -92,11 +112,13 @@
         size: q.get('size') || '1280x800',
         mod: q.get('mod') ?? '',
         gallery: q.get('gallery') === '1',
+        sizes: q.get('sizes') === '1',
       };
     }
     function writeState(st) {
       const q = new URLSearchParams();
-      q.set('fixture', st.fixture); q.set('size', st.size); if (st.mod) q.set('mod', st.mod); if (st.gallery) q.set('gallery', '1');
+      q.set('fixture', st.fixture); q.set('size', st.size); if (st.mod) q.set('mod', st.mod);
+      if (st.gallery) q.set('gallery', '1'); if (st.sizes) q.set('sizes', '1');
       history.replaceState(null, '', '?' + q.toString());
     }
 
@@ -107,7 +129,7 @@
     function frameURL(fixture, size, mod) {
       const q = new URLSearchParams({ fixture, size });
       if (mod) q.set('mod', mod);
-      return '/lab/frame.html?' + q.toString();
+      return 'frame.html?' + q.toString(); // relative to this page (/lab/) — works served or via file://
     }
 
     // A sized box with a scale-to-fit iframe. The iframe's width/height attributes stay W×H so CSS
@@ -130,21 +152,51 @@
     }
 
     // ── Render the stage from state ──────────────────────────────────────────
+    // Build a captioned grid of frames into the stage.
+    function renderGrid(cells, cls, cols) {
+      const grid = document.createElement('div'); grid.id = 'gallery';
+      if (cls) grid.className = cls;
+      if (cols) grid.style.gridTemplateColumns = cols;
+      for (const [caption, box] of cells) {
+        const cell = document.createElement('div'); cell.className = 'cell';
+        const cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = caption;
+        cell.appendChild(cap); cell.appendChild(box);
+        grid.appendChild(cell);
+      }
+      stage.appendChild(grid);
+    }
+
     function render() {
-      const st = { fixture: screenSel.value, size: currentSize(), mod: modSel.value, gallery: galleryCb.checked };
+      const st = { fixture: screenSel.value, size: currentSize(), mod: modSel.value, gallery: galleryCb.checked, sizes: sizesCb.checked };
       writeState(st);
       custom.classList.toggle('hidden', sizeSel.value !== 'custom');
       stage.innerHTML = '';
-      if (st.gallery) {
-        const grid = document.createElement('div'); grid.id = 'gallery';
-        for (const name of Object.keys(SCREEN_FIXTURES)) {
-          const cell = document.createElement('div'); cell.className = 'cell';
-          const cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = name;
-          cell.appendChild(cap);
-          cell.appendChild(makeFrameBox(name, st.size, st.mod, 300, 0, false));
-          grid.appendChild(cell);
+      if (st.sizes) {
+        // THIS Screen at every binding size — caption is the size. Fit ALL frames into the visible
+        // stage with no scrolling, as large as possible: try every column count and keep the one whose
+        // equal cells maximise total rendered frame area, then scale each frame to fit its cell
+        // (preserving aspect). Computed from the live stage size, so it re-fits on window resize.
+        const stageW = stage.clientWidth - 36, stageH = stage.clientHeight - 36;
+        const N = SIZES.length, GAP = 16, CAP = 20; // grid gap; per-cell caption height
+        const dims = SIZES.map(s => s.split('x').map(Number));
+        let best = null;
+        for (let C = 1; C <= N; C++) {
+          const R = Math.ceil(N / C);
+          const cellW = (stageW - GAP * (C - 1)) / C;
+          const cellH = (stageH - GAP * (R - 1) - CAP * R) / R;
+          if (cellW < 80 || cellH < 80) continue;
+          let area = 0;
+          for (const [w, h] of dims) { const s = Math.min(1, cellW / w, cellH / h); area += w * h * s * s; }
+          if (!best || area > best.area) best = { C, cellW, cellH, area };
         }
-        stage.appendChild(grid);
+        best ||= { C: 3, cellW: (stageW - GAP * 2) / 3, cellH: (stageH - GAP * 2 - CAP * 3) / 3 };
+        renderGrid(
+          SIZES.map(size => [size, makeFrameBox(st.fixture, size, st.mod, best.cellW, best.cellH, false)]),
+          'fit', `repeat(${best.C}, ${best.cellW}px)`
+        );
+      } else if (st.gallery) {
+        // EVERY Screen at the chosen size — caption is the Screen name.
+        renderGrid(Object.keys(SCREEN_FIXTURES).map(name => [name, makeFrameBox(name, st.size, st.mod, 300, 0, false)]));
       } else {
         // Fit the single frame to the stage with a little breathing room.
         const maxW = stage.clientWidth - 36, maxH = stage.clientHeight - 36;
@@ -158,11 +210,23 @@
     if (SIZES.includes(st0.size)) sizeSel.value = st0.size;
     else { sizeSel.value = 'custom'; const [w, h] = st0.size.split('x'); cw.value = w; ch.value = h; }
     modSel.value = st0.mod;
-    galleryCb.checked = st0.gallery;
+    galleryCb.checked = st0.gallery && !st0.sizes;
+    sizesCb.checked = st0.sizes;
 
-    [screenSel, sizeSel, modSel, galleryCb, cw, ch].forEach(el => el.addEventListener('change', render));
+    // The two gallery modes are mutually exclusive — ticking one unticks the other.
+    galleryCb.addEventListener('change', () => { if (galleryCb.checked) sizesCb.checked = false; });
+    sizesCb.addEventListener('change', () => { if (sizesCb.checked) galleryCb.checked = false; });
+
+    [screenSel, sizeSel, modSel, galleryCb, sizesCb, cw, ch].forEach(el => el.addEventListener('change', render));
     [cw, ch].forEach(el => el.addEventListener('input', () => { if (sizeSel.value === 'custom') render(); }));
-    window.addEventListener('resize', () => { if (!galleryCb.checked) render(); });
+    // The single-frame view and the All-sizes fit-grid both scale to the window; the Gallery uses
+    // fixed thumbnails (no re-fit). All-sizes is debounced since re-rendering reloads its iframes.
+    let _rz;
+    window.addEventListener('resize', () => {
+      if (galleryCb.checked) return;
+      if (sizesCb.checked) { clearTimeout(_rz); _rz = setTimeout(render, 150); }
+      else render();
+    });
     render();
   </script>
 </body>

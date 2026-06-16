@@ -164,6 +164,20 @@ function showModifierPopup(key) {
   _openInfoModal(`${icon('sparkle')} ${m.title}`, content, 'modifier');
 }
 
+// The gold modifier banner is a button: clicking it opens the help popup for TODAY'S live modifier.
+// Read through getMod so it works for inline date-override mods AND the player's committed Player's
+// Choice pick — neither of which has a PRESET_MODIFIERS key, so showModifierPopup(key) can't serve
+// them. No devNote here (that's dev-only; this is the player-facing window). Shares the 'modifier'
+// window key with the Help-menu popup, so only one is ever open.
+function showActiveModInfo() {
+  closeDropdowns();
+  const title = getMod('title');
+  if (!title) return;
+  const desc = getMod('desc');
+  _openInfoModal(`${icon('sparkle')} ${title}`,
+    `<div style="font-size:1.15rem;color:var(--ink);line-height:1.55">${desc || ''}</div>`, 'modifier');
+}
+
 function toggleMenu(which, trigger) {
   const existing = document.querySelector('.dropdown');
   if (existing) {

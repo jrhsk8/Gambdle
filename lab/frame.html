@@ -11,7 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=VT323&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap"></noscript>
-  <link rel="stylesheet" href="/styles.css">
+  <!-- Relative paths (../) so the lab works both served (npm run lab) and opened directly via file://. -->
+  <link rel="stylesheet" href="../styles.css">
 </head>
 <body>
   <div id="app"></div>
@@ -39,27 +40,27 @@
   </script>
 
   <!-- Production load order (mirrors index.html) so the frame renders exactly what ships. -->
-  <script src="/src/modifiers.js"></script>
-  <script src="/src/icons.js"></script>
-  <script src="/src/core.js"></script>
-  <script src="/src/bet.js"></script>
-  <script src="/src/gametext.js"></script>
-  <script src="/src/audio.js"></script>
-  <script src="/src/ui.js"></script>
-  <script src="/src/windows.js"></script>
-  <script src="/src/menus.js"></script>
-  <script src="/src/dev.js"></script>
-  <script src="/src/screens.js"></script>
-  <script src="/src/flow.js"></script>
-  <script src="/src/bj.js"></script>
-  <script src="/src/uth.js"></script>
-  <script src="/src/roulette.js"></script>
-  <script src="/src/ladder.js"></script>
-  <script src="/src/engine.js"></script>
-  <script src="/src/game.js"></script>
+  <script src="../src/modifiers.js"></script>
+  <script src="../src/icons.js"></script>
+  <script src="../src/core.js"></script>
+  <script src="../src/bet.js"></script>
+  <script src="../src/gametext.js"></script>
+  <script src="../src/audio.js"></script>
+  <script src="../src/ui.js"></script>
+  <script src="../src/windows.js"></script>
+  <script src="../src/menus.js"></script>
+  <script src="../src/dev.js"></script>
+  <script src="../src/screens.js"></script>
+  <script src="../src/flow.js"></script>
+  <script src="../src/bj.js"></script>
+  <script src="../src/uth.js"></script>
+  <script src="../src/roulette.js"></script>
+  <script src="../src/ladder.js"></script>
+  <script src="../src/engine.js"></script>
+  <script src="../src/game.js"></script>
 
   <!-- Shared Fixture registry — drives the preview by name. -->
-  <script src="/tests/screen-fixtures.js"></script>
+  <script src="../tests/screen-fixtures.js"></script>
 
   <script>
     // Don't let the boot reload the page or animate; we drive the Screen ourselves.

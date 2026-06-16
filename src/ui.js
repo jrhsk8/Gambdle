@@ -16,6 +16,25 @@ function fmtK(n){
 const sign=n=>n>=0?'+'+fmt(n):fmt(n);
 const col=n=>n>0?'#1fa845':n<0?'#e03535':'#000';
 
+// ─── CHIP DISPLAY SCALING (chip_div modifier) ─────────────────────────────────
+// Some days the player runs a tiny stack shown at 1/Nth its internal value (a "10 chip"
+// stack that scores ×100, say). The internal chip balance, every payout, the submitted
+// score, the leaderboard, tier badges and the integrity replay all stay FULL-scale —
+// only these player-facing readouts divide. So the "×100" is purely the gap between what
+// you see while playing and the score that's recorded; nothing downstream changes.
+// chipScale() is the raw configured divisor (mod active?); chipDispDiv() gates it to the
+// in-run screens, so the final Daily Results screen (and any cross-day total) reveals the
+// true full-scale score. Off those screens, or with no chip_div mod, both are 1 and the
+// c* helpers behave exactly like fmt/fmtK/sign.
+const CHIP_SCALE_SCREENS = new Set(['intro','bj','uth','poker','roulette','ladder','borrow']);
+function chipScale(){ return getMod('chip_div') || 1; }
+function chipDispDiv(){ return CHIP_SCALE_SCREENS.has(S.screen) ? chipScale() : 1; }
+// Scale an internal chip amount to its displayed value (rounded to 2dp to kill FP fuzz).
+function _chipScaled(n){ const d=chipDispDiv(); return d===1 ? n : Math.round(n/d*100)/100; }
+function cfmt(n){ return _chipScaled(n).toLocaleString(undefined,{maximumFractionDigits:2}); }
+function cfmtK(n){ return fmtK(_chipScaled(n)); }
+function csign(n){ const v=_chipScaled(n); const s=v.toLocaleString(undefined,{maximumFractionDigits:2}); return v>=0?'+'+s:s; }
+
 // Maps suit symbols to CSS classes for coloring (red suits get a different color than black).
 const SUIT_CLS={'♠':'suit-s','♥':'suit-h','♦':'suit-d','♣':'suit-c'};
 function cardHTML(c,sz='md',ex='',dl=0,anim=true){
@@ -48,13 +67,16 @@ function renderCards(cards, sz, animFrom=ANIM_NONE, interval=0, base=0, ex='') {
 // betAmtHTML (optional) overrides the contents of the bet-amount box; when omitted it shows the
 // default "Bet <value>" readout (#bv). UTH passes its Ante+Blind+total summary here instead.
 function chipSel(maxC,curBet,denoms,extraBtn='',betAmtHTML){
-  const ds=(denoms||[10,25,50,100,250,500,1000]);
-  const btns=ds.map(d=>`<button class="chbtn ch-${d}" data-v="${d}" onclick="addChip(${d})" ${curBet+d>maxC?'disabled':''}><span>${d}</span></button>`).join('');
+  const div=chipDispDiv();
+  // chip_div day: collapse to a single chip worth `div` internally (shown as "1"), wearing the grey
+  // 10-chip's look. data-v / addChip stay in internal units, so all the bet-cap math is unchanged.
+  const ds = div>1 ? [div] : (denoms||[10,25,50,100,250,500,1000]);
+  const btns=ds.map(d=>`<button class="chbtn ${div>1?'ch-10':'ch-'+d}" data-v="${d}" onclick="addChip(${d})" ${curBet+d>maxC?'disabled':''}><span>${div>1?d/div:d}</span></button>`).join('');
   // Same markup as the play/result betInlay readout (label span + value span), with NO inline font
   // styling, so the CSS .bet-amt span:first/last-child rules render the bet-phase box IDENTICALLY to the
   // play screen. #bv stays on the value span for live patching (patchBetUI / roulette rAddBet).
   const amt=betAmtHTML!=null?betAmtHTML
-    :`<span>Bet</span><span id="bv">${fmt(curBet)}</span>`;
+    :`<span>Bet</span><span id="bv">${cfmt(curBet)}</span>`;
   // Clear sits to the LEFT of the bet box; All In stays on the right. extraBtn (roulette's Place Bet)
   // rides between the box and All In.
   return`<div class="chip-row">${btns}</div>
@@ -74,7 +96,7 @@ function gameDots(history, hand, phase, count = 3){
     const label = isR ? (i === 0 ? 'Last Spin' : 'Final Results') : `Hand ${i+1}`;
     const curIdx=phase==='result'?hand-1:hand;
     const isCur=i===curIdx;
-    if(h && !h.skipped && !isCur){const d=h.delta;return`<div class="hand-dot ${d>0?'won':d<0?'lost':'push'}">${label}<span class="dot-detail"> ${sign(d)}</span></div>`;}
+    if(h && !h.skipped && !isCur){const d=h.delta;return`<div class="hand-dot ${d>0?'won':d<0?'lost':'push'}">${label}<span class="dot-detail"> ${csign(d)}</span></div>`;}
 
     const cls=isCur?'cur':i<hand?'push':'pend';
     let txt = label;
@@ -107,7 +129,7 @@ function hdr(sub){
     <span class="mb-item" onclick="toggleMenu('file',this);event.stopPropagation()"><u>F</u>ile</span>
     <span class="mb-item" onclick="toggleMenu('help',this);event.stopPropagation()"><u>H</u>elp</span>
     ${DEV_OVERRIDE ? `<span class="mb-item" style="color:var(--gold)" onclick="toggleMenu('dev',this);event.stopPropagation()"><u>D</u>eveloper</span>` : ''}
-    <span class="mb-right"><span id="chip-badge" class="chip-badge">${icon('chip')} ${fmt(S.chips)}</span></span>
+    <span class="mb-right"><span id="chip-badge" class="chip-badge">${icon('chip')} ${cfmt(S.chips)}</span></span>
   </div>
   <div id="hdr-sub" style="display:none">${sub||''}</div>`;
 }
@@ -120,7 +142,8 @@ function modBannerHTML(slim=false){
   const modTitle = getMod('title');
   const modDesc = getMod('desc');
   if (!modTitle) return '';
-  return `<div class="mod-banner${slim?' mod-banner-slim':''}">
+  // The banner is a button (raised bevel, see LAYOUT.md): clicking opens today's modifier help.
+  return `<div class="mod-banner${slim?' mod-banner-slim':''}" onclick="showActiveModInfo()" title="View modifier details">
     <div class="mod-banner-l">
       <div class="mod-banner-label">TODAY'S MODIFIER</div>
       <div class="mod-banner-title">${icon('sparkle', { fill: true, cls: 'mod-star' })} ${modTitle}</div>
@@ -149,7 +172,7 @@ function patchBetUI() {
   // Re-render only if no chip-bet UI is on screen at all. UTH replaces #bv with its Ante+Blind
   // summary (updated below via #uth-summary), so a missing #bv alone is fine — patch surgically.
   if(!bv && !document.querySelector('.chbtn')){ render(); return; }
-  if(bv) bv.textContent = fmt(bet);
+  if(bv) bv.textContent = cfmt(bet);
   document.querySelectorAll('.chbtn').forEach(b => {
     b.disabled = bet + (+b.dataset.v) > max;
   });
@@ -173,7 +196,7 @@ function patchBetUI() {
   if(us) {
     // Match the render's split: ante rounds up, blind rounds down (see _uthAntePortion/_uthBlindPortion).
     const ante=Math.ceil(bet/2), blind=Math.floor(bet/2);
-    us.innerHTML = `Ante <b style="color:var(--gold)">${fmt(ante)}</b> + Blind <b style="color:var(--gold)">${fmt(blind)}</b> = <b style="color:var(--ink)">${fmt(bet)}</b> chips total`;
+    us.innerHTML = `Ante <b style="color:var(--gold)">${cfmtK(ante)}</b> + Blind <b style="color:var(--gold)">${cfmtK(blind)}</b> = <b style="color:var(--ink)">${cfmtK(bet)}</b> chips total`;
     // Keep the blind pay table (and its header) in step with the staked blind.
     const pt=document.getElementById('uth-ptable');
     if(pt) pt.innerHTML = uthPayTableHTML(blind);
@@ -216,7 +239,7 @@ const betInlaySum = (html, id='') => `<div class="bet-amt bet-inlay bet-inlay-ce
 // centered to match the Deal / Final Spin button so the controls sit in the same spot on every screen.
 const gameControls = (inlayHTML, buttonsHTML) => `<div class="game-controls">${inlayHTML}${buttonsHTML}</div>`;
 const aiosRow = (allInOnClick, skipOnClick) => `<div style="display:flex;gap:10px;margin-top:8px">
-    <button class="btn-gold" style="flex:2" onclick="${allInOnClick}">All In (${fmt(S.chips)}) →</button>
+    <button class="btn-gold" style="flex:2" onclick="${allInOnClick}">All In (${cfmt(S.chips)}) →</button>
     <button class="ch-clear" style="flex:1;padding:17px" onclick="${skipOnClick}">Skip Hand</button>
   </div>`;
 

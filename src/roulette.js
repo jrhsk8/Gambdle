@@ -102,7 +102,8 @@ function evalBet(idx,result){
 }
 
 // Formats a chip amount as a short label for the board overlay (e.g. 1200 → "1K").
-const chipLbl = amt => amt >= 1000 ? Math.floor(amt / 1000) + 'K' : String(amt);
+// Honors the chip_div display scale so placed-bet chips read in the same units as the badge.
+const chipLbl = amt => { const d=chipDispDiv(); const v=d===1?amt:Math.round(amt/d*100)/100; return v >= 1000 ? Math.floor(v / 1000) + 'K' : String(v); };
 
 // ─── ROULETTE BOARD ──────────────────────────────────────────────────────
 
@@ -326,14 +327,14 @@ function screenRouletteRespin(){
   const displayDelta=wm>1&&totalDelta>0?totalDelta*wm:totalDelta;
   const betRows=betPreviews.map(b=>`<div class="irow" style="margin-bottom:4px">
     <span class="ik"><b>${rBetLabel(b.pick)}</b> · Pays ${b.pay}:1</span>
-    <span style="font-family:var(--btn-f);font-size:1.2rem;color:${col(b.delta)}">${sign(b.delta)}</span>
+    <span style="font-family:var(--btn-f);font-size:1.2rem;color:${col(b.delta)}">${csign(b.delta)}</span>
   </div>`).join('');
   return `${hdr('Roulette · Second Chance')}
   <div class="panel" style="text-align:center">
     ${gameDots([], 0, 'spinning', 2)}
     <div class="divider"></div>
     ${rResultNumsHTML()}
-    <div style="font-size:1.6rem;font-weight:700;color:${col(displayDelta)};margin-bottom:8px">${sign(displayDelta)} chips</div>
+    <div style="font-size:1.6rem;font-weight:700;color:${col(displayDelta)};margin-bottom:8px">${csign(displayDelta)} chips</div>
     <div class="divider"></div>
     ${betRows}
     <div class="divider"></div>
@@ -378,7 +379,7 @@ function screenRouletteBet(){
       <div class="sec">The Table · Select where to go all in</div>
       ${board}
       <div style="display:flex;gap:10px;margin:10px 0">
-        <button class="btn-gold" style="flex:2" onclick="rAllIn()" ${!pb?'disabled':''}>All In on ${pb?rBetLabel(S.rPick):'...'} (${fmt(S.chips)}) →</button>
+        <button class="btn-gold" style="flex:2" onclick="rAllIn()" ${!pb?'disabled':''}>All In on ${pb?rBetLabel(S.rPick):'...'} (${cfmt(S.chips)}) →</button>
         <button class="ch-clear" style="flex:1;padding:17px" onclick="rSkip()">Skip Spin</button>
       </div>
       <div class="divider"></div>
@@ -417,7 +418,7 @@ function screenRouletteResult(){
     <div class="panel" style="text-align:center">
       <div style="font-size:1.75rem;font-weight:700;color:var(--shadow);margin-bottom:12px">Spin Skipped</div>
       <div class="game-manifest" style="text-align:left;margin-bottom:6px">
-        <div class="irow"><span class="ik">Final chip total</span><span class="iv">${fmt(S.chips)}</span></div>
+        <div class="irow"><span class="ik">Final chip total</span><span class="iv">${cfmt(S.chips)}</span></div>
       </div>
       <button class="btn-gold" onclick="advanceTo('results')">${_rNextLabel()}</button>
     </div>`;
@@ -426,18 +427,18 @@ function screenRouletteResult(){
   const betRows=bets.map((b,i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
     <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
       <span style="font-size:1rem"><b>${rBetLabel(b.pick)}</b> · Pays ${b.pay}:1</span>
-      <span style="font-family:var(--btn-f);font-size:1.35rem;color:${col(b.delta)}">${sign(b.delta)}</span>
+      <span style="font-family:var(--btn-f);font-size:1.35rem;color:${col(b.delta)}">${csign(b.delta)}</span>
     </div>`).join('');
   return `${hdr('Roulette · Result')}
   <div class="panel" style="text-align:center">
     ${rResultNumsHTML()}
     <div class="result-hl" style="color:${col(res.delta)}">${res.delta>0?'You Win!':res.delta===0?'Push':'You Lose!'}</div>
-    <div class="result-sub" style="color:${col(res.delta)}">${sign(res.delta)} chips</div>
+    <div class="result-sub" style="color:${col(res.delta)}">${csign(res.delta)} chips</div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
       ${betRows}
       <div class="gm-sep" style="opacity:0.35"></div>
       <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
-        <span class="ik">Final chip total</span><span class="iv">${fmt(S.chips)}</span>
+        <span class="ik">Final chip total</span><span class="iv">${cfmt(S.chips)}</span>
       </div>
     </div>
     <button class="btn-gold" onclick="advanceTo('results')">${_rNextLabel()}</button>
@@ -490,7 +491,7 @@ function rSelBox(pick,curBet){
   if(pick==null)return`<div class="rsb-prompt">Select a tile to bet on</div>`;
   const d=R_BETS[pick];
   // Three fixed-width columns (CSS), so varying label/payout length never shifts the other sections.
-  return`<div class="rsb-box"><span class="rsb-on">Bet on <b class="${rBetCls(pick)}">${rBetLabel(pick)}</b></span><span class="rsb-pays">pays ${d.pay}:1</span><span class="rsb-win">${curBet>0?'win +'+fmt(curBet*d.pay):''}</span></div>`;
+  return`<div class="rsb-box"><span class="rsb-on">Bet on <b class="${rBetCls(pick)}">${rBetLabel(pick)}</b></span><span class="rsb-pays">pays ${d.pay}:1</span><span class="rsb-win">${curBet>0?'win +'+cfmt(curBet*d.pay):''}</span></div>`;
 }
 // The BETS-TRACKER box (below): "Your Bets n/max" + a 2-column grid of maxBets slots. Each placed bet
 // shows its potential winnings (bet × pay); unused slots stay faint, so the box is always full.
@@ -498,7 +499,7 @@ function rBetsZone(bets,maxBets,readOnly){
   let cells='';
   for(let i=0;i<maxBets;i++){
     const b=bets[i];
-    if(b){const d=R_BETS[b.pick];cells+=`<div class="rbz-item"><span class="rbz-lbl ${rBetCls(b.pick)}">${rBetLabel(b.pick)}</span><span class="rbz-win"><span class="rbz-bet">${fmt(b.bet)}</span> → <b class="rbz-won">+${fmt(b.bet*d.pay)}</b>${readOnly?'':`<button onclick="rRemoveBet(${i})">×</button>`}</span></div>`;}
+    if(b){const d=R_BETS[b.pick];cells+=`<div class="rbz-item"><span class="rbz-lbl ${rBetCls(b.pick)}">${rBetLabel(b.pick)}</span><span class="rbz-win"><span class="rbz-bet">${cfmt(b.bet)}</span> → <b class="rbz-won">+${cfmt(b.bet*d.pay)}</b>${readOnly?'':`<button onclick="rRemoveBet(${i})">×</button>`}</span></div>`;}
     else cells+=`<div class="rbz-item rbz-open"><span>Open slot</span><span>· · ·</span></div>`;
   }
   return`<div class="rbz-title">Your Bets ${bets.length}/${maxBets}</div><div class="rbz-grid">${cells}</div>`;
@@ -530,7 +531,7 @@ function rAddBet(){
   else boardBtn.insertAdjacentHTML('beforeend',`<span class="r-chip r-chip-placed">${chipLbl(total)}</span>`);
 
   const bv=document.getElementById('bv');
-  if(bv)bv.textContent=fmt(S.rBet); // keep showing the retained amount, not 0
+  if(bv)bv.textContent=cfmt(S.rBet); // keep showing the retained amount, not 0
   document.querySelectorAll('.chbtn').forEach(b=>{b.disabled=S.rBet+(+b.dataset.v)>S.chips;});
 
   const z=document.getElementById('r-bets-zone');

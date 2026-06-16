@@ -21,25 +21,25 @@ const _ldRestore = () => {
 
 // ─── Codified layout intent (self-gated to each target Viewport) ──────────────
 // Desktop bet screens: the chip selector sits tight above the bottom-anchored Deal button, which
-// shares the bet box's exact left edge and width (the bet-screen control-parity invariant).
+// centers over the bet box and sits slightly wider than it (it overhangs the box on both sides).
 expectLayout('bj-bet', '1280x800', L => {
   L.fits();
-  L.el('#db').sameLeft('.bet-amt');
-  L.el('#db').sameWidth('.bet-amt');
+  L.el('#db').centered();
+  L.el('#db').widerThan('.bet-amt');
   L.el('.mod-banner').centered();
   L.gap('.chip-row', '#db').atMost(100);
 });
 
 expectLayout('uth-bet', '1280x800', L => {
   L.fits();
-  L.el('#db').sameLeft('.bet-amt');
-  L.el('#db').sameWidth('.bet-amt');
+  L.el('#db').centered();
+  L.el('#db').widerThan('.bet-amt');
 });
 
 expectLayout('bj-bet', '1440x900', L => {
   L.fits();
-  L.el('#db').sameLeft('.bet-amt');
-  L.el('#db').sameWidth('.bet-amt');
+  L.el('#db').centered();
+  L.el('#db').widerThan('.bet-amt');
 });
 
 // Mobile floor analog (the suite's mobile viewport): everything fits, and the Deal button + the

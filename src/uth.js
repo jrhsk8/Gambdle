@@ -111,11 +111,11 @@ function _uthPayRows(){
 // Pay-table body: once a blind is staked, show the actual chip payout per hand; otherwise the ratio.
 function uthPayTableHTML(blind){
   return _uthPayRows().map(([n,cat,ratio])=>{
-    const display=(blind>0&&cat!==null)?fmtK(uthBlindDelta(cat,blind)):ratio;
+    const display=(blind>0&&cat!==null)?cfmtK(uthBlindDelta(cat,blind)):ratio;
     return `<span class="pname">${n}</span><span class="ppay">${display}</span>`;
   }).join('');
 }
-function uthPayTableHead(blind){ return `Blind Pay Table${blind>0?` · ${fmtK(blind)} chips`:''}`; }
+function uthPayTableHead(blind){ return `Blind Pay Table${blind>0?` · ${cfmtK(blind)} chips`:''}`; }
 
 // ─── UTH / POKER STATE ───────────────────────────────────────────────────
 const UTH_CARD_START_MS    = 300;  // delay before first community card animates in
@@ -291,7 +291,7 @@ function _uthBlindPortion(){ return Math.floor(S.uthAnte/2); }
 // "Ante 125 · Blind 125" (· Raise N once the player has raised). fmtK keeps it on one line at
 // any size. Patched in place via #uth-bet-inlay on each street change (updateUthCommunityCards).
 function uthBetSummary(){
-  const part=(lbl,v)=>`${lbl} <b style="color:var(--gold)">${fmtK(v)}</b>`;
+  const part=(lbl,v)=>`${lbl} <b style="color:var(--gold)">${cfmtK(v)}</b>`;
   let s=`${part('Ante',_uthAntePortion())} · ${part('Blind',_uthBlindPortion())}`;
   if(S.uthPlay>0) s+=` · ${part('Raise',S.uthPlay)}`;
   return s;
@@ -450,8 +450,8 @@ function updateUthCommunityCards() {
       if (S.uthRaised) {
         actionUi.innerHTML = `<button class="btn-gold" onclick="uthNextStreet()">${S.uthPhase==='flop'?'See Turn & River →':'→ Showdown'}</button>`;
       } else {
-        if (S.uthPhase === 'flop') { const r2=_uthAntePortion()*2; actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(2)" ${S.chips < r2 ? 'disabled' : ''}>Raise 2× (${fmt(r2)})</button><button class="act-btn" onclick="uthCheck()">Check</button></div>`; }
-        else if (S.uthPhase === 'turn') { const r1=_uthAntePortion(); actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(1)" ${S.chips < r1 ? 'disabled' : ''}>Raise 1× (${fmt(r1)})</button><button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button></div>`; }
+        if (S.uthPhase === 'flop') { const r2=_uthAntePortion()*2; actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(2)" ${S.chips < r2 ? 'disabled' : ''}>Raise 2× (${cfmt(r2)})</button><button class="act-btn" onclick="uthCheck()">Check</button></div>`; }
+        else if (S.uthPhase === 'turn') { const r1=_uthAntePortion(); actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(1)" ${S.chips < r1 ? 'disabled' : ''}>Raise 1× (${cfmt(r1)})</button><button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button></div>`; }
       }
       // The dealer row isn't re-rendered on a street change, so the phase-gated Time Travel button
       // must be injected here when the flop/turn lands (it returns '' when used or off, a safe no-op).
@@ -514,7 +514,7 @@ function screenPoker(){
           <div class="hold-tag" style="${h?'':'color:var(--red)'}">${h?'HOLD':'REPLACE'}</div></div>`;}).join('')}
       </div>
       <button class="btn-gold" style="margin-top:12px" onclick="pkDraw()">Draw Cards →</button>
-      <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${fmt(S.pkBet)} chips</span></div>
+      <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${cfmt(S.pkBet)} chips</span></div>
     </div>`;
   }
   if(ph==='draw'){
@@ -535,7 +535,7 @@ function screenPoker(){
         }).join('')}
       </div>
       <button class="btn-gold" style="margin-top:12px;opacity:.35" disabled>Drawing…</button>
-      <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${fmt(S.pkBet)} chips</span></div>
+      <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${cfmt(S.pkBet)} chips</span></div>
     </div>`;
   }
   // result
@@ -548,12 +548,12 @@ function screenPoker(){
     <div class="divider"></div>
     <div class="result-hl" style="color:${col(h.delta)}">${h.delta>0?'You Win!':h.delta<0?'You Lose!':'Push'}</div>
     <div style="font-family:var(--btn-f);font-size:1.1rem;color:var(--gold);margin-bottom:2px">${res.n}</div>
-    <div class="result-sub" style="color:${col(h.delta)}">${sign(h.delta)} chips</div>
+    <div class="result-sub" style="color:${col(h.delta)}">${csign(h.delta)} chips</div>
     <div class="sec sec-sm">Your Hand</div>
     <div class="hand" style="margin-bottom:12px">
       ${S.pkFinal.map((c,i)=>{const isNew=!S.pkHeld.has(i);return cardHTML(c,'md',isNew?'box-shadow:0 0 0 2px var(--gold-hi),2px 3px 10px rgba(0,0,0,.5)':'',isNew?0.04+i*0.05:0);}).join('')}
     </div>
-    ${gameControls(betInlay('Total', fmt(S.chips)), `<button class="btn-gold" onclick="${btnAction}">${btnText}</button>`)}
+    ${gameControls(betInlay('Total', cfmt(S.chips)), `<button class="btn-gold" onclick="${btnAction}">${btnText}</button>`)}
   </div>`;
 }
 
@@ -575,7 +575,7 @@ function screenUTH(){
           </div>`;
     // The Ante+Blind+total summary lives inside the bet box (replacing the plain "Bet" readout);
     // keep id="uth-summary" so patchBetUI can live-update it and the bet-screen CSS hook still matches.
-    const betSummary=`<div id="uth-summary" class="uth-bet-sum">Ante <b style="color:var(--gold)">${fmtK(_uthAntePortion())}</b> + Blind <b style="color:var(--gold)">${fmtK(_uthBlindPortion())}</b> = <b style="color:var(--ink)">${fmtK(S.uthAnte)}</b> chips</div>`;
+    const betSummary=`<div id="uth-summary" class="uth-bet-sum">Ante <b style="color:var(--gold)">${cfmtK(_uthAntePortion())}</b> + Blind <b style="color:var(--gold)">${cfmtK(_uthBlindPortion())}</b> = <b style="color:var(--ink)">${cfmtK(S.uthAnte)}</b> chips</div>`;
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
@@ -640,8 +640,8 @@ function screenUTH(){
       ${playerRow(true)}
       <div class="divider"></div>
       ${uthControls(`<div id="uth-action-btns" class="act-btns">
-          <button class="act-btn" onclick="uthRaise(4)" ${canR4?'':'disabled'}>Raise 4× (${fmt(r4Cost)})</button>
-          <button class="act-btn" onclick="uthRaise(3)" ${canR3?'':'disabled'}>Raise 3× (${fmt(r3Cost)})</button>
+          <button class="act-btn" onclick="uthRaise(4)" ${canR4?'':'disabled'}>Raise 4× (${cfmt(r4Cost)})</button>
+          <button class="act-btn" onclick="uthRaise(3)" ${canR3?'':'disabled'}>Raise 3× (${cfmt(r3Cost)})</button>
           <button class="act-btn" onclick="uthCheck()">Check</button>
         </div>`)}
     </div>`;
@@ -661,7 +661,7 @@ function screenUTH(){
       <div class="divider"></div>
       ${uthControls(S.uthRaised ? `<button class="btn-gold" onclick="uthNextStreet()">See Turn &amp; River →</button>` : `
           <div id="uth-action-btns" class="act-btns">
-            <button class="act-btn" onclick="uthRaise(2)" ${canR2?'':'disabled'}>Raise 2× (${fmt(S.uthAnte)})</button>
+            <button class="act-btn" onclick="uthRaise(2)" ${canR2?'':'disabled'}>Raise 2× (${cfmt(S.uthAnte)})</button>
             <button class="act-btn" onclick="uthCheck()">Check</button>
           </div>`)}
     </div>`;
@@ -681,7 +681,7 @@ function screenUTH(){
       <div class="divider"></div>
       ${uthControls(S.uthRaised ? `<button class="btn-gold" onclick="uthNextStreet()">→ Showdown</button>` : `
           <div id="uth-action-btns" class="act-btns">
-            <button class="act-btn" onclick="uthRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${fmt(_uthAntePortion())})</button>
+            <button class="act-btn" onclick="uthRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${cfmt(_uthAntePortion())})</button>
             <button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button>
           </div>`)}
     </div>`;
@@ -724,7 +724,7 @@ function screenUTH(){
       ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
       <div class="divider"></div>
       <div class="result-hl" style="color:var(--lose)">You Folded</div>
-      <div class="result-sub" style="color:var(--lose)">${sign(hist.delta)} chips</div>
+      <div class="result-sub" style="color:var(--lose)">${csign(hist.delta)} chips</div>
       <div class="uth-cards-col">
         <div>
           <div class="sec sec-sm">Dealer's Hand</div>
@@ -740,7 +740,7 @@ function screenUTH(){
           <div class="uth-hand-name" style="font-size:1.3rem;color:var(--shadow);margin-top:3px">${CAT_NAMES[playerBest.cat]}${foldPbDetail}</div>
         </div>
       </div>
-      ${gameControls(betInlay('Total', fmt(S.chips)), `<button class="btn-gold" onclick="${btnAction}">${btnText}</button>`)}
+      ${gameControls(betInlay('Total', cfmt(S.chips)), `<button class="btn-gold" onclick="${btnAction}">${btnText}</button>`)}
     </div>`;
   }
 
@@ -760,7 +760,7 @@ function screenUTH(){
     <div class="divider"></div>
     <div class="uth-result-top" style="text-align:center">
       <div class="result-hl" style="color:${col(hist.delta)}">${resLabel}</div>
-      <div class="result-sub" style="color:${col(hist.delta)}">${sign(hist.delta)} chips</div>
+      <div class="result-sub" style="color:${col(hist.delta)}">${csign(hist.delta)} chips</div>
     </div>
     <div class="uth-cards-col">
         <div style="text-align:center">
@@ -781,8 +781,8 @@ function screenUTH(){
         </div>
     </div>
     <div class="uth-bets-grid">
-      ${[['Ante',hist.anteDelta],['Blind',hist.blindDelta],...(hist.play>0?[['Raise ('+hist.playMult+'×)',hist.playDelta]]:[])].map(([lbl,d])=>`<span class="pname">${lbl}</span><span class="ppay" style="color:${col(d)}">${sign(d)}</span>`).join('')}
+      ${[['Ante',hist.anteDelta],['Blind',hist.blindDelta],...(hist.play>0?[['Raise ('+hist.playMult+'×)',hist.playDelta]]:[])].map(([lbl,d])=>`<span class="pname">${lbl}</span><span class="ppay" style="color:${col(d)}">${csign(d)}</span>`).join('')}
     </div>
-    ${gameControls(betInlay('Total', fmt(S.chips)), `<button class="btn-gold" onclick="${btnAction}">${btnText}</button>`)}
+    ${gameControls(betInlay('Total', cfmt(S.chips)), `<button class="btn-gold" onclick="${btnAction}">${btnText}</button>`)}
   </div>`;
 }

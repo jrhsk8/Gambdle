@@ -43,7 +43,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  let rel = urlPath === '/' ? '/lab/index.html' : urlPath;
+  // Redirect the bare root to the shell's real path so relative ../src + frame.html URLs resolve
+  // the same way they do when the lab is opened directly via file:// (under /lab/).
+  if (urlPath === '/' || urlPath === '/lab' || urlPath === '/lab/') {
+    res.writeHead(302, { Location: '/lab/index.html' });
+    res.end(); return;
+  }
+  const rel = urlPath;
   const filePath = path.normalize(path.join(ROOT, rel));
   // Refuse anything that escapes the repo root (path traversal).
   if (filePath !== ROOT && !filePath.startsWith(ROOT + path.sep)) {

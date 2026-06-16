@@ -76,6 +76,11 @@ button { touch-action: manipulation; font-family: var(--btn-f); }
      button row all stretch to this, so they're wider than the fixed box and span most of the window.
      width:100% lets it shrink on panels narrower than this. */
   --ctrl-w: 680px;
+  /* The lone action button (Deal / Final Spin / Next Game / Next Hand …) sits slightly WIDER than the
+     bet/inlay box rather than exactly matching it — a consistent ~12% at every breakpoint, so the
+     proportion reads the same on desktop as on mobile (where the button already overhangs the box).
+     Mobile pins it back to the box width (the button is already full-panel there); see the mobile :root. */
+  --act-btn-w: calc(var(--bet-box-w) * 1.12);
   --btn-px: 14px;
   /* iOS Safari safe-area insets (Dynamic Island/status bar, home indicator, landscape
      notch). Defaults to env() which is 0 off-iOS; declared as vars so the layout tests
@@ -305,7 +310,11 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
   font-family: var(--btn-f);
   display: flex; justify-content: space-between; align-items: center; gap: 14px;
   font-size: 1.4rem;
+  cursor: pointer;   /* a button: opens today's modifier help (LAYOUT.md — raised bevel = clickable) */
 }
+/* Button feedback matching .act-btn/.btn-gold: hover brightens, press sinks (translate + inverted bevel). */
+.mod-banner:hover  { background: linear-gradient(180deg, #f9f1cc 0%, #f0e0a8 100%); }
+.mod-banner:active { transform: translate(1px,1px); box-shadow: inset 2px 2px 0 var(--shadow), inset -1px -1px 0 var(--highlight); }
 .mod-banner-l { flex-shrink: 0; white-space: nowrap; }
 .mod-banner-label { font-size: 1rem; color: var(--shadow); letter-spacing: 0.14em; }
 .mod-banner-title { font-size: 1.7rem; font-weight: 700; line-height: 1.1; color: var(--ink); margin-top: 1px; }
@@ -330,12 +339,12 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 /* ── Logo / brand ───────────────────────────────────────── */
 .logo {
   font-family: var(--btn-f);
-  font-size: 5.4rem; font-weight: 700;
+  font-size: 6rem; font-weight: 700;
   line-height: 0.95; letter-spacing: 0.04em;
   color: var(--ink);
 }
 .logo-spade { color: var(--ink); margin-right: 0.12em; }
-.logo-sub { font-size: 1.5rem; color: var(--shadow); letter-spacing: 0.18em; margin-top: 8px; text-transform: uppercase; }
+.logo-sub { font-size: 1.7rem; color: var(--ink); letter-spacing: 0.18em; margin-top: 8px; text-transform: uppercase; }
 /* Intro: distribute the three groups (title · CTA · program) down the panel so they
    spread across the felt on slack layouts; within each group spacing stays tight. */
 /* The daily-mod banner is injected as the panel's first child and stays pinned at the
@@ -415,11 +424,15 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 .game-controls .act-btns, .game-controls > #uth-actions-ui { width: 100%; }
 .game-controls > #uth-actions-ui { display: flex; flex-direction: column; align-items: center; }
 /* A LONE action button (Next Hand/Game, See Results, See Turn & River, Showdown, Draw — the single
-   advances stacked under the box; Deal/Final Spin live in #db) matches the bet box width and centers,
-   so the action button is exactly as wide as the box above it. Multi-button rows above are .act-btns. */
+   advances stacked under the box; Deal/Final Spin live in #db) sits slightly wider than the bet box and
+   centers, so the action button overhangs the box above it. Multi-button rows above are .act-btns. */
 .game-controls > .btn-gold,
-.game-controls > #uth-actions-ui > .btn-gold { width: var(--bet-box-w); }
+.game-controls > #uth-actions-ui > .btn-gold { width: var(--act-btn-w); }
 .game-controls > .bet-amt { width: var(--bet-box-w); }
+/* Control position parity (see .claude/LAYOUT.md): bottom-anchor the cluster so the box + button land at
+   the same Y on every play/result screen. The bet screens anchor via their flex:1 spacer + #db; here the
+   cluster pulls leftover felt into the gap ABOVE it, which the enlarged result cards/text then fill. */
+.panel > .game-controls:last-child { margin-top: auto; }
 /* The bet inlay box is the .bet-amt readout used outside the bet phase. The centered variant holds
    UTH's single-line "Ante · Blind · Raise" summary, so it overrides the left/right span layout. */
 .bet-inlay-center { justify-content: center; gap: 6px; color: var(--ink); white-space: nowrap; }
@@ -932,6 +945,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .gold-divider { width: 60%; height: 1px; background: rgba(196,147,58,0.1); align-self: center; }
 .result-hl { font-family: var(--btn-f); font-size: 3rem; margin-bottom: 4px; text-shadow: 2px 2px 0 rgba(0,0,0,0.4); }
 .result-sub { font-family: var(--btn-f); font-size: 2rem; margin-bottom: 14px; }
+/* Borrow screen "0 chips remaining": a touch smaller than a normal result-sub. */
+.result-sub.borrow-rem { font-size: 1.7rem; }
 .uth-result-top { margin-bottom: 10px; }
 .uth-cards-col { display:flex; flex-direction:column; gap:12px; align-items:center; margin:12px 0; }
 .uth-bets-grid { display:grid; grid-template-columns:1fr auto; gap:3px 14px; margin-bottom:10px; }
@@ -942,6 +957,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   background: var(--panel); color: var(--ink);
   border: 1px solid var(--ink);
   box-shadow: var(--raised-sm);
+}
+/* On the results page the game-summary box reads as an inlay (recessed): flip to the
+   canonical inlay bevel — shadow top-left, highlight bottom-right, same as .bet-amt. */
+.results-panel .game-manifest {
+  box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
 }
 .gm-row {
   display: grid; grid-template-columns: 32px 1fr;
@@ -1030,12 +1050,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* Spin screen reuses the bare .r-bets-zone class (no #id), so the id-scoped rule above doesn't reach
    it — match its width + centering here, keyed off the spin panel's wheel canvas. */
 .panel:has(#rwheel) .r-bets-zone { width: 100%; max-width: 468px; margin: 0 auto; }
-/* Blackjack/UTH/Poker Deal and roulette's Final Spin (the lone commit button on each bet screen) match
-   the bet box width and center, so the action button is exactly as wide as the box. */
+/* Blackjack/UTH/Poker Deal and roulette's Final Spin (the lone commit button on each bet screen) sit
+   slightly wider than the bet box and center, so the action button overhangs the box. */
 .panel:has(.bj-bet-table) > #db,
 .panel:has(#uth-summary) > #db,
 .panel:has(.ptable) > #db,
-.panel:has(#r-bets-zone) > #db { width: 100%; max-width: var(--bet-box-w); margin-left: auto !important; margin-right: auto !important; }
+.panel:has(#r-bets-zone) > #db { width: 100%; max-width: var(--act-btn-w); margin-left: auto !important; margin-right: auto !important; }
 /* The play/result control cluster is capped to the bet-box width so the box (and the buttons under it)
    match the bet box on every screen. */
 .game-controls { margin-left: auto !important; margin-right: auto !important; }
@@ -1142,14 +1162,26 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   border: 1px solid var(--ink);
   box-shadow: var(--raised-sm);
 }
+/* The daily-modifier banner's pale-gold gradient + ink border, but pressed INTO the panel via
+   the canonical inlay bevel (shadow top-left, highlight bottom-right — same as .bet-amt) so it
+   reads as a recessed plaque, not a raised button/overlay. */
 .share-box {
-  background: var(--cream); color: var(--ink);
+  background: linear-gradient(180deg, #f5eabc 0%, #ead89a 100%); color: var(--ink);
   border: 1px solid var(--ink);
   box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
   padding: 12px 14px;
   font-family: var(--btn-f); font-size: 1.4rem;
   line-height: 1.6; text-align: center;
   white-space: pre-line; letter-spacing: 0.02em;
+}
+/* Share box + its Copy & Share button travel as one unit: the cluster shrinks to the share
+   text's longest line and centers, and both children stretch to fill it — so the button is
+   always locked to the share box's width. Desktop overrides the cluster width to a centred
+   half-window card (see the results desktop block). */
+.share-cluster {
+  display: flex; flex-direction: column; gap: 8px;
+  width: fit-content; max-width: 100%;
+  margin-left: auto; margin-right: auto;
 }
 
 
@@ -1503,7 +1535,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   body { font-size: 24px; }
   /* On phones the box fills the control width (so it cleanly takes its own row and Clear/All In wrap
      below it); box == ctrl width here, equal rather than the box being narrower as on desktop. */
-  :root { --btn-h: 40px; --btn-fs: 1.1rem; --btn-px: 8px; --bet-box-w: 316px; --ctrl-w: 316px; }
+  :root { --btn-h: 40px; --btn-fs: 1.1rem; --btn-px: 8px; --bet-box-w: 316px; --ctrl-w: 316px; --act-btn-w: var(--bet-box-w); }
   /* Reduce outer chrome — the 30px bottom padding was the biggest offender */
   /* Cap the shell at the viewport so it can never grow past it (the XP window
      must stay put). Content that would exceed it is handled by the inner
@@ -1558,11 +1590,14 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Buttons */
   .btn-gold { padding: 10px 12px; font-size: 1.2rem; }
   .btn-gold.btn-lg { padding: 14px 16px; font-size: 1.5rem; }
+  /* Control-position parity (.claude/LAYOUT.md): match the bet screen's #db offset from the panel bottom
+     (its 3px margin-bottom) so the box + button land at the same Y on every play/result screen. */
+  .game-controls { margin-bottom: 3px; }
   /* Hand value under cards */
   .hand-val { font-size: 2rem; margin-top: 4px; }
   /* Intro logo */
-  .logo { font-size: 3.6rem; }
-  .logo-sub { font-size: 1.2rem; margin-top: 4px; }
+  .logo { font-size: 4rem; }
+  .logo-sub { font-size: 1.4rem; margin-top: 4px; }
   /* Cards — modestly smaller to reclaim vertical space */
   .card.lg { width: 80px; height: 114px; }
   .card.md { width: 72px; height: 102px; }
@@ -1665,14 +1700,19 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      so spare height collects at the bottom; use some of it to fill the page (larger
      hero number, consistent section gaps) while staying clear of the status bar even
      after the async ~110px distribution chart renders. */
-  .panel.results-panel { gap: 6px; }
+  .panel.results-panel { gap: 8px; }
   .big-chips { font-size: 3.1rem !important; line-height: 1; }
   .results-streak { font-size: 1.35rem; margin: 0; }
   .res-row { padding: 2px 10px !important; }
   .results-panel .game-manifest { margin-bottom: 2px !important; }
-  .results-panel #dist-title { margin-top: 2px !important; }
-  .dist-bars { height: 40px; margin-top: 8px; margin-bottom: 8px; }
-  .share-box { padding: 5px 10px; font-size: 0.9rem; line-height: 1.18; }
+  /* Center the "Score Distribution" title in the gap between the game results box (above)
+     and the top of the chart (the "You" marker / count labels sit ~20px above the bars).
+     Split the title's top/bottom margins so the gap above ≈ the gap below to that topmost
+     graph element; keeping (margin-top + margin-bottom) constant per tier leaves the chart
+     in place (no fit change), just repositions the title. Tuned per height tier below. */
+  .results-panel #dist-title { margin-top: 2px !important; margin-bottom: 15px !important; }
+  .dist-bars { height: 50px; margin-top: 8px; margin-bottom: 8px; }
+  .share-box { padding: 5px 14px; font-size: 0.9rem; line-height: 1.18; }
   /* BJ split result */
   .bj-split-result .result-hl { font-size: 1.55rem; margin-bottom: 0; }
   .bj-split-result .result-sub { font-size: 1.08rem; margin-bottom: 0; }
@@ -1692,15 +1732,15 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bj-split-active .card.lg .ct-s { font-size: 1.12rem; }
   .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.1rem !important; }
   .bj-split-active .hand-val { font-size: 2rem; }
-  /* Take in the slack between the active hand value and the buttons: don't let the
-     active hand stretch (flex:0) and pull the buttons up under it; spare height
-     falls to the bottom of the panel rather than gapping value→buttons. */
-  .panel:has(.bj-split-active) .bj-split-active { flex: 0 1 auto !important; }
-  .panel:has(.bj-split-active) > div:last-child { margin-top: 6px !important; }
-  /* Tighten the dividers + control-cluster gap on the dense split-play screen so the bet inlay box
-     + buttons fit under a full mod banner (the inlay box added a full button-height row here). */
+  /* Control-position parity: the active-hand section absorbs the spare height (flex:1) and the control
+     cluster sits flush at the panel bottom, so the box + buttons land at the same Y as every other screen
+     (the enlarged active cards fill the freed felt). */
+  .panel:has(.bj-split-active) .bj-split-active { flex: 1 1 auto !important; min-height: 0; }
+  .panel:has(.bj-split-active) > div:last-child { margin-top: 0 !important; }
+  /* Tighten the dividers on the dense split-play screen so the bet inlay box + buttons fit under a full
+     mod banner. The control-cluster gap stays at the standard 10px (the flex:1 active hand absorbs the
+     slack) so the box lands at the same Y as every other screen. */
   .panel:has(.bj-split-active) .divider { margin: 2px 0; }
-  .panel:has(.bj-split-active) .game-controls { gap: 5px; }
   /* UTH */
   .uth-summary { font-size: 0.9rem; }
   /* UTH blind pay table */
@@ -1800,18 +1840,35 @@ body.cardback-whale .card.back::before { content: '🐋'; }
    rather than leaving dead space at the bottom. Tiered by height so the 360×780 floor (which
    has little slack and must fit without scrolling) keeps its tight 8px gap. */
 @media (max-width: 480px) and (min-height: 800px) {
-  .panel.results-panel { gap: 9px; }
+  .panel.results-panel { gap: 12px; }
+  /* Keep the title centered between the results box and the chart top (see base rule). */
+  .results-panel #dist-title { margin-top: 4px !important; margin-bottom: 18px !important; }
+  .results-panel .dist-bars { height: 58px; }
+  /* Anchored controls free a band of felt on the result screens; spend it on modestly bigger cards + text
+     (control-position parity keeps the box/button pinned regardless). Tiered: floor 360×780 stays small,
+     and the growth is capped to fit the tightest tested device, iPhone 15 393×852 with Safari chrome. */
+  .uth-result-panel .card.md, .uth-result-panel .card.sm { width: 46px; height: 64px; }
+  .uth-result-panel .card.md .csuit, .uth-result-panel .card.sm .csuit { font-size: 1.2rem; }
+  .uth-result-panel .card.md .ct-r, .uth-result-panel .card.sm .ct-r { font-size: 0.84rem; }
+  .uth-result-panel .card.md .ct-s, .uth-result-panel .card.sm .ct-s { font-size: 0.72rem; }
+  .uth-result-panel .result-hl { font-size: 2.15rem; }
+  .uth-result-panel .uth-hand-name { font-size: 1.12rem !important; }
+  .uth-result-panel .sec { font-size: 0.86rem; }
+  .panel > div[style*="gap:16px"] .card.sm { width: 54px; height: 76px; }
+  .panel > div[style*="gap:16px"] .card.sm .csuit { font-size: 1.65rem; }
+  .panel > div[style*="gap:16px"] .hand-val { font-size: 1.55rem !important; }
 }
 @media (max-width: 480px) and (min-height: 845px) {
   /* Tall phones have a little spare felt, but the async chart still makes the screen tall, so keep
      gaps + hero modest enough that the whole results screen fits without scrolling (it must fit the
      393×852 floor; the racy old test hid the overflow). The chart keeps a bit more bottom margin so
      the bucket labels clear the share box. */
-  .panel.results-panel { gap: 9px; }
+  .panel.results-panel { gap: 13px; }
+  .results-panel #dist-title { margin-top: 6px !important; margin-bottom: 20px !important; }
   .results-panel .results-tier { font-size: 1.15rem; }
   .results-panel .big-chips { font-size: 3.2rem !important; }
   .results-panel .results-streak { font-size: 1.4rem; }
-  .results-panel .dist-bars { height: 36px; margin-bottom: 16px; }
+  .results-panel .dist-bars { height: 62px; margin-bottom: 16px; }
 }
 /* Short phones (360×780) have the smallest panel gap, so the chart's bucket labels (22px below
    the bars, out of flow) nearly touch the share box. Add chart bottom margin to clear them,
@@ -1821,9 +1878,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Short phones (360×780): the "You" marker sits ~20px above the bars and was overlapping the
      "Score Distribution" title. Add top room so it clears the title, and shrink the hero chips to
      fund that height (so the screen still fits with no scroll). margin-bottom still clears the
-     bucket labels from the share box. */
-  .panel.results-panel .dist-bars { margin-top: 15px; margin-bottom: 21px; }
+     bucket labels from the share box. The taller bars + roomier gaps here are funded by the hero's
+     surrounding slack (it stops greedily centering in dead space), keeping the no-scroll floor. */
+  .panel.results-panel .dist-bars { height: 48px; margin-top: 15px; margin-bottom: 21px; }
   .panel.results-panel .big-chips { font-size: 2.8rem !important; }
+  /* Floor: keep the title centered (see base rule). Its bigger .dist-bars top margin (15px)
+     means a smaller split keeps the gaps even. */
+  .panel.results-panel #dist-title { margin-top: 3px !important; margin-bottom: 9px !important; }
 }
 
 /* ── Desktop / large screen ─────────────────────────────── */
@@ -1922,8 +1983,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .btn-gold.btn-lg { padding: 16px 20px; font-size: 1.9rem; }
 
   /* ── Intro screen ─────────────────────────────── */
-  .logo { font-size: 4rem; }
-  .logo-sub { font-size: 1.25rem; margin-top: 4px; }
+  .logo { font-size: 4.4rem; }
+  .logo-sub { font-size: 1.45rem; margin-top: 4px; }
   .game-manifest .gm-row { padding: 6px 14px; gap: 12px; }
   .game-manifest .rnd-ic { font-size: 1.4rem; }
   .game-manifest .rnd-nm { font-size: 1.55rem; }
@@ -1967,6 +2028,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* BJ result screens — shrink headline/sub from base 3rem/2rem */
   .panel .result-hl { font-size: 2.2rem; margin-bottom: 2px; }
   .panel .result-sub { font-size: 1.5rem; margin-bottom: 6px; }
+  .panel .result-sub.borrow-rem { font-size: 1.3rem; }
   .panel .result-hl ~ .result-sub { margin-bottom: 4px; }
   /* BJ result-win detail: target the inline flex column with gap:16px */
   .panel > div[style*="gap:16px"] { gap: 6px !important; margin-bottom: 4px !important; }
@@ -1996,9 +2058,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.08rem !important; }
   .panel:has(.bj-split-active) #bj-dealer-section .card.lg.back::before { font-size: 3.1rem; }
   .bj-split-active .hand-val { font-size: 1.8rem !important; margin-top: 7px !important; }
-  /* Tight act-btns under split */
+  /* Tight act-btns under split. No padding-top: it would push the box up off the canonical Y (the
+     box→button spacing is the .game-controls gap, kept uniform for control-position parity). */
   .bj-split-active + div .act-btns,
-  .bj-split-active ~ div .act-btns { gap: 4px; padding-top: 2px; }
+  .bj-split-active ~ div .act-btns { gap: 4px; }
   /* Split-play-only panel overrides — most aggressive */
   .panel:has(.bj-split-active) { padding: 4px 28px !important; gap: 2px !important; }
   .panel:has(.bj-split-active) #bj-dealer-section { margin-bottom: 0 !important; }
@@ -2128,7 +2191,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .uth-hand-name { font-size: 0.92rem !important; margin-top: 1px !important; }
   .uth-result-panel .uth-bets-grid { gap: 0 14px; margin-bottom: 2px; }
   .uth-result-panel .irow { margin-top: 2px !important; padding: 3px 12px !important; }
-  .uth-result-panel .btn-gold { margin-top: 3px !important; padding: 7px 14px !important; font-size: 1.25rem; }
+  /* No margin-top here: the box→button spacing is the .game-controls gap, kept uniform across screens
+     for control-position parity (a btn margin-top would offset the box vs the bet/play screens). */
+  .uth-result-panel .btn-gold { padding: 7px 14px !important; font-size: 1.25rem; }
+  /* The split result + split play panels sit 2px shy of the others on desktop (their panel padding
+     differs); lift the cluster so its box + button match the canonical bet-screen Y. */
+  .bj-split-result > .game-controls,
+  .panel:has(.bj-split-active) .game-controls { margin-bottom: 2px; }
   /* Fold has no bet-breakdown row, so it carries a constant extra band of slack.
      Center its card stack between the dots and the button (banner stays pinned). */
   .uth-result-panel:not(:has(.uth-bets-grid)) .uth-cards-col { margin-top: auto; }
@@ -2144,11 +2213,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Roulette's selection + bets boxes track the desktop chip cluster (56px chips → 452px). */
   .panel:has(#r-bets-zone) #r-bets-zone,
   .panel:has(#r-bets-zone) #r-sel-box { max-width: 452px; }
-  /* Deal / Final Spin match the bet box width (see base rule). */
+  /* Deal / Final Spin sit slightly wider than the bet box (see base rule). */
   .panel:has(.bj-bet-table) > #db,
   .panel:has(#uth-summary) > #db,
   .panel:has(.ptable) > #db,
-  .panel:has(#r-bets-zone) > #db { max-width: var(--bet-box-w); }
+  .panel:has(#r-bets-zone) > #db { max-width: var(--act-btn-w); }
   /* Roulette packs Clear + box + Place Bet + All In on ONE line: the box shrinks to 200px (its parity
      is a bj/uth-only guarantee), Clear + All In are content-sized, and Place Bet flex-grows so it's the
      largest of the three buttons. (Phones stack the bet-row via the order rules instead.) */
@@ -2175,7 +2244,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .results-panel .big-chips { font-size: 2.5rem !important; }
   .results-panel .results-tier { font-size: 0.98rem; margin-bottom: 1px; }
   .results-panel .results-streak { font-size: 1.15rem; margin: 2px 0 4px; }
-  .results-panel .game-manifest { margin-bottom: 2px; }
+  /* !important to beat the inline margin-bottom:6px and let the title's split margins
+     center it between the box and the chart (see the desktop #dist-title rule below). */
+  .results-panel .game-manifest { margin-bottom: 0 !important; }
   .results-panel .res-row { padding: 2px 16px !important; }
   .results-panel .res-row span:first-child,
   .results-panel .res-row .ik { font-size: 1.1rem !important; }
@@ -2186,7 +2257,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      chart). The narrower share box wraps one extra line, so trim the chart margins + share
      line-height to claw that back. Taller windows override .dist-bars / .share-box below. */
   .results-panel .share-box { font-size: 0.96rem; padding: 5px 12px; line-height: 1.2; }
-  #dist-title { margin-top: 2px !important; margin-bottom: 1px !important; }
+  /* Split top/bottom so the title centers between the results box (margin-bottom:0 above)
+     and the chart's topmost element (the "You" marker, ~20px above the bars). The split
+     tracks .dist-bars margin-top per height tier (22/18/16px below) so the gaps stay even;
+     this base value pairs with the 22px margin (1024×640 / 1280×800). */
+  #dist-title { margin-top: 6px !important; margin-bottom: 3px !important; }
   /* Top margin must clear the You line/label (~20px ABOVE the bars, out of flow) so it doesn't
      overlap the Score Distribution title; bottom margin must clear the bucket labels (~22px
      BELOW the bars) and leave a gap before the share box. Both overhangs are out of flow, so the
@@ -2202,12 +2277,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .results-panel .game-manifest,
   .results-panel #dist-title,
   .results-panel #dist-chart { width: 100%; max-width: 620px; margin-left: auto; margin-right: auto; }
-  /* Share (copy) box + Copy & Share button: a centred card ~half the window wide, scaling WITH
-     the window so every desktop size matches the 1920 narrow-card look (not just the big ones).
-     min-width keeps the longest share line ("Finished with N chips (Top X%)") from wrapping on
-     the narrowest (1024) window. width:50% is of the panel content box. */
-  .results-panel .share-box,
-  .results-panel > .btn-gold:last-child { width: 50%; min-width: 340px; max-width: 460px; margin-left: auto; margin-right: auto; }
+  /* Share box + its Copy & Share button (wrapped in .share-cluster): a centred card ~half the
+     window wide, scaling WITH the window so every desktop size matches the 1920 narrow-card look
+     (not just the big ones). min-width keeps the longest share line ("Finished with N chips
+     (Top X%)") from wrapping on the narrowest (1024) window. width:50% is of the panel content
+     box; both children stretch to fill it, so the button stays locked to the share box width.
+     gap:4px preserves the tight box→button spacing the tight 1280×800 layout needs. */
+  .results-panel > .share-cluster { width: 50%; min-width: 340px; max-width: 460px; gap: 4px; margin-left: auto; margin-right: auto; }
   /* .results-hero (flex:1) absorbs the slack between the banner and the box and floats
      the tier/chips/streak centered in it, so the manifest/chart/share/button group settles
      at the bottom. No auto-margins here — they'd claim the free space and starve that grow. */
@@ -2343,14 +2419,17 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 @media (min-width: 1024px) and (min-height: 880px) {
   :root { --btn-h: 50px; --btn-fs: 1.42rem; }
+  /* On tall desktop the bet panel's box→commit gap tightens to 8px while the UTH result panel keeps 10;
+     match it (gap 8 + 2px lift) so the box + button stay at the canonical bet-screen Y (parity). */
+  .uth-result-panel > .game-controls { gap: 8px; margin-bottom: 2px; }
   /* Roomy desktop: grow the centered results hero above its tight 1280×800 base. */
   .results-panel .results-tier { font-size: 1.32rem; }
   .results-panel .big-chips { font-size: 3.55rem !important; }
   .results-panel .results-streak { font-size: 1.62rem; }
   /* Intro has little content; on tall desktop spend the felt slack on bigger elements.
      Tiles grow modestly so the long Hold'em name still fits one line on the narrow 1024 panel. */
-  .intro-panel .logo { font-size: 5rem; }
-  .intro-panel .logo-sub { font-size: 1.65rem; }
+  .intro-panel .logo { font-size: 5.5rem; }
+  .intro-panel .logo-sub { font-size: 1.9rem; }
   .intro-lead { font-size: 2.2rem; }
   .intro-sub { font-size: 1.65rem; }
   .intro-prog-label { font-size: 1.6rem; }
@@ -2455,6 +2534,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .results-panel .res-net { font-size: 1.45rem !important; }
   .results-panel .share-box { font-size: 0.98rem; padding: 6px 14px; line-height: 1.3; }
   .dist-bars { height: 42px; margin: 18px 4px 25px; }
+  /* .dist-bars top margin is 18px here → re-center the title (see desktop base rule). */
+  #dist-title { margin-top: 4px !important; margin-bottom: 5px !important; }
 
   /* UTH mid-hand (preflop/flop/turn) — grow cards/UI to shrink the
      margin-auto gaps above the dealer and below the actions. */
@@ -2530,8 +2611,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   :root { --btn-h: 52px; --btn-fs: 1.48rem; }
   /* Even more felt at 1080h+ — push the intro elements larger still (tiles kept to a
      size that still fits the long Hold'em name on one line at the narrow 1024 width). */
-  .intro-panel .logo { font-size: 6rem; }
-  .intro-panel .logo-sub { font-size: 1.85rem; }
+  .intro-panel .logo { font-size: 6.6rem; }
+  .intro-panel .logo-sub { font-size: 2.1rem; }
   .intro-lead { font-size: 2.6rem; }
   .intro-sub { font-size: 1.9rem; }
   .intro-prog-label { font-size: 1.8rem; }
@@ -2616,6 +2697,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .results-panel .res-net { font-size: 1.55rem !important; }
   .results-panel .share-box { font-size: 1.04rem; padding: 7px 14px; }
   .dist-bars { height: 50px; margin: 16px 4px 28px; }
+  /* .dist-bars top margin is 16px here → re-center the title (see desktop base rule). */
+  #dist-title { margin-top: 3px !important; margin-bottom: 6px !important; }
 
   .panel:has(#uth-summary) #uth-summary { font-size: 1.6rem; margin: 4px 0 !important; }
   .panel:has(#uth-summary) .chip-row { gap: 10px; margin: 4px 0 12px; }

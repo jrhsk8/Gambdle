@@ -54,7 +54,7 @@ const MANIFEST = {
     'LADDER_MULTS', 'ladCall', 'ladCallCorrect', 'ladCashOut', 'ladMaxStake', 'ladPotAt',
     'ladRankVal', 'ladStakeCommit', 'resetLadderRun', 'resolveLadder', 'screenLadder',
   ],
-  'menus.js': ['applyPrefs', 'closeDropdowns', 'getPref', 'setPref', 'toggleMenu', 'togglePref'],
+  'menus.js': ['applyPrefs', 'closeDropdowns', 'getPref', 'setPref', 'showActiveModInfo', 'toggleMenu', 'togglePref'],
   'modifiers.js': ['CYCLE_ORDER', 'DAILY_MODIFIERS', 'DAILY_SEED_OVERRIDES', 'PRESET_MODIFIERS'],
   'roulette.js': ['_resolveSpinNumber', '_rouletteAudio', 'evalBetModsFor', 'rBetsZone', 'rSelBox', 'rSpin', 'resolveRoulette', 'screenRoulette', 'spinFromRandom', 'spinModsFor', 'startWheelAnim'],
   'screens.js': [
@@ -62,9 +62,9 @@ const MANIFEST = {
     'submitAndFetchLeaderboard',
   ],
   'ui.js': [
-    '_refreshShareBox', 'aiosRow', 'allIn', 'betInlay', 'betInlaySum', 'cardHTML', 'chipSel', 'col',
-    'doShare', 'fmt', 'fmtK', 'gameControls', 'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn',
-    'patchBetUI', 'renderCards', 'sign', 'toast',
+    '_refreshShareBox', 'aiosRow', 'allIn', 'betInlay', 'betInlaySum', 'cardHTML', 'cfmt', 'cfmtK',
+    'chipDispDiv', 'chipScale', 'chipSel', 'col', 'csign', 'doShare', 'fmt', 'fmtK', 'gameControls',
+    'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn', 'patchBetUI', 'renderCards', 'sign', 'toast',
   ],
   'uth.js': [
     'UTH_CARD_INTERVAL_MS', 'bestOf7', 'resetUTHHand', 'resolveUTH', 'screenPoker', 'screenUTH',

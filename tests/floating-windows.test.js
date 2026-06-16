@@ -82,6 +82,27 @@ describe('floating windows — multiple, non-blocking, one per type (desktop)', 
     } finally { clean(); }
   });
 
+  it('showActiveModInfo opens the modifier window for today\'s live modifier (banner click)', () => {
+    clean();
+    const savedForced = S.forcedMod, savedPick = S.pcPick;
+    try {
+      const key = Object.keys(PRESET_MODIFIERS)[0];
+      S.forcedMod = key; S.pcPick = null;        // pin a known active modifier
+      showActiveModInfo();
+      const el = document.getElementById('win-modifier');
+      assert(el, 'modifier window present');
+      assert(el.textContent.includes(PRESET_MODIFIERS[key].title), 'shows the live modifier title');
+    } finally { S.forcedMod = savedForced; S.pcPick = savedPick; clean(); }
+  });
+
+  it('the modifier banner markup wires its click to showActiveModInfo', () => {
+    const savedForced = S.forcedMod, savedScreen = S.screen;
+    try {
+      S.forcedMod = Object.keys(PRESET_MODIFIERS)[0]; S.screen = 'intro';
+      assert(/onclick="showActiveModInfo\(\)"/.test(modBannerHTML()), 'banner carries the click handler');
+    } finally { S.forcedMod = savedForced; S.screen = savedScreen; }
+  });
+
   it('Send Feedback opens a floating window containing its form', () => {
     clean();
     try {

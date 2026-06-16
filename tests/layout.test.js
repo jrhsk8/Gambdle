@@ -679,6 +679,58 @@ describe('layout — final results', () => {
       _ltRestore();
     }
   });
+
+  // The "Score Distribution" title sits in the gap between the game results box (above) and
+  // the chart (below). Two things must hold on every screen (mobile 375 + all desktop sizes):
+  //   (1) the chart's topmost rendered element — the "You" marker, which floats ~20px above the
+  //       bars — keeps a few px of clearance below the title (no crowding/overlap), and
+  //   (2) the title reads as centered: the gap above it (box→title) ≈ the gap below it
+  //       (title→chart top).
+  // The chart is fetched async (can't run offline), so render it synchronously via
+  // _renderScoreDist. chips 1500 → bucket 3 (not the tallest bucket 2) → the standard -20px You
+  // line. graphTop = the topmost graph element (the You line/label sits above the count labels
+  // and bars), which is exactly what can crowd the title.
+  const _measureDistSpacing = () => {
+    const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+    Object.assign(S, base, { screen:'results', chips:1500, ..._fullHistory });
+    render();
+    _renderScoreDist(document.getElementById('dist-chart'), [12, 40, 80, 55, 30, 12, 5]);
+    const z = _appZoom();
+    const top = el => el.getBoundingClientRect().top / z;
+    const bottom = el => el.getBoundingClientRect().bottom / z;
+    const graphEls = [...document.querySelectorAll(
+      '#dist-chart .dist-bar, #dist-chart .dist-count, #dist-chart .dist-you-line, #dist-chart .dist-you-lbl')];
+    return {
+      manifestBottom: bottom(document.querySelector('.game-manifest')),
+      titleTop: top(document.getElementById('dist-title')),
+      titleBottom: bottom(document.getElementById('dist-title')),
+      graphTop: Math.min(...graphEls.map(top)),
+    };
+  };
+
+  it('Score Distribution title keeps a few px of clearance above the chart top', () => {
+    try {
+      const m = _measureDistSpacing();
+      const pad = m.graphTop - m.titleBottom;
+      assert(pad >= 4,
+        `only ${pad.toFixed(1)}px between the Score Distribution title and the chart's topmost element (min 4)`);
+    } finally {
+      _ltRestore();
+    }
+  });
+
+  it('Score Distribution title is vertically centered between the results box and the chart top', () => {
+    try {
+      const m = _measureDistSpacing();
+      const gapAbove = m.titleTop - m.manifestBottom;   // results box bottom → title top
+      const gapBelow = m.graphTop - m.titleBottom;       // title bottom → chart's topmost element
+      assert(Math.abs(gapAbove - gapBelow) <= 4,
+        `title not centered: ${gapAbove.toFixed(1)}px above (box→title) vs ${gapBelow.toFixed(1)}px below ` +
+        `(title→chart top) — off by ${Math.abs(gapAbove - gapBelow).toFixed(1)}px (max 4)`);
+    } finally {
+      _ltRestore();
+    }
+  });
 });
 
 // ─── Dev stats ────────────────────────────────────────────────────────────────
@@ -849,40 +901,65 @@ describe('layout - bet box parity', () => {
     }
   });
 
-  // The box must sit at the SAME vertical position on every BJ/UTH screen — it must not jump as you
-  // move bet → play → reveal → result. Measured as the gap from the box bottom to the panel bottom
-  // (the panel height is constant at a given viewport, so equal gap = identical absolute Y). Poker /
-  // ladder / roulette bet screens are excluded: they intentionally place content (pay table, bet
-  // boxes) below the box, so their box sits higher by design.
-  // uth-reveal is a 2.3s auto-transition with no button row under the box, so its anchor differs; the
-  // interactive bet/play/result screens are what must not jump.
-  const VPOS_SCREENS = BOX_SCREENS.filter(([l]) => (l.startsWith('bj-') || l.startsWith('uth-')) && l !== 'uth-reveal');
-  it('bet box sits at the same vertical position on every BJ/UTH screen', () => {
-    if (!_isDesktop()) return; // on phones the bet-screen box lives in the inline [Clear][box][All In]
-                               // bet-row (shrunk to fit), not the play screen's game-controls column, so its
-                               // width/anchor differ from play there by design — this is a desktop guarantee.
-    const measured = VPOS_SCREENS.map(([label, st]) => {
-      const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
-      Object.assign(S, base, st);
-      render();
-      const box = document.querySelector('.bet-amt');
-      const panel = document.querySelector('.panel');
-      assert(box && panel, `bet box vpos: box/panel missing on "${label}"`);
-      const gap = Math.round(panel.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom);
-      return { label, gap };
-    });
-    const ref = measured[0];
-    for (const m of measured.slice(1)) {
-      assert(Math.abs(m.gap - ref.gap) <= 1,
-        `bet box vpos: "${m.label}" is ${m.gap}px from panel bottom, expected ${ref.gap}px (ref "${ref.label}") — the box jumped vertically`);
+  // ── Control position parity (the "same spot throughout the game" invariant) ──────────────────────
+  // The bet/total box AND the commit/advance/action button must sit at the SAME vertical position on
+  // every BJ/UTH bet/play/result screen — they must not jump as the player moves bet → play → showdown.
+  // Measured as the gap from box bottom / button bottom to the panel bottom (panel height is constant at
+  // a given viewport, so equal gap = identical absolute Y). Enforced at EVERY breakpoint (mobile AND
+  // desktop) — the harness re-runs this file per binding size. See .claude/LAYOUT.md "Control position
+  // parity". Excluded: poker / ladder / roulette bet screens (they place content below the box by design)
+  // and uth-reveal (a ~2.3s auto-transition with no button row). BJ split PLAY and RESULT are both in.
+  const POS_EXTRA = [
+    ['uth-showdown', { screen:'uth', uthPhase:'result', chips:1100, uthAnte:100, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:true, uthRevealComm:5, uthPrevRevealComm:5, uthHand:1, uthHistory:[_winEntry] }],
+    ['uth-fold',     { screen:'uth', uthPhase:'result', chips:900,  uthAnte:100, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:5, uthPrevRevealComm:5, uthHand:1, uthHistory:[_foldEntry] }],
+    ['bj-result-split-2', { screen:'bj', bjPhase:'result', chips:1050, bjHand:1, bjBet:200, bjPlayer:[], bjDealer:_bjDealer, bjDealerAnimFrom:0, bjSplit:true,
+      bjSplitHands:[_bjPair, _bjBust], bjSplitBets:[100,100],
+      bjSplitResults:[{ result:'win', delta:100, bet:100 }, { result:'bust', delta:-100, bet:100 }],
+      bjResult:{ result:'split', delta:0 }, bjHistory:[{ bet:200,result:'split',delta:0,player:[],dealer:[] }] }],
+  ];
+  const POS_SCREENS = BOX_SCREENS
+    .filter(([l]) => (l.startsWith('bj-') || l.startsWith('uth-')) && l !== 'uth-reveal')
+    .concat(POS_EXTRA);
+
+  function measurePos(label, state) {
+    const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+    Object.assign(S, base, state);
+    render();
+    const panel  = document.querySelector('.panel');
+    const box    = document.querySelector('.bet-amt');
+    // Bottom-most control: the game-controls cluster (its rect bottom == the button row bottom) on
+    // play/result, or #db (Deal / Final Spin) on the bet screens, which have no .game-controls.
+    const button = document.querySelector('.game-controls') || document.getElementById('db');
+    assert(panel && box && button, `control pos: panel/box/button missing on "${label}"`);
+    // Normalize by the app zoom so parity is measured in LOGICAL px: on 4K/large displays .app carries a
+    // CSS zoom, and a 1px-logical difference reads as ~2 device px — visually identical, so it shouldn't fail.
+    const z = _appZoom();
+    const pb = panel.getBoundingClientRect().bottom;
+    return {
+      label,
+      boxGap: Math.round((pb - box.getBoundingClientRect().bottom) / z),
+      btnGap: Math.round((pb - button.getBoundingClientRect().bottom) / z),
+    };
+  }
+
+  it('bet/total box AND commit/advance button sit at the same vertical position on every BJ/UTH screen', () => {
+    const measured = POS_SCREENS.map(([label, st]) => measurePos(label, st));
+    // The bet screen defines the canonical Y; every play/result screen conforms to it.
+    const ref = measured.find(m => m.label === 'bj-bet') || measured[0];
+    const bad = [];
+    for (const m of measured) {
+      if (Math.abs(m.boxGap - ref.boxGap) > 1) bad.push(`${m.label} box ${m.boxGap} (Δ${m.boxGap - ref.boxGap})`);
+      if (Math.abs(m.btnGap - ref.btnGap) > 1) bad.push(`${m.label} btn ${m.btnGap} (Δ${m.btnGap - ref.btnGap})`);
     }
+    assert(bad.length === 0,
+      `control pos: box/button jumped vs ref "${ref.label}" (box ${ref.boxGap}px, btn ${ref.btnGap}px from panel bottom): ${bad.join(' · ')}`);
   });
 
-  // A LONE action button (the single advance: Next Hand/Game, See Results, etc.) must match the bet box
-  // width; a MULTI-button play row (.act-btns: Hit/Stand/Double/Split, Raise/Check/Fold) stays wider, at
-  // the near-full-panel control width, so 3-4 buttons don't cramp. Checked on the play/result screens
-  // that stack a button (row) under the box inside .game-controls.
-  it('lone action button == bet box width; multi-button rows stay wider (play/result)', () => {
+  // A LONE action button (the single advance: Next Hand/Game, See Results, etc.) sits slightly wider than
+  // the bet box (it overhangs the box, --act-btn-w); a MULTI-button play row (.act-btns: Hit/Stand/Double/
+  // Split, Raise/Check/Fold) stays wider still, at the near-full-panel control width, so 3-4 buttons don't
+  // cramp. Checked on the play/result screens that stack a button (row) under the box inside .game-controls.
+  it('lone action button slightly wider than bet box; multi-button rows wider still (play/result)', () => {
     if (!_isDesktop()) return; // on phones the box fills the control width, so everything is equal there.
     const PLAY = BOX_SCREENS.filter(([l]) => ['bj-play','bj-split','uth-preflop','uth-flop','uth-turn','bj-result'].includes(l));
     for (const [label, st] of PLAY) {
@@ -899,12 +976,14 @@ describe('layout - bet box parity', () => {
         const w = actBtns.getBoundingClientRect().width;
         assert(w > boxW + 1,
           `btn-width: "${label}" multi-button row (${Math.round(w)}px) should be wider than the box (${Math.round(boxW)}px)`);
-      } else {        // lone advance button — matches the box width
+      } else {        // lone advance button — sits slightly wider than the box (overhangs it)
         const solo = gc.querySelector('.btn-gold');
         assert(solo, `btn-width: no action button on "${label}"`);
         const w = solo.getBoundingClientRect().width;
-        assert(Math.abs(w - boxW) <= 1,
-          `btn-width: "${label}" lone button (${Math.round(w)}px) should match the box (${Math.round(boxW)}px)`);
+        assert(w > boxW + 1,
+          `btn-width: "${label}" lone button (${Math.round(w)}px) should be wider than the box (${Math.round(boxW)}px)`);
+        assert(w < boxW * 1.3,
+          `btn-width: "${label}" lone button (${Math.round(w)}px) should be only slightly wider than the box (${Math.round(boxW)}px), not full-panel`);
       }
     }
   });

@@ -53,6 +53,51 @@ describe('DAILY_MODIFIERS', () => {
   });
 });
 
+// ─── CYCLE_ORDER alternation (v1.51 reshuffle) ────────────────────────────────
+
+describe('CYCLE_ORDER alternation', () => {
+  const isR = k => PRESET_MODIFIERS[k].type === 'roulette';
+  it('no two roulette days are ever adjacent (cyclic)', () => {
+    for (let i = 0; i < CYCLE_ORDER.length; i++) {
+      const a = CYCLE_ORDER[i], b = CYCLE_ORDER[(i + 1) % CYCLE_ORDER.length];
+      assert(!(isR(a) && isR(b)), `roulette days adjacent at slot ${i + 1}: ${a} & ${b}`);
+    }
+  });
+  it('at most two adjacent non-roulette pairs, each a DIFFERENT gameplay type', () => {
+    let pairs = 0;
+    for (let i = 0; i < CYCLE_ORDER.length; i++) {
+      const a = CYCLE_ORDER[i], b = CYCLE_ORDER[(i + 1) % CYCLE_ORDER.length];
+      if (!isR(a) && !isR(b)) {
+        pairs++;
+        assert(PRESET_MODIFIERS[a].type !== PRESET_MODIFIERS[b].type,
+          `same-type non-roulette days adjacent at slot ${i + 1}: ${a} & ${b}`);
+      }
+    }
+    assert(pairs <= 2, `expected at most 2 non-roulette adjacencies, got ${pairs}`);
+  });
+});
+
+// ─── Pocket Change — modifier config ──────────────────────────────────────────
+
+describe('Pocket Change — modifier config', () => {
+  it('preset fields', () => {
+    const m = PRESET_MODIFIERS.pocket_change;
+    assert(m, 'pocket_change preset missing');
+    assertEqual(m.type, 'cross', 'type');
+    assertEqual(m.title, 'Pocket Change', 'title');
+    assertEqual(m.chip_div, 100, 'chip_div');
+    assertEqual(m.min_chips, 100, 'min_chips (drives borrow=1 + bust-below-1)');
+    assert(!/—/.test(m.title + m.desc + m.devNote), 'no em dashes in player-facing copy');
+  });
+  it('is in the cycle and launches Jun 17 (Day 44)', () => {
+    assert(CYCLE_ORDER.includes('pocket_change'), 'pocket_change not in CYCLE_ORDER');
+    assertEqual(DAILY_MODIFIERS[20260617], 'pocket_change', 'Jun 17 launch pin');
+  });
+  it('Jun 15 (Day 42) frozen at its pre-reorder cycle value before the reshuffle', () => {
+    assertEqual(DAILY_MODIFIERS[20260615], 'r_group_25_36', 'Day 42 freeze pin');
+  });
+});
+
 // ─── Modifier behavior: gameplay effects of active modifiers ────────────────
 
 // Helper: run fn with S.forcedMod set, then restore original values
@@ -697,5 +742,63 @@ describe('rBetBlocked — force-group bet blocking', () => {
       assert(rBetBlocked(40),  '1-12 dozen (no overlap) blocked');
       assert(!rBetBlocked(45), 'Red (partial overlap, uncertain) open');
     });
+  });
+});
+
+// ─── Pocket Change — chip display scaling (chip_div) ──────────────────────────
+
+describe('Pocket Change — chip scaling behavior', () => {
+  // Temporarily set S.screen (chipDispDiv gates the divisor by screen), restoring after.
+  function withScreen(screen, fn) { const s = S.screen; S.screen = screen; try { fn(); } finally { S.screen = s; } }
+
+  it('cfmt / csign divide by 100 on in-run screens (decimals kept)', () => {
+    withMod('pocket_change', undefined, () => withScreen('bj', () => {
+      assertEqual(chipScale(), 100, 'chipScale');
+      assertEqual(chipDispDiv(), 100, 'chipDispDiv on bj');
+      assertEqual(cfmt(1000), '10', 'cfmt(1000)');
+      assertEqual(cfmt(150), '1.5', 'cfmt(150) — a blackjack on a 1-chip bet');
+      assertEqual(csign(150), '+1.5', 'csign(150)');
+      assertEqual(csign(-100), '-1', 'csign(-100)');
+      assertEqual(cfmt(50), '0.5', 'cfmt(50) — half a chip');
+    }));
+  });
+
+  it('full-scale on the Daily Results screen — that transition IS the ×100 reveal', () => {
+    withMod('pocket_change', undefined, () => withScreen('results', () => {
+      assertEqual(chipDispDiv(), 1, 'results must not divide');
+      assertEqual(cfmt(1050), '1,050', 'big-chips shows the recorded score');
+      assertEqual(chipScale(), 100, 'chipScale stays 100 so the caption still renders');
+    }));
+  });
+
+  it('no divisor at all on a normal (no chip_div) day', () => {
+    withScreen('bj', () => {
+      assertEqual(chipScale(), 1, 'chipScale');
+      assertEqual(cfmt(1000), '1,000', 'cfmt == fmt');
+      assertEqual(csign(150), '+150', 'csign == sign');
+    });
+  });
+
+  it('borrow loans 1 chip (100 internal); bust floor is 1 chip', () => {
+    withMod('pocket_change', undefined, () => assertEqual(_effectiveBorrowAmount(), 100, 'borrow = 1 chip'));
+    withMod('pocket_change', 99,  () => assert(isChipBusted() === true,  'below 1 chip → busted'));
+    withMod('pocket_change', 100, () => assert(isChipBusted() === false, 'exactly 1 chip → not busted'));
+  });
+
+  it('chipSel renders a single grey 10-chip worth 1 that adds 100 internal', () => {
+    withMod('pocket_change', undefined, () => withScreen('bj', () => {
+      const html = chipSel(1000, 0);
+      const btns = html.match(/<button class="chbtn[^>]*>/g) || [];
+      assertEqual(btns.length, 1, 'exactly one chip button');
+      assert(/ch-10/.test(btns[0]), 'wears the grey 10-chip look');
+      assert(/data-v="100"/.test(btns[0]), 'adds 100 internal');
+      assert(/onclick="addChip\(100\)"/.test(btns[0]), 'addChip in internal units');
+      assert(/<span>1<\/span>/.test(html), 'chip is labelled 1');
+    }));
+  });
+
+  it('display scale never touches the score — recalcChips ignores chip_div', () => {
+    const base = recalcChips();
+    withMod('pocket_change', undefined, () => assertEqual(recalcChips(), base, 'recalcChips unchanged by the mod'));
   });
 });

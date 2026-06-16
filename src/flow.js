@@ -85,7 +85,7 @@ function render(){
 function updateChipDisplay() {
   const el = document.getElementById('chip-badge');
   if (el) {
-    el.innerHTML = `${icon('chip')} ${fmt(S.chips)}`;
+    el.innerHTML = `${icon('chip')} ${cfmt(S.chips)}`;
   }
 }
 
@@ -126,9 +126,9 @@ function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnT
     ${dotsHTML}
     <div class="divider"></div>
     <div class="result-hl" style="color:${col(delta)}">${headlineHTML}</div>
-    <div class="result-sub" style="color:${col(delta)}">${sign(delta)} chips</div>
+    <div class="result-sub" style="color:${col(delta)}">${csign(delta)} chips</div>
     ${detailHTML}
-    ${gameControls(betInlay('Total', fmt(S.chips)), `<button class="btn-gold" onclick="${btnAction}">${btnText}</button>`)}
+    ${gameControls(betInlay('Total', cfmt(S.chips)), `<button class="btn-gold" onclick="${btnAction}">${btnText}</button>`)}
   </div>`;
 }
 
