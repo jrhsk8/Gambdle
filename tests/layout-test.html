@@ -70,6 +70,11 @@
   <script src="../src/flow.js"></script>
   <script src="../src/game.js"></script>
 
+  <!-- Shared measurement core + Fixture registry — loaded after the game so they can read
+       the live DOM and reference S/card()/render(). Both feed the Layout DSL (layout-dsl.js). -->
+  <script src="layout-measure.js"></script>
+  <script src="screen-fixtures.js"></script>
+
   <script>
     window._testReloadCount = 0;
     _doReload = function() { window._testReloadCount++; };
@@ -86,7 +91,9 @@
   </script>
 
   <script src="runner.js"></script>
+  <script src="layout-dsl.js"></script>
   <script src="layout.test.js"></script>
   <script src="layout-balloon.test.js"></script>
+  <script src="layout-dsl.test.js"></script>
 </body>
 </html>

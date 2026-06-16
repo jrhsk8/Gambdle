@@ -21,58 +21,44 @@ const _ltRestore = () => {
   const r = JSON.parse(_ltSnap); r.pkHeld = new Set(r.pkHeld); Object.assign(S, r);
 };
 
-const VERT_TOL        = 10; // px — mobile window overflow tolerance
-const HORIZ_TOL       =  2; // px
-const PANEL_SCROLL_TOL=  5; // px — desktop panel scroll tolerance
+// Fit tolerances come from the shared measurement core, so this suite and the Layout DSL's
+// L.fits() enforce identical thresholds.
+const VERT_TOL         = LayoutMeasure.FIT_TOL.vert;        // px — mobile window overflow tolerance
+const HORIZ_TOL        = LayoutMeasure.FIT_TOL.horiz;       // px
+const PANEL_SCROLL_TOL = LayoutMeasure.FIT_TOL.panelScroll; // px — desktop panel scroll tolerance
 
-const _isDesktop = () => window.innerWidth >= 1024;
-
-// On large displays `.app` gets a CSS `zoom` (see styles.css large-display block).
-// getBoundingClientRect returns POST-zoom geometry while getComputedStyle returns
-// PRE-zoom values (--btn-h, padding, line-height) — so any test that compares the
-// two must normalize by this factor. (Window-vs-viewport overflow checks must NOT
-// normalize: a zoomed window really does occupy zoomed pixels on the real screen.)
-const _appZoom = () => {
-  const a = document.querySelector('.app');
-  return a ? (parseFloat(getComputedStyle(a).zoom) || 1) : 1;
-};
+// Viewport + zoom helpers come from the shared measurement core (tests/layout-measure.js),
+// so this suite and the Layout DSL read identical geometry. Aliased to the historical names
+// the rest of this file uses. _appZoom: on large displays `.app` carries a CSS `zoom`, so any
+// test comparing getBoundingClientRect (post-zoom) to getComputedStyle (pre-zoom) normalizes
+// by it; window-vs-viewport overflow must NOT normalize (a zoomed window occupies real pixels).
+const _isDesktop = LayoutMeasure.isDesktop;
+const _appZoom   = LayoutMeasure.appZoom;
 
 // Merges clean state with overrides, renders, checks bounds, restores.
 // afterRender (optional) runs after render() but before measurement — used to
 // force async content (e.g. the score-distribution chart) to render synchronously
-// so its real height is measured.
+// so its real height is measured. All geometry comes from the measurement core, so
+// L.fits() (Layout DSL) and these checks are literally the same numbers.
 function checkScreen(label, overrides, afterRender) {
   const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
   Object.assign(S, base, overrides);
   render();
   if (afterRender) afterRender();
 
-  const win = document.querySelector('.window');
-  assert(win !== null, `${label}: .window not found`);
+  const m = LayoutMeasure.measureFit();
+  assert(m.hasWindow, `${label}: .window not found`);
 
-  const rect = win.getBoundingClientRect();
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const horizOver = rect.right - vw;
-
-  const panel = document.querySelector('.panel');
-  const panelRect = panel ? panel.getBoundingClientRect() : null;
-  const kids = panel ? [...panel.children].filter(el => el.getBoundingClientRect().height > 0) : [];
-  const lastKid = kids[kids.length - 1];
-  const mod = panel ? panel.querySelector('.mod-banner') : null;
-  if (mod && panelRect) {
-    const modTop = Math.round(mod.getBoundingClientRect().top - panelRect.top);
-    const maxTop = _isDesktop() ? 16 : 12;
-    assert(modTop <= maxTop, `${label}: modifier banner shifted down ${modTop}px from panel top`);
+  if (m.modBannerTop !== null) {
+    const maxTop = _isDesktop() ? LayoutMeasure.FIT_TOL.modTopDesktop : LayoutMeasure.FIT_TOL.modTopMobile;
+    assert(m.modBannerTop <= maxTop, `${label}: modifier banner shifted down ${m.modBannerTop}px from panel top`);
   }
 
   if (_isDesktop()) {
     // Desktop: window is fixed height — check that panel content doesn't scroll.
-    const panelScroll = panel ? Math.round(panel.scrollHeight - panel.clientHeight) : 0;
-    const lastBottom = lastKid && panelRect ? Math.round(lastKid.getBoundingClientRect().bottom - panelRect.top) : 0;
-    const panelSlack = panelRect ? Math.round(panelRect.height - lastBottom) : 0;
-    measure(label, panelScroll > 0 ? -panelScroll : panelSlack);
-    assert(panelScroll <= PANEL_SCROLL_TOL,
-      `panel scrolls by ${panelScroll}px — reduce content to fit fixed desktop window`);
+    measure(label, m.panelScroll > 0 ? -m.panelScroll : m.panelSlack);
+    assert(m.panelScroll <= PANEL_SCROLL_TOL,
+      `panel scrolls by ${m.panelScroll}px — reduce content to fit fixed desktop window`);
   } else {
     // Mobile: the window is CSS-capped at 100svh (.app max-height + .window
     // overflow:hidden), so its own box never reports overflow. The real failure
@@ -80,19 +66,15 @@ function checkScreen(label, overrides, afterRender) {
     // panel is flex:1 with min-height:0, so over-tall content overflows its box
     // and overlaps the status bar that follows it. Assert the last panel child
     // sits above the status bar, not merely inside the viewport.
-    const vertOver = rect.bottom - vh;
-    const sb = document.querySelector('.status-bar');
-    const sbTop = sb ? Math.round(sb.getBoundingClientRect().top) : vh;
-    const lastBottom = lastKid ? Math.round(lastKid.getBoundingClientRect().bottom) : -1;
-    measure(label, sbTop - lastBottom);
-    assert(vertOver <= VERT_TOL,
-      `vertical overflow by ${Math.round(vertOver)}px — bottom=${Math.round(rect.bottom)} viewport=${vh}`);
-    assert(lastBottom <= sbTop + VERT_TOL,
-      `content overflows into status bar by ${lastBottom - sbTop}px — last child bottom=${lastBottom}, status-bar top=${sbTop}`);
+    measure(label, m.sbTop - m.lastBottomViewport);
+    assert(m.vertOver <= VERT_TOL,
+      `vertical overflow by ${Math.round(m.vertOver)}px — bottom=${Math.round(m.vertOver) + m.vh} viewport=${m.vh}`);
+    assert(m.lastBottomViewport <= m.sbTop + VERT_TOL,
+      `content overflows into status bar by ${m.lastBottomViewport - m.sbTop}px — last child bottom=${m.lastBottomViewport}, status-bar top=${m.sbTop}`);
   }
 
-  assert(horizOver <= HORIZ_TOL,
-    `horizontal overflow by ${Math.round(horizOver)}px — right=${Math.round(rect.right)} viewport=${vw}`);
+  assert(m.horizOver <= HORIZ_TOL,
+    `horizontal overflow by ${Math.round(m.horizOver)}px — right=${Math.round(m.horizOver) + m.vw} viewport=${m.vw}`);
 
   _ltRestore();
 }
@@ -111,13 +93,7 @@ function checkNoPooledSlack(label, overrides) {
   render();
   const panel = document.querySelector('.panel');
   assert(panel !== null, `${label}: .panel not found`);
-  const zoom = _appZoom();
-  const kids = [...panel.children].filter(el => el.getBoundingClientRect().height > 0);
-  let maxGap = 0, where = '';
-  for (let i = 1; i < kids.length; i++) {
-    const gap = (kids[i].getBoundingClientRect().top - kids[i - 1].getBoundingClientRect().bottom) / zoom;
-    if (gap > maxGap) { maxGap = gap; where = `${kids[i - 1].className.split(' ')[0]}→${kids[i].className.split(' ')[0]}`; }
-  }
+  const { maxGap, where } = LayoutMeasure.maxChildGap(panel);
   measure(label, Math.round(MAX_SPLIT_GAP - maxGap)); // headroom under the cap (higher = better)
   assert(maxGap <= MAX_SPLIT_GAP,
     `${label}: biggest gap ${Math.round(maxGap)}px (${where}) exceeds ${MAX_SPLIT_GAP}px — leftover slack is pooled, not distributed`);
@@ -136,8 +112,7 @@ function checkHeadlineTight(label, overrides) {
   const hl = document.querySelector('.bj-split-result .result-hl');
   const sub = document.querySelector('.bj-split-result .result-sub');
   assert(hl !== null && sub !== null, `${label}: result headline/sub not found`);
-  const zoom = _appZoom();
-  const gap = (sub.getBoundingClientRect().top - hl.getBoundingClientRect().bottom) / zoom;
+  const gap = LayoutMeasure.gapBetween(hl, sub);
   measure(label, Math.round(MAX_HEADLINE_GAP - gap));
   assert(gap <= MAX_HEADLINE_GAP,
     `${label}: headline→sub gap ${Math.round(gap)}px exceeds ${MAX_HEADLINE_GAP}px — Push/+chips should read as one unit`);

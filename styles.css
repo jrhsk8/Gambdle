@@ -895,24 +895,39 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .ik { font-size: 1.4rem; color: var(--shadow); letter-spacing: 0.04em; }
 .iv { font-family: var(--btn-f); font-size: 1.35rem; color: var(--ink); }
 .sec-sm { font-size: 1rem; }
-/* Dev-stats group label — small, gold, spans the 2-col grid. */
+/* ── Dev-stats grouped boxes ── Each category is one inlaid (recessed) box; the boxes flow into
+   two columns so the screen fits. The box provides the chrome, so its rows drop their own tile. */
+.dvs-groups { columns: 2; column-gap: 6px; text-align: left; }
+.dvs-box {
+  break-inside: avoid; -webkit-column-break-inside: avoid;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--ink);
+  box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
+  padding: 2px 0 4px;
+  margin-bottom: 6px;
+}
+.dvs-box .irow { border: none; box-shadow: none; background: transparent; padding: 2px 8px; }
+.dvs-box .irow + .irow { border-top: 1px solid rgba(0,0,0,0.07); }
+/* Dev-stats group label — small, gold; header inside each inlay box. */
 .dvs-grp-lbl {
-  grid-column: 1 / -1;
   font-family: var(--btn-f);
   font-size: 0.82rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--gold);
   text-align: left;
-  margin: 6px 0 1px;
-  padding-left: 2px;
+  margin: 0 0 2px;
+  padding: 2px 8px 3px;
+  border-bottom: 1px solid rgba(0,0,0,0.14);
 }
-.dvs-grp-lbl:first-child { margin-top: 0; }
-/* Desktop: dev stats now carries an extra Lifetime group + the chart, so tighten its rows and
-   group spacing (scoped to #devstats-body) to keep the whole screen on one window at 1280×800. */
+/* Standalone section label (no surrounding box) — e.g. the Score Distribution chart heading. */
+.dvs-grp-lbl-bare { border-bottom: none; padding: 0 0 0 2px; }
+/* Desktop: dev stats carries many groups + the chart, so tighten boxes/rows (scoped to
+   #devstats-body) to keep the whole screen on one window at 1280×800. */
 @media (min-width: 1024px) {
-  #devstats-body .irow { padding: 1px 10px; }
-  #devstats-body .dvs-grp-lbl { margin-top: 3px; }
+  #devstats-body .dvs-box { padding: 1px 0 3px; margin-bottom: 4px; }
+  #devstats-body .irow { padding: 1px 8px; }
+  #devstats-body .dvs-grp-lbl { padding: 1px 8px 2px; }
 }
 .gold-divider { width: 60%; height: 1px; background: rgba(196,147,58,0.1); align-self: center; }
 .result-hl { font-family: var(--btn-f); font-size: 3rem; margin-bottom: 4px; text-shadow: 2px 2px 0 rgba(0,0,0,0.4); }

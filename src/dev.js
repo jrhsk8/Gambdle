@@ -106,7 +106,7 @@ function _distChartHTML(counts) {
       ${endLbl}
     </div>`;
   }).join('');
-  return `<div class="dvs-grp-lbl" style="margin-top:8px">Score Distribution</div><div class="dist-wrap"><div class="dist-bars">${cols}</div></div>`;
+  return `<div class="dvs-grp-lbl dvs-grp-lbl-bare" style="margin-top:8px">Score Distribution</div><div class="dist-wrap"><div class="dist-bars">${cols}</div></div>`;
 }
 
 async function fetchDevStats() {
@@ -114,12 +114,14 @@ async function fetchDevStats() {
   if (!el) return;
   const seed = getActiveSeed();
   const headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
-  // Renders a grouped 2-col grid with section labels spanning both columns.
+  // Each category is one inlaid (recessed) box: gold label as a header, its stats listed one per
+  // line inside. The boxes flow into two columns (.dvs-groups) so the screen still fits on desktop.
   const renderGroups = (groups) =>
-    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;text-align:left">` +
+    `<div class="dvs-groups">` +
     groups.map(([title, rows]) =>
-      `<div class="dvs-grp-lbl">${title}</div>` +
-      rows.map(([k, v]) => `<div class="irow"><span class="ik">${k}</span><span class="iv">${v}</span></div>`).join('')
+      `<div class="dvs-box"><div class="dvs-grp-lbl">${title}</div>` +
+      rows.map(([k, v]) => `<div class="irow"><span class="ik">${k}</span><span class="iv">${v}</span></div>`).join('') +
+      `</div>`
     ).join('') + `</div>`;
   const warn = (txt) => `<span style="color:var(--shadow);font-size:.75rem">${txt}</span>`;
   const pct  = (n, d) => d > 0 ? ` <span style="color:var(--shadow);font-size:.75rem">(${Math.round(n/d*100)}%)</span>` : '';

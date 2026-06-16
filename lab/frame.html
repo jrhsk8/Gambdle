@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- viewport-fit=cover mirrors production so mobile safe-area CSS behaves; inside the shell's
+       iframe the "viewport" is the iframe's own box, so styles.css media queries fire at the
+       chosen width's real breakpoints. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Gambdle · Lab frame</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=VT323&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap"></noscript>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="app"></div>
+  <div id="toast"></div>
+  <div id="xp-balloon"></div>
+
+  <script>
+    // The lab previews layout, not flows: stop the boot from reloading, mark the tutorial seen so
+    // its balloon doesn't cover the screen, and never hit the network. Canned Supabase RPC bodies
+    // (same as the screenshot mocks) let the results Screen render its distribution chart + percentile.
+    try { localStorage.setItem('gambdle_tutorial_done', '1'); localStorage.setItem('gambdle_seen_tutorial', '1'); } catch (e) {}
+    window.__GAMBDLE_LAB__ = true;
+    window.fetch = (url) => {
+      const u = String(url);
+      const ok = (body) => Promise.resolve({
+        ok: true, status: 200,
+        json: () => Promise.resolve(body),
+        text: () => Promise.resolve(JSON.stringify(body)),
+        headers: { get: () => null },
+      });
+      if (u.includes('get_score_distribution')) return ok([3, 5, 8, 12, 9, 4, 2].map((count, bucket) => ({ bucket, count })));
+      if (u.includes('get_percentile')) return ok([{ top_pct: 28, total: 142 }]);
+      return ok([]);
+    };
+  </script>
+
+  <!-- Production load order (mirrors index.html) so the frame renders exactly what ships. -->
+  <script src="/src/modifiers.js"></script>
+  <script src="/src/icons.js"></script>
+  <script src="/src/core.js"></script>
+  <script src="/src/bet.js"></script>
+  <script src="/src/gametext.js"></script>
+  <script src="/src/audio.js"></script>
+  <script src="/src/ui.js"></script>
+  <script src="/src/windows.js"></script>
+  <script src="/src/menus.js"></script>
+  <script src="/src/dev.js"></script>
+  <script src="/src/screens.js"></script>
+  <script src="/src/flow.js"></script>
+  <script src="/src/bj.js"></script>
+  <script src="/src/uth.js"></script>
+  <script src="/src/roulette.js"></script>
+  <script src="/src/ladder.js"></script>
+  <script src="/src/engine.js"></script>
+  <script src="/src/game.js"></script>
+
+  <!-- Shared Fixture registry — drives the preview by name. -->
+  <script src="/tests/screen-fixtures.js"></script>
+
+  <script>
+    // Don't let the boot reload the page or animate; we drive the Screen ourselves.
+    if (typeof _doReload === 'function') _doReload = function () {};
+    window.addEventListener('DOMContentLoaded', () => {
+      const q = new URLSearchParams(location.search);
+      const fixture = q.get('fixture') || 'intro';
+      // mod: absent → fixture default (or none); 'none' → forced no banner; else a preset key.
+      const modParam = q.get('mod');
+      const opts = { defaultMod: {} }; // lab default: no forced modifier unless the fixture pins one
+      if (modParam === 'none') opts.mod = {};
+      else if (modParam) opts.mod = modParam;
+      try {
+        renderFixture(fixture, opts);
+      } catch (e) {
+        document.getElementById('app').innerHTML =
+          '<pre style="color:#fff;padding:20px;font:14px monospace">Lab frame error rendering "' +
+          fixture + '":\n' + (e && e.message) + '</pre>';
+      }
+    });
+  </script>
+</body>
+</html>

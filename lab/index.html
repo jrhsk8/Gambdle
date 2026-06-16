@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gambdle · UI Lab</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: #1b1b1b; color: #ccc; font-family: monospace; }
+    body { display: flex; flex-direction: column; }
+    #bar {
+      display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
+      padding: 8px 12px; background: #232323; border-bottom: 1px solid #333; flex: 0 0 auto;
+    }
+    #bar label { font-size: 11px; color: #888; display: flex; gap: 5px; align-items: center; }
+    #bar select, #bar input {
+      background: #2c2c2c; color: #ddd; border: 1px solid #3a3a3a; border-radius: 3px;
+      font: 12px monospace; padding: 3px 5px;
+    }
+    #bar input.wh { width: 58px; }
+    #bar .brand { color: #c49341; font-weight: bold; letter-spacing: .06em; margin-right: 4px; }
+    #bar .spacer { flex: 1; }
+    #bar .hint { font-size: 10px; color: #666; }
+    #custom.hidden { display: none; }
+    #stage {
+      flex: 1; overflow: auto; padding: 18px;
+      /* checkerboard so the felt window edges are visible against the stage */
+      background:
+        linear-gradient(45deg, #1f1f1f 25%, transparent 25%, transparent 75%, #1f1f1f 75%) 0 0 / 24px 24px,
+        linear-gradient(45deg, #1f1f1f 25%, #181818 25%, #181818 75%, #1f1f1f 75%) 12px 12px / 24px 24px;
+    }
+    /* Single-frame stage: a sized box holding a transform-scaled iframe (media queries see W). */
+    .frame-box { position: relative; margin: 0 auto; box-shadow: 0 6px 30px rgba(0,0,0,.5); background: #2a4a3a; }
+    .frame-box iframe { border: 0; display: block; transform-origin: top left; }
+    .size-tag { position: absolute; top: -16px; left: 0; font-size: 10px; color: #777; }
+    /* Gallery grid */
+    #gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 22px 14px; }
+    .cell { }
+    .cell .cap { font-size: 11px; color: #9a9; margin: 0 0 4px; }
+    .cell .frame-box { margin: 0; }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <span class="brand">♣ UI Lab</span>
+    <label>Screen <select id="sel-screen"></select></label>
+    <label>Size <select id="sel-size"></select></label>
+    <span id="custom" class="hidden">
+      <input class="wh" id="cw" type="number" min="240" placeholder="W"> ×
+      <input class="wh" id="ch" type="number" min="320" placeholder="H">
+    </span>
+    <label>Modifier <select id="sel-mod"></select></label>
+    <label><input type="checkbox" id="cb-gallery"> Gallery</label>
+    <span class="spacer"></span>
+    <span class="hint">live-reloads on styles.css / src/ edits</span>
+  </div>
+  <div id="stage"></div>
+
+  <!-- Populate the dropdowns from the real registry + modifier presets. These define globals only;
+       their setup()/render() closures aren't invoked here (the iframe runs the game). -->
+  <script src="/src/modifiers.js"></script>
+  <script src="/tests/screen-fixtures.js"></script>
+
+  <script>
+    const SIZES = ['360x780', '375x812', '393x852', '1024x1080', '1280x800', '1440x900', '1920x1080', '2560x1440', '3840x2160'];
+    const $ = id => document.getElementById(id);
+    const screenSel = $('sel-screen'), sizeSel = $('sel-size'), modSel = $('sel-mod'),
+          galleryCb = $('cb-gallery'), custom = $('custom'), cw = $('cw'), ch = $('ch'), stage = $('stage');
+
+    // ── Build dropdowns ──────────────────────────────────────────────────────
+    // Screens grouped by their registry `group` label.
+    const byGroup = {};
+    for (const [name, fx] of Object.entries(SCREEN_FIXTURES)) (byGroup[fx.group || 'Other'] ||= []).push(name);
+    for (const [group, names] of Object.entries(byGroup)) {
+      const og = document.createElement('optgroup'); og.label = group;
+      for (const n of names) { const o = document.createElement('option'); o.value = o.textContent = n; og.appendChild(o); }
+      screenSel.appendChild(og);
+    }
+    for (const s of SIZES.concat('custom')) {
+      const o = document.createElement('option'); o.value = s; o.textContent = s === 'custom' ? 'custom…' : s; sizeSel.appendChild(o);
+    }
+    // Modifiers: Auto (fixture default), None (force no banner), then every preset.
+    [['', 'Auto (fixture default)'], ['none', 'None']].concat(
+      Object.entries(PRESET_MODIFIERS).map(([k, v]) => [k, `${v.title} · ${k}`])
+    ).forEach(([val, label]) => { const o = document.createElement('option'); o.value = val; o.textContent = label; modSel.appendChild(o); });
+
+    // ── State <-> URL (so a live-reload restores the toolbar) ────────────────
+    function readState() {
+      const q = new URLSearchParams(location.search);
+      return {
+        fixture: q.get('fixture') || screenSel.options[0]?.value || 'intro',
+        size: q.get('size') || '1280x800',
+        mod: q.get('mod') ?? '',
+        gallery: q.get('gallery') === '1',
+      };
+    }
+    function writeState(st) {
+      const q = new URLSearchParams();
+      q.set('fixture', st.fixture); q.set('size', st.size); if (st.mod) q.set('mod', st.mod); if (st.gallery) q.set('gallery', '1');
+      history.replaceState(null, '', '?' + q.toString());
+    }
+
+    function currentSize() {
+      if (sizeSel.value === 'custom') return `${Math.max(240, +cw.value || 360)}x${Math.max(320, +ch.value || 780)}`;
+      return sizeSel.value;
+    }
+    function frameURL(fixture, size, mod) {
+      const q = new URLSearchParams({ fixture, size });
+      if (mod) q.set('mod', mod);
+      return '/lab/frame.html?' + q.toString();
+    }
+
+    // A sized box with a scale-to-fit iframe. The iframe's width/height attributes stay W×H so CSS
+    // media queries fire at the real breakpoints; a CSS transform shrinks it to fit `maxW`/`maxH`.
+    function makeFrameBox(fixture, size, mod, maxW, maxH, showTag) {
+      const [w, h] = size.split('x').map(Number);
+      const scale = Math.min(1, maxW / w, maxH ? maxH / h : 1);
+      const box = document.createElement('div');
+      box.className = 'frame-box';
+      box.style.width = (w * scale) + 'px';
+      box.style.height = (h * scale) + 'px';
+      const ifr = document.createElement('iframe');
+      ifr.src = frameURL(fixture, size, mod);
+      ifr.width = w; ifr.height = h;
+      ifr.style.width = w + 'px'; ifr.style.height = h + 'px';
+      ifr.style.transform = `scale(${scale})`;
+      box.appendChild(ifr);
+      if (showTag) { const t = document.createElement('div'); t.className = 'size-tag'; t.textContent = `${size}${scale < 1 ? ` · ${Math.round(scale * 100)}%` : ''}`; box.appendChild(t); }
+      return box;
+    }
+
+    // ── Render the stage from state ──────────────────────────────────────────
+    function render() {
+      const st = { fixture: screenSel.value, size: currentSize(), mod: modSel.value, gallery: galleryCb.checked };
+      writeState(st);
+      custom.classList.toggle('hidden', sizeSel.value !== 'custom');
+      stage.innerHTML = '';
+      if (st.gallery) {
+        const grid = document.createElement('div'); grid.id = 'gallery';
+        for (const name of Object.keys(SCREEN_FIXTURES)) {
+          const cell = document.createElement('div'); cell.className = 'cell';
+          const cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = name;
+          cell.appendChild(cap);
+          cell.appendChild(makeFrameBox(name, st.size, st.mod, 300, 0, false));
+          grid.appendChild(cell);
+        }
+        stage.appendChild(grid);
+      } else {
+        // Fit the single frame to the stage with a little breathing room.
+        const maxW = stage.clientWidth - 36, maxH = stage.clientHeight - 36;
+        stage.appendChild(makeFrameBox(st.fixture, st.size, st.mod, maxW, maxH, true));
+      }
+    }
+
+    // ── Wire up ──────────────────────────────────────────────────────────────
+    const st0 = readState();
+    screenSel.value = st0.fixture;
+    if (SIZES.includes(st0.size)) sizeSel.value = st0.size;
+    else { sizeSel.value = 'custom'; const [w, h] = st0.size.split('x'); cw.value = w; ch.value = h; }
+    modSel.value = st0.mod;
+    galleryCb.checked = st0.gallery;
+
+    [screenSel, sizeSel, modSel, galleryCb, cw, ch].forEach(el => el.addEventListener('change', render));
+    [cw, ch].forEach(el => el.addEventListener('input', () => { if (sizeSel.value === 'custom') render(); }));
+    window.addEventListener('resize', () => { if (!galleryCb.checked) render(); });
+    render();
+  </script>
+</body>
+</html>

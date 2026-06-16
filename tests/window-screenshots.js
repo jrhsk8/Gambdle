@@ -15,9 +15,16 @@
 // Writes screenshots/<GAME_VERSION>/windows/<size>__<screen>.png  (screenshots/ is git-ignored).
 // Renders are tagged by game version and version folders >3 versions old are auto-pruned; see
 // tests/screenshot-versioning.js. First time: npx playwright install chromium  (npm install pulls it in).
+const fs = require('fs');
+const path = require('path');
 const { chromium } = require('playwright');
 const { versionedOutDir } = require('./screenshot-versioning');
 const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
+
+// Shared Fixture registry (tests/screen-fixtures.js) — injected wholesale into the page,
+// then driven by name via renderFixture(). The inline per-screen state that used to live
+// here is gone; this script just chooses WHICH fixtures to capture and in what order.
+const FIXTURES_SRC = fs.readFileSync(path.join(__dirname, 'screen-fixtures.js'), 'utf8');
 
 // Window sizes to capture. Mobile uses the phone shell; everything ≥1024 uses the
 // desktop chrome; the last two exercise the large-display zoom steps.
@@ -33,46 +40,30 @@ const SIZES = [
   { label: '3840x2160-z1.8',  w: 3840, h: 2160 },
 ];
 
-// One fixture per screen — sets S to a representative state. Uses the page's own
-// card()/bestOf7(). Mirrors the fixtures in screenshots.js so the two stay in sync.
-const SCREENS = {
-  'intro':           () => { S.screen='intro'; S.chips=1000; },
-  'choice':          () => { S.forcedMod='players_choice'; S.screen='choice'; S.pcPick=null; S.chips=1000; },
-  'bj-bet':          () => { S.screen='bj'; S.bjPhase='bet'; S.chips=1000; S.bjBet=50; S.bjHand=0; S.bjHistory=[]; },
-  'bj-play':         () => { S.screen='bj'; S.bjPhase='play'; S.chips=950; S.bjBet=50; S.bjHand=0; S.bjHistory=[]; S.bjPlayer=[card('A','s'),card('10','h')]; S.bjDealer=[card('Q','c'),card('7','s')]; S.bjDealerReveal=false; S.bjSplit=false; },
-  'bj-result':       () => { S.screen='bj'; S.bjPhase='result'; S.chips=900; S.bjBet=50; S.bjHand=1; S.bjSplit=false; S.bjDealerReveal=true; S.bjPlayer=[card('K','s'),card('9','h')]; S.bjDealer=[card('10','d'),card('8','c'),card('3','s')]; S.bjResult={result:'win',delta:50}; S.bjHistory=[{bet:50,result:'win',delta:50,player:[...S.bjPlayer],dealer:[...S.bjDealer]}]; },
-  // Last hand of 3 → the inter-game advance button ("Round 2: Hold'em →"), the longest single-button label.
-  'bj-result-last':  () => { S.screen='bj'; S.bjPhase='result'; S.chips=900; S.bjBet=50; S.bjHand=3; S.bjSplit=false; S.bjDealerReveal=true; S.bjPlayer=[card('K','s'),card('9','h')]; S.bjDealer=[card('10','d'),card('8','c'),card('3','s')]; S.bjResult={result:'win',delta:50}; S.bjHistory=[{bet:50,result:'win',delta:50,player:[...S.bjPlayer],dealer:[...S.bjDealer]}]; },
-  'uth-bet':         () => { S.screen='uth'; S.uthPhase='bet'; S.chips=1000; S.uthAnte=100; S.uthHand=0; S.uthHistory=[]; },
-  'uth-flop':        () => { S.screen='uth'; S.uthPhase='flop'; S.chips=1100; S.uthAnte=100; S.uthHand=0; S.uthHistory=[]; S.uthHole=[card('A','s'),card('K','d')]; S.uthDealer=[card('2','c'),card('7','h')]; S.uthComm=[card('8','h'),card('6','s'),card('Q','h'),card('5','d'),card('A','d')]; S.uthRevealComm=3; S.uthRaised=false; },
-  'uth-showdown':    () => { S.screen='uth'; S.uthPhase='result'; S.chips=1100; S.uthHand=1; S.uthHole=[card('A','s'),card('K','d')]; S.uthDealer=[card('2','c'),card('7','h')]; S.uthComm=[card('A','h'),card('K','s'),card('Q','h'),card('5','d'),card('3','c')]; const pb=bestOf7([...S.uthHole,...S.uthComm]),db=bestOf7([...S.uthDealer,...S.uthComm]); S.uthHistory=[{ante:50,blind:50,play:100,playMult:1,result:'win',delta:200,anteDelta:50,blindDelta:0,playDelta:100,playerBest:pb,dealerBest:db,dealerQualifies:true}]; },
-  'roulette-bet':    () => { S.screen='roulette'; S.rPhase='bet'; S.chips=450; S.rBet=50; S.rPick=17; S.rBets=[{pick:45,bet:50}]; },
-  'roulette-bet-max':() => { S.screen='roulette'; S.rPhase='bet'; S.chips=750; S.rBet=0; S.rPick=null; S.rBets=[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}]; },
-  // setTimeout(0) defers drawStaticWheel until after the harness's render() creates the canvas, so the
-  // wheel face appears (it's normally painted by rSpin, not render).
-  'roulette-spinning':() => { S.screen='roulette'; S.rPhase='spinning'; S.chips=0; S.rSpin=17; S.rBets=[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}]; setTimeout(()=>drawStaticWheel(),0); },
-  'roulette-result': () => { S.screen='roulette'; S.rPhase='result'; S.chips=900; S.rSpin=17; S.rResult={delta:350,bets:[{pick:17,won:true,delta:350,pay:35,bet:10}]}; },
-  'results':         () => { S.screen='results'; S.chips=1450; S.bjHand=3; S.uthHand=3; S.bjHistory=[{delta:200},{delta:-50},{delta:100}]; S.uthHistory=[{delta:150},{delta:-100},{delta:0}]; S.rResult={delta:150,bets:[{pick:17,won:true,delta:150,pay:35,bet:10}]}; },
-  'ladder-bet-free': () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='bet'; S.ladBet=0; S.ladFree=false; S.ladIdx=0; S.ladRung=0; S.ladResult=null; S.chips=1000; },
-  'ladder-climb':    () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='climb'; S.ladBet=250; S.ladFree=true; S.ladIdx=3; S.ladRung=3; S.ladResult=null; S.chips=1000; },
-  'ladder-crash':    () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='done'; S.ladBet=250; S.ladFree=true; S.ladIdx=4; S.ladRung=3; S.ladResult={delta:0,rung:3,result:'crash',free:true}; S.chips=1000; },
-  'ladder-cash':     () => { S.forcedMod='ladder_day'; S.screen='ladder'; S.ladPhase='done'; S.ladBet=250; S.ladFree=true; S.ladIdx=4; S.ladRung=4; S.ladResult={delta:1250,rung:4,result:'cash',free:true}; S.chips=2250; },
-};
+// Which fixtures this Chromium pass captures, in review order. State lives in the shared
+// registry (screen-fixtures.js); this is just the selection + ordering. The PNG filename is
+// the fixture name, so this set reproduces the same review shots as before.
+const SCREENS = [
+  'intro', 'choice', 'bj-bet', 'bj-play', 'bj-result', 'bj-result-last',
+  'uth-bet', 'uth-flop', 'uth-showdown',
+  'roulette-bet', 'roulette-bet-max', 'roulette-spinning', 'roulette-result',
+  'results', 'ladder-bet-free', 'ladder-climb', 'ladder-crash', 'ladder-cash',
+];
 
 (async () => {
   // Match each arg against size labels and screen names; order-independent.
   const args = process.argv.slice(2).filter(Boolean);
   const sizeArgs   = args.filter(a => SIZES.some(s => s.label.includes(a)));
-  const screenArgs = args.filter(a => Object.keys(SCREENS).some(n => n.includes(a)));
+  const screenArgs = args.filter(a => SCREENS.some(n => n.includes(a)));
   const bad = args.filter(a => !sizeArgs.includes(a) && !screenArgs.includes(a));
   if (bad.length) {
     console.error(`Unknown filter(s): ${bad.join(', ')}.\n` +
-      `Sizes: ${SIZES.map(s => s.label).join(', ')}\nScreens: ${Object.keys(SCREENS).join(', ')}`);
+      `Sizes: ${SIZES.map(s => s.label).join(', ')}\nScreens: ${SCREENS.join(', ')}`);
     process.exit(1);
   }
   const sizes   = sizeArgs.length   ? SIZES.filter(s => sizeArgs.some(a => s.label.includes(a)))
                                     : SIZES;
-  const screens = Object.entries(SCREENS).filter(([name]) =>
+  const screens = SCREENS.filter(name =>
     !screenArgs.length || screenArgs.some(a => name.includes(a)));
 
   // Resolve screenshots/<version>/windows, fresh each run so it only holds the current set
@@ -95,16 +86,16 @@ const SCREENS = {
     await page.route('**/rpc/get_score_distribution', json([3,5,8,12,9,4,2].map((count, bucket) => ({ bucket, count }))));
     await page.route('**/rpc/get_percentile', json([{ top_pct: 28, total: 142 }]));
     await page.goto(BASE);
-    await page.evaluate(() => { window.__SNAP = JSON.stringify({ ...S, pkHeld: [...S.pkHeld] }); });
+    await page.addScriptTag({ content: FIXTURES_SRC }); // defines SCREEN_FIXTURES + renderFixture
 
-    for (const [name, fn] of screens) {
-      await page.evaluate((src) => {
-        Object.assign(S, JSON.parse(window.__SNAP)); S.pkHeld = new Set();
-        S.forcedMod = 'easy_dealer';
-        (new Function(src))();
-        render();
-      }, '(' + fn.toString() + ')()');
-      await page.waitForTimeout(name === 'results' ? 900 : 1500); // settle deal anim / async chart
+    for (const name of screens) {
+      // renderFixture owns reset → setup → mod → render → afterRender; 'easy_dealer' is the
+      // review default for states that don't pin their own modifier. Returns the settle hint.
+      const settle = await page.evaluate((n) => {
+        renderFixture(n, { defaultMod: 'easy_dealer' });
+        return SCREEN_FIXTURES[n].settle || 1500;
+      }, name);
+      await page.waitForTimeout(settle); // settle deal anim / async chart
       await page.screenshot({ path: `${OUT}/${size.label}__${name}.png` });
       count++;
     }
