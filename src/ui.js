@@ -153,13 +153,41 @@ function modBannerHTML(slim=false){
 }
 
 // ─── CHIP & BETTING ───────────────────────────────────────────
-// Maps screen name to the S field that holds the current bet amount.
-const BET_REF={bj:'bjBet',uth:'uthAnte',poker:'pkBet',roulette:'rBet',ladder:'ladBet'};
-// Returns the state key for the active screen's bet (e.g. 'bjBet', 'uthAnte').
-function curBetRef(){return BET_REF[S.screen]??'pkBet';}
+// Returns the state key for the active screen's bet (e.g. 'bjBet', 'uthAnte') from the Game registry.
+function curBetRef(){return GAMES[S.screen]?.betKey??'pkBet';}
 // Adapter over the pure bet-cap math (bet.js): resolve the live chips + active modifier,
 // hand them to maxFor. The per-game cap rules (UTH 2/3, Ladder 25% / free-entry) live there.
 function maxBet(){ return maxFor(S.screen, S.chips, { ladderFree: getMod('ladder_free') }); }
+
+// ─── SURGICAL PATCH HELPERS ───────────────────────────────────
+// The single home of the "patch in place, else rebuild from S" decision — so the never-render()-
+// mid-hand invariant lives in one place instead of hand-written at every site. `target` is an
+// element-id string, an element, or an array of either; all must resolve. With a `fn`, runs
+// fn(...els) when they resolve (returns true) or render()s and returns false. Without a `fn` (guard
+// form, for long patch bodies), returns the resolved elements array, or null after rendering — so
+// the caller does `const t = patchOrRender(ids, null, opts); if(!t) return; const [a,b] = t;`.
+// opts.noAnim suppresses the fallback render's card animation (a mid-hand fallback must not replay
+// deal animations).
+function patchOrRender(target, fn, opts){
+  const els = (Array.isArray(target) ? target : [target]).map(x => typeof x === 'string' ? document.getElementById(x) : x);
+  if(els.every(Boolean)) return fn ? (fn(...els), true) : els;
+  if(opts && opts.noAnim) _noAnim = true;
+  render();
+  return fn ? false : null;
+}
+// Multi-element surgical update for a fixed set of zones: each value is a fn returning that zone's
+// innerHTML. Patches them all and returns true when EVERY zone is on screen; if any is missing, falls
+// back to one full render() (which rebuilds every zone from S) and returns false.
+function patchZones(map, opts){
+  const ids = Object.keys(map);
+  if(!ids.every(id => document.getElementById(id))){
+    if(opts && opts.noAnim) _noAnim = true;
+    render();
+    return false;
+  }
+  for(const id of ids) document.getElementById(id).innerHTML = map[id]();
+  return true;
+}
 
 // Updates chip buttons, bet display, and action button states without a full re-render.
 function patchBetUI() {
@@ -186,42 +214,34 @@ function patchBetUI() {
   }
   const ai=document.getElementById('ai');
   if(ai)ai.disabled=max===0 || max < minChipsMod;
-  // Roulette: the selection box shows the picked tile's payout for the current stake — keep it in step as
-  // the player changes the chip amount or picks a tile (pickBet calls patchBetUI). Mirrors the UTH update.
-  if(k==='rBet'){
-    const sb=document.getElementById('r-sel-box');
-    if(sb) sb.innerHTML=rSelBox(S.rPick, bet);
-  }
-  const us=document.getElementById('uth-summary');
-  if(us) {
-    // Match the render's split: ante rounds up, blind rounds down (see _uthAntePortion/_uthBlindPortion).
-    const ante=Math.ceil(bet/2), blind=Math.floor(bet/2);
-    us.innerHTML = `Ante <b style="color:var(--gold)">${cfmtK(ante)}</b> + Blind <b style="color:var(--gold)">${cfmtK(blind)}</b> = <b style="color:var(--ink)">${cfmtK(bet)}</b> chips total`;
-    // Keep the blind pay table (and its header) in step with the staked blind.
-    const pt=document.getElementById('uth-ptable');
-    if(pt) pt.innerHTML = uthPayTableHTML(blind);
-    const pth=document.getElementById('uth-pt-head');
-    if(pth) pth.innerHTML = uthPayTableHead(blind);
-  }
+  // Game-specific bet-UI patching (roulette selection box · UTH stake summary + pay table) lives with
+  // each game and is dispatched through the Game registry; patchBetUI owns only the shared chip UI.
+  GAMES[S.screen]?.patchBet?.(bet);
 }
 
 // Returns true only when the current screen is in its initial bet phase.
 // 'dealing' is a transient lock set by *Deal() before sndShuffle fires; it is
 // never saved to localStorage, so a refresh during that window reloads cleanly.
 function _inBetPhase(){
-  if(S.screen==='bj')       return S.bjPhase  ==='bet';
-  if(S.screen==='uth')      return S.uthPhase ==='bet';
-  if(S.screen==='poker')    return S.pkPhase  ==='bet';
-  if(S.screen==='roulette') return S.rPhase   ==='bet';
-  if(S.screen==='ladder')   return S.ladPhase ==='bet';
-  return false;
+  const g=GAMES[S.screen];
+  return !!g && S[g.phaseKey]==='bet';
 }
-// Thin adapters over the pure bet-intake core (bet.js): resolve the active bet key, call
-// the pure function, write the returned value back to S, then sound + surgical patch. The
-// bet-phase guard stays here (a phase concern, not bet math).
-function addChip(d){if(!_inBetPhase())return;const k=curBetRef();S[k]=addToBet(S[k],d,maxBet());sndChip();patchBetUI();}
-function clearBet(){if(!_inBetPhase())return;S[curBetRef()]=clearedBet();patchBetUI();}
-function allIn(){if(!_inBetPhase())return;S[curBetRef()]=allInAmount(S.screen,S.chips,{ladderFree:getMod('ladder_free')});sndChip();patchBetUI();}
+// Adapter over the pure bet-intake core (bet.js): the bet-phase guard (a phase concern, not bet math),
+// then resolve the active bet key, run the pure function for `action`, write the result back to S,
+// sound (except the silent clear), and surgically patch. The single tested seam the chip controls
+// share.  action: 'add' (ctx.delta) | 'clear' | 'allin'.
+function applyBetAction(action, ctx){
+  if(!_inBetPhase())return;
+  const k=curBetRef();
+  if(action==='add')        S[k]=addToBet(S[k],ctx.delta,maxBet());
+  else if(action==='clear') S[k]=clearedBet();
+  else if(action==='allin') S[k]=allInAmount(S.screen,S.chips,{ladderFree:getMod('ladder_free')});
+  if(action!=='clear') sndChip();
+  patchBetUI();
+}
+function addChip(d){applyBetAction('add',{delta:d});}
+function clearBet(){applyBetAction('clear');}
+function allIn(){applyBetAction('allin');}
 
 // ─── SHARED SNIPPET HELPERS ───────────────────────────────────
 const nextBtn = (action, text) => `<button class="btn-gold" style="margin-top:12px" onclick="${action}">${text}</button>`;

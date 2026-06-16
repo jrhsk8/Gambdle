@@ -2,31 +2,12 @@
 // Loads last. Restores the saved day state, applies prefs, renders the current
 // screen, wires window dragging, and resumes any animation a refresh interrupted.
 
-// Handles mid-animation refreshes for UTH, Poker, and Roulette screens.
-// _bjResumeAfterRefresh is kept separate due to its additional complexity.
+// Handles mid-animation refreshes by dispatching to the current screen's `resume` slot in the Game
+// registry (GAMES[screen].resume, registered by each game's own file — UTH, Poker, Roulette). Each
+// slot guards its own phase internally, so this is a pure screen lookup. Blackjack is the exception:
+// its resume (_bjResumeAfterRefresh) stays a separate boot call due to its dealer-draw choreography.
 function _resumeAfterRefresh() {
-  if (S.screen === 'uth' && S.uthPhase === 'reveal') {
-    setTimeout(() => {
-      _noAnim = true; S.uthPhase = 'result'; render(); updateChipDisplay();
-      const last = S.uthHistory[S.uthHistory.length - 1];
-      if (last && last.delta > 0) setTimeout(sndBigWin, UTH_CARD_INTERVAL_MS);
-    }, 300);
-  } else if (S.screen === 'poker' && S.pkPhase === 'draw') {
-    setTimeout(() => { S.pkHand++; S.pkPhase = 'result'; render(); }, 300);
-  } else if (S.screen === 'roulette' && S.rPhase === 'spinning') {
-    _rouletteAudio = getPref('mute') ? null : new Audio('assets/sounds/roulette ball.mp3');
-    if (_rouletteAudio) { _rouletteAudio.volume = 0.5; _rouletteAudio.load(); }
-    if (S.rSpin == null) {
-      // Refresh landed during the spin-word fetch: re-acquire and resume. The spin Edge
-      // Function is idempotent per device-day, so the re-fetch returns the same words.
-      const bets = S.rBets.map(b => [b.pick, b.bet]);
-      _resolveSpinNumber(bets).then(sp => {
-        S.rSpin = sp.n; S.rSpin2 = sp.n2;
-        saveState();
-        setTimeout(startWheelAnim, 60);
-      });
-    } else setTimeout(startWheelAnim, 60);
-  }
+  GAMES[S.screen]?.resume?.();
 }
 
 // Shows the welcome popup on first ever visit (only when POPUP_ENABLED is true).

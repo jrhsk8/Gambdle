@@ -45,7 +45,8 @@ const STUB = [
 // After the concatenation runs, hand the engine entry points up to the module wrapper via globalThis.
 const CAPTURE =
   "globalThis.__GAMBDLE_ENGINE = { replayRun: replayRun, auditRound: auditRound, " +
-  "replayDayMods: replayDayMods, replayRngSeed: replayRngSeed, buildDeal: buildDeal };";
+  "replayDayMods: replayDayMods, replayRngSeed: replayRngSeed, buildDeal: buildDeal, " +
+  "replayConfigHorizon: replayConfigHorizon };";
 
 function buildSource() {
   const parts = [STUB, ''];
@@ -80,6 +81,7 @@ function build() {
     'export const auditRound = (...a) => __engine().auditRound(...a);',
     'export const replayDayMods = (...a) => __engine().replayDayMods(...a);',
     'export const replayRngSeed = (...a) => __engine().replayRngSeed(...a);',
+    'export const replayConfigHorizon = (...a) => __engine().replayConfigHorizon(...a);',
     'export const buildDeal = (...a) => __engine().buildDeal(...a);',
     '',
   ].join('\n');

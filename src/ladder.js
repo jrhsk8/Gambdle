@@ -100,7 +100,11 @@ function _ladAfterAction(snd){
   if (typeof document === 'undefined' || S.screen !== 'ladder' || typeof render !== 'function') return;
   if (snd === 'card' && typeof sndCard === 'function') sndCard(120);
   else if (snd === 'chips' && typeof sndChip === 'function') sndChip();
-  if (!_ladZonesUpdate()) { _noAnim = true; render(); }
+  // Surgical repaint of the six zones (no full render mid-run — no flash, fixed layout); patchZones
+  // rebuilds from S via render() if any zone is missing.
+  const zones = { 'lad-head':_ladHeadHTML, 'lad-strip':_ladStripHTML, 'lad-read':_ladReadoutHTML,
+                  'lad-cards':_ladCardsHTML, 'lad-msg':_ladMsgHTML, 'lad-act':_ladActionsHTML };
+  if (patchZones(zones, { noAnim: true })) updateChipDisplay();
 }
 
 function resetLadderRun(){
@@ -112,6 +116,7 @@ function resetLadderRun(){
 // Fixed skeleton: six zones with stable ids and constant min-heights so nothing
 // moves between phases — only zone contents swap (see styles.css .lad-*).
 
+GAMES.ladder.screen = screenLadder; // register into the Game registry (defined just below; core.js loads first)
 function screenLadder(){
   const free = getMod('ladder_free');
   // Free-entry days lock the displayed stake to the house's entry.
@@ -227,15 +232,3 @@ function _ladActionsHTML(){
   ${nextBtn(`advanceTo('${target}')`, label)}`;
 }
 
-// Surgical repaint of the six zones (no full render mid-run — no flash, fixed layout).
-function _ladZonesUpdate(){
-  const zones = { 'lad-head':_ladHeadHTML, 'lad-strip':_ladStripHTML, 'lad-read':_ladReadoutHTML,
-                  'lad-cards':_ladCardsHTML, 'lad-msg':_ladMsgHTML, 'lad-act':_ladActionsHTML };
-  for (const [id, fn] of Object.entries(zones)) {
-    const el = document.getElementById(id);
-    if (!el) return false;
-    el.innerHTML = fn();
-  }
-  updateChipDisplay();
-  return true;
-}

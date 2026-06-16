@@ -114,10 +114,16 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st){
     return _replayBJSplit(tx, j, deal, mod, acct, addNet, st, { player, dealer, bet0, actions, stand17 });
   }
 
-  // Straight (no-split) play.
+  // Straight (no-split) play. Once the hand has definitively ended (a stand, a double, or a hit that
+  // reached 21+/busted), any further player event is a no-op the replay SKIPS rather than rejects:
+  // the outcome is already fixed and no extra card is owed, so honest scores are unchanged. Some
+  // clients log an action the same frame an auto-advancing hand ends (e.g. a stand recorded just as a
+  // hit busts the hand), and rejecting those would punish a legitimate result. Skipping (not touching
+  // `shoe`/`st.idx`) keeps the deck aligned for later games, and a trailing event can't inflate a
+  // score, so this never weakens the check. (The split path stays strict · no honest run has hit it.)
   let bet = bet0, doubled = false, ended = false;
   for(const ev of actions){
-    if(ended) _replayFail('bj_act_after_end');
+    if(ended) continue;
     if(ev.a === 'hit'){ player.push(shoe[st.idx++]); if(hVal(player) >= 21) ended = true; }
     else if(ev.a === 'double'){ if(acct.chips < bet) _replayFail('bj_double_nofund'); acct.debit(bet); bet *= 2; doubled = true; player.push(shoe[st.idx++]); ended = true; }
     else if(ev.a === 'stand'){ ended = true; }
@@ -487,10 +493,27 @@ function replayRngSeed(calSeed){
   return DAILY_SEED_OVERRIDES[calSeed] || calSeed;
 }
 
+// The furthest calendar-seed (YYYYMMDD) the deployed day-config actually covers · the max key across
+// DAILY_MODIFIERS and DAILY_SEED_OVERRIDES. Both tables are BAKED into the engine bundle at build
+// time, so a day whose modifier or seed-override was added/edited AFTER the last deploy is NOT
+// represented here, and the server would replay it against stale config (the 2026-06-16 seed-override
+// incident · every honest run that day looked like an overbet). submit-score uses this as a hard
+// ENFORCE horizon: it only treats the replay as authoritative for seed <= horizon, leaving any day
+// beyond the deployed config in shadow (flag-only). So a forgotten redeploy degrades to "that day
+// isn't enforced yet", never "that day rejects everyone". DAILY_MODIFIERS already carries one entry
+// per day, so the horizon tracks the last day the operator configured · keep it populated ahead of
+// today and redeploy after editing daily config (see .claude/NEW-MODIFIER.md).
+function replayConfigHorizon(){
+  let h = 0;
+  for(const k in DAILY_MODIFIERS){ const s = +k; if(s > h) h = s; }
+  for(const k in DAILY_SEED_OVERRIDES){ const s = +k; if(s > h) h = s; }
+  return h;
+}
+
 // ─── DUAL-MODE EXPORT ───────────────────────────────────────────────────────────
 // In the browser these are plain globals (script tag). Under a module loader (the Deno Edge
 // Function) expose them without a build step. The server bootstrap provides the pure dependencies
 // (resolvers, buildDeal, card helpers, constants) on globalThis before importing this file.
 if(typeof module !== 'undefined' && module.exports){
-  module.exports = { replayRun, auditRound, replayDayMods, replayRngSeed };
+  module.exports = { replayRun, auditRound, replayDayMods, replayRngSeed, replayConfigHorizon };
 }

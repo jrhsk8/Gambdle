@@ -24,7 +24,7 @@ async function run() {
 
   const url = pathToFileURL(path.join(__dirname, '..', 'supabase', 'functions', '_shared', 'engine-bundle.mjs')).href;
   const E = await import(url);
-  const { replayRun, replayDayMods, replayRngSeed, buildDeal } = E;
+  const { replayRun, replayDayMods, replayRngSeed, buildDeal, replayConfigHorizon } = E;
 
   // ── modifier resolution (the server's derivation of the day's preset) ──
   ok('day1 cycle → Hot Numbers', replayDayMods(20260505, null)?.title === 'Hot Numbers');
@@ -36,6 +36,9 @@ async function run() {
   ok('players_choice + pick → resolved preset', pcPicked?.bj_first_ace === true, JSON.stringify(pcPicked));
   ok('replayRngSeed override (20260615 → 20250422)', replayRngSeed(20260615) === 20250422, String(replayRngSeed(20260615)));
   ok('replayRngSeed passthrough', replayRngSeed(20260505) === 20260505);
+  // config horizon: the enforce gate submit-score reads — furthest day the bundled config covers.
+  const horizon = replayConfigHorizon();
+  ok('config horizon is a calendar seed >= a known configured day', Number.isInteger(horizon) && horizon >= 20260617, String(horizon));
 
   const rngSeed = replayRngSeed(SEED);
   const deal = buildDeal(rngSeed);

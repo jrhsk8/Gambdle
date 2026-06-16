@@ -303,6 +303,16 @@ describe('engine — legality rejection', () => {
   it('rejects a second borrow', () => {
     rejects('double_borrow', () => replayRun(1, {}, [{g:'sys',a:'borrow',amt:50},{g:'sys',a:'borrow',amt:50}], {}));
   });
+  it('tolerates a trailing no-op action after a bust (skips it, consumes no shoe card)', () => {
+    // player 10,10 = 20; hits a 10 -> 30 bust; dealer 5,6 draws K -> 21. A trailing 'stand' logged the
+    // same frame the bust auto-advanced must be ignored, not rejected, and must not shift the deck.
+    const mk = () => ({ bjShoe:[{r:'10',s:'♦'},{r:'10',s:'♠'},{r:'5',s:'♣'},{r:'6',s:'♥'},{r:'10',s:'♥'},{r:'K',s:'♦'}],
+                        pokerDecks:[], uthDeck:[], ladderCards:[], rSpinOverride:null });
+    const base = [{g:'bj',a:'deal',h:0,bet:100},{g:'bj',a:'hit',h:0,s:0}];
+    const noTrailing = replayRun(1, {}, base, { deal: mk() });
+    const withTrailing = replayRun(1, {}, [...base, {g:'bj',a:'stand',h:0,s:0}], { deal: mk() });
+    assertEqual(withTrailing.chips, noTrailing.chips, 'trailing action is a no-op for the score');
+  });
   it('rejects a roulette spin with no stored words', () => {
     rejects('r_no_words', () => replayRun(1, {}, [{g:'r',a:'spin',bets:[[5,100]],respin:false}], { deal: emptyDeal() }));
   });
@@ -337,6 +347,22 @@ describe('engine — buildDeal', () => {
   it('is deterministic for a seed and re-derivable card-for-card', () => {
     assertDeepEqual(buildDeal(12345), buildDeal(12345), 'same seed → identical deal');
     assert(JSON.stringify(buildDeal(1)) !== JSON.stringify(buildDeal(2)), 'different seeds differ');
+  });
+});
+
+// ─── config horizon (enforce gate) ──────────────────────────────────────────────
+// submit-score only treats the replay as authoritative for seed <= replayConfigHorizon(), so a day
+// whose DAILY_* config isn't in the deployed bundle can never mass-reject honest players.
+describe('engine — config horizon', () => {
+  it('returns the max calendar-seed across both day-config tables', () => {
+    const keys = [...Object.keys(DAILY_MODIFIERS), ...Object.keys(DAILY_SEED_OVERRIDES)].map(Number);
+    assertEqual(replayConfigHorizon(), Math.max(...keys), 'horizon = furthest configured day');
+  });
+  it('looks like a YYYYMMDD seed at or beyond launch', () => {
+    const h = replayConfigHorizon();
+    assert(Number.isInteger(h) && h >= 20260505, 'horizon is a calendar seed >= day 1');
+    assert(DAILY_MODIFIERS[h] !== undefined || DAILY_SEED_OVERRIDES[h] !== undefined,
+      'the horizon day actually has a config entry');
   });
 });
 

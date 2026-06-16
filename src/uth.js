@@ -130,6 +130,29 @@ function resetUTHHand(){
   S.uthHole=[]; S.uthDealer=[]; S.uthComm=[];
   S.uthRevealComm=0; S.uthPrevRevealComm=0;
 }
+GAMES.uth.reset = resetUTHHand; GAMES.uth.screen = screenUTH; // register this game's fns into the Game registry (defined in this file; core.js loads first)
+// Game-specific bet-UI patch (dispatched by patchBetUI): keep the stake summary + blind pay table in
+// step with the staked Ante · Blind split as the bet changes.
+GAMES.uth.patchBet = function(bet){
+  const us=document.getElementById('uth-summary');
+  if(!us) return;
+  // Match the render's split: ante rounds up, blind rounds down (see _uthAntePortion/_uthBlindPortion).
+  const ante=Math.ceil(bet/2), blind=Math.floor(bet/2);
+  us.innerHTML = `Ante <b style="color:var(--gold)">${cfmtK(ante)}</b> + Blind <b style="color:var(--gold)">${cfmtK(blind)}</b> = <b style="color:var(--ink)">${cfmtK(bet)}</b> chips total`;
+  const pt=document.getElementById('uth-ptable');
+  if(pt) pt.innerHTML = uthPayTableHTML(blind);
+  const pth=document.getElementById('uth-pt-head');
+  if(pth) pth.innerHTML = uthPayTableHead(blind);
+};
+// Refresh landed mid-reveal: settle to the result panel after a beat, mirroring the live reveal timer.
+GAMES.uth.resume = function(){
+  if(S.uthPhase!=='reveal') return;
+  setTimeout(() => {
+    _noAnim = true; S.uthPhase = 'result'; render(); updateChipDisplay();
+    const last = S.uthHistory[S.uthHistory.length - 1];
+    if (last && last.delta > 0) setTimeout(sndBigWin, UTH_CARD_INTERVAL_MS);
+  }, 300);
+};
 
 /** Skip the current UTH hand (all_in_or_skip modifier). Records delta 0 and advances. */
 function uthSkip(){ txLog({g:'uth',a:'skip',h:S.uthHand}); _skipHand(S.uthHistory,{ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0},'uthHand',NEXT_SCREEN['uth'],resetUTHHand); }
@@ -199,7 +222,13 @@ function pkDraw(){
   }
   setTimeout(revealNext,300);
 }
-function pkNext(){ _nextHand(()=>{ S.pkBet=0; S.pkPhase='bet'; }); }
+GAMES.poker.reset = () => { S.pkBet=0; S.pkPhase='bet'; }; GAMES.poker.screen = screenPoker; // 5-Card Poker has no dedicated file; its registry slots live here
+// Refresh landed mid-draw: bump the hand counter and show the result panel.
+GAMES.poker.resume = function(){
+  if(S.pkPhase!=='draw') return;
+  setTimeout(() => { S.pkHand++; S.pkPhase = 'result'; render(); }, 300);
+};
+function pkNext(){ _nextHand(GAMES.poker.reset); }
 
 // ─── ULTIMATE TEXAS HOLD'EM LOGIC ────────────────────────────────────────
 
@@ -387,9 +416,9 @@ function uthNext(){ _nextHand(resetUTHHand); }
 // Surgically animates only the newly revealed community cards (uthPrevRevealComm → uthRevealComm).
 // Also updates the action UI and progress dots after the animation finishes.
 function updateUthCommunityCards() {
-  const commHand = document.getElementById('uth-community-hand');
-  const dealerHand = document.getElementById('uth-dealer-hand');
-  if (!commHand || !dealerHand) { _noAnim=true; render(); return; }
+  const t = patchOrRender(['uth-community-hand', 'uth-dealer-hand'], null, { noAnim: true });
+  if (!t) return; // patchOrRender already fell back to a full render
+  const [commHand, dealerHand] = t;
 
   // The bet inlay box persists across streets (no full render mid-hand), so refresh its stake
   // breakdown here — this is when a just-locked Raise should join the Ante · Blind line.

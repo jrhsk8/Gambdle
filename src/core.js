@@ -3,7 +3,7 @@
 //   mkRng (SplitMix32) · daily/backlog/test seeds · Phoenix day math
 //     (getDailySeed, getActiveSeed, getRngSeed, getStateKey, getDayNum)
 //   computeStreak · UNLOCKS · profileStats
-//   game slots (GAME1/GAME2, GAME_META, NEXT_SCREEN) · gameNet · recalcChips
+//   game slots (GAME1/GAME2) · GAMES registry (GAME_META, NEXT_SCREEN) · gameNet · recalcChips
 //   SUPABASE CONFIG (URL, anon key, SUPABASE_HEADERS) · DEV_OVERRIDE
 //   modifier access: _activeMod, getMod, pendingPlayersChoice
 //   CARD UTILITIES (buildDeck, shuffle, hVal, isBJ)
@@ -17,7 +17,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.52';
+const GAME_VERSION = 'v1.55';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -182,16 +182,36 @@ function card(r,s){return{r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]||s};}
 const GAME1 = _ls.getItem('gambdle_dev_game1') || 'bj';
 const GAME2 = _ls.getItem('gambdle_dev_game2') || 'uth';
 
-// Metadata for every available game — add new games here.
-// short: label used in dev menu buttons and share text.
-// icon: on-screen SVG/glyph (rendered as HTML). shareIcon: plain emoji/glyph for the
-// copyable share text (buildShareText) — must stay text, never an inline <svg>.
-const GAME_META = {
-  bj:    { icon: icon('cards'),  shareIcon: '🃏', name: 'Blackjack',             short: 'Blackjack',    desc: '3 hands · Hit, Stand, Double, Split' },
-  uth:   { icon: '♠',            shareIcon: '♠',  name: "Ultimate Texas Hold'em", short: "Hold'em",      desc: '3 hands · Ante, Blind & Play' },
-  poker: { icon: '♠',            shareIcon: '♠',  name: '5 Card Poker',           short: '5 Card Poker', desc: '3 hands · Jacks or Better' },
-  ladder:{ icon: icon('ladder'), shareIcon: '🪜', name: 'The Ladder',             short: 'The Ladder',   desc: '1 run · Higher or lower, ties lose' },
+// The Game registry — one table, keyed by SCREEN, that the lifecycle wiring reads instead of the
+// scattered `S.screen` switches it replaces (the bet-phase guard `_inBetPhase`, the bet-key lookup
+// `curBetRef`, and the borrow hand-counter `_borrowReturnScreen`). Add a new game here.
+//   meta     — display payload (slot games only); the derived GAME_META below feeds the dev menu +
+//              share text. Roulette is a playable screen but never a slot, so it has no meta.
+//   phaseKey — the S field holding this screen's phase ('bet' during the initial bet phase)
+//   betKey   — the S field holding the current bet amount
+//   handKey  — the S field counting hands played (the 3-hand card games only; single-run games omit it)
+//   reset    — the hand-reset fn, attached by each game's own file (which loads after core.js) and read
+//              by the borrow flow to return the player to a fresh bet phase
+//   resume   — mid-animation refresh-restore fn, attached by each game's own file and dispatched by
+//              _resumeAfterRefresh (game.js) keyed on S.screen. Each guards its own phase internally.
+//              Blackjack is the exception · its resume (_bjResumeAfterRefresh) stays a separate boot
+//              call because of its dealer-draw choreography.
+//   patchBet — game-specific bet-UI surgical patch (the roulette selection box, the UTH stake summary
+//              + pay table), dispatched by patchBetUI(bet) so the shared chip-UI patcher stays free of
+//              per-game knowledge. Only roulette + UTH register one; others have no bet-UI extras.
+// meta.short: label used in dev menu buttons and share text. meta.icon: on-screen SVG/glyph (rendered
+// as HTML). meta.shareIcon: plain emoji/glyph for the copyable share text — must stay text, never <svg>.
+const GAMES = {
+  bj:      { meta: { icon: icon('cards'),  shareIcon: '🃏', name: 'Blackjack',             short: 'Blackjack',    desc: '3 hands · Hit, Stand, Double, Split' }, phaseKey: 'bjPhase',  betKey: 'bjBet',   handKey: 'bjHand' },
+  uth:     { meta: { icon: '♠',            shareIcon: '♠',  name: "Ultimate Texas Hold'em", short: "Hold'em",      desc: '3 hands · Ante, Blind & Play' },        phaseKey: 'uthPhase', betKey: 'uthAnte', handKey: 'uthHand' },
+  poker:   { meta: { icon: '♠',            shareIcon: '♠',  name: '5 Card Poker',           short: '5 Card Poker', desc: '3 hands · Jacks or Better' },           phaseKey: 'pkPhase',  betKey: 'pkBet',   handKey: 'pkHand' },
+  ladder:  { meta: { icon: icon('ladder'), shareIcon: '🪜', name: 'The Ladder',             short: 'The Ladder',   desc: '1 run · Higher or lower, ties lose' },  phaseKey: 'ladPhase', betKey: 'ladBet' },
+  roulette:{ phaseKey: 'rPhase', betKey: 'rBet' },
 };
+
+// Display metadata for every slot game — the entries of GAMES that carry `meta`. Back-compat view
+// consumed by the dev menu (GAME1_OPTIONS) and the share text (buildShareText).
+const GAME_META = Object.fromEntries(Object.entries(GAMES).filter(([, g]) => g.meta).map(([k, g]) => [k, g.meta]));
 
 // All games can occupy either slot; dev menu filters out the conflicting selection.
 const GAME1_OPTIONS = Object.entries(GAME_META).map(([value, m]) => ({ value, label: m.short }));

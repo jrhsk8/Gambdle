@@ -25,7 +25,7 @@ const MANIFEST = {
   'bj.js': ['_bjResumeAfterRefresh', 'bjSplit', 'peekBtnHTML', 'peekRevealed', 'resetBJHand', 'resolveBJHand', 'resolveBJSplitHand', 'screenBJ'],
   'core.js': [
     'ANIM_NONE', 'BORROW_AMOUNT', 'DEAL', 'DEV_OVERRIDE', 'GAME1', 'GAME1_OPTIONS', 'GAME2',
-    'GAME2_OPTIONS', 'GAME_META', 'GAME_VERSION', 'NEXT_SCREEN', 'RED_S', 'S', 'START_CHIPS',
+    'GAME2_OPTIONS', 'GAME_META', 'GAME_VERSION', 'GAMES', 'NEXT_SCREEN', 'RED_S', 'S', 'START_CHIPS',
     'START_DATE_UTC', 'SUPABASE_ANON_KEY', 'SUPABASE_HEADERS', 'SUPABASE_URL', '_PHOENIX_OFFSET_MS',
     '_backlogSeed', '_canShowBorrow', '_effectiveBorrowAmount', '_lbTopPct', '_ls', '_nextDailySeed',
     '_testActive', 'buildDeal', 'buildDeck', 'card', 'computeStreak', 'credit', 'debit', 'gameNet',
@@ -35,7 +35,7 @@ const MANIFEST = {
     'pendingPlayersChoice', 'profileStats', 'recalcChips', 'saveState', 'shuffle', 'txLog',
     'UNLOCKS', 'winMult',
   ],
-  'engine.js': ['auditRound', 'replayDayMods', 'replayRngSeed', 'replayRun'],
+  'engine.js': ['auditRound', 'replayConfigHorizon', 'replayDayMods', 'replayRngSeed', 'replayRun'],
   'dev.js': [
     '_doReload', '_drawLayoutDebug', 'devApplyMod', 'devLadder', 'devReset', 'devSetGame', 'devSpin',
     'devToggleLayoutDebug', 'devToggleUnlocks', 'fetchDevStats', 'screenDevStats', 'toggleTestSeed',
@@ -64,7 +64,8 @@ const MANIFEST = {
   'ui.js': [
     '_refreshShareBox', 'aiosRow', 'allIn', 'betInlay', 'betInlaySum', 'cardHTML', 'cfmt', 'cfmtK',
     'chipDispDiv', 'chipScale', 'chipSel', 'col', 'csign', 'doShare', 'fmt', 'fmtK', 'gameControls',
-    'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn', 'patchBetUI', 'renderCards', 'sign', 'toast',
+    'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn', 'patchBetUI', 'patchOrRender', 'patchZones',
+    'renderCards', 'sign', 'toast',
   ],
   'uth.js': [
     'UTH_CARD_INTERVAL_MS', 'bestOf7', 'resetUTHHand', 'resolveUTH', 'screenPoker', 'screenUTH',

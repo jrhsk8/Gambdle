@@ -30,8 +30,10 @@ function statusBar(){
 
 // Full re-render — replaces all of #app. Use surgical DOM updates mid-hand to avoid flash.
 function render(){
-  const scr={intro:screenIntro,choice:screenChoice,bj:screenBJ,uth:screenUTH,poker:screenPoker,roulette:screenRoulette,ladder:screenLadder,borrow:screenBorrow,results:screenResults,devstats:screenDevStats};
-  const inner = (scr[S.screen]||screenIntro)();
+  // Game screens dispatch through the Game registry (GAMES[screen].screen, registered by each game's
+  // file); the non-game shell screens stay in this local table.
+  const scr={intro:screenIntro,choice:screenChoice,borrow:screenBorrow,results:screenResults,devstats:screenDevStats};
+  const inner = (GAMES[S.screen]?.screen||scr[S.screen]||screenIntro)();
   document.getElementById('app').innerHTML=`<div class="app">
     <div class="window">
       ${inner}
@@ -166,10 +168,9 @@ function advanceTo(s){
     }else{
       // Explicit "Game Over" bust from a result phase — determine where to return if they borrow.
       const ret=_borrowReturnScreen();
-      // Reset the current game to bet phase so returning lands on a fresh hand.
-      if(ret==='bj') resetBJHand();
-      else if(ret==='uth') resetUTHHand();
-      else if(ret==='poker'){S.pkBet=0;S.pkPhase='bet';}
+      // Reset the current game to bet phase so returning lands on a fresh hand (no-op for single-run
+      // games, which have no reset slot). The borrow flow only returns the three card games here.
+      GAMES[ret]?.reset?.();
       S.borrowReturnScreen=ret;
     }
     sndAdvance();goTo('borrow');return;
@@ -191,7 +192,8 @@ function advanceTo(s){
 // Returns the screen to navigate to after a borrow, based on where the player is mid-run:
 // stay on the current game if it has hands left, else its Run-order successor (via next()).
 function _borrowReturnScreen(){
-  const hand={bj:S.bjHand,uth:S.uthHand,poker:S.pkHand}[S.screen];
+  const hk=GAMES[S.screen]?.handKey;          // the 3-hand card games carry one; single-run games don't
+  const hand=hk ? S[hk] : undefined;
   return hand===undefined ? S.screen : next(S.screen,{handsLeft:hand<3});
 }
 function startGame(){

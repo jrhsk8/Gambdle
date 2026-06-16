@@ -88,6 +88,7 @@ function resetBJHand(){
   S.bjDealerReveal=false; S.bjCelebrating=false; S.bjActed=false;
   _bjResolving=false;
 }
+GAMES.bj.reset = resetBJHand; GAMES.bj.screen = screenBJ; // register this game's fns into the Game registry (defined in this file; core.js loads first)
 
 /** Skip the current BJ hand (all_in_or_skip modifier). Records delta 0 and advances. */
 function bjSkip(){ txLog({g:'bj',a:'skip',h:S.bjHand}); _skipHand(S.bjHistory,{bet:0,result:'skip',delta:0,player:[],dealer:[]},'bjHand',NEXT_SCREEN['bj'],resetBJHand); }
@@ -150,17 +151,13 @@ function bjHit(){
   // At 21+ the player can't act; auto-advance after a short delay so the card is visible.
   if(pv>=21){_bjAfterCard(isSplit?bjAdvanceSplit:bjRevealDealer);}
   else{
-    const handEl=document.getElementById(isSplit?'bj-active-hand':'bj-player-hand');
-    const valEl=document.getElementById(isSplit?'bj-active-val':'bj-player-val');
-    if(handEl&&valEl){
+    // Surgically append the card + update the total; patchOrRender falls back to a full render (which
+    // rebuilds from S and saves) if the target is missing, so the pushed card is never lost.
+    patchOrRender([isSplit?'bj-active-hand':'bj-player-hand', isSplit?'bj-active-val':'bj-player-val'], (handEl, valEl) => {
       handEl.insertAdjacentHTML('beforeend', cardHTML(hand[hand.length-1], 'lg', '', 0.1, true));
       valEl.textContent = hValDisplay(hand);
       saveState();
-    }else{
-      // The surgical update target is missing (stale/unexpected DOM) — fall back to a full render,
-      // which rebuilds from S and saves. Without this, the pushed card is neither shown nor persisted.
-      render();
-    }
+    });
   }
 }
 

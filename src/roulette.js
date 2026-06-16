@@ -312,6 +312,29 @@ function rResultNumsHTML(){
     <div style="font-size:.88rem;color:var(--shadow);margin-bottom:6px">${nums.map(rName).join(' & ')}</div>`;
 }
 
+GAMES.roulette.screen = screenRoulette; // register into the Game registry (defined just below; core.js loads first)
+// Game-specific bet-UI patch (dispatched by patchBetUI): the selection box shows the picked tile's
+// payout for the current stake · keep it in step as the player changes the chip amount or picks a tile.
+GAMES.roulette.patchBet = function(bet){
+  const sb=document.getElementById('r-sel-box');
+  if(sb) sb.innerHTML=rSelBox(S.rPick, bet);
+};
+// Refresh landed mid-spin: re-arm the ball audio and restart the wheel. If the spin words hadn't
+// resolved yet (refresh during the fetch), re-acquire them first · the spin Edge Function is
+// idempotent per device-day, so the re-fetch returns the same words.
+GAMES.roulette.resume = function(){
+  if(S.rPhase!=='spinning') return;
+  _rouletteAudio = getPref('mute') ? null : new Audio('assets/sounds/roulette ball.mp3');
+  if (_rouletteAudio) { _rouletteAudio.volume = 0.5; _rouletteAudio.load(); }
+  if (S.rSpin == null) {
+    const bets = S.rBets.map(b => [b.pick, b.bet]);
+    _resolveSpinNumber(bets).then(sp => {
+      S.rSpin = sp.n; S.rSpin2 = sp.n2;
+      saveState();
+      setTimeout(startWheelAnim, 60);
+    });
+  } else setTimeout(startWheelAnim, 60);
+};
 function screenRoulette(){
   if(S.rPhase==='bet') return screenRouletteBet();
   if(S.rPhase==='spinning') return screenRouletteSpinning();
@@ -464,17 +487,16 @@ function pickBet(i){
     patchBetUI();saveState();return;
   }
   S.rPick=i;
-  // The bet screen is rendered iff the board tiles exist; if not, fall back to a full render.
-  if(!document.querySelector('[data-idx]')){ render(); return; }
-
-  document.querySelectorAll('[data-idx]').forEach(b => b.classList.remove('r-sel'));
-  const btn = document.querySelector(`[data-idx="${i}"]`);
-  if(btn) btn.classList.add('r-sel');
-
-  document.querySelectorAll('.r-chip-sel').forEach(c => c.remove());
-
-  patchBetUI();
-  saveState();
+  // Move the board highlight + chip UI to the new tile; patchOrRender falls back to a full render if
+  // the board isn't on screen (its presence stands in for "the bet screen is rendered").
+  patchOrRender(document.querySelector('[data-idx]'), () => {
+    document.querySelectorAll('[data-idx]').forEach(b => b.classList.remove('r-sel'));
+    const btn = document.querySelector(`[data-idx="${i}"]`);
+    if(btn) btn.classList.add('r-sel');
+    document.querySelectorAll('.r-chip-sel').forEach(c => c.remove());
+    patchBetUI();
+    saveState();
+  });
 }
 // Wheel-color text class for a placed bet's tile label: number bets follow the pocket color
 // (0 green, reds red, rest black); the red/black even-money bets match. Everything else is neutral.
@@ -520,8 +542,9 @@ function rAddBet(){
   S.rPick=null; S.rBet=Math.min(betAmt,S.chips);
   saveState();
 
-  const boardBtn=document.querySelector(`[data-idx="${prevPick}"]`);
-  if(!boardBtn){render();return;}
+  const _bt = patchOrRender(document.querySelector(`[data-idx="${prevPick}"]`), null);
+  if(!_bt) return; // patchOrRender already fell back to a full render
+  const boardBtn = _bt[0];
 
   boardBtn.classList.remove('r-sel');
   boardBtn.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
