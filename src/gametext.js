@@ -194,6 +194,7 @@ const STATUS_HINT = {
   borrow:   'Broke · Borrow chips to continue.',
   results:  '<span class="sb-prefix">Game complete · </span>New game at midnight<span class="sb-suffix"> Arizona time</span>',
   devstats: 'Dev mode · Player statistics.',
+  retention: 'Dev mode · Retention & drop-off.',
 };
 
 // ─── SHARE TEXT ────────────────────────────────────────────────────────────

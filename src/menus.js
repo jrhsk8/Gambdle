@@ -193,6 +193,7 @@ function toggleMenu(which, trigger) {
     el.innerHTML = `
       <div class="dd-item" onclick="devReset();closeDropdowns()">↺ Reset Run</div>
       <div class="dd-item" onclick="goTo('devstats');closeDropdowns()">${icon('chart-bar')} Player Stats</div>
+      <div class="dd-item" onclick="goTo('retention');closeDropdowns()">${icon('target')} Retention</div>
       <div class="dd-sep"></div>
       <div class="dd-item" onclick="showJumpSubmenu(this);event.stopPropagation()">Jump to <span class="dd-key">►</span></div>
       <div class="dd-item" onclick="showGameSetupSubmenu(this);event.stopPropagation()">Game Setup <span class="dd-key">►</span></div>

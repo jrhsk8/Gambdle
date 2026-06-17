@@ -647,8 +647,10 @@ function screenUTH(){
     <div class="panel uth-result-panel" style="text-align:center">
       ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
       <div class="divider"></div>
-      <div class="result-hl" style="color:var(--lose)">You Folded</div>
-      <div class="result-sub" style="color:var(--lose)">${csign(hist.delta)} chips</div>
+      <div class="result-head">
+        <div class="result-hl" style="color:var(--lose)">You Folded</div>
+        <div class="result-sub" style="color:var(--lose)">${csign(hist.delta)} chips</div>
+      </div>
       <div class="uth-cards-col">
         <div>
           <div class="sec sec-sm">Dealer's Hand</div>
@@ -682,7 +684,7 @@ function screenUTH(){
   <div class="panel uth-result-panel">
     ${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}
     <div class="divider"></div>
-    <div class="uth-result-top" style="text-align:center">
+    <div class="result-head">
       <div class="result-hl" style="color:${col(hist.delta)}">${resLabel}</div>
       <div class="result-sub" style="color:${col(hist.delta)}">${csign(hist.delta)} chips</div>
     </div>

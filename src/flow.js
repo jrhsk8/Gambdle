@@ -32,7 +32,7 @@ function statusBar(){
 function render(){
   // Game screens dispatch through the Game registry (GAMES[screen].screen, registered by each game's
   // file); the non-game shell screens stay in this local table.
-  const scr={intro:screenIntro,choice:screenChoice,borrow:screenBorrow,results:screenResults,devstats:screenDevStats};
+  const scr={intro:screenIntro,choice:screenChoice,borrow:screenBorrow,results:screenResults,devstats:screenDevStats,retention:screenRetention};
   const inner = (GAMES[S.screen]?.screen||scr[S.screen]||screenIntro)();
   document.getElementById('app').innerHTML=`<div class="app">
     <div class="window">
@@ -80,6 +80,7 @@ function render(){
   saveState();
   if (S.screen === 'results') { submitAndFetchLeaderboard(); fetchScoreDistribution(); }
   if (S.screen === 'devstats') fetchDevStats();
+  if (S.screen === 'retention') fetchRetention();
   _runTutorial();
   _drawLayoutDebug();
 }
@@ -154,8 +155,10 @@ function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnT
   return `<div class="panel ${panelCls}" style="text-align:center">
     ${dotsHTML}
     <div class="divider"></div>
-    <div class="result-hl" style="color:${col(delta)}">${headlineHTML}</div>
-    <div class="result-sub" style="color:${col(delta)}">${csign(delta)} chips</div>
+    <div class="result-head">
+      <div class="result-hl" style="color:${col(delta)}">${headlineHTML}</div>
+      <div class="result-sub" style="color:${col(delta)}">${csign(delta)} chips</div>
+    </div>
     ${detailHTML}
     ${gameControls(betInlay('Total', cfmt(S.chips)), `<button class="btn-gold" onclick="${btnAction}">${btnText}</button>`)}
   </div>`;
@@ -288,3 +291,40 @@ async function _submitProgress(stage) {
 // bonus round on ladder_day). Game 1 is already covered by the `starts` row, and reaching 'results'
 // is covered by the score submission. 'ladder' only occurs on ladder_day; it's a no-op otherwise.
 const PROGRESS_STAGES = new Set([GAME2, 'roulette', 'ladder']);
+
+// Fire-and-forget: snapshots where this device is the moment the tab hides (visibilitychange→hidden)
+// or the page is torn down (pagehide) — the exact screen, its phase, the hand index (3-hand games),
+// and the live chip count. Upserts ONE row per device/day (Prefer: merge-duplicates → last write
+// wins), so the final snapshot is wherever the player actually quit. Powers the dev-only Retention
+// page's quit block. Skipped in dev/test/backlog; a module-level signature guard suppresses redundant
+// identical writes (the hide events fire on every tab-switch / phone-lock, not just the final exit).
+// Uses keepalive so the request survives an unloading page (a plain fetch would be cancelled).
+// Analytics-only: chips here are client-reported and unvalidated, unlike the `scores` submission.
+// Requires a `quits` table in Supabase — see .claude/SUPABASE.md.
+let _lastQuitSnap = '';
+function _submitQuit() {
+  if (DEV_OVERRIDE || _testActive() || _backlogSeed) return;
+  const g = GAMES[S.screen] || {};
+  const phase = g.phaseKey ? (S[g.phaseKey] ?? null) : null;
+  const hand  = g.handKey  ? (S[g.handKey]  ?? null) : null;
+  const snap = { seed: getActiveSeed(), fingerprint: getDeviceId(), screen: S.screen, phase, hand, chips: S.chips };
+  const sig = JSON.stringify([snap.screen, snap.phase, snap.hand, snap.chips]);
+  if (sig === _lastQuitSnap) return;
+  _lastQuitSnap = sig;
+  try {
+    fetch(`${SUPABASE_URL}/rest/v1/quits`, {
+      method: 'POST',
+      keepalive: true,
+      headers: { ...SUPABASE_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify(snap),
+    });
+  } catch(e) {}
+}
+
+// visibilitychange→hidden is the reliable "leaving" signal on mobile (fires on tab-switch, phone-lock,
+// and close); pagehide is the desktop-navigation backup. beforeunload/unload are unreliable, so we
+// don't use them. Registered at load like the other window listeners (windows.js).
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => { if (document.hidden) _submitQuit(); });
+  window.addEventListener('pagehide', _submitQuit);
+}

@@ -728,12 +728,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
    dots stay pinned at the top and the Next-Hand button stays tucked under the
    running total — neither boundary gap grows. Auto-margins split the free space
    equally among the elements that carry one. */
-.bj-split-result > .result-hl,
+/* The headline + chip-delta now ride together in one .result-head block, which carries the
+   auto-margin (its internal gap keeps the sub tucked tight under the headline). */
+.bj-split-result > .result-head,
 .bj-split-result > .bj-sr-dealer,
 .bj-split-result > .bj-sr-hands,
 .bj-split-result > .game-controls { margin-top: auto !important; }
-/* Keep the +0-chips sub-line tight under the headline (one unit) — no auto gap. */
-.bj-split-result > .result-sub { margin-top: 0 !important; }
 /* Breathing room inside the result dealer block: DEALER → card → value → divider.
    (Spends slack reclaimed by tightening the headline/sub into one unit.) Skipped on
    the 4-hand grid, which has no spare height. */
@@ -984,7 +984,18 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .result-sub { font-family: var(--btn-f); font-size: 2rem; margin-bottom: 14px; }
 /* Borrow screen "0 chips remaining": a touch smaller than a normal result-sub. */
 .result-sub.borrow-rem { font-size: 1.7rem; }
-.uth-result-top { margin-bottom: 10px; }
+/* ── Result head ────────────────────────────────────────── */
+/* The win/lose headline with the chip delta tucked right beneath it, as one unit — used by
+   EVERY result screen (BJ single + split, UTH showdown/fold, Roulette, Poker) so the spacing
+   reads identically across games. The head is one flex child of the panel; we zero the
+   element directly above it (the divider, or roulette's number-name line) and the one directly
+   below it, so the panel's own flex `gap` plus the head's small symmetric margin space it
+   EQUALLY top and bottom at every breakpoint — the block stays centered between its neighbors,
+   while the chip line hugs the headline via the tight internal `gap`. */
+.result-head { display: flex; flex-direction: column; gap: 4px; margin: 3px 0; text-align: center; }
+.result-head > .result-hl, .result-head > .result-sub { margin: 0 !important; }
+*:has(+ .result-head) { margin-bottom: 0 !important; }
+.result-head + * { margin-top: 0 !important; }
 .uth-cards-col { display:flex; flex-direction:column; gap:12px; align-items:center; margin:12px 0; }
 .uth-bets-grid { display:grid; grid-template-columns:1fr auto; gap:3px 14px; margin-bottom:10px; }
 .bj-celebrate-txt { font-family: var(--btn-f); font-size: 2.8rem; color: var(--gold-hi); letter-spacing: 0.04em; margin-top: 14px; text-shadow: 0 0 28px rgba(196,147,58,0.55); }
@@ -1758,7 +1769,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* UTH result screen */
   .uth-result-panel .result-hl { font-size: 2rem; margin-bottom: 2px; }
   .uth-result-panel .result-sub { font-size: 1.4rem; margin-bottom: 2px; }
-  .uth-result-top { margin-bottom: 2px; }
   .uth-cards-col { gap: 4px; margin: 2px 0; }
   .uth-result-panel .card.md { width: 44px; height: 62px; }
   .uth-result-panel .card.md .csuit { font-size: 1.1rem; }
@@ -2184,7 +2194,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .uth-result-panel > .divider { margin: 2px 0; }
   .uth-result-panel .result-hl { font-size: 1.55rem; margin-bottom: 0; }
   .uth-result-panel .result-sub { font-size: 1.2rem; margin-bottom: 1px; }
-  .uth-result-top { margin-bottom: 2px; }
   .uth-cards-col { gap: 2px; margin: 0; }
   .uth-result-panel .uth-cards-col .divider { margin: 2px 0 !important; }
   .uth-result-panel .card.md { width: 54px; height: 76px; }
@@ -2400,10 +2409,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r { font-size: 1.12rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-s { font-size: 0.95rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r[data-r="10"] { font-size: 0.9rem !important; }
-  /* Center the BJ win-result group (banner + dots stay pinned at the top). The headline carries
-     auto-margins top AND bottom so its own slack splits evenly above (to the divider) and below
-     (to the chips line) — it stays vertically centered between them instead of hugging the sub. */
-  .panel:has(> div[style*="gap:16px"]) > .result-hl { margin-top: auto; margin-bottom: auto; }
+  /* Center the BJ win-result head (banner + dots stay pinned at the top). The headline+chip
+     block carries auto-margins top AND bottom so its slack splits evenly above (to the divider)
+     and below (to the cards) — the whole unit floats vertically centered between them. */
+  .panel:has(> div[style*="gap:16px"]) > .result-head { margin-top: auto; margin-bottom: auto; }
   .panel:has(> div[style*="gap:16px"]) > .btn-gold:last-child { margin-bottom: auto; }
   .panel:has(> div[style*="gap:16px"]) .hand-val { font-size: 1.5rem !important; }
   .panel:has(> div[style*="gap:16px"]) .sec-sm { font-size: 1.1rem; }

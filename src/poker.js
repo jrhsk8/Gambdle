@@ -150,9 +150,11 @@ function screenPoker(){
   <div class="panel" style="text-align:center">
     ${gameDots(S.pkHistory,S.pkHand,S.pkPhase)}
     <div class="divider"></div>
-    <div class="result-hl" style="color:${col(h.delta)}">${h.delta>0?'You Win!':h.delta<0?'You Lose!':'Push'}</div>
+    <div class="result-head">
+      <div class="result-hl" style="color:${col(h.delta)}">${h.delta>0?'You Win!':h.delta<0?'You Lose!':'Push'}</div>
+      <div class="result-sub" style="color:${col(h.delta)}">${csign(h.delta)} chips</div>
+    </div>
     <div style="font-family:var(--btn-f);font-size:1.1rem;color:var(--gold);margin-bottom:2px">${res.n}</div>
-    <div class="result-sub" style="color:${col(h.delta)}">${csign(h.delta)} chips</div>
     <div class="sec sec-sm">Your Hand</div>
     <div class="hand" style="margin-bottom:12px">
       ${S.pkFinal.map((c,i)=>{const isNew=!S.pkHeld.has(i);return cardHTML(c,'md',isNew?'box-shadow:0 0 0 2px var(--gold-hi),2px 3px 10px rgba(0,0,0,.5)':'',isNew?0.04+i*0.05:0);}).join('')}

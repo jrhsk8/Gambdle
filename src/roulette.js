@@ -480,8 +480,10 @@ function screenRouletteResult(){
   return `${hdr('Roulette · Result')}
   <div class="panel" style="text-align:center">
     ${rResultNumsHTML()}
-    <div class="result-hl" style="color:${col(res.delta)}">${res.delta>0?'You Win!':res.delta===0?'Push':'You Lose!'}</div>
-    <div class="result-sub" style="color:${col(res.delta)}">${csign(res.delta)} chips</div>
+    <div class="result-head">
+      <div class="result-hl" style="color:${col(res.delta)}">${res.delta>0?'You Win!':res.delta===0?'Push':'You Lose!'}</div>
+      <div class="result-sub" style="color:${col(res.delta)}">${csign(res.delta)} chips</div>
+    </div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
       ${betRows}
       <div class="gm-sep" style="opacity:0.35"></div>

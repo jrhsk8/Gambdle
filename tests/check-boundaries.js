@@ -41,7 +41,8 @@ const MANIFEST = {
   'engine.js': ['auditRound', 'replayConfigHorizon', 'replayDayMods', 'replayRngSeed', 'replayRun'],
   'dev.js': [
     '_doReload', '_drawLayoutDebug', 'devApplyMod', 'devLadder', 'devReset', 'devSetGame', 'devSpin',
-    'devToggleLayoutDebug', 'devToggleUnlocks', 'fetchDevStats', 'screenDevStats', 'toggleTestSeed',
+    'devToggleLayoutDebug', 'devToggleUnlocks', 'fetchDevStats', 'fetchRetention', 'screenDevStats',
+    'screenRetention', 'toggleTestSeed',
   ],
   'flow.js': [
     '_enterFirstSlot', '_nextHand', '_noAnim', '_resultPanel', '_skipHand', '_submitBorrow', 'advanceTo',

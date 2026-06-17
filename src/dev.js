@@ -87,9 +87,10 @@ function screenDevStats() {
   </div>`;
 }
 
-// Builds the score-distribution bar chart from 7 bucket counts (<=249 … >=4000). Shared by the
-// single-RPC fast path and the multi-query fallback so both draw the chart identically.
-function _distChartHTML(counts) {
+// Builds a distribution bar chart from 7 bucket counts (<=249 … >=4000). Shared by the dev-stats
+// score chart (single-RPC + fallback paths) and the Retention page's chips-at-quit chart; `label`
+// is the heading above the bars.
+function _distChartHTML(counts, label = 'Score Distribution') {
   if (!Array.isArray(counts) || counts.length !== 7) return '';
   const sorted = [...counts].sort((a, b) => b - a);
   const useLog = sorted[0] > 0 && sorted[1] > 0 && sorted[0] / sorted[1] > 3;
@@ -106,7 +107,7 @@ function _distChartHTML(counts) {
       ${endLbl}
     </div>`;
   }).join('');
-  return `<div class="dvs-grp-lbl dvs-grp-lbl-bare" style="margin-top:8px">Score Distribution</div><div class="dist-wrap"><div class="dist-bars">${cols}</div></div>`;
+  return `<div class="dvs-grp-lbl dvs-grp-lbl-bare" style="margin-top:8px">${label}</div><div class="dist-wrap"><div class="dist-bars">${cols}</div></div>`;
 }
 
 async function fetchDevStats() {
@@ -143,6 +144,7 @@ async function fetchDevStats() {
         const peakAMPM = ph == null ? warn('n/a') : ph === 0 ? '12am' : ph < 12 ? ph + 'am' : ph === 12 ? '12pm' : (ph - 12) + 'pm';
         const dnf = Math.max((T.started || 0) - (T.completions || 0), 0);
         const returning = T.fingerprinted - T.new_players;
+        // Drop-off funnel now lives on the dedicated Retention page (fetchRetention / get_retention).
         const lifetimeGroup = ['Lifetime · All Days', [
           ['Unique players',   fmt(L.unique_players)],
           ['Completions',      fmt(L.completions)],
@@ -157,32 +159,13 @@ async function fetchDevStats() {
           ['DNF',             T.started > 0 ? `${fmt(dnf)}${pct(dnf, T.started)}` : warn('n/a')],
           ['Completion rate', T.started > 0 ? `${Math.round(T.completions / T.started * 100)}%` : warn('no starts yet')],
         ]];
-        // Drop-off funnel: where non-completers stopped. Absent on older RPCs (T.funnel undefined) and
-        // hidden when nobody dropped; buckets are device counts, % of DNFs.
-        const F = T.funnel;
-        // Seeds before the funnel shipped have no `progress` rows, so every DNF would misattribute to
-        // Blackjack. On a live day a completer always beacons UTH + Roulette on the way through, so
-        // completions>0 with zero uth+roulette means this seed predates the funnel — flag it instead.
-        const funnelPre = F && T.completions > 0 && (F.uth + F.roulette) === 0;
-        // The Ladder row only appears on ladder_day (F.ladder > 0); normal days stay 3 rows.
-        const funnelRows = F ? [
-          ['Stopped at Blackjack', `${fmt(F.bj)}${pct(F.bj, dnf)}`],
-          ['Stopped at Hold\'em',  `${fmt(F.uth)}${pct(F.uth, dnf)}`],
-          ['Stopped at Roulette',  `${fmt(F.roulette)}${pct(F.roulette, dnf)}`],
-          ...(F.ladder > 0 ? [['Stopped at the Ladder', `${fmt(F.ladder)}${pct(F.ladder, dnf)}`]] : []),
-        ] : [];
-        const funnelGroup = funnelPre
-          ? ['Drop-off · where DNFs stopped', [['Status', warn('no funnel data before v1.36')]]]
-          : (F && dnf > 0) ? ['Drop-off · where DNFs stopped', funnelRows]
-          : null;
         if (T.completions === 0) {
-          el.innerHTML = renderGroups([engagementGroup, funnelGroup, lifetimeGroup].filter(Boolean)) +
+          el.innerHTML = renderGroups([engagementGroup, lifetimeGroup]) +
             `<div style="color:var(--shadow);padding:14px 0;text-align:center">No completed runs yet for seed ${seed}.</div>`;
           return;
         }
         el.innerHTML = renderGroups([
           engagementGroup,
-          funnelGroup,
           ['Audience', [
             ['New today',  fmt(T.new_players)],
             ['Returning',  `${fmt(returning)}${pct(returning, T.fingerprinted)}`],
@@ -358,6 +341,101 @@ async function fetchDevStats() {
     ]) + distHTML;
   } catch (err) {
     if (el) el.innerHTML = `<div style="color:var(--lose);padding:10px 0">Error: ${err.message}</div>`;
+  }
+}
+
+// ─── RETENTION SCREEN ────────────────────────────────────────────────────
+// Dev-only page (goTo('retention')) dedicated to player retention & in-session drop-off. Three
+// blocks, all from the get_retention RPC: day-over-day return (D1/D7 + days-played), the drop-off
+// funnel (moved here from Player Stats), and quit position (where the tab was last hidden + the chip
+// count held at that moment, from the `quits` beacon — see _submitQuit in flow.js). Every return
+// number is keyed on the localStorage device id, which churns (cleared storage, private mode, second
+// device, Safari ITP eviction), so the rates are lower bounds — labeled "approximate" on the page.
+
+function screenRetention() {
+  const seed = getActiveSeed();
+  return `${hdr('Retention · Day #' + S.day)}
+  <div class="panel" style="text-align:center">
+    <div style="font-family:var(--btn-f);font-size:1.6rem;color:var(--gold-hi);margin-bottom:2px">Retention &amp; Drop-off</div>
+    <div style="font-size:0.72rem;color:var(--shadow);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Seed ${seed} · device-id based, approximate</div>
+    <div class="divider"></div>
+    <div id="retention-body">
+      <div style="color:var(--shadow);padding:18px 0">Fetching…</div>
+    </div>
+    <div class="divider"></div>
+    <button class="btn-gold" onclick="goTo('intro')">← Close</button>
+  </div>`;
+}
+
+async function fetchRetention() {
+  const el = document.getElementById('retention-body');
+  if (!el) return;
+  const seed = getActiveSeed();
+  const headers = { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
+  // Same inlaid two-column box layout as the Player Stats page.
+  const renderGroups = (groups) =>
+    `<div class="dvs-groups">` +
+    groups.map(([title, rows]) =>
+      `<div class="dvs-box"><div class="dvs-grp-lbl">${title}</div>` +
+      rows.map(([k, v]) => `<div class="irow"><span class="ik">${k}</span><span class="iv">${v}</span></div>`).join('') +
+      `</div>`
+    ).join('') + `</div>`;
+  const warn = (txt) => `<span style="color:var(--shadow);font-size:.75rem">${txt}</span>`;
+  const pct  = (n, d) => d > 0 ? ` <span style="color:var(--shadow);font-size:.75rem">(${Math.round(n/d*100)}%)</span>` : '';
+  const rate = (n, d) => d > 0 ? `${Math.round(n/d*100)}% <span style="color:var(--shadow);font-size:.75rem">(${fmt(n)}/${fmt(d)})</span>` : warn('no data yet');
+
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_retention`, {
+      method: 'POST', headers, body: JSON.stringify({ p_seed: seed }),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    if (!d || !d.returns) { el.innerHTML = `<div style="color:var(--shadow);padding:14px 0;text-align:center">${warn('get_retention RPC not deployed yet · run supabase/retention.sql')}</div>`; return; }
+    const R = d.returns, F = d.funnel || {}, Q = d.quit || {};
+
+    // Day-over-day return — D1/D7 across all cohorts that have had time to mature (lower bounds).
+    const returnGroup = ['Return · day-over-day', [
+      ['Next-day (D1)', rate(R.d1?.ret || 0, R.d1?.base || 0)],
+      ['One-week (D7)', rate(R.d7?.ret || 0, R.d7?.base || 0)],
+    ]];
+    // Days played in the trailing 7-day window — one bucket per distinct-days-played count.
+    const dp = (R.days_played || []).map(c => +c);
+    const dpTotal = dp.reduce((a, b) => a + b, 0);
+    const daysGroup = ['Days played · last 7d', dp.length === 7
+      ? dp.map((c, i) => [i === 6 ? '7 days' : `${i + 1} day${i ? 's' : ''}`, `${fmt(c)}${pct(c, dpTotal)}`])
+      : [['Status', warn('no data yet')]]];
+
+    // Drop-off funnel (moved here from Player Stats). dnf = started − completions for this seed.
+    const dnf = Math.max((F.started || 0) - (F.completions || 0), 0);
+    const funnelPre = (F.completions || 0) > 0 && ((F.uth || 0) + (F.roulette || 0)) === 0;
+    const funnelGroup = funnelPre
+      ? ['Drop-off · where DNFs stopped', [['Status', warn('no funnel data for this seed')]]]
+      : dnf > 0 ? ['Drop-off · where DNFs stopped', [
+          ['Stopped at Blackjack', `${fmt(F.bj)}${pct(F.bj, dnf)}`],
+          ['Stopped at Hold\'em',  `${fmt(F.uth)}${pct(F.uth, dnf)}`],
+          ['Stopped at Roulette',  `${fmt(F.roulette)}${pct(F.roulette, dnf)}`],
+          ...((F.ladder || 0) > 0 ? [['Stopped at the Ladder', `${fmt(F.ladder)}${pct(F.ladder, dnf)}`]] : []),
+        ]]
+      : null;
+
+    // Quit position — where the tab was hidden last today, and the chips held at that moment.
+    const chips = Q.chips || {};
+    const qN = chips.n || 0;
+    const SCREEN_LBL = { bj: 'Blackjack', uth: "Hold'em", poker: 'Poker', roulette: 'Roulette', ladder: 'The Ladder', borrow: 'Borrow', results: 'Results', intro: 'Intro', choice: 'Choice' };
+    const byScreen = Array.isArray(Q.by_screen) ? Q.by_screen : [];
+    const quitGroup = ['Quit position · by screen', byScreen.length
+      ? byScreen.slice(0, 8).map(b => [`${SCREEN_LBL[b.screen] || b.screen}${b.phase && b.phase !== '?' ? ' · ' + b.phase : ''}`, `${fmt(b.n)}${pct(b.n, qN)}`])
+      : [['Status', warn('no quit snapshots yet')]]];
+    const chipsGroup = qN > 0 ? ['Chips at quit', [
+      ['Snapshots', fmt(qN)],
+      ['Average',   fmt(chips.avg || 0)],
+      ['Median',    fmt(chips.median || 0)],
+    ]] : null;
+
+    el.innerHTML = renderGroups([returnGroup, daysGroup, funnelGroup, quitGroup, chipsGroup].filter(Boolean))
+      + (qN > 0 ? _distChartHTML((chips.buckets || []).map(c => +c), 'Chips at Quit') : '');
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--lose);padding:10px 0">Error: ${err.message}</div>`;
   }
 }
 
