@@ -76,7 +76,7 @@ function chipSel(maxC,curBet,denoms,extraBtn='',betAmtHTML){
   // styling, so the CSS .bet-amt span:first/last-child rules render the bet-phase box IDENTICALLY to the
   // play screen. #bv stays on the value span for live patching (patchBetUI / roulette rAddBet).
   const amt=betAmtHTML!=null?betAmtHTML
-    :`<span>Bet</span><span id="bv">${cfmt(curBet)}</span>`;
+    :`<span>Bet</span><span id="${DOM.betVal}">${cfmt(curBet)}</span>`;
   // Clear sits to the LEFT of the bet box; All In stays on the right. extraBtn (roulette's Place Bet)
   // rides between the box and All In.
   return`<div class="chip-row">${btns}</div>
@@ -84,7 +84,7 @@ function chipSel(maxC,curBet,denoms,extraBtn='',betAmtHTML){
     <button class="ch-clear" onclick="clearBet()">✕ Clear</button>
     <div class="bet-amt">${amt}</div>
     ${extraBtn}
-    <button id="ai" class="ch-allin" onclick="allIn()" ${maxC===0?'disabled':''}>All In</button>
+    <button id="${DOM.allInBtn}" class="ch-allin" onclick="allIn()" ${maxC===0?'disabled':''}>All In</button>
   </div>`;
 }
 
@@ -129,9 +129,9 @@ function hdr(sub){
     <span class="mb-item" onclick="toggleMenu('file',this);event.stopPropagation()"><u>F</u>ile</span>
     <span class="mb-item" onclick="toggleMenu('help',this);event.stopPropagation()"><u>H</u>elp</span>
     ${DEV_OVERRIDE ? `<span class="mb-item" style="color:var(--gold)" onclick="toggleMenu('dev',this);event.stopPropagation()"><u>D</u>eveloper</span>` : ''}
-    <span class="mb-right"><span id="chip-badge" class="chip-badge">${icon('chip')} ${cfmt(S.chips)}</span></span>
+    <span class="mb-right"><span id="${DOM.chipBadge}" class="chip-badge">${icon('chip')} ${cfmt(S.chips)}</span></span>
   </div>
-  <div id="hdr-sub" style="display:none">${sub||''}</div>`;
+  <div id="${DOM.hdrSub}" style="display:none">${sub||''}</div>`;
 }
 
 // Returns the gold modifier banner HTML, or '' if no modifier is active today.
@@ -206,7 +206,7 @@ function patchBetUI() {
   const max = maxBet();
   const minChipsMod = getMod('min_chips') || 0;
   const isBetValid = bet >= minChipsMod;
-  const bv=document.getElementById('bv');
+  const bv=document.getElementById(DOM.betVal);
   // Re-render only if no chip-bet UI is on screen at all. UTH replaces #bv with its Ante+Blind
   // summary (updated below via #uth-summary), so a missing #bv alone is fine — patch surgically.
   if(!bv && !document.querySelector('.chbtn')){ render(); return; }
@@ -214,15 +214,15 @@ function patchBetUI() {
   document.querySelectorAll('.chbtn').forEach(b => {
     b.disabled = bet + (+b.dataset.v) > max;
   });
-  const db=document.getElementById('db');
+  const db=document.getElementById(DOM.dealBtn);
   if(db){
     const maxBets=getMod('r_max_bets')||6;
     // Roulette uses the S.rBets array, not the scalar rBet; Spin button enables when any bet is placed.
     db.disabled=(k==='rBet'?S.rBets.length===0:(bet===0||!isBetValid));
-    const pba=document.getElementById('pb-add');
+    const pba=document.getElementById(DOM.placeBetBtn);
     if(pba){const pickAlreadyBet=S.rPick!==null&&S.rBets.some(b=>b.pick===S.rPick);pba.disabled=!((S.rBets.length<maxBets||pickAlreadyBet)&&S.rPick!==null&&bet>0);}
   }
-  const ai=document.getElementById('ai');
+  const ai=document.getElementById(DOM.allInBtn);
   if(ai)ai.disabled=max===0 || max < minChipsMod;
   // Game-specific bet-UI patching (roulette selection box · UTH stake summary + pay table) lives with
   // each game and is dispatched through the Game registry; patchBetUI owns only the shared chip UI.

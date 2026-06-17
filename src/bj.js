@@ -115,7 +115,7 @@ function bjDeal(){
     const A=[_bjDraw(),_bjDraw()],B=[_bjDraw(),_bjDraw()];
     S.bjDealer=[_bjDraw(),_bjDraw()];
     S.bjCandidates=[A,B];
-    const db=document.getElementById('db');if(db)db.disabled=true;
+    const db=document.getElementById(DOM.dealBtn);if(db)db.disabled=true;
     const nat=isBJ(A)?0:isBJ(B)?1:-1;
     if(nat!==-1){
       S.bjPlayer=S.bjCandidates[nat];S.bjCandidates=null;S.bjPhase='play';
@@ -132,7 +132,7 @@ function bjDeal(){
   }
   S.bjPlayer=[_bjDraw(),_bjDraw()];
   S.bjDealer=[_bjDraw(),_bjDraw()];
-  const db=document.getElementById('db');if(db)db.disabled=true;
+  const db=document.getElementById(DOM.dealBtn);if(db)db.disabled=true;
   sndShuffle(_bjAfterDeal);
 }
 
@@ -207,7 +207,7 @@ function bjHit(){
   else{
     // Surgically append the card + update the total; patchOrRender falls back to a full render (which
     // rebuilds from S and saves) if the target is missing, so the pushed card is never lost.
-    patchOrRender([isSplit?'bj-active-hand':'bj-player-hand', isSplit?'bj-active-val':'bj-player-val'], (handEl, valEl) => {
+    patchOrRender([isSplit?DOM.bjActiveHand:DOM.bjPlayerHand, isSplit?DOM.bjActiveVal:DOM.bjPlayerVal], (handEl, valEl) => {
       handEl.insertAdjacentHTML('beforeend', cardHTML(hand[hand.length-1], 'lg', '', 0.1, true));
       valEl.textContent = hValDisplay(hand);
       saveState();
@@ -468,7 +468,7 @@ function peekBtnHTML(){
   const limit=getMod('peek');
   if(!limit||S.peeksUsed>=limit) return '';
   const left=limit-S.peeksUsed;
-  return `<div id="peek-btn-wrap"><button class="btn-peek-glow" onclick="doPeek()" style="background:rgba(196,147,58,.12);border:1.5px solid rgba(196,147,58,.5);color:var(--gold-hi);padding:11px 20px;border-radius:8px;font-size:1.25rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.15;white-space:nowrap">${icon('magnifying-glass')} Peek<span style="display:block;font-size:.78rem;font-weight:400;opacity:.7;letter-spacing:.04em">${left} left today</span></button></div>`;
+  return `<div id="${DOM.peekBtnWrap}"><button class="btn-peek-glow" onclick="doPeek()" style="background:rgba(196,147,58,.12);border:1.5px solid rgba(196,147,58,.5);color:var(--gold-hi);padding:11px 20px;border-radius:8px;font-size:1.25rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.15;white-space:nowrap">${icon('magnifying-glass')} Peek<span style="display:block;font-size:.78rem;font-weight:400;opacity:.7;letter-spacing:.04em">${left} left today</span></button></div>`;
 }
 
 // The current hand index for the active dealer-card screen, or -1 if peek doesn't apply here.
@@ -487,11 +487,11 @@ function doPeek(){
   S.peeksUsed++;
   S.peekAt={game:S.screen,hand:_peekHand()};
   saveState();
-  const btn=document.getElementById('peek-btn-wrap');
+  const btn=document.getElementById(DOM.peekBtnWrap);
   if(btn) btn.style.display='none';
   const glow='box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px';
   if(S.screen==='bj'){
-    const sec=document.getElementById('bj-dealer-section');
+    const sec=document.getElementById(DOM.bjDealerSection);
     if(sec){
       const lbl=sec.querySelector('.sec');
       if(lbl) lbl.innerHTML=`Dealer Shows · <span style="color:var(--gold-hi);font-size:.7rem">${icon('eye')} Peeked</span>`;
@@ -505,8 +505,8 @@ function doPeek(){
       return;
     }
   } else {
-    const lbl=document.getElementById('uth-dealer-sec');
-    const hand=document.getElementById('uth-dealer-hand');
+    const lbl=document.getElementById(DOM.uthDealerSec);
+    const hand=document.getElementById(DOM.uthDealerHand);
     if(lbl&&hand&&hand.children.length>=1){
       lbl.innerHTML=`Dealer · <span style="color:var(--gold-hi);font-size:.7rem">${icon('eye')} Peeked</span>`;
       const old=hand.children[0];
@@ -550,7 +550,7 @@ function screenBJ(){
             </div>
           </div>
           ${chipSel(S.chips,S.bjBet)}
-          <button id="db" class="btn-gold" style="margin-top:6px" onclick="bjDeal()" ${S.bjBet===0?'disabled':''}>Deal ${icon('shuffle',{cls:'btn-icon-gap'})}</button>`;})()}
+          <button id="${DOM.dealBtn}" class="btn-gold" style="margin-top:6px" onclick="bjDeal()" ${S.bjBet===0?'disabled':''}>Deal ${icon('shuffle',{cls:'btn-icon-gap'})}</button>`;})()}
     </div>`;
   }
   if(ph==='pick'){
@@ -570,7 +570,7 @@ function screenBJ(){
 <div class="panel" style="display:flex;flex-direction:column">
   ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
   <div class="divider"></div>
-  <div id="bj-dealer-section" class="vband" style="text-align:center">${bjDealerHTML()}</div>
+  <div id="${DOM.bjDealerSection}" class="vband" style="text-align:center">${bjDealerHTML()}</div>
   <div class="divider"></div>
   <div class="vband" style="text-align:center">
     <div class="sec">Pick a Hand</div>
@@ -595,7 +595,7 @@ function screenBJ(){
 <div class="panel" style="display:flex;flex-direction:column">
         ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
         <div class="divider"></div>
-        <div id="bj-dealer-section" class="vband" style="text-align:center">${bjDealerHTML()}</div>
+        <div id="${DOM.bjDealerSection}" class="vband" style="text-align:center">${bjDealerHTML()}</div>
         <div class="divider"></div>
         <div class="vband">
         ${S.bjSplitHands.length>1?`<div class="bj-split-aside">
@@ -607,10 +607,10 @@ function screenBJ(){
         </div>`:''}
         <div class="bj-split-active" style="text-align:center;">
           <div class="sec bj-active-lbl">Hand ${ai+1} <span class="bj-active-bet">· Bet ${cfmt(S.bjSplitBets[ai])}</span></div>
-          <div id="bj-active-hand" class="hand">${renderCards(activeHand,'lg',af,0.4,0.1)}</div>
+          <div id="${DOM.bjActiveHand}" class="hand">${renderCards(activeHand,'lg',af,0.4,0.1)}</div>
           ${S.bjCelebrating||isBJ(activeHand)
             ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div class="bj-celebrate-txt">Blackjack!</div></div>`
-            :`<div id="bj-active-val" class="hand-val ${bust?'bust':done21?'bj':''}">${bust?pvStr+' BUST':done21?'21!':pvStr}</div>`}
+            :`<div id="${DOM.bjActiveVal}" class="hand-val ${bust?'bust':done21?'bj':''}">${bust?pvStr+' BUST':done21?'21!':pvStr}</div>`}
         </div>
         </div>
         <div class="divider"></div>
@@ -627,17 +627,17 @@ function screenBJ(){
 <div class="panel" style="display:flex;flex-direction:column">
   ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
   <div class="divider"></div>
-  <div id="bj-dealer-section" class="vband" style="text-align:center">${bjDealerHTML()}</div>
+  <div id="${DOM.bjDealerSection}" class="vband" style="text-align:center">${bjDealerHTML()}</div>
   <div class="divider"></div>
   <div class="vband" style="text-align:center">
     <div class="sec">Your Hand</div>
-    <div id="bj-player-hand" class="hand">${renderCards(S.bjPlayer,'lg',S.bjAnimFrom,0.4,0.1)}</div>
+    <div id="${DOM.bjPlayerHand}" class="hand">${renderCards(S.bjPlayer,'lg',S.bjAnimFrom,0.4,0.1)}</div>
     ${(S.bjCelebrating||isBJ(S.bjPlayer))
       ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}">
           <div class="bj-celebrate-txt">Blackjack!</div>
           ${isBJ(S.bjPlayer)?`<div style="font-size:.72rem;color:var(--shadow);text-transform:uppercase;letter-spacing:.22em;margin-top:6px">Pays 3 · 2</div>`:''}
         </div>`
-      :`<div id="bj-player-val" class="hand-val ${bust?'bust':done21?'bj':''}">${bust?pvStr+' BUST':done21?'21!':pvStr}</div>`}
+      :`<div id="${DOM.bjPlayerVal}" class="hand-val ${bust?'bust':done21?'bj':''}">${bust?pvStr+' BUST':done21?'21!':pvStr}</div>`}
   </div>
   <div class="divider"></div>
   <div>

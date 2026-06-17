@@ -24,7 +24,7 @@ const ROOT = path.join(__dirname, '..');
 // tables first, then core (constants/card helpers/buildDeal), then the four game resolvers, then
 // engine.js (which references all of the above). Any other order risks a temporal-dead-zone or a
 // "not defined" at load.
-const FILES = ['modifiers', 'core', 'bet', 'bj', 'uth', 'roulette', 'ladder', 'engine']
+const FILES = ['modifiers', 'core', 'deal', 'bet', 'bj', 'uth', 'roulette', 'ladder', 'engine']
   .map(n => path.join('src', n + '.js'));
 const OUT = path.join('supabase', 'functions', '_shared', 'engine-bundle.mjs');
 

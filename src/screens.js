@@ -41,7 +41,7 @@ function renderIntroGameRows() {
   const rows = games.map((g, i) => `
     <div class="gm-row">
       <span class="rnd-ic">${g[0]}</span>
-      <div class="rnd-nm">${i+1}. ${g[1]} <span class="rnd-dc">· ${g[2].split(' · ')[0]}</span></div>
+      <div class="rnd-nm">${i+1}. ${g[1]} <span class="rnd-dc">${g[2].split(' · ')[0]}</span></div>
     </div>`).join('<div class="gm-sep"></div>');
   return `<div class="game-manifest">${rows}</div>`;
 }

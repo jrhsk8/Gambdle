@@ -1007,8 +1007,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 .gm-sep { height: 1px; background: var(--ink); }
 .rnd-ic { font-size: 1.6rem; line-height: 1; }
-.rnd-nm { font-size: 2.1rem; font-weight: 700; line-height: 1; letter-spacing: 0.02em; }
-.rnd-dc { font-size: 1.6rem; color: var(--shadow); font-weight: 400; }
+.rnd-nm { font-size: 2.1rem; font-weight: 700; line-height: 1; letter-spacing: 0.02em; display: flex; align-items: baseline; }
+.rnd-dc { font-size: 1.6rem; color: var(--shadow); font-weight: 400; margin-left: auto; } /* push the "· 3 hands" desc to the right edge of the row */
 
 /* ── Pay table ──────────────────────────────────────────── */
 .ptable { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px;

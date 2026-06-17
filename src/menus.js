@@ -419,6 +419,32 @@ function closeFeedbackDialog() {
   document.getElementById('win-feedback')?.remove();
 }
 
+// Builds the Discord-bound feedback payload: the player's note plus a compact context block so a
+// report can be triaged without a back-and-forth — version (which release), where they are in the
+// run (screen + phase), the active daily modifier (the usual suspect for a bug), game progress, and
+// device/viewport/browser (for layout reports). Every field is best-effort: a missing piece of game
+// state must never stop the feedback from sending, so the whole block is wrapped defensively.
+function _feedbackBody(msg) {
+  let meta = '';
+  try {
+    const g = GAMES[S.screen];
+    const phase = g && g.phaseKey ? S[g.phaseKey] : null;
+    // getMod('title') resolves the active preset (incl. a committed Player's Choice); a still-open
+    // Player's Choice has no single title yet, so flag it as unpicked.
+    const modLabel = pendingPlayersChoice() ? "Player's Choice (unpicked)" : (getMod('title') || 'none');
+    const w = innerWidth, h = innerHeight, dpr = devicePixelRatio || 1;
+    const form = w <= 480 ? 'mobile' : w <= 1024 ? 'tablet' : 'desktop';
+    const lines = [
+      `**Where** screen \`${S.screen}\`${phase ? ` · phase \`${phase}\`` : ''} · Day #${S.day}`,
+      `**Game** ${fmt(S.chips)} chips · streak ${computeStreak().current} · mod: ${modLabel}`,
+      `**Device** ${form} ${w}×${h} @${dpr}x · \`${getDeviceId()}\``,
+      `\`${(navigator.userAgent || '').slice(0, 180)}\``,
+    ];
+    meta = '\n' + lines.join('\n');
+  } catch (_e) { /* context is a nice-to-have; never block a send */ }
+  return `📬 **Gambdle Feedback** · ${GAME_VERSION}${meta}\n>>> ${msg}`;
+}
+
 async function submitFeedback() {
   const ta = document.getElementById('feedback-txt');
   const msg = ta?.value.trim();
@@ -429,7 +455,7 @@ async function submitFeedback() {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/rapid-service`, {
       method: 'POST',
       headers: SUPABASE_HEADERS,
-      body: JSON.stringify({ content: `📬 **Gambdle Feedback** · Day #${S.day} · ${fmt(S.chips)} chips\n>>> ${msg}` })
+      body: JSON.stringify({ content: _feedbackBody(msg) })
     });
     if (!res.ok) throw new Error();
     closeFeedbackDialog();

@@ -136,14 +136,14 @@ GAMES.uth.reset = resetUTHHand; GAMES.uth.screen = screenUTH; GAMES.uth.nextHand
 // Game-specific bet-UI patch (dispatched by patchBetUI): keep the stake summary + blind pay table in
 // step with the staked Ante · Blind split as the bet changes.
 GAMES.uth.patchBet = function(bet){
-  const us=document.getElementById('uth-summary');
+  const us=document.getElementById(DOM.uthSummary);
   if(!us) return;
   // Match the render's split: ante rounds up, blind rounds down (see _uthAntePortion/_uthBlindPortion).
   const ante=Math.ceil(bet/2), blind=Math.floor(bet/2);
   us.innerHTML = `Ante <b style="color:var(--gold)">${cfmtK(ante)}</b> + Blind <b style="color:var(--gold)">${cfmtK(blind)}</b> = <b style="color:var(--ink)">${cfmtK(bet)}</b> chips total`;
-  const pt=document.getElementById('uth-ptable');
+  const pt=document.getElementById(DOM.uthPtable);
   if(pt) pt.innerHTML = uthPayTableHTML(blind);
-  const pth=document.getElementById('uth-pt-head');
+  const pth=document.getElementById(DOM.uthPtHead);
   if(pth) pth.innerHTML = uthPayTableHead(blind);
 };
 // Refresh landed mid-reveal: settle to the result panel after a beat, mirroring the live reveal timer.
@@ -196,7 +196,7 @@ function uthDeal(){
   }
   S.uthRaised=false;S.uthFolded=false;S.uthPlay=0;S.uthPlayMult=0;
   S.uthRevealComm=0;S.uthPrevRevealComm=0;
-  const db=document.getElementById('db');if(db)db.disabled=true;
+  const db=document.getElementById(DOM.dealBtn);if(db)db.disabled=true;
   sndShuffle(()=>{
     S.uthPhase='preflop';
     render(); updateChipDisplay();
@@ -226,7 +226,7 @@ const _UTH_PRIV_GLOW='box-shadow:0 0 0 2px var(--gold-hi),0 0 12px 3px rgba(196,
 function _uthPrivCardHTML(anim){
   return _uthPrivateShown()?cardHTML(S.uthPrivate,'sm',_UTH_PRIV_GLOW,anim?0.05:0,!!anim):cardHTML('back','sm',_UTH_PRIV_GLOW,0,false);
 }
-function _uthPrivSlot(){ return `<div id="uth-priv-slot" class="uth-priv-slot">${_uthPrivCardHTML(false)}<span class="uth-priv-tag">YOU</span></div>`; }
+function _uthPrivSlot(){ return `<div id="${DOM.uthPrivSlot}" class="uth-priv-slot">${_uthPrivCardHTML(false)}<span class="uth-priv-tag">YOU</span></div>`; }
 // Reveal community cards 4 and 5 (turn + river combined).
 function _uthDealTurn(){
   S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';
@@ -238,7 +238,7 @@ function _uthDealTurn(){
 function timeTravelBtnHTML(){
   if(!getMod('uth_time_travel')||S.timeTravelUsed) return '';
   if(S.uthPhase!=='flop'&&S.uthPhase!=='turn') return '';
-  return `<div id="tt-btn-wrap"><button class="btn-timetravel-glow" onclick="doTimeTravel()" style="background:rgba(43,127,255,.12);border:1.5px solid rgba(90,160,255,.55);color:#9cc4ff;padding:11px 20px;border-radius:8px;font-size:1.25rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.15;white-space:nowrap">⏳ Re-deal<span style="display:block;font-size:.78rem;font-weight:400;opacity:.7;letter-spacing:.04em">1 left today</span></button></div>`;
+  return `<div id="${DOM.ttBtnWrap}"><button class="btn-timetravel-glow" onclick="doTimeTravel()" style="background:rgba(43,127,255,.12);border:1.5px solid rgba(90,160,255,.55);color:#9cc4ff;padding:11px 20px;border-radius:8px;font-size:1.25rem;font-weight:700;letter-spacing:.06em;cursor:pointer;touch-action:manipulation;line-height:1.15;white-space:nowrap">⏳ Re-deal<span style="display:block;font-size:.78rem;font-weight:400;opacity:.7;letter-spacing:.04em">1 left today</span></button></div>`;
 }
 
 // Re-deal the just-revealed street once per day. Replacement cards come from the unused tail of
@@ -257,7 +257,7 @@ function doTimeTravel(){
     S.uthPrevRevealComm=3;S.uthRevealComm=5;
   }
   S.uthRedealPtr=ptr;
-  const btn=document.getElementById('tt-btn-wrap');if(btn)btn.style.display='none';
+  const btn=document.getElementById(DOM.ttBtnWrap);if(btn)btn.style.display='none';
   saveState();
   updateUthCommunityCards();
 }
@@ -373,22 +373,22 @@ function uthResolve(){
 // Surgically animates only the newly revealed community cards (uthPrevRevealComm → uthRevealComm).
 // Also updates the action UI and progress dots after the animation finishes.
 function updateUthCommunityCards() {
-  const t = patchOrRender(['uth-community-hand', 'uth-dealer-hand'], null, { noAnim: true });
+  const t = patchOrRender([DOM.uthCommunityHand, DOM.uthDealerHand], null, { noAnim: true });
   if (!t) return; // patchOrRender already fell back to a full render
   const [commHand, dealerHand] = t;
 
   // The bet inlay box persists across streets (no full render mid-hand), so refresh its stake
   // breakdown here — this is when a just-locked Raise should join the Ante · Blind line.
-  const betInlayEl = document.getElementById('uth-bet-inlay');
+  const betInlayEl = document.getElementById(DOM.uthBetInlay);
   if (betInlayEl) betInlayEl.innerHTML = uthBetSummary();
 
-  const hdrSub = document.getElementById('hdr-sub');
+  const hdrSub = document.getElementById(DOM.hdrSub);
   if (hdrSub) {
     if (S.uthPhase === 'reveal') hdrSub.textContent = "Ultimate Texas Hold'em · Dealer Reveals";
     else if (S.uthPhase === 'result') hdrSub.textContent = "Ultimate Texas Hold'em · Showdown";
   }
 
-  const actionUi = document.getElementById('uth-actions-ui');
+  const actionUi = document.getElementById(DOM.uthActionsUi);
   if (actionUi) {
     actionUi.style.pointerEvents = 'none';
     actionUi.querySelectorAll('button').forEach(b => {
@@ -416,7 +416,7 @@ function updateUthCommunityCards() {
   }
 
   if (S.uthPhase === 'reveal') {
-    const dSec = document.getElementById('uth-dealer-sec');
+    const dSec = document.getElementById(DOM.uthDealerSec);
     if (dSec) dSec.textContent = 'Dealer';
     setTimeout(() => sndCard(), startDelay + 100);
     setTimeout(() => sndCard(), startDelay + 1000);
@@ -426,7 +426,7 @@ function updateUthCommunityCards() {
   // Sixth Sense: flip the private 6th card face-up the moment the turn lands (revealComm crosses to 5),
   // alongside the turn + river cards. It stays static on later updates (already shown).
   if (getMod('uth_sixth_card') && S.uthRevealComm >= 5 && S.uthPrevRevealComm < 5) {
-    const slot = commHand.querySelector('#uth-priv-slot');
+    const slot = commHand.querySelector(`#${DOM.uthPrivSlot}`);
     if (slot) setTimeout(() => {
       slot.innerHTML = _uthPrivCardHTML(true) + '<span class="uth-priv-tag">YOU</span>';
       sndCard();
@@ -436,7 +436,7 @@ function updateUthCommunityCards() {
   const finishDelay = startDelay + (revealedCount * interval);
   S.uthPrevRevealComm = S.uthRevealComm;
 
-  const dotsContainer = document.getElementById('uth-dots-container');
+  const dotsContainer = document.getElementById(DOM.uthDotsContainer);
   setTimeout(() => {
     if (dotsContainer) dotsContainer.innerHTML = S.uthPhase==='reveal'
       ? gameDots(S.uthHistory.slice(0,-1), S.uthHand-1, 'reveal')
@@ -452,7 +452,7 @@ function updateUthCommunityCards() {
       // The dealer row isn't re-rendered on a street change, so the phase-gated Time Travel button
       // must be injected here when the flop/turn lands (it returns '' when used or off, a safe no-op).
       const dRow = document.querySelector('.dealer-hand-row');
-      if (dRow && !document.getElementById('tt-btn-wrap')) dRow.insertAdjacentHTML('beforeend', timeTravelBtnHTML());
+      if (dRow && !document.getElementById(DOM.ttBtnWrap)) dRow.insertAdjacentHTML('beforeend', timeTravelBtnHTML());
     }
   }, finishDelay);
 
@@ -492,16 +492,16 @@ function screenUTH(){
     // land exactly where Blackjack puts them, and centres the box-group in whatever slack exists.
     const center=`<div class="uth-bet-center">
             <div class="uth-pt-wrap">
-              <div id="uth-ptable" class="ptable">${uthPayTableHTML(_uthBlindPortion())}</div>
-              <div id="uth-pt-head" class="sec">${uthPayTableHead(_uthBlindPortion())}</div>
+              <div id="${DOM.uthPtable}" class="ptable">${uthPayTableHTML(_uthBlindPortion())}</div>
+              <div id="${DOM.uthPtHead}" class="sec">${uthPayTableHead(_uthBlindPortion())}</div>
             </div>
           </div>`;
     // The Ante+Blind+total summary lives inside the bet box (replacing the plain "Bet" readout);
     // keep id="uth-summary" so patchBetUI can live-update it and the bet-screen CSS hook still matches.
-    const betSummary=`<div id="uth-summary" class="uth-bet-sum">Ante <b style="color:var(--gold)">${cfmtK(_uthAntePortion())}</b> + Blind <b style="color:var(--gold)">${cfmtK(_uthBlindPortion())}</b> = <b style="color:var(--ink)">${cfmtK(S.uthAnte)}</b> chips</div>`;
+    const betSummary=`<div id="${DOM.uthSummary}" class="uth-bet-sum">Ante <b style="color:var(--gold)">${cfmtK(_uthAntePortion())}</b> + Blind <b style="color:var(--gold)">${cfmtK(_uthBlindPortion())}</b> = <b style="color:var(--ink)">${cfmtK(S.uthAnte)}</b> chips</div>`;
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
-      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
+      <div id="${DOM.uthDotsContainer}">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
       <div class="divider"></div>
       ${aios
         ?`<div class="sec" style="text-align:center"><span class="sec-game-prefix">Hold'em · </span>All In or Skip · Wins Pay 2×</div>
@@ -510,14 +510,14 @@ function screenUTH(){
         :`<div class="sec" style="text-align:center"><span class="sec-game-prefix">Hold'em · </span>Place Bet (Ante + Blind)</div>
           ${center}
           ${chipSel(maxAnte,S.uthAnte,[10,25,50,100,250,500,1000],'',betSummary)}
-          <button id="db" class="btn-gold" style="margin-top:6px" onclick="uthDeal()" ${S.uthAnte===0?'disabled':''}>Deal ${icon('shuffle',{cls:'btn-icon-gap'})}</button>`}
+          <button id="${DOM.dealBtn}" class="btn-gold" style="margin-top:6px" onclick="uthDeal()" ${S.uthAnte===0?'disabled':''}>Deal ${icon('shuffle',{cls:'btn-icon-gap'})}</button>`}
     </div>`;
   }
 
   const sixth=getMod('uth_sixth_card');
   const commRow=(band=false)=>`<div id="uth-community-container" class="${band?'vband':''}" style="text-align:center">
     <div class="sec">Community Cards</div>
-    <div id="uth-community-hand" class="hand${sixth?' sixth-sense':''}">${[0,1,2,3,4].map(i=>{
+    <div id="${DOM.uthCommunityHand}" class="hand${sixth?' sixth-sense':''}">${[0,1,2,3,4].map(i=>{
       // Count-revealed cards animate when freshly dealt; River Monster's river (i=4) is shown
       // face-up from the start but is not count-revealed, so it stays static (isNew=false).
       const countShown=i<S.uthRevealComm;
@@ -535,9 +535,9 @@ function screenUTH(){
   </div>`;
 
   const dealerRow=(reveal=false)=>`<div id="uth-dealer-container" class="vband" style="text-align:center">
-    <div id="uth-dealer-sec" class="sec">${reveal?'Dealer':peekRevealed()?`Dealer · <span style="color:var(--gold-hi);font-size:.7rem">${icon('eye')} Peeked</span>`:'Dealer (Face Down)'}</div>
+    <div id="${DOM.uthDealerSec}" class="sec">${reveal?'Dealer':peekRevealed()?`Dealer · <span style="color:var(--gold-hi);font-size:.7rem">${icon('eye')} Peeked</span>`:'Dealer (Face Down)'}</div>
     <div class="dealer-hand-row">
-      <div id="uth-dealer-hand" class="hand">${reveal
+      <div id="${DOM.uthDealerHand}" class="hand">${reveal
         ?renderCards(S.uthDealer,'md',0,0.9,0.1)
         :[0,1].map((_,i)=>i===0&&peekRevealed()?cardHTML(S.uthDealer[0],'md','box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px',0,false):cardHTML('back','md')).join('')}</div>
       ${reveal?'':peekBtnHTML()}${reveal?'':timeTravelBtnHTML()}
@@ -547,15 +547,15 @@ function screenUTH(){
   // Bottom control cluster: the stake-breakdown inlay box stacked above the per-street action
   // buttons (kept in #uth-actions-ui for the surgical street-change updates).
   const uthControls=(actionsInner)=>gameControls(
-    betInlaySum(uthBetSummary(),'uth-bet-inlay'),
-    `<div id="uth-actions-ui">${actionsInner}</div>`);
+    betInlaySum(uthBetSummary(),DOM.uthBetInlay),
+    `<div id="${DOM.uthActionsUi}">${actionsInner}</div>`);
 
   if(ph==='preflop'){
     const r4Cost=_uthAntePortion()*4, r3Cost=_uthAntePortion()*3;
     const canR4=S.chips>=r4Cost, canR3=S.chips>=r3Cost;
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
-      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
+      <div id="${DOM.uthDotsContainer}">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
       <div class="divider"></div>
       ${dealerRow(false)}
       <div class="divider"></div>
@@ -575,7 +575,7 @@ function screenUTH(){
     const canR2=S.chips>=S.uthAnte;
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
-      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
+      <div id="${DOM.uthDotsContainer}">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
       <div class="divider"></div>
       ${dealerRow(false)}
       <div class="divider"></div>
@@ -595,7 +595,7 @@ function screenUTH(){
     const canR1=S.chips>=_uthAntePortion();
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
-      <div id="uth-dots-container">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
+      <div id="${DOM.uthDotsContainer}">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
       <div class="divider"></div>
       ${dealerRow(false)}
       <div class="divider"></div>
@@ -614,7 +614,7 @@ function screenUTH(){
   if(ph==='reveal'){
     return `${hdr("Ultimate Texas Hold'em · Dealer Reveals")}
     <div class="panel">
-      <div id="uth-dots-container">${gameDots(S.uthHistory.slice(0,-1),S.uthHand-1,'reveal')}</div>
+      <div id="${DOM.uthDotsContainer}">${gameDots(S.uthHistory.slice(0,-1),S.uthHand-1,'reveal')}</div>
       <div class="divider"></div>
       <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px">
         <div>
@@ -628,7 +628,7 @@ function screenUTH(){
           <div class="hand" style="justify-content:center">${renderCards(S.uthHole,'md')}</div>
         </div>
       </div>
-      ${gameControls(betInlaySum(uthBetSummary(),'uth-bet-inlay'), '')}
+      ${gameControls(betInlaySum(uthBetSummary(),DOM.uthBetInlay), '')}
     </div>`;
   }
 
@@ -695,7 +695,7 @@ function screenUTH(){
         <div class="divider" style="width:100%;margin:10px 0"></div>
         <div style="text-align:center">
           <div class="sec sec-sm">Community</div>
-          <div id="uth-community-hand" class="hand${getMod('uth_sixth_card')?' sixth-sense':''}" style="justify-content:center">${renderCards(S.uthComm,'sm',0,0.08,0.05,hl)}${getMod('uth_sixth_card')?_uthPrivSlot():''}</div>
+          <div id="${DOM.uthCommunityHand}" class="hand${getMod('uth_sixth_card')?' sixth-sense':''}" style="justify-content:center">${renderCards(S.uthComm,'sm',0,0.08,0.05,hl)}${getMod('uth_sixth_card')?_uthPrivSlot():''}</div>
         </div>
         <div class="divider" style="width:100%;margin:10px 0"></div>
         <div style="text-align:center">

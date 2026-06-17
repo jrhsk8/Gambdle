@@ -3,21 +3,21 @@
 //   mkRng (SplitMix32) · daily/backlog/test seeds · Phoenix day math
 //     (getDailySeed, getActiveSeed, getRngSeed, getStateKey, getDayNum)
 //   computeStreak · UNLOCKS · profileStats
-//   game slots (GAME1/GAME2) · GAMES registry (GAME_META, NEXT_SCREEN) · gameNet · recalcChips
+//   game slots (GAME1/GAME2) · GAMES registry (GAME_META, NEXT_SCREEN) · next() run-order resolver
 //   SUPABASE CONFIG (URL, anon key, SUPABASE_HEADERS) · DEV_OVERRIDE
 //   modifier access: _activeMod, getMod, pendingPlayersChoice
 //   CARD UTILITIES (buildDeck, shuffle, hVal, isBJ)
-//   TEST & SEEDING (card overrides) · genDeal → DEAL (the day's shoe + deck)
+//   → THE DEAL lifted to deal.js (genDeal → DEAL, card/seed overrides)
 //   chips: START_CHIPS, BORROW_AMOUNT, CHIP_TIERS/getTier, NET_TIERS/getNetTier
 //   GLOBAL STATE (the S object) · borrow/bust helpers · winMult
 //   CHIP ACCOUNTING (credit, debit)
-//   RUN TRANSCRIPT (txLog) · saveState / loadState
+//   saveState / loadState   ·   → THE RECORD lifted to record.js (mkRound, recalcChips, gameNet/gameHistory, txLog + shape guards)
 // ───────────────────────────────────────────────────────────────────────────
 
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.64';
+const GAME_VERSION = 'v1.69';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -204,9 +204,9 @@ const GAME2 = _ls.getItem('gambdle_dev_game2') || 'uth';
 // meta.short: label used in dev menu buttons and share text. meta.icon: on-screen SVG/glyph (rendered
 // as HTML). meta.shareIcon: plain emoji/glyph for the copyable share text — must stay text, never <svg>.
 const GAMES = {
-  bj:      { meta: { icon: icon('cards'),  shareIcon: '🃏', name: 'Blackjack',             short: 'Blackjack',    desc: '3 hands · Hit, Stand, Double, Split' }, phaseKey: 'bjPhase',  betKey: 'bjBet',   handKey: 'bjHand' },
-  uth:     { meta: { icon: '♠',            shareIcon: '♠',  name: "Ultimate Texas Hold'em", short: "Hold'em",      desc: '3 hands · Ante, Blind & Play' },        phaseKey: 'uthPhase', betKey: 'uthAnte', handKey: 'uthHand' },
-  poker:   { meta: { icon: '♠',            shareIcon: '♠',  name: '5 Card Poker',           short: '5 Card Poker', desc: '3 hands · Jacks or Better' },           phaseKey: 'pkPhase',  betKey: 'pkBet',   handKey: 'pkHand' },
+  bj:      { meta: { icon: icon('cards'),  shareIcon: '🃏', name: 'Blackjack',             short: 'Blackjack',    desc: '3 hands · Hit, Stand, Double, Split' }, phaseKey: 'bjPhase',  betKey: 'bjBet',   handKey: 'bjHand', historyKey: 'bjHistory' },
+  uth:     { meta: { icon: '♠',            shareIcon: '♠',  name: "Ultimate Texas Hold'em", short: "Hold'em",      desc: '3 hands · Ante, Blind & Play' },        phaseKey: 'uthPhase', betKey: 'uthAnte', handKey: 'uthHand', historyKey: 'uthHistory' },
+  poker:   { meta: { icon: '♠',            shareIcon: '♠',  name: '5 Card Poker',           short: '5 Card Poker', desc: '3 hands · Jacks or Better' },           phaseKey: 'pkPhase',  betKey: 'pkBet',   handKey: 'pkHand', historyKey: 'pkHistory' },
   ladder:  { meta: { icon: icon('ladder'), shareIcon: '🪜', name: 'The Ladder',             short: 'The Ladder',   desc: '1 run · Higher or lower, ties lose' },  phaseKey: 'ladPhase', betKey: 'ladBet' },
   roulette:{ phaseKey: 'rPhase', betKey: 'rBet' },
 };
@@ -239,76 +239,6 @@ function next(cur, f = {}){
   return s;
 }
 
-// ─── CANONICAL SETTLED-ROUND RECORD ─────────────────────────────────────────
-// Every game records the outcome of a settled round in ONE shape via mkRound, so the score basis
-// (recalcChips) and integrity Phase-2 server replay read a single record format instead of three
-// (the per-game history arrays, the rResult singleton, the ladResult singleton). The envelope is
-// {slot, delta, result}: `delta` is the signed net chips — the only field score derivation reads —
-// and `detail` carries each game's display payload (cards, bets, rung, …). Only the *record* is
-// unified; each game keeps its own phase guard and credit math (the stake is debited at deal and the
-// guards key off per-game phase, so settlement is genuinely game-specific). slot ∈ a game slot
-// ('bj'/'uth'/'pk') or 'r' (roulette) / 'lad' (the ladder).
-// Allowed detail keys per slot — the typo guard. A key not listed is almost certainly a mistyped
-// field (e.g. `antDelta` for `anteDelta`) that would silently corrupt the record and only surface as
-// a Phase-2 replay mismatch. ('pk' = 5 Card Poker — still recorded, though not yet on the board.)
-const ROUND_DETAIL_KEYS = {
-  bj:  ['bet', 'player', 'dealer'],
-  uth: ['ante', 'blind', 'play', 'playMult', 'anteDelta', 'blindDelta', 'playDelta', 'playerBest', 'dealerBest', 'dealerQualifies'],
-  pk:  ['bet', 'pts'],
-  r:   ['bets', 'skipped'],
-  lad: ['rung', 'free'],
-};
-// Validate the record shape only in dev (?dev=true) and under the test harness. A never-anticipated
-// production shape must never crash a live Run mid-game, but a typo should blow up loudly the moment
-// it is written — caught here, not days later as a server-replay mismatch. See PRD integrity Phase 2.
-const _strictRounds = () => !!DEV_OVERRIDE || !!(typeof window !== 'undefined' && window.__GAMBDLE_TEST__);
-function _validateRound(slot, detail){
-  const allowed = ROUND_DETAIL_KEYS[slot];
-  if(!allowed) throw new Error(`mkRound: unknown slot '${slot}'`);
-  for(const k of Object.keys(detail)) if(!allowed.includes(k))
-    throw new Error(`mkRound: '${slot}' detail has unexpected key '${k}'. Typo? Expected one of: ${allowed.join(', ')}`);
-}
-function mkRound(slot, delta, result, detail = {}){
-  if(_strictRounds()){
-    // `delta` (the only field score derivation reads) and `result` are the record's load-bearing
-    // fields — a non-finite delta or a missing result would silently corrupt the score / replay.
-    if(!Number.isFinite(delta)) throw new Error(`mkRound: '${slot}' delta must be a finite number, got ${delta}`);
-    if(result == null) throw new Error(`mkRound: '${slot}' missing result`);
-    _validateRound(slot, detail);
-  }
-  return { slot, delta, result, ...detail };
-}
-
-// Game-agnostic history and net helpers — used by results screen and share text.
-function gameHistory(g){ return g==='bj'?S.bjHistory:g==='uth'?S.uthHistory:S.pkHistory; }
-// Non-finite deltas (undefined, NaN) are skipped rather than poisoning the whole sum.
-function gameNet(g){ return gameHistory(g).reduce((a,h)=>a+(Number.isFinite(h.delta)?h.delta:0),0); }
-// Every settled round of this run, in canonical form: the two played game slots' histories plus the
-// roulette and ladder records (singletons — each runs once). The single list recalcChips and a
-// future server replay iterate, with no per-game special-casing.
-function settledRounds(){ return [...gameHistory(GAME1), ...gameHistory(GAME2), ...(S.rResult ? [S.rResult] : []), ...(S.ladResult ? [S.ladResult] : [])]; }
-// Recomputes the run's chip total from recorded history, so a stale or edited save can't inflate a
-// score. Borrowed chips count as part of the effective starting stack. Returns NaN if history is
-// corrupt; callers fall back to the saved value. Single source of truth for loadState + advanceTo.
-// Credit only the borrow ACTUALLY taken: borrowChips() sets S.borrowAmount (≥ BORROW_AMOUNT);
-// declineBorrow() also sets borrowUsed (to gate the re-prompt + the ladder detour) but takes no
-// loan, leaving borrowAmount 0. So a declined "Accept defeat" must add 0, not fall back to
-// BORROW_AMOUNT — otherwise giving up hands out a free 50 the Transcript never records, and the
-// server replay (which only sees logged borrows) would disagree with the client.
-function recalcChips(){ return START_CHIPS + (S.borrowUsed ? S.borrowAmount : 0) + settledRounds().reduce((a,r)=>a+(Number.isFinite(r.delta)?r.delta:0),0); }
-// Backward-compat: upgrade pre-v1.42 settled records to the canonical {slot,result,…} shape on load.
-// Score is unaffected (delta was always present and is what recalcChips reads); this keeps the
-// result-screen readers — which now use the unified `result` field (ladder's old `outcome`) — working
-// for a Run saved mid-result before this version shipped. Idempotent.
-function _normalizeRounds(){
-  [['bj', S.bjHistory], ['uth', S.uthHistory], ['pk', S.pkHistory]].forEach(([g, arr]) => {
-    if (Array.isArray(arr)) arr.forEach(r => { if (r && r.slot == null) r.slot = g; });
-  });
-  const r = S.rResult;
-  if (r && r.slot == null) { r.slot = 'r'; if (r.result == null) r.result = r.skipped ? 'skipped' : r.delta > 0 ? 'win' : r.delta < 0 ? 'lose' : 'push'; }
-  const l = S.ladResult;
-  if (l && l.slot == null) { l.slot = 'lad'; if (l.result == null) l.result = l.outcome; }
-}
 const STORAGE_KEY = 'gambdle_state_';
 const ANIM_NONE = 99; // sentinel: suppress card animation on this hand
 
@@ -324,9 +254,6 @@ const SUPABASE_HEADERS = { 'Content-Type': 'application/json', 'apikey': SUPABAS
 const urlParams = new URLSearchParams(window.location.search);
 let DEV_OVERRIDE = urlParams.get('dev') === 'true' ? {} : null;
 if(DEV_OVERRIDE) document.body.classList.add('dev-mode');
-
-/** Manual overrides for deck seeding (independent of ?dev=true flag) */
-const ENABLE_CARD_SEEDING = false; // Set to true to enable the overrides below
 
 // A modifier reference is either a PRESET_MODIFIERS key (string) or an inline preset object. This
 // turns either into the preset object (or null). One place, so live play and the server replay
@@ -413,151 +340,6 @@ function hValDisplay(cs){
 // True only for a two-card 21 (the deal); hitting to 21 does not count as blackjack.
 const isBJ=cs=>cs.length===2&&hVal(cs)===21;
 
-// ─── TEST & SEEDING ────────────────────────────────────────────
-// Hardcoded test scenarios applied when the dev "Test Seed" checkbox is active.
-const TEST_CARD_OVERRIDE = {
-  bjShoe: [
-    card('8','s'), card('8','h'), card('6','d'), card('7','c'),
-    card('8','d'),
-    card('J','h'),
-    card('8','c'),
-    card('7','s'),
-    card('4','h'),
-    card('5','d'),
-    card('6','h'),
-    card('3','c'),
-    card('10','s'),
-    card('K','d'),
-  ],
-  uthHands: [
-    { hole:   [card('A','s'), card('A','c')],
-      dealer: [card('2','d'), card('7','h')],
-      comm:   [card('K','s'), card('Q','c'), card('J','s'), card('J','d'), card('8','h')] },
-    { hole:   [card('7','c'), card('2','c')],
-      dealer: [card('A','h'), card('K','h')],
-      comm:   [card('A','d'), card('K','d'), card('K','c'), card('Q','s'), card('J','h')] },
-    { hole:   [card('9','d'), card('8','d')],
-      dealer: [card('2','h'), card('5','c')],
-      comm:   [card('7','d'), card('6','d'), card('5','d'), card('Q','h'), card('3','c')] },
-  ],
-  rSpin: 0,
-};
-
-// Splices override cards to the front of the shoe, preserving remaining cards in order.
-function _applyBjShoeOverride(shoe, cards) {
-  if (!cards || !cards.length) return shoe;
-  const pool = [...shoe];
-  for (const oc of cards) {
-    const i = pool.findIndex(c => c.r === oc.r && c.s === oc.s);
-    if (i !== -1) pool.splice(i, 1);
-  }
-  return [...cards, ...pool];
-}
-
-// Places override hands at their fixed offsets in the UTH deck (9 cards per hand).
-function _applyUthDeckOverride(deck, hands) {
-  if (!hands || !hands.length) return deck;
-  const placed = new Map();
-  const pool = [...deck];
-  for (let h = 0; h < 3; h++) {
-    const spec = hands[h];
-    if (!spec) continue;
-    const off = h * 9;
-    const slots = [
-      ...(spec.hole   || []).slice(0, 2),
-      ...(spec.dealer || []).slice(0, 2),
-      ...(spec.comm   || []).slice(0, 5),
-    ];
-    for (let i = 0; i < slots.length; i++) {
-      if (!slots[i]) continue;
-      placed.set(off + i, slots[i]);
-      const pi = pool.findIndex(c => c.r === slots[i].r && c.s === slots[i].s);
-      if (pi !== -1) pool.splice(pi, 1);
-    }
-  }
-  const newDeck = [];
-  let pi = 0;
-  for (let i = 0; i < 52; i++) newDeck.push(placed.has(i) ? placed.get(i) : pool[pi++]);
-  return newDeck;
-}
-
-// Two extra decks for the BJ shoe, shuffled by a PRNG seeded INDEPENDENTLY of the main
-// draw sequence — so the base 104 cards and every poker/UTH draw stay byte-identical while
-// the shoe gains a tail it can fall back on. Deterministic per seed (identical for everyone
-// on a given day). Only ever consumed if a player draws past the base 104 (aggressive
-// wild-split play); without it, a draw past the end is undefined → uncaught crash.
-function _extendBjShoe(seed){
-  const rng2=mkRng((seed^0x9e3779b9)>>>0);
-  return shuffle(buildDeck(),rng2).concat(shuffle(buildDeck(),rng2));
-}
-
-// Pristine daily deal for an explicit RNG seed — the canonical card layout BEFORE any
-// test/seed overrides. genDeal() layers overrides on the base 104 then re-assembles; the
-// Phase-2 replay engine rebuilds from this same construction so client and server agree
-// byte-for-byte (see .claude/LEADERBOARD-INTEGRITY.md). PURE: (seed) → fresh arrays, no S/DOM.
-// RNG draw ORDER is load-bearing — bjShoe shuffle, then the 3 poker decks, then the uthDeck,
-// then the ladder cards. _extendBjShoe seeds its own independent rng, so the no-run-dry tail is
-// appended without shifting the shared sequence (do not reorder these lines).
-function buildDeal(seed){
-  const rng=mkRng(seed);
-  const shoe=[];for(let i=0;i<2;i++)shoe.push(...buildDeck());
-  const bjShoe=shuffle(shoe,rng).concat(_extendBjShoe(seed)); // base 104 + no-run-dry tail
-  // One fresh 52-card deck per poker hand; each shuffle advances the shared RNG sequence.
-  const pokerDecks=Array.from({length:3},()=>shuffle(buildDeck(),rng));
-  const uthDeck=shuffle(buildDeck(),rng);
-  // The Ladder: one shared 8-card hi-lo sequence (1 first card + up to 7 calls).
-  // MUST stay the last consumer of the shared rng — appending here shifts nothing above.
-  const ladderCards=shuffle(buildDeck(),rng).slice(0,8);
-  return{bjShoe,pokerDecks,uthDeck,ladderCards,rSpinOverride:null};
-}
-
-// Pre-generates all cards and spin data for the daily run — buildDeal() plus the test/seed
-// overrides. Overrides only ever touch the base 104 (the no-run-dry tail is split off and
-// re-appended), so they keep the appended decks pristine and the layout deterministic per day.
-function genDeal(){
-  const seed=getRngSeed();
-  const deal=buildDeal(seed);
-  let bjShoe=deal.bjShoe.slice(0,104);          // base 104, overrides apply here only
-  const tail=deal.bjShoe.slice(104);            // no-run-dry tail, re-appended after overrides
-  let uthDeck=deal.uthDeck;
-  const pokerDecks=deal.pokerDecks, ladderCards=deal.ladderCards;
-  let rSpinOverride=null;
-
-  if(_testActive()){
-    const ov=TEST_CARD_OVERRIDE;
-    bjShoe = _applyBjShoeOverride(bjShoe, ov.bjShoe);
-    uthDeck = _applyUthDeckOverride(uthDeck, ov.uthHands);
-    if(ov.rSpin!=null)rSpinOverride=ov.rSpin;
-  }
-
-  if(ENABLE_CARD_SEEDING){
-    const CARD_SEED_OVERRIDE = {
-      bjShoe: [
-        card('A','s'), card('J','s'), card('K','d'), card('5','c'),
-        card('J','s'), card('A','d'), card('2','d'), card('9','c'),
-        card('10','s'), card('10','h'), card('Q','d'), card('2','c'),
-      ],
-      uthHands: [
-        { hole:   [card('A','s'), card('K','s')],
-          dealer: [card('2','h'), card('7','d')],
-          comm:   [card('Q','s'), card('J','s'), card('10','s'), card('3','c'), card('6','d')] },
-        null,
-        null,
-      ],
-      rSpin: null,
-    };
-    bjShoe = _applyBjShoeOverride(bjShoe, CARD_SEED_OVERRIDE.bjShoe);
-    uthDeck = _applyUthDeckOverride(uthDeck, CARD_SEED_OVERRIDE.uthHands);
-    if(CARD_SEED_OVERRIDE.rSpin != null) rSpinOverride=CARD_SEED_OVERRIDE.rSpin;
-  }
-
-  // Re-append the no-run-dry tail AFTER any test/seed overrides, so overrides only ever touch
-  // the base 104 and the appended decks stay pristine.
-  bjShoe=bjShoe.concat(tail);
-  return{bjShoe,pokerDecks,uthDeck,ladderCards,rSpinOverride};
-}
-// DEAL is generated once at page load — the same cards for everyone on the same calendar day.
-const DEAL=genDeal();
 
 // ─── GLOBAL STATE ───────────────────────────────────────────
 const START_CHIPS=1000;
@@ -697,41 +479,6 @@ function liveAcct(){
   };
 }
 
-// ─── RUN TRANSCRIPT ────────────────────────────────────────────────────────
-// Append-only log of every replay-relevant player decision: bets and moves in each game,
-// the borrow, the Player's Choice pick, Time Travel re-deals, and the locked roulette bets.
-// Persisted with the run state and sent with the leaderboard submission, where it's stored
-// for auditing — and, in integrity Phase 2, replayed server-side to recompute the score
-// (see .claude/LEADERBOARD-INTEGRITY.md). Dealer peeks are NOT logged (no chip/card effect).
-// Persistence rides the caller's existing saveState()/render() flow.
-//
-// Allowed transcript events per game (and 'sys'), each mapped to the fields its server replay reads
-// — the typo guard for the Transcript, mirroring ROUND_DETAIL_KEYS for settled rounds. A decision
-// written with the wrong `g`/`a`, or missing a field the Engine needs (a 'uth' deal with no `ante`,
-// `bett` for `bet`), would otherwise pass silently and only surface as a Phase-2 replay mismatch.
-// Listed fields must be present (!== undefined); `g` and `a` are always required, `h` is implied.
-const TX_SHAPE = {
-  bj:  { skip:[], deal:['bet'], pick:['s'], hit:[], stand:[], double:[], split:[] },
-  uth: { skip:[], deal:['ante'], timetravel:['st'], raise:['mult'], check:[], fold:[] },
-  pk:  { skip:[], deal:['bet'], draw:['held'] },
-  lad: { stake:['v'], hi:[], lo:[], cash:[] },
-  r:   { skip:[], spin:['bets'], keep:[] },
-  sys: { borrow:['amt'], pick:['mod'] },
-};
-function _validateTx(e){
-  if(!e || typeof e !== 'object') throw new Error(`txLog: event must be an object, got ${e}`);
-  const actions = TX_SHAPE[e.g];
-  if(!actions) throw new Error(`txLog: unknown game '${e.g}'`);
-  const required = actions[e.a];
-  if(!required) throw new Error(`txLog: unknown '${e.g}' action '${e.a}'. Expected one of: ${Object.keys(actions).join(', ')}`);
-  for(const k of required) if(e[k] === undefined) throw new Error(`txLog: '${e.g}' ${e.a} missing required field '${k}'`);
-}
-// Validated at write time in strict mode (dev/test) only — a never-anticipated production shape must
-// never crash a live Run, but a typo blows up loudly the moment it is written, not days later.
-function txLog(e){
-  if(_strictRounds()) _validateTx(e);
-  if(Array.isArray(S.tx)) S.tx.push(e);
-}
 
 /** Writes the current run state to _ls for persistence. */
 function saveState() {

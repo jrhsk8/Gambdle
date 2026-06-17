@@ -1,0 +1,116 @@
+// ─── THE RECORD ──────────────────────────────────────────────────────────────
+// The canonical settled-round record + the Run Transcript: the one shape integrity Phase-2 replay
+// reads. Write via mkRound / txLog, read via settledRounds / recalcChips, validate via the shape
+// tables (ROUND_DETAIL_KEYS, TX_SHAPE) — the strict-mode typo guards. Lifted out of core.js so the
+// whole record/transcript contract is one seam (its own test surface). Depends on core.js: S,
+// START_CHIPS, GAME1/GAME2, DEV_OVERRIDE. Loads right after core.js. PUBLIC: mkRound, gameHistory,
+// gameNet, recalcChips, txLog, _normalizeRounds (called by core.loadState).
+// ─────────────────────────────────────────────────────────────────────────────
+// ─── CANONICAL SETTLED-ROUND RECORD ─────────────────────────────────────────
+// Every game records the outcome of a settled round in ONE shape via mkRound, so the score basis
+// (recalcChips) and integrity Phase-2 server replay read a single record format instead of three
+// (the per-game history arrays, the rResult singleton, the ladResult singleton). The envelope is
+// {slot, delta, result}: `delta` is the signed net chips — the only field score derivation reads —
+// and `detail` carries each game's display payload (cards, bets, rung, …). Only the *record* is
+// unified; each game keeps its own phase guard and credit math (the stake is debited at deal and the
+// guards key off per-game phase, so settlement is genuinely game-specific). slot ∈ a game slot
+// ('bj'/'uth'/'pk') or 'r' (roulette) / 'lad' (the ladder).
+// Allowed detail keys per slot — the typo guard. A key not listed is almost certainly a mistyped
+// field (e.g. `antDelta` for `anteDelta`) that would silently corrupt the record and only surface as
+// a Phase-2 replay mismatch. ('pk' = 5 Card Poker — still recorded, though not yet on the board.)
+const ROUND_DETAIL_KEYS = {
+  bj:  ['bet', 'player', 'dealer'],
+  uth: ['ante', 'blind', 'play', 'playMult', 'anteDelta', 'blindDelta', 'playDelta', 'playerBest', 'dealerBest', 'dealerQualifies'],
+  pk:  ['bet', 'pts'],
+  r:   ['bets', 'skipped'],
+  lad: ['rung', 'free'],
+};
+// Validate the record shape only in dev (?dev=true) and under the test harness. A never-anticipated
+// production shape must never crash a live Run mid-game, but a typo should blow up loudly the moment
+// it is written — caught here, not days later as a server-replay mismatch. See PRD integrity Phase 2.
+const _strictRounds = () => !!DEV_OVERRIDE || !!(typeof window !== 'undefined' && window.__GAMBDLE_TEST__);
+function _validateRound(slot, detail){
+  const allowed = ROUND_DETAIL_KEYS[slot];
+  if(!allowed) throw new Error(`mkRound: unknown slot '${slot}'`);
+  for(const k of Object.keys(detail)) if(!allowed.includes(k))
+    throw new Error(`mkRound: '${slot}' detail has unexpected key '${k}'. Typo? Expected one of: ${allowed.join(', ')}`);
+}
+function mkRound(slot, delta, result, detail = {}){
+  if(_strictRounds()){
+    // `delta` (the only field score derivation reads) and `result` are the record's load-bearing
+    // fields — a non-finite delta or a missing result would silently corrupt the score / replay.
+    if(!Number.isFinite(delta)) throw new Error(`mkRound: '${slot}' delta must be a finite number, got ${delta}`);
+    if(result == null) throw new Error(`mkRound: '${slot}' missing result`);
+    _validateRound(slot, detail);
+  }
+  return { slot, delta, result, ...detail };
+}
+
+// Game-agnostic history and net helpers — used by results screen and share text. The per-game
+// history field lives on the GAMES registry entry (historyKey); games without one (roulette/ladder
+// record a singleton, not a per-hand history) yield [] so callers always get an array.
+function gameHistory(g){ return S[GAMES[g]?.historyKey] || []; }
+// Non-finite deltas (undefined, NaN) are skipped rather than poisoning the whole sum.
+function gameNet(g){ return gameHistory(g).reduce((a,h)=>a+(Number.isFinite(h.delta)?h.delta:0),0); }
+// Every settled round of this run, in canonical form: the two played game slots' histories plus the
+// roulette and ladder records (singletons — each runs once). The single list recalcChips and a
+// future server replay iterate, with no per-game special-casing.
+function settledRounds(){ return [...gameHistory(GAME1), ...gameHistory(GAME2), ...(S.rResult ? [S.rResult] : []), ...(S.ladResult ? [S.ladResult] : [])]; }
+// Recomputes the run's chip total from recorded history, so a stale or edited save can't inflate a
+// score. Borrowed chips count as part of the effective starting stack. Returns NaN if history is
+// corrupt; callers fall back to the saved value. Single source of truth for loadState + advanceTo.
+// Credit only the borrow ACTUALLY taken: borrowChips() sets S.borrowAmount (≥ BORROW_AMOUNT);
+// declineBorrow() also sets borrowUsed (to gate the re-prompt + the ladder detour) but takes no
+// loan, leaving borrowAmount 0. So a declined "Accept defeat" must add 0, not fall back to
+// BORROW_AMOUNT — otherwise giving up hands out a free 50 the Transcript never records, and the
+// server replay (which only sees logged borrows) would disagree with the client.
+function recalcChips(){ return START_CHIPS + (S.borrowUsed ? S.borrowAmount : 0) + settledRounds().reduce((a,r)=>a+(Number.isFinite(r.delta)?r.delta:0),0); }
+// Backward-compat: upgrade pre-v1.42 settled records to the canonical {slot,result,…} shape on load.
+// Score is unaffected (delta was always present and is what recalcChips reads); this keeps the
+// result-screen readers — which now use the unified `result` field (ladder's old `outcome`) — working
+// for a Run saved mid-result before this version shipped. Idempotent.
+function _normalizeRounds(){
+  [['bj', S.bjHistory], ['uth', S.uthHistory], ['pk', S.pkHistory]].forEach(([g, arr]) => {
+    if (Array.isArray(arr)) arr.forEach(r => { if (r && r.slot == null) r.slot = g; });
+  });
+  const r = S.rResult;
+  if (r && r.slot == null) { r.slot = 'r'; if (r.result == null) r.result = r.skipped ? 'skipped' : r.delta > 0 ? 'win' : r.delta < 0 ? 'lose' : 'push'; }
+  const l = S.ladResult;
+  if (l && l.slot == null) { l.slot = 'lad'; if (l.result == null) l.result = l.outcome; }
+}
+
+// ─── RUN TRANSCRIPT ────────────────────────────────────────────────────────
+// Append-only log of every replay-relevant player decision: bets and moves in each game,
+// the borrow, the Player's Choice pick, Time Travel re-deals, and the locked roulette bets.
+// Persisted with the run state and sent with the leaderboard submission, where it's stored
+// for auditing — and, in integrity Phase 2, replayed server-side to recompute the score
+// (see .claude/LEADERBOARD-INTEGRITY.md). Dealer peeks are NOT logged (no chip/card effect).
+// Persistence rides the caller's existing saveState()/render() flow.
+//
+// Allowed transcript events per game (and 'sys'), each mapped to the fields its server replay reads
+// — the typo guard for the Transcript, mirroring ROUND_DETAIL_KEYS for settled rounds. A decision
+// written with the wrong `g`/`a`, or missing a field the Engine needs (a 'uth' deal with no `ante`,
+// `bett` for `bet`), would otherwise pass silently and only surface as a Phase-2 replay mismatch.
+// Listed fields must be present (!== undefined); `g` and `a` are always required, `h` is implied.
+const TX_SHAPE = {
+  bj:  { skip:[], deal:['bet'], pick:['s'], hit:[], stand:[], double:[], split:[] },
+  uth: { skip:[], deal:['ante'], timetravel:['st'], raise:['mult'], check:[], fold:[] },
+  pk:  { skip:[], deal:['bet'], draw:['held'] },
+  lad: { stake:['v'], hi:[], lo:[], cash:[] },
+  r:   { skip:[], spin:['bets'], keep:[] },
+  sys: { borrow:['amt'], pick:['mod'] },
+};
+function _validateTx(e){
+  if(!e || typeof e !== 'object') throw new Error(`txLog: event must be an object, got ${e}`);
+  const actions = TX_SHAPE[e.g];
+  if(!actions) throw new Error(`txLog: unknown game '${e.g}'`);
+  const required = actions[e.a];
+  if(!required) throw new Error(`txLog: unknown '${e.g}' action '${e.a}'. Expected one of: ${Object.keys(actions).join(', ')}`);
+  for(const k of required) if(e[k] === undefined) throw new Error(`txLog: '${e.g}' ${e.a} missing required field '${k}'`);
+}
+// Validated at write time in strict mode (dev/test) only — a never-anticipated production shape must
+// never crash a live Run, but a typo blows up loudly the moment it is written, not days later.
+function txLog(e){
+  if(_strictRounds()) _validateTx(e);
+  if(Array.isArray(S.tx)) S.tx.push(e);
+}

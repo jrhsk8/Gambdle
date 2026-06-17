@@ -108,8 +108,8 @@ function _ladAfterAction(snd){
   else if (snd === 'chips' && typeof sndChip === 'function') sndChip();
   // Surgical repaint of the six zones (no full render mid-run — no flash, fixed layout); patchZones
   // rebuilds from S via render() if any zone is missing.
-  const zones = { 'lad-head':_ladHeadHTML, 'lad-strip':_ladStripHTML, 'lad-read':_ladReadoutHTML,
-                  'lad-cards':_ladCardsHTML, 'lad-msg':_ladMsgHTML, 'lad-act':_ladActionsHTML };
+  const zones = { [DOM.ladHead]:_ladHeadHTML, [DOM.ladStrip]:_ladStripHTML, [DOM.ladRead]:_ladReadoutHTML,
+                  [DOM.ladCards]:_ladCardsHTML, [DOM.ladMsg]:_ladMsgHTML, [DOM.ladAct]:_ladActionsHTML };
   if (patchZones(zones, { noAnim: true })) updateChipDisplay();
 }
 
@@ -129,12 +129,12 @@ function screenLadder(){
   if (free && S.ladPhase === 'bet') { S.ladBet = free; }
   return `${hdr('The Ladder')}
   <div class="panel" style="text-align:center">
-    <div id="lad-head" class="lad-head">${_ladHeadHTML()}</div>
-    <div id="lad-strip" class="lad-strip">${_ladStripHTML()}</div>
-    <div id="lad-read" class="lad-read">${_ladReadoutHTML()}</div>
-    <div id="lad-cards" class="lad-cards">${_ladCardsHTML()}</div>
-    <div id="lad-msg" class="lad-msg">${_ladMsgHTML()}</div>
-    <div id="lad-act" class="lad-act">${_ladActionsHTML()}</div>
+    <div id="${DOM.ladHead}" class="lad-head">${_ladHeadHTML()}</div>
+    <div id="${DOM.ladStrip}" class="lad-strip">${_ladStripHTML()}</div>
+    <div id="${DOM.ladRead}" class="lad-read">${_ladReadoutHTML()}</div>
+    <div id="${DOM.ladCards}" class="lad-cards">${_ladCardsHTML()}</div>
+    <div id="${DOM.ladMsg}" class="lad-msg">${_ladMsgHTML()}</div>
+    <div id="${DOM.ladAct}" class="lad-act">${_ladActionsHTML()}</div>
   </div>`;
 }
 
@@ -211,11 +211,11 @@ function _ladActionsHTML(){
     const free = getMod('ladder_free');
     if (free) {
       return `<div class="lad-chips-locked">${chipSel(free, free)}</div>
-      <button id="db" class="btn-gold lad-btn-big" onclick="ladStakeCommit()">Free Entry · ${fmt(free)} →</button>`;
+      <button id="${DOM.dealBtn}" class="btn-gold lad-btn-big" onclick="ladStakeCommit()">Free Entry · ${fmt(free)} →</button>`;
     }
     const valid = S.ladBet >= 25 && S.ladBet <= ladMaxStake();
     return `${chipSel(maxBet(), S.ladBet)}
-    <button id="db" class="btn-gold lad-btn-big" onclick="ladStakeCommit()" ${valid?'':'disabled'}>Climb →</button>`;
+    <button id="${DOM.dealBtn}" class="btn-gold lad-btn-big" onclick="ladStakeCommit()" ${valid?'':'disabled'}>Climb →</button>`;
   }
   if (S.ladPhase === 'climb') {
     const pot = ladPotAt(S.ladBet, S.ladRung);

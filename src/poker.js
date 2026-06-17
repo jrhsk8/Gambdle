@@ -17,7 +17,7 @@ function pkDeal(){
   txLog({g:'pk',a:'deal',h:S.pkHand,bet:S.pkBet});
   S.pkCards=DEAL.pokerDecks[S.pkHand].slice(0,5);
   S.pkHeld=new Set();
-  patchEl('db', db=>db.disabled=true);
+  patchEl(DOM.dealBtn, db=>db.disabled=true);
   sndShuffle(()=>{
     S.pkPhase='hold';
     render(); updateChipDisplay();
@@ -29,7 +29,7 @@ function toggleHold(i){
   const h=S.pkHeld.has(i);
   // Surgically toggle this card's lift/tag in place; a missing wrap (post-refresh) falls back to a
   // no-anim render via the shared patch seam.
-  patchOrRender('pk-hw-'+i, hw=>{
+  patchOrRender(DOM.pkHoldWrap+i, hw=>{
     const card=hw.querySelector('.card');
     const tag=hw.querySelector('.hold-tag');
     if(card){card.style.transform=h?'translateY(-10px)':'translateY(0)';card.style.boxShadow=h?'0 8px 20px rgba(196,147,58,.5),0 0 0 2px var(--gold)':'2px 3px 10px rgba(0,0,0,.5),0 0 0 2px rgba(196,48,48,.65)';}
@@ -39,6 +39,18 @@ function toggleHold(i){
     saveState();
   }, {noAnim:true});
 }
+// Pure resolver — rank result + bet + win-multiplier in, {result, delta} out; no S, no DOM, no
+// credit (the parity-seam shape, mirroring resolveBJHand/resolveUTH). 5-Card Draw is jacks-or-better:
+// a paying rank returns bet·payout·wm profit, anything else loses the already-debited stake (no push).
+function resolvePoker(rank, bet, wm){
+  const delta = rank.p>0 ? bet*rank.p*wm : -bet;
+  return { result: rank.n, delta };
+}
+// Credit-from-result over an Accountant (liveAcct live), so poker settles through the same seam as
+// every other game instead of calling credit() directly. Stake was debited at deal → a win returns
+// stake + profit, a loss credits nothing.
+function pkAward(acct, bet, delta){ if(delta>0) acct.credit(bet+delta,'pk-win'); }
+
 /** Discard unheld cards and draw new ones, then calculate final rank. */
 function pkDraw(){
   // Idempotency guard (see _resolveRoulette): draw/settle exactly once. A double-tap on "Draw
@@ -49,11 +61,9 @@ function pkDraw(){
   const draw=DEAL.pokerDecks[S.pkHand].slice(5);let di=0;
   S.pkFinal=S.pkCards.map((c,i)=>S.pkHeld.has(i)?c:draw[di++]);
   const res=rankPoker(S.pkFinal);
-  const wm=winMult();
-  const profit=res.p>0?S.pkBet*res.p*wm:0;
-  const delta=res.p>0?profit:-S.pkBet;
-  if(res.p>0)credit(S.pkBet+profit,'pk-win');
-  S.pkHistory.push(mkRound('pk',delta,res.n,{bet:S.pkBet,pts:res.p}));
+  const {result,delta}=resolvePoker(res,S.pkBet,winMult());
+  pkAward(liveAcct(),S.pkBet,delta);
+  S.pkHistory.push(mkRound('pk',delta,result,{bet:S.pkBet,pts:res.p}));
   const replaceIdxs=[0,1,2,3,4].filter(i=>!S.pkHeld.has(i));
   S.pkRevealStep=0;S.pkPhase='draw';
   _noAnim=true;render();updateChipDisplay();
@@ -91,7 +101,7 @@ function screenPoker(){
           ${aiosRow('allIn();pkDeal()', 'pkSkip()')}`
         :`<div class="sec" style="text-align:center"><span class="sec-game-prefix">5 Card Poker · </span>Place Your Bet</div>
           ${chipSel(S.chips,S.pkBet)}
-          <button id="db" class="btn-gold" style="margin-top:12px" onclick="pkDeal()" ${S.pkBet===0?'disabled':''}>Deal ${icon('shuffle',{cls:'btn-icon-gap'})}</button>
+          <button id="${DOM.dealBtn}" class="btn-gold" style="margin-top:12px" onclick="pkDeal()" ${S.pkBet===0?'disabled':''}>Deal ${icon('shuffle',{cls:'btn-icon-gap'})}</button>
           <div class="divider"></div>
           <div class="sec">Paytable</div>
           <div class="ptable">${[['Royal Flush','800x'],['Straight Flush','50x'],['Four of a Kind','25x'],['Full House','9x'],['Flush','6x'],['Straight','4x'],['Three of a Kind','3x'],['Two Pair','2x'],['Jacks or Better','1x']].map(([n,p])=>`<span class="pname">${n}</span><span class="ppay">${p}</span>`).join('')}</div>`}
@@ -103,7 +113,7 @@ function screenPoker(){
     <div class="panel">
       <div class="pk-hold-status" style="text-align:center;font-size:.82rem;color:var(--shadow);margin-bottom:10px">Tap cards to hold · ${held.size} held · ${5-held.size} replaced</div>
       <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px">
-        ${S.pkCards.map((c,i)=>{const h=held.has(i);return`<div id="pk-hw-${i}" class="hold-wrap" onclick="toggleHold(${i})">
+        ${S.pkCards.map((c,i)=>{const h=held.has(i);return`<div id="${DOM.pkHoldWrap}${i}" class="hold-wrap" onclick="toggleHold(${i})">
           ${cardHTML(c,'md',`transition:transform .2s,box-shadow .2s;transform:${h?'translateY(-10px)':'translateY(0)'};box-shadow:${h?'0 8px 20px rgba(196,147,58,.5),0 0 0 2px var(--gold)':'2px 3px 10px rgba(0,0,0,.5),0 0 0 2px rgba(196,48,48,.65)'}`,0.04+i*0.06)}
           <div class="hold-tag" style="${h?'':'color:var(--red)'}">${h?'HOLD':'REPLACE'}</div></div>`;}).join('')}
       </div>

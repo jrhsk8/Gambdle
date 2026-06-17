@@ -241,6 +241,9 @@ describe('render — UTH play phases', () => {
   const _baseUTH = {
     screen:'uth', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0,
     uthHole:_uthHoleP, uthDealer:_uthHoleD, uthComm:_uthComm,
+    // The deal always sets uthPrivate (uth.js:193) — model it so renders don't crash on the days the
+    // Sixth Sense modifier (uth_sixth_card) is active, which reveals this 6th card face-up at the turn.
+    uthPrivate:_c('9','c'),
     uthRaised:false, uthRevealComm:0, uthPrevRevealComm:0, uthHand:0, uthHistory:[],
   };
 
@@ -287,7 +290,7 @@ describe('render — UTH play phases', () => {
 describe('render — UTH result phase', () => {
   const _baseUTHResult = {
     screen:'uth', uthPhase:'result', chips:1000, uthAnte:100,
-    uthHole:_uthHoleP, uthDealer:_uthHoleD, uthComm:_uthComm,
+    uthHole:_uthHoleP, uthDealer:_uthHoleD, uthComm:_uthComm, uthPrivate:_c('9','c'), // see _baseUTH note
     uthRevealComm:5, uthHand:1,
   };
 

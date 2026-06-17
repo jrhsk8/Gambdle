@@ -247,7 +247,7 @@ function drawWheel(cnv,wAngle,balls){
 
 // Plays the roulette ball audio and animates the wheel for exactly the same duration.
 function startWheelAnim(){
-  const cnv=document.getElementById('rwheel');
+  const cnv=document.getElementById(DOM.rouletteWheel);
   if(!cnv)return;
   const size=Math.min(320,Math.floor((cnv.parentElement?.clientWidth||360)-24));
   cnv.width=size;cnv.height=size;
@@ -293,20 +293,35 @@ function startWheelAnim(){
   }
 
   const audio=_rouletteAudio;
+  // One-shot finish: whichever signal lands first — audio 'ended', the animation completing, an
+  // audio 'error', or the absolute ceiling below — resolves the spin exactly once. Without this the
+  // wheel hangs forever (player stranded on "Spinning!") whenever the audio element never emits
+  // 'ended': tab backgrounded mid-spin, a throttled/suspended element, iOS's per-session
+  // HTMLAudioElement limit, or play() blocked without rejecting — the same stall sndShuffle guards
+  // against with its 2000ms ceiling. The guard also collapses any double-fire (e.g. a late 'error'
+  // after 'loadedmetadata' already ran go()) into a single resolve.
+  let _finished=false,_ceiling=null;
+  const finishOnce=()=>{ if(_finished)return; _finished=true; clearTimeout(_ceiling); rFinish(); };
+  // Absolute backstop for the worst case where audio metadata never loads, so go() (and thus the
+  // animation) never runs and no other signal ever fires. Slack past the longest real path
+  // (≈R_SPIN_MS spin + settle) so a normal spin is never cut short.
+  _ceiling=setTimeout(finishOnce,R_SPIN_MS+R_SETTLE_MS+2500);
   if(audio){
     const go=()=>{
       const DUR=Math.round(audio.duration*1000);
       _safePlay(audio);
-      audio.onended=()=>setTimeout(rFinish,R_SETTLE_MS);
-      runAnim(DUR, ()=>{}); // animation ends with the audio; rFinish handles the transition
+      audio.onended=()=>setTimeout(finishOnce,R_SETTLE_MS);
+      // Tie a guaranteed finish to the animation's own completion too, so a spin still resolves
+      // when 'ended' never fires (the animation runs for the audio's duration anyway).
+      runAnim(DUR, ()=>setTimeout(finishOnce,R_SETTLE_MS));
     };
     if(audio.readyState>=1) go(); // metadata (duration) already available
     else{
       audio.addEventListener('loadedmetadata',go,{once:true});
-      audio.addEventListener('error',()=>runAnim(R_SPIN_MS,()=>setTimeout(rFinish,R_SETTLE_MUTED_MS)),{once:true});
+      audio.addEventListener('error',()=>runAnim(R_SPIN_MS,()=>setTimeout(finishOnce,R_SETTLE_MUTED_MS)),{once:true});
     }
   } else {
-    runAnim(R_SPIN_MS,()=>setTimeout(rFinish,R_SETTLE_MUTED_MS));
+    runAnim(R_SPIN_MS,()=>setTimeout(finishOnce,R_SETTLE_MUTED_MS));
   }
 }
 
@@ -325,7 +340,7 @@ GAMES.roulette.screen = screenRoulette; // register into the Game registry (defi
 // Game-specific bet-UI patch (dispatched by patchBetUI): the selection box shows the picked tile's
 // payout for the current stake · keep it in step as the player changes the chip amount or picks a tile.
 GAMES.roulette.patchBet = function(bet){
-  const sb=document.getElementById('r-sel-box');
+  const sb=document.getElementById(DOM.rouletteSelBox);
   if(sb) sb.innerHTML=rSelBox(S.rPick, bet);
 };
 // Refresh landed mid-spin: re-arm the ball audio and restart the wheel. If the spin words hadn't
@@ -390,7 +405,7 @@ function screenRouletteSpinning(){
   <div class="panel">
     <div class="wheel-outer">
       <div class="wheel-pointer"></div>
-      <canvas id="rwheel" width="300" height="300"></canvas>
+      <canvas id="${DOM.rouletteWheel}" width="300" height="300"></canvas>
     </div>
     <div class="r-bets-zone">${rBetsZone(S.rBets,maxBets,true)}</div>
   </div>`;
@@ -430,11 +445,11 @@ function screenRouletteBet(){
     ${board}
     <div class="divider"></div>
     <div class="r-bet-center${maxBets===1?' r-one':''}${maxBets===3?' r-three':''}">
-      <div id="r-sel-box" class="r-sel-box">${rSelBox(S.rPick,S.rBet)}</div>
-      <div id="r-bets-zone" class="r-bets-zone">${rBetsZone(S.rBets,maxBets)}</div>
+      <div id="${DOM.rouletteSelBox}" class="r-sel-box">${rSelBox(S.rPick,S.rBet)}</div>
+      <div id="${DOM.rouletteBetsZone}" class="r-bets-zone">${rBetsZone(S.rBets,maxBets)}</div>
     </div>
-    ${chipSel(S.chips,S.rBet,null,`<button id="pb-add" class="btn-gold" onclick="rAddBet()" ${!canAdd?'disabled':''}>Place Bet (${S.rBets.length}/${maxBets})</button>`)}
-    <button id="db" class="btn-gold" style="margin-top:6px" onclick="rSpin()" ${!canSpin?'disabled':''}>Final Spin ${icon('target',{cls:'btn-icon-gap'})}</button>
+    ${chipSel(S.chips,S.rBet,null,`<button id="${DOM.placeBetBtn}" class="btn-gold" onclick="rAddBet()" ${!canAdd?'disabled':''}>Place Bet (${S.rBets.length}/${maxBets})</button>`)}
+    <button id="${DOM.dealBtn}" class="btn-gold" style="margin-top:6px" onclick="rSpin()" ${!canSpin?'disabled':''}>Final Spin ${icon('target',{cls:'btn-icon-gap'})}</button>
   </div>`;
 }
 
@@ -492,9 +507,15 @@ function pickBet(i){
   // selection only updates the board highlight + chip UI — never re-renders the box. No flicker.
   if(S.rPick===i){
     S.rPick=null;
-    document.querySelectorAll('[data-idx]').forEach(b=>b.classList.remove('r-sel'));
-    document.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
-    patchBetUI();saveState();return;
+    // Deselect: same guarded patch as the select branch below — fall back to a full render if the
+    // board isn't on screen, instead of silently no-op'ing a bare querySelectorAll.
+    patchOrRender(document.querySelector('[data-idx]'), () => {
+      document.querySelectorAll('[data-idx]').forEach(b=>b.classList.remove('r-sel'));
+      document.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
+      patchBetUI();
+      saveState();
+    });
+    return;
   }
   S.rPick=i;
   // Move the board highlight + chip UI to the new tile; patchOrRender falls back to a full render if
@@ -565,13 +586,13 @@ function rAddBet(){
   if(existingChip)existingChip.textContent=chipLbl(total);
   else boardBtn.insertAdjacentHTML('beforeend',`<span class="r-chip r-chip-placed">${chipLbl(total)}</span>`);
 
-  patchEl('bv', bv=>bv.textContent=cfmt(S.rBet)); // keep showing the retained amount, not 0
+  patchEl(DOM.betVal, bv=>bv.textContent=cfmt(S.rBet)); // keep showing the retained amount, not 0
   document.querySelectorAll('.chbtn').forEach(b=>{b.disabled=S.rBet+(+b.dataset.v)>S.chips;});
 
-  patchEl('r-bets-zone', z=>z.innerHTML=rBetsZone(S.rBets,maxBets));
-  patchEl('r-sel-box', sb=>sb.innerHTML=rSelBox(S.rPick,S.rBet));
-  patchEl('pb-add', pba=>{pba.textContent=`Place Bet (${S.rBets.length}/${maxBets})`;pba.disabled=true;});
-  patchEl('db', db=>db.disabled=false);
+  patchEl(DOM.rouletteBetsZone, z=>z.innerHTML=rBetsZone(S.rBets,maxBets));
+  patchEl(DOM.rouletteSelBox, sb=>sb.innerHTML=rSelBox(S.rPick,S.rBet));
+  patchEl(DOM.placeBetBtn, pba=>{pba.textContent=`Place Bet (${S.rBets.length}/${maxBets})`;pba.disabled=true;});
+  patchEl(DOM.dealBtn, db=>db.disabled=false);
 
   updateChipDisplay();
 }
@@ -748,7 +769,7 @@ async function rSpin(){
 // Paints the wheel at rest (no ball) the instant the spin screen renders, so the face shows together
 // with its CSS gold ring instead of the ring appearing first during the _resolveSpinNumber round-trip.
 function drawStaticWheel(){
-  const cnv=document.getElementById('rwheel');
+  const cnv=document.getElementById(DOM.rouletteWheel);
   if(!cnv)return;
   const size=Math.min(320,Math.floor((cnv.parentElement?.clientWidth||360)-24));
   cnv.width=size;cnv.height=size;

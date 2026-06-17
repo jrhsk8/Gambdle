@@ -101,7 +101,7 @@ function navRender(){
 }
 
 function updateChipDisplay() {
-  const el = document.getElementById('chip-badge');
+  const el = document.getElementById(DOM.chipBadge);
   if (el) {
     el.innerHTML = `${icon('chip')} ${cfmt(S.chips)}`;
   }
