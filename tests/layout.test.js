@@ -119,6 +119,59 @@ function checkHeadlineTight(label, overrides) {
   _ltRestore();
 }
 
+// Asserts the interior dividers evenly split the region between the top-most and bottom-most
+// panel-level divider: 1 interior → dead centre, 2 → even thirds. Only direct-child .divider count
+// (a divider nested inside a .vband band would not be a board divider). Near-exact (≤1.5px sub-pixel).
+function checkEvenDividers(label, overrides) {
+  const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+  Object.assign(S, base, overrides);
+  render();
+  const panel = document.querySelector('.panel');
+  assert(panel, `${label}: .panel not found`);
+  const centers = [...panel.querySelectorAll(':scope > .divider')].map(d => {
+    const r = d.getBoundingClientRect(); return (r.top + r.bottom) / 2;
+  });
+  assert(centers.length >= 3, `${label}: expected ≥3 panel dividers (≥1 interior), got ${centers.length}`);
+  const top = centers[0], bottom = centers[centers.length - 1], bands = centers.length - 1;
+  let worst = 0;
+  for (let i = 1; i < centers.length - 1; i++) {
+    const expected = top + (bottom - top) * i / bands;
+    worst = Math.max(worst, Math.abs(centers[i] - expected));
+    assert(Math.abs(centers[i] - expected) <= 1.5,
+      `${label}: interior divider ${i} centre ${Math.round(centers[i])}px, expected ${Math.round(expected)}px (even split off by ${Math.round(centers[i] - expected)}px)`);
+  }
+  measure(label, Math.round(15 - worst)); // headroom under tolerance (higher = better centred)
+  _ltRestore();
+}
+
+// Asserts no card row (.hand) overlaps another card row or the bottom control cluster (.game-controls).
+// This is the failure even-band squeezing introduced: a band with more content than its equal share
+// overflows (min-height:0) and the cards spill into the bet box (split play) or the next row (UTH fold).
+// Mirrors the WebKit overlap rule, but for content boxes rather than only tap targets.
+function checkNoOverlap(label, overrides) {
+  const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+  Object.assign(S, base, overrides);
+  render();
+  const panel = document.querySelector('.panel');
+  assert(panel, `${label}: .panel not found`);
+  const boxes = [...panel.querySelectorAll('.hand, .game-controls')]
+    .filter(el => { const r = el.getBoundingClientRect(); return r.width > 1 && r.height > 1; });
+  const OVL = 2.5;
+  const d = el => `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}.${(el.className || '').toString().trim().split(/\s+/)[0] || ''}`;
+  let worst = 0, worstPair = '';
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+    const a = boxes[i], b = boxes[j];
+    if (a.contains(b) || b.contains(a)) continue;
+    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    const ox = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
+    const oy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+    if (ox > OVL && oy > OVL && oy > worst) { worst = oy; worstPair = `${d(a)} ∩ ${d(b)}`; }
+  }
+  measure(label, worst > 0 ? -Math.round(worst) : 5);
+  assert(worst === 0, `${label}: ${worstPair} vertical overlap ${Math.round(worst)}px — content spilling into the bet box / an adjacent row`);
+  _ltRestore();
+}
+
 // ─── Card fixtures ────────────────────────────────────────────────────────────
 const _h = (...specs) => specs.map(([r, s]) => card(r, s));
 
@@ -137,6 +190,78 @@ const _winEntry  = { ante:50,blind:50,play:200,playMult:4,result:'win', delta:35
 const _loseEntry = { ante:50,blind:50,play:200,playMult:4,result:'lose',delta:-300,anteDelta:-50, blindDelta:-50, playDelta:-200, playerBest:_db,dealerBest:_pb,dealerQualifies:true };
 const _foldEntry = { ante:50,blind:50,play:0,  playMult:0,result:'fold',delta:-100,anteDelta:-50, blindDelta:-50, playDelta:0,    playerBest:null,dealerBest:null,dealerQualifies:false };
 const _pkCards   = _h(['A','s'],['A','d'],['K','s'],['Q','c'],['J','h']);
+
+// ─── Even dividers: interior dividers split the board into equal bands ──────────
+describe('layout — even dividers', () => {
+  const _bjCand2 = _h(['9','s'],['8','d']);
+  it('BJ pick: middle divider is dead centre', () => checkEvenDividers('bj-pick', {
+    screen:'bj', bjPhase:'pick', chips:900, bjBet:100, bjHand:0, bjHistory:[],
+    bjCandidates:[_bjPair, _bjCand2], bjDealer:_bjDealer, forcedMod:'bj_two_hands',
+  }));
+  it('BJ play: middle divider is dead centre', () => checkEvenDividers('bj-play', {
+    screen:'bj', bjPhase:'play', chips:900, bjBet:100, bjHand:0, bjHistory:[],
+    bjPlayer:_bjPair, bjDealer:_bjDealer,
+  }));
+  // (Split play is intentionally NOT even — the dealer band sizes to content so the active hand gets
+  //  the rest of the board; see the no-overlap guard below.)
+  it('UTH preflop: two interior dividers split into even thirds', () => checkEvenDividers('uth-preflop', {
+    screen:'uth', uthPhase:'preflop', chips:1200, uthAnte:100, uthHand:0, uthHistory:[],
+    uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRevealComm:0, uthRaised:false,
+  }));
+  it('UTH flop: two interior dividers split into even thirds', () => checkEvenDividers('uth-flop', {
+    screen:'uth', uthPhase:'flop', chips:1100, uthAnte:100, uthHand:0, uthHistory:[],
+    uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRevealComm:3, uthRaised:false,
+  }));
+  it('UTH turn: two interior dividers split into even thirds', () => checkEvenDividers('uth-turn', {
+    screen:'uth', uthPhase:'turn', chips:1100, uthAnte:100, uthHand:0, uthHistory:[],
+    uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRevealComm:5, uthRaised:false,
+  }));
+  it('Roulette respin: interior divider splits result + bet rows evenly', () => checkEvenDividers('roulette-respin', {
+    screen:'roulette', rPhase:'respin', chips:0, rSpin:17, rReSpun:false,
+    rBets:[{ pick:45, bet:50 }, { pick:17, bet:50 }],
+  }));
+});
+
+// ─── No card/control overlap (regression guard for even-band squeezing) ─────────
+describe('layout — no card/control overlap', () => {
+  const _split = (hands, active, done) => ({
+    screen:'bj', bjPhase:'play', chips:600, bjBet:100, bjHand:0, bjHistory:[],
+    bjPlayer:[], bjDealer:_bjDealer, bjSplit:true, bjSplitActive:active,
+    bjSplitHands:hands, bjSplitBets:hands.map(() => 100), bjSplitDone:done,
+    bjSplitDoubled:hands.map(() => false), bjSplitAnimFrom:hands.map(() => 0),
+  });
+  it('BJ play', () => checkNoOverlap('bj-play', {
+    screen:'bj', bjPhase:'play', chips:900, bjBet:100, bjHand:0, bjHistory:[], bjPlayer:_bjPair, bjDealer:_bjDealer,
+  }));
+  it('BJ pick', () => checkNoOverlap('bj-pick', {
+    screen:'bj', bjPhase:'pick', chips:900, bjBet:100, bjHand:0, bjHistory:[],
+    bjCandidates:[_bjPair, _h(['9','s'],['8','d'])], bjDealer:_bjDealer, forcedMod:'bj_two_hands',
+  }));
+  it('BJ 2-way split', () => checkNoOverlap('bj-split-2', _split([_bjPair, _bjPair], 0, [false, false])));
+  it('BJ 3-way split', () => checkNoOverlap('bj-split-3', _split([_bjPair, _bjPair, _bjPair], 1, [true, false, false])));
+  it('BJ 4-way split', () => checkNoOverlap('bj-split-4', _split([_bjPair, _bjBust, _bjPair, _bjPair], 2, [true, true, false, false])));
+  it('UTH preflop', () => checkNoOverlap('uth-preflop', {
+    screen:'uth', uthPhase:'preflop', chips:1200, uthAnte:100, uthHand:0, uthHistory:[],
+    uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRevealComm:0, uthRaised:false,
+  }));
+  it('UTH turn', () => checkNoOverlap('uth-turn', {
+    screen:'uth', uthPhase:'turn', chips:1100, uthAnte:100, uthHand:0, uthHistory:[],
+    uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRevealComm:5, uthRaised:false,
+  }));
+  it('UTH reveal', () => checkNoOverlap('uth-reveal', {
+    screen:'uth', uthPhase:'reveal', chips:1100, uthAnte:100, uthHand:1,
+    uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRevealComm:5, uthPrevRevealComm:5, uthRaised:true,
+    uthHistory:[_winEntry],
+  }));
+  it('UTH showdown', () => checkNoOverlap('uth-showdown', {
+    screen:'uth', uthPhase:'result', chips:1100, uthHand:1,
+    uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthHistory:[_winEntry],
+  }));
+  it('UTH fold', () => checkNoOverlap('uth-fold', {
+    screen:'uth', uthPhase:'result', chips:900, uthHand:1,
+    uthHole:_h(['7','h'],['2','c']), uthDealer:_h(['A','c'],['K','h']), uthComm:_uthComm, uthHistory:[_foldEntry],
+  }));
+});
 
 // ─── Intro ────────────────────────────────────────────────────────────────────
 describe('layout — intro', () => {
@@ -168,6 +293,44 @@ describe('layout — BJ screens', () => {
     bjBet:100, bjHand:0, bjHistory:[],
     bjPlayer:_bjPair, bjDealer:_bjDealer,
   }));
+
+  // Double Vision pick screen: two candidate hands + the gold keep buttons.
+  const _bjCand2 = _h(['9','s'],['8','d']);
+  it('Double Vision pick phase fits viewport', () => checkScreen('bj-pick', {
+    screen:'bj', bjPhase:'pick', chips:900, bjBet:100, bjHand:0, bjHistory:[],
+    bjCandidates:[_bjPair, _bjCand2], bjDealer:_bjDealer, forcedMod:'bj_two_hands',
+  }));
+
+  // The pick screen's bottom cluster mirrors the play screen exactly: the bet inlay and the gold
+  // keep-buttons occupy the SAME box the play bet inlay + action buttons do (same modifier/banner on
+  // both, so only the screen content differs; the cluster heights are --btn-h-locked). Pixel-exact
+  // wherever the (denser) play screen actually fits — i.e. the bet box never jumps when you pick. At a
+  // viewport too short to even show the play controls (e.g. 1024×640 landscape), the play screen is
+  // already overflowing, so the only guarantee is that picking doesn't push the box LOWER.
+  it('Double Vision pick: bet box + keep buttons sit exactly where the play controls do', () => {
+    const measureCluster = (over) => {
+      const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+      Object.assign(S, base, over);
+      render();
+      const inlay = document.querySelector('.bet-inlay');
+      const btns = document.querySelector('.act-btns');
+      assert(inlay && btns, 'bj-pick-spot: bet inlay + action row present');
+      const ir = inlay.getBoundingClientRect(), br = btns.getBoundingClientRect();
+      return { inlayTop: Math.round(ir.top), inlayBot: Math.round(ir.bottom), btnsTop: Math.round(br.top), btnsBot: Math.round(br.bottom) };
+    };
+    const play = measureCluster({ screen:'bj', bjPhase:'play', chips:900, bjBet:100, bjHand:0, bjHistory:[], bjPlayer:_bjPair, bjDealer:_bjDealer, forcedMod:'bj_two_hands' });
+    const pick = measureCluster({ screen:'bj', bjPhase:'pick', chips:900, bjBet:100, bjHand:0, bjHistory:[], bjCandidates:[_bjPair, _bjCand2], bjDealer:_bjDealer, forcedMod:'bj_two_hands' });
+    const vh = window.innerHeight;
+    if (play.btnsBot <= vh && pick.btnsBot <= vh) {
+      assert(pick.inlayTop === play.inlayTop, `bet inlay top: pick ${pick.inlayTop} vs play ${play.inlayTop} (must match exactly)`);
+      assert(pick.inlayBot === play.inlayBot, `bet inlay bottom: pick ${pick.inlayBot} vs play ${play.inlayBot}`);
+      assert(pick.btnsTop === play.btnsTop, `keep-buttons top: pick ${pick.btnsTop} vs play action-row ${play.btnsTop} (must match exactly)`);
+      assert(pick.btnsBot === play.btnsBot, `keep-buttons bottom: pick ${pick.btnsBot} vs play action-row ${play.btnsBot}`);
+    } else {
+      assert(pick.inlayTop <= play.inlayTop, `pick bet box must not drop below the play box even on a too-short viewport (pick ${pick.inlayTop}, play ${play.inlayTop})`);
+    }
+    _ltRestore();
+  });
 
   it('play — 4-way split fits viewport', () => checkScreen('bj-split-4', {
     screen:'bj', bjPhase:'play', chips:600, bjBet:100, bjHand:0, bjHistory:[],
@@ -1032,6 +1195,93 @@ describe('layout - chip selector parity', () => {
           `chip parity: "${m.label}" ${prop} ${m.chips[prop]} != ${ref.chips[prop]} (ref "${ref.label}") — the chip selector moved/resized between screens`);
       }
     }
+  });
+});
+
+// ─── Progress dots stability ───────────────────────────────────────────────────
+// The hand-progress pill row (.dots-row) must not shift position or change size between
+// screen phases within the same game. A jump here visually bounces the strip as the
+// player moves bet → play → result. Cross-game alignment is also tested: the UTH bet
+// screen applies display:contents on #uth-dots-container so its .dots-row is a direct
+// flex child and pixel-aligns with BJ's bet screen.
+describe('layout — progress dots stable across phases', () => {
+  // Renders one screen state, captures the .dots-row position relative to the panel
+  // and its size, then restores state. Relative measurement eliminates viewport shifts
+  // caused by different title-bar/menu-bar heights across screens — the panel is the
+  // stable game board; dots moving within it is the failure we guard.
+  // All values are zoom-normalized (logical px) for cross-viewport portability.
+  function dotsRect(label, overrides) {
+    const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
+    Object.assign(S, base, overrides);
+    render();
+    const row   = document.querySelector('.dots-row');
+    const panel = document.querySelector('.panel');
+    assert(row !== null && panel !== null, `dotsRect: .dots-row or .panel not found on "${label}"`);
+    const rr = row.getBoundingClientRect();
+    const pr = panel.getBoundingClientRect();
+    const z  = _appZoom();
+    _ltRestore();
+    return { top:    Math.round((rr.top  - pr.top)  / z),
+             left:   Math.round((rr.left - pr.left) / z),
+             height: Math.round(rr.height / z),
+             width:  Math.round(rr.width  / z) };
+  }
+
+  const TOL = 1; // 1px sub-pixel tolerance
+  function assertDotsStable(phases) {
+    const rects = phases.map(([name, ov]) => ({ name, r: dotsRect(name, ov) }));
+    const ref = rects[0];
+    for (let i = 1; i < rects.length; i++) {
+      const { name, r } = rects[i];
+      assert(Math.abs(r.top    - ref.r.top)    <= TOL, `dots top    shifted "${ref.name}"→"${name}": ${ref.r.top} → ${r.top}px`);
+      assert(Math.abs(r.left   - ref.r.left)   <= TOL, `dots left   shifted "${ref.name}"→"${name}": ${ref.r.left} → ${r.left}px`);
+      assert(Math.abs(r.height - ref.r.height) <= TOL, `dots height changed "${ref.name}"→"${name}": ${ref.r.height} → ${r.height}px`);
+      assert(Math.abs(r.width  - ref.r.width)  <= TOL, `dots width  changed "${ref.name}"→"${name}": ${ref.r.width} → ${r.width}px`);
+    }
+  }
+
+  // ── BJ ──────────────────────────────────────────────────────────────────────
+  it('BJ: dots row is pixel-stable across bet → play → result (hand 1)', () => assertDotsStable([
+    ['bj-bet',    { screen:'bj', bjPhase:'bet',    chips:1000, bjBet:0,   bjHand:0, bjHistory:[] }],
+    ['bj-play',   { screen:'bj', bjPhase:'play',   chips:900,  bjBet:100, bjHand:0, bjHistory:[], bjPlayer:_bjPair, bjDealer:_bjDealer }],
+    ['bj-result', { screen:'bj', bjPhase:'result', chips:1100, bjBet:100, bjHand:1, bjSplit:false, bjDealerReveal:true,
+                    bjPlayer:_bjPair, bjDealer:_bjDealer, bjResult:{ result:'win', delta:100 },
+                    bjHistory:[{ bet:100, result:'win', delta:100, player:_bjPair, dealer:_bjDealer }] }],
+  ]));
+
+  it('BJ: dots row stays put across all 3 hands (bet phase, accumulated histories)', () => assertDotsStable([
+    ['h1-bet', { screen:'bj', bjPhase:'bet', chips:1000, bjBet:0, bjHand:0, bjHistory:[] }],
+    ['h2-bet', { screen:'bj', bjPhase:'bet', chips:1100, bjBet:0, bjHand:1,
+                 bjHistory:[{ bet:100, result:'win', delta:100, player:_bjPair, dealer:_bjDealer }] }],
+    ['h3-bet', { screen:'bj', bjPhase:'bet', chips:900,  bjBet:0, bjHand:2,
+                 bjHistory:[{ bet:100, result:'win', delta:100, player:_bjPair, dealer:_bjDealer },
+                             { bet:100, result:'lose', delta:-100, player:_bjBust, dealer:_bjDealer }] }],
+  ]));
+
+  // ── UTH ─────────────────────────────────────────────────────────────────────
+  const _dotsUthBase = {
+    screen:'uth', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0,
+    uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm,
+    uthRaised:false, uthRevealComm:0, uthPrevRevealComm:0, uthHand:0, uthHistory:[],
+  };
+
+  it('UTH: dots row is pixel-stable across bet → preflop → flop → turn', () => assertDotsStable([
+    ['uth-bet',     { screen:'uth', uthPhase:'bet',     chips:1000, uthAnte:0, uthHand:0, uthHistory:[] }],
+    ['uth-preflop', { ..._dotsUthBase, uthPhase:'preflop' }],
+    ['uth-flop',    { ..._dotsUthBase, uthPhase:'flop',  uthRevealComm:3, uthPrevRevealComm:3 }],
+    ['uth-turn',    { ..._dotsUthBase, uthPhase:'turn',  uthRevealComm:5, uthPrevRevealComm:5 }],
+  ]));
+
+  // ── Cross-game alignment ─────────────────────────────────────────────────────
+  // By design, the UTH bet screen applies display:contents on #uth-dots-container so
+  // the .dots-row becomes a direct flex child — pixel-aligning with BJ's bet screen.
+  it('BJ bet and UTH bet: dots row sits at the exact same position', () => {
+    const bj  = dotsRect('bj-bet',  { screen:'bj',  bjPhase:'bet',  chips:1000, bjBet:0,   bjHand:0, bjHistory:[] });
+    const uth = dotsRect('uth-bet', { screen:'uth', uthPhase:'bet', chips:1000, uthAnte:0, uthHand:0, uthHistory:[] });
+    assert(Math.abs(uth.top    - bj.top)    <= TOL, `cross-game dots top: UTH ${uth.top}px vs BJ ${bj.top}px`);
+    assert(Math.abs(uth.left   - bj.left)   <= TOL, `cross-game dots left: UTH ${uth.left}px vs BJ ${bj.left}px`);
+    assert(Math.abs(uth.height - bj.height) <= TOL, `cross-game dots height: UTH ${uth.height}px vs BJ ${bj.height}px`);
+    assert(Math.abs(uth.width  - bj.width)  <= TOL, `cross-game dots width: UTH ${uth.width}px vs BJ ${bj.width}px`);
   });
 });
 

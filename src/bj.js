@@ -22,6 +22,12 @@ let _bjResolving=false;
 function _bjDefer(next, ms){ setTimeout(()=>{ _bjResolving=false; next(); }, ms); }
 function _bjAfterCard(next){ _bjResolving=true; _noAnim=true; render(); _bjDefer(next, BJ_ADVANCE_MS); }
 
+// The single sequential draw accessor for Blackjack. Normally draws from the shared seeded shoe at
+// S.bjIdx; under Double Vision (bj_two_hands) the whole hand instead comes from a fresh per-hand deck
+// (S.bjDeck2) so the day's other hands stay on the untouched shoe. With bjDeck2===null this is
+// byte-identical to DEAL.bjShoe[S.bjIdx++], so non-mod days are unaffected.
+function _bjDraw(){ return S.bjDeck2 ? S.bjDeck2[S.bjDeck2Idx++] : DEAL.bjShoe[S.bjIdx++]; }
+
 // Called once on boot — if the page was refreshed while cards were mid-animation,
 // the saved state has a resolved hand but the setTimeout chain is gone.
 // Re-enter the appropriate step so the hand can resolve.
@@ -34,7 +40,7 @@ function _bjResumeAfterRefresh(){
     function step(){
       if(hVal(S.bjDealer)<standAt){
         const at=S.bjDealer.length;
-        S.bjDealer.push(DEAL.bjShoe[S.bjIdx++]);
+        S.bjDealer.push(_bjDraw());
         S.bjDealerAnimFrom=at;
         _noAnim=true;render();
         sndCard(100);
@@ -86,12 +92,13 @@ function resetBJHand(){
   S.bjDoubled=false; S.bjSplitDoubled=[];
   S.bjAnimFrom=0; S.bjDealerAnimFrom=0; S.bjSplitAnimFrom=[];
   S.bjDealerReveal=false; S.bjCelebrating=false; S.bjActed=false;
+  S.bjDeck2=null; S.bjDeck2Idx=0; S.bjCandidates=null; // Double Vision
   _bjResolving=false;
 }
-GAMES.bj.reset = resetBJHand; GAMES.bj.screen = screenBJ; // register this game's fns into the Game registry (defined in this file; core.js loads first)
+GAMES.bj.reset = resetBJHand; GAMES.bj.screen = screenBJ; GAMES.bj.resume = _bjResumeAfterRefresh; GAMES.bj.nextHand = () => _nextHand(resetBJHand); // register this game's fns into the Game registry (defined in this file; core.js loads first)
 
 /** Skip the current BJ hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function bjSkip(){ txLog({g:'bj',a:'skip',h:S.bjHand}); _skipHand(S.bjHistory,{bet:0,result:'skip',delta:0,player:[],dealer:[]},'bjHand',NEXT_SCREEN['bj'],resetBJHand); }
+function bjSkip(){ txLog({g:'bj',a:'skip',h:S.bjHand}); _skipHand('bj',{bet:0,result:'skip',delta:0,player:[],dealer:[]}); }
 
 /** Handles the initial deal for a Blackjack hand. */
 function bjDeal(){
@@ -100,39 +107,83 @@ function bjDeal(){
   debit(S.bjBet,'bj-deal');
   txLog({g:'bj',a:'deal',h:S.bjHand,bet:S.bjBet});
   S.bjAnimFrom=0;S.bjDealerAnimFrom=0;
+  // Double Vision: deal the whole hand from a fresh per-hand deck (the shared shoe is left untouched,
+  // so the day's other BJ hands are unchanged) and offer two candidate hands; the player keeps one.
+  // A natural blackjack among the candidates is kept automatically and plays out (no pick phase).
+  if(getMod('bj_two_hands')){
+    S.bjDeck2=shuffle(buildDeck(),mkRng(getRngSeed()+(S.bjHand+1)*97));S.bjDeck2Idx=0;
+    const A=[_bjDraw(),_bjDraw()],B=[_bjDraw(),_bjDraw()];
+    S.bjDealer=[_bjDraw(),_bjDraw()];
+    S.bjCandidates=[A,B];
+    const db=document.getElementById('db');if(db)db.disabled=true;
+    const nat=isBJ(A)?0:isBJ(B)?1:-1;
+    if(nat!==-1){
+      S.bjPlayer=S.bjCandidates[nat];S.bjCandidates=null;S.bjPhase='play';
+      sndShuffle(_bjAfterDeal); // celebrate / settle the natural through the shared post-deal path
+    }else{
+      S.bjPhase='pick';saveState();
+      sndShuffle(()=>{ render(); updateChipDisplay(); sndCard(100);sndCard(500);sndCard(900); });
+    }
+    return;
+  }
   if(getMod('bj_first_ace')&&DEAL.bjShoe[S.bjIdx]?.r!=='A'){
     const ai=DEAL.bjShoe.findIndex((c,i)=>i>S.bjIdx&&c.r==='A');
     if(ai!==-1)[DEAL.bjShoe[S.bjIdx],DEAL.bjShoe[ai]]=[DEAL.bjShoe[ai],DEAL.bjShoe[S.bjIdx]];
   }
-  S.bjPlayer=[DEAL.bjShoe[S.bjIdx++],DEAL.bjShoe[S.bjIdx++]];
-  S.bjDealer=[DEAL.bjShoe[S.bjIdx++],DEAL.bjShoe[S.bjIdx++]];
+  S.bjPlayer=[_bjDraw(),_bjDraw()];
+  S.bjDealer=[_bjDraw(),_bjDraw()];
   const db=document.getElementById('db');if(db)db.disabled=true;
-  const bjMult = getMod('bj_payout') || 1.5;
-  sndShuffle(()=>{
-    // Casino peek: the dealer checks for a natural blackjack before the player acts. A dealer
-    // blackjack ends the hand immediately — the player never gets to hit/double/split into a sure
-    // loss — settling as a push if the player also has a blackjack, otherwise a loss of the original
-    // bet. (A dealer BJ always shows an Ace or a 10 up, so this is exactly the real-table peek.)
-    if(isBJ(S.bjDealer)){
-      S.bjPhase='play';
-      _bjResolving=true; // lock the action buttons through the brief peek before the hole card flips
-      _noAnim=true;render();
-      sndCard(100);sndCard(500);
-      setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_PEEK_MS);
-      return;
-    }
-    // Player blackjack with no dealer blackjack — an automatic win; celebrate, then settle.
-    if(isBJ(S.bjPlayer)){
-      S.bjPhase='play';S.bjCelebrating=true;
-      _noAnim=true;render();
-      sndCard(100);sndCard(500);
-      setTimeout(()=>{sndBigWin();setTimeout(()=>{S.bjCelebrating=false;bjResolve();},BJ_CELEBRATE_MS);},1000);
-      return;
-    }
+  sndShuffle(_bjAfterDeal);
+}
+
+// The post-deal resolution shared by the normal deal and Double Vision's pick. Runs inside the deal's
+// sndShuffle (normal / auto-kept natural) or synchronously right after a pick (the shuffle already played).
+function _bjAfterDeal(){
+  // Casino peek: the dealer checks for a natural blackjack before the player acts. A dealer
+  // blackjack ends the hand immediately — the player never gets to hit/double/split into a sure
+  // loss — settling as a push if the player also has a blackjack, otherwise a loss of the original
+  // bet. (A dealer BJ always shows an Ace or a 10 up, so this is exactly the real-table peek.)
+  if(isBJ(S.bjDealer)){
     S.bjPhase='play';
-    render(); updateChipDisplay();
-    sndCard(100);sndCard(500);sndCard(900);
-  });
+    _bjResolving=true; // lock the action buttons through the brief peek before the hole card flips
+    _noAnim=true;render();
+    sndCard(100);sndCard(500);
+    setTimeout(()=>{_bjResolving=false;bjRevealDealer();},BJ_PEEK_MS);
+    return;
+  }
+  // Player blackjack with no dealer blackjack — an automatic win; celebrate, then settle.
+  if(isBJ(S.bjPlayer)){
+    S.bjPhase='play';S.bjCelebrating=true;
+    _noAnim=true;render();
+    sndCard(100);sndCard(500);
+    setTimeout(()=>{sndBigWin();setTimeout(()=>{S.bjCelebrating=false;bjResolve();},BJ_CELEBRATE_MS);},1000);
+    return;
+  }
+  S.bjPhase='play';
+  render(); updateChipDisplay();
+  sndCard(100);sndCard(500);sndCard(900);
+}
+
+// Double Vision: commit one of the two candidate hands (the player's only new decision) and play it
+// out through the shared post-deal path. Wired to the candidate Buttons in the 'pick' render.
+function bjPickHand(idx){
+  if(S.bjPhase!=='pick'||!S.bjCandidates||(idx!==0&&idx!==1))return;
+  txLog({g:'bj',a:'pick',h:S.bjHand,s:idx});
+  S.bjPlayer=S.bjCandidates[idx];
+  S.bjCandidates=null;
+  S.bjAnimFrom=0;
+  saveState();
+  _bjAfterDeal();
+}
+
+// Soft Landing (bj_safe_hit): a hand's first hit (it still holds just its 2 dealt cards) can't bust.
+// If the next shoe card would push it over 21, swap in the nearest LATER card that keeps the total
+// ≤21 — a pure in-place shoe reorder (no extra draw), so the engine replays it identically (engine.js).
+function _bjSafeHitSwap(hand){
+  const idx=S.bjIdx;
+  if(hVal(hand.concat(DEAL.bjShoe[idx]))<=21)return;            // the natural draw is already safe
+  const si=DEAL.bjShoe.findIndex((c,k)=>k>idx&&hVal(hand.concat(c))<=21);
+  if(si!==-1)[DEAL.bjShoe[idx],DEAL.bjShoe[si]]=[DEAL.bjShoe[si],DEAL.bjShoe[idx]];
 }
 
 /** Player takes another card. */
@@ -145,7 +196,10 @@ function bjHit(){
   if(isSplit)S.bjSplitAnimFrom[ai]=hand.length;
   else S.bjAnimFrom=hand.length;
   S.bjDealerAnimFrom=ANIM_NONE;
-  hand.push(DEAL.bjShoe[S.bjIdx++]);
+  // Soft Landing: protect the first hit of each hand (and each split sub-hand). length===2 ⇒ no prior
+  // hit (you can't hit-then-split, and a double ends the hand), so this fires exactly once per hand.
+  if(getMod('bj_safe_hit')&&hand.length===2)_bjSafeHitSwap(hand);
+  hand.push(_bjDraw());
   sndCard(100);
   const pv=hVal(hand);
   // At 21+ the player can't act; auto-advance after a short delay so the card is visible.
@@ -182,10 +236,11 @@ function bjDouble(){
     if(S.chips<S.bjSplitBets[i])return;
     txLog({g:'bj',a:'double',h:S.bjHand,s:i});
     S.bjSplitAnimFrom[i]=S.bjSplitHands[i].length;
+    S.bjDealerAnimFrom=ANIM_NONE; // don't re-deal the dealer upcard on the post-double render (matches bjHit/bjSplit)
     debit(S.bjSplitBets[i],'bj-split-double');S.bjSplitBets[i]*=2;
     S.bjSplitDoubled[i]=true;
     updateChipDisplay();
-    S.bjSplitHands[i].push(DEAL.bjShoe[S.bjIdx++]);
+    S.bjSplitHands[i].push(_bjDraw());
     sndCard(100);
     S.bjActed=true; // hand is done after the one card; a refresh in the deal-out delay resumes (render() persists it)
     _bjAfterCard(bjAdvanceSplit);
@@ -193,10 +248,11 @@ function bjDouble(){
     if(S.chips<S.bjBet)return;
     txLog({g:'bj',a:'double',h:S.bjHand,s:0});
     S.bjAnimFrom=S.bjPlayer.length;
+    S.bjDealerAnimFrom=ANIM_NONE; // don't re-deal the dealer upcard on the post-double render (matches bjHit/bjSplit)
     debit(S.bjBet,'bj-double');S.bjBet*=2;
     S.bjDoubled=true;
     updateChipDisplay();
-    S.bjPlayer.push(DEAL.bjShoe[S.bjIdx++]);
+    S.bjPlayer.push(_bjDraw());
     S.bjActed=true; // hand is done after the one card; a refresh in the deal-out delay resumes (render() persists it)
     _bjAfterCard(bjRevealDealer);
   }
@@ -212,7 +268,7 @@ function bjSplit(){
     txLog({g:'bj',a:'split',h:S.bjHand,s:ai});
     const[c0,c1]=S.bjSplitHands[ai];
     debit(bet,'bj-resplit');
-    S.bjSplitHands.splice(ai,1,[c0,DEAL.bjShoe[S.bjIdx++]],[c1]);
+    S.bjSplitHands.splice(ai,1,[c0,_bjDraw()],[c1]);
     S.bjSplitBets.splice(ai,1,bet,bet);
     S.bjSplitDone.splice(ai,1,false,false);
     S.bjSplitAnimFrom.splice(ai,1,0,0);
@@ -226,7 +282,7 @@ function bjSplit(){
     const[c0,c1]=S.bjPlayer;
     debit(S.bjBet,'bj-split');
     S.bjSplit=true;
-    S.bjSplitHands=[[c0,DEAL.bjShoe[S.bjIdx++]],[c1]];
+    S.bjSplitHands=[[c0,_bjDraw()],[c1]];
     S.bjSplitActive=0;
     S.bjSplitBets=[S.bjBet,S.bjBet];
     S.bjSplitResults=[];
@@ -262,7 +318,7 @@ function bjAdvanceSplit(){
     const nextHand=S.bjSplitHands[next];
     if(nextHand.length===1){
       S.bjSplitAnimFrom[next]=1;
-      nextHand.push(DEAL.bjShoe[S.bjIdx++]);
+      nextHand.push(_bjDraw());
     }
     sndCard(100);sndCard(500);
     bjCheckSplitHand();
@@ -281,7 +337,7 @@ function bjRevealDealer(){
   function step(){
     if(hVal(S.bjDealer)<(getMod('bj_dealer_stand')||17)){
       const at=S.bjDealer.length;
-      S.bjDealer.push(DEAL.bjShoe[S.bjIdx++]);
+      S.bjDealer.push(_bjDraw());
       S.bjDealerAnimFrom=at; // only animate the new card
       _noAnim=true;render();
       sndCard(100);
@@ -318,6 +374,22 @@ function resolveBJSplitHand({pv, dv, bet, wm, ddm, spm}){
 }
 
 /** Settles all bets and records history. dealerDrawn=true means the dealer already animated; false means we skip straight to resolve (e.g. player blackjack). */
+// Credit-from-result for a settled Blackjack hand — the ONE mapping shared by the live settle
+// (bjResolve) and the replay Engine. `acct` is an Accountant: liveAcct (mutates S.chips via
+// credit/debit) live, or the Engine's _engAcct in replay. The stake was debited at deal, so a
+// win/blackjack returns stake + profit, a push the stake, a loss nothing.
+/** @param {Accountant} acct */
+function bjAward(acct, result, bet, delta){
+  if(result==='blackjack') acct.credit(bet+delta,'bj-blackjack');
+  else if(result==='win')  acct.credit(bet+delta,'bj-win');
+  else if(result==='push') acct.credit(bet,'bj-push');
+}
+// Per sub-hand credit for a split — no blackjack branch (a split hand can't be a natural).
+/** @param {Accountant} acct */
+function bjAwardSplit(acct, result, bet, delta){
+  if(result==='win')       acct.credit(bet+delta,'bj-split-win');
+  else if(result==='push') acct.credit(bet,'bj-split-push');
+}
 function bjResolve(dealerDrawn=false){
   // Idempotency guard (see _resolveRoulette): settle a hand exactly once. bjResolve is fired
   // from timers (deal celebration, dealer-reveal step) and the refresh-resume path, so a stray
@@ -325,9 +397,10 @@ function bjResolve(dealerDrawn=false){
   // ever runs from the 'play' phase and flips to 'result' at the end, so bail if we're past that.
   if(S.bjPhase!=='play')return;
   if(!dealerDrawn){S.bjDealerAnimFrom=1;}
-  while(hVal(S.bjDealer)<(getMod('bj_dealer_stand')||17))S.bjDealer.push(DEAL.bjShoe[S.bjIdx++]);
+  while(hVal(S.bjDealer)<(getMod('bj_dealer_stand')||17))S.bjDealer.push(_bjDraw());
   const dv=hVal(S.bjDealer),dBJ=isBJ(S.bjDealer);
   const wm=winMult();
+  const acct=liveAcct();
   if(S.bjSplit){
     let totalDelta=0;
     const spm=getMod('bj_wild_split')?2:1; // wild split: winning hands pay 2× profit
@@ -335,8 +408,7 @@ function bjResolve(dealerDrawn=false){
       const bet=S.bjSplitBets[i];
       const ddm=getMod('bj_double_bonus')&&S.bjSplitDoubled[i]?2:1; // double-down profit multiplier
       const {result,delta}=resolveBJSplitHand({pv:hVal(hand),dv,bet,wm,ddm,spm});
-      if(result==='win')credit(bet+delta,'bj-split-win');
-      else if(result==='push')credit(bet,'bj-split-push');
+      bjAwardSplit(acct,result,bet,delta);
       totalDelta+=delta;return{result,delta,bet};
     });
     S.bjSplitResults=handResults;
@@ -346,19 +418,15 @@ function bjResolve(dealerDrawn=false){
     const bjMult = getMod('bj_payout') || 1.5;
     const ddm=getMod('bj_double_bonus')&&S.bjDoubled?2:1; // double-down profit multiplier
     const {result,delta}=resolveBJHand({pv:hVal(S.bjPlayer),pBJ:isBJ(S.bjPlayer),dv,dBJ,bet:S.bjBet,wm,bjMult,ddm});
-    if(result==='blackjack')credit(S.bjBet+delta,'bj-blackjack');
-    else if(result==='win')credit(S.bjBet+delta,'bj-win');
-    else if(result==='push')credit(S.bjBet,'bj-push');
+    bjAward(acct,result,S.bjBet,delta);
     S.bjResult={result,delta};
     S.bjHistory.push(mkRound('bj',delta,result,{bet:S.bjBet,player:[...S.bjPlayer],dealer:[...S.bjDealer]}));
   }
-  S.bjHand++;S.bjPhase='result';render();
+  S.bjHand++;S.bjPhase='result';navRender(); // crossfade play → result panel
   updateChipDisplay();
   const {result:_bjr,delta:_bjd}=S.bjResult;
   if(S.bjSplit?_bjd>0:_bjr==='win')setTimeout(sndBigWin,400);
 }
-
-function bjNext(){ _nextHand(resetBJHand); }
 
 // ─── BLACKJACK RENDER ─────────────────────────────────────────
 // Renders the hand-val div for result screens. Handles bust class/text and the BJ case.
@@ -485,6 +553,35 @@ function screenBJ(){
           <button id="db" class="btn-gold" style="margin-top:6px" onclick="bjDeal()" ${S.bjBet===0?'disabled':''}>Deal ${icon('shuffle',{cls:'btn-icon-gap'})}</button>`;})()}
     </div>`;
   }
+  if(ph==='pick'){
+    // Double Vision: the dealer upcard is visible; the two candidate hands are shown side by side in the
+    // middle (where the play hand sits), and the keep action is two solid-gold buttons in the action-
+    // button zone — Hand 1 on the left (the Hit/Stand half), Hand 2 on the right (the Double/Split half).
+    // The bottom cluster mirrors the play screen exactly, so the bet inlay lands in the same spot.
+    const [A,B]=S.bjCandidates||[[],[]];
+    const cand=(hand)=>`<div style="text-align:center">
+      <div class="hand bj-pick-cards" style="justify-content:center">${renderCards(hand,'sm',0,0.4,0.1)}</div>
+      <div class="bj-pick-val">${hValDisplay(hand)}</div>
+    </div>`;
+    const pickBtn=(hand,i,lbl)=>`<button class="act-btn primary bj-pick-btn" onclick="bjPickHand(${i})">
+      <span class="bj-pick-btn-lbl">${lbl}</span><span class="bj-pick-btn-val">${hValDisplay(hand)}</span>
+    </button>`;
+    return `${hdr('Blackjack · Hand '+(S.bjHand+1)+' of 3')}
+<div class="panel" style="display:flex;flex-direction:column">
+  ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
+  <div class="divider"></div>
+  <div id="bj-dealer-section" class="vband" style="text-align:center">${bjDealerHTML()}</div>
+  <div class="divider"></div>
+  <div class="vband" style="text-align:center">
+    <div class="sec">Pick a Hand</div>
+    <div class="bj-pick-row">${cand(A)}${cand(B)}</div>
+  </div>
+  <div class="divider"></div>
+  <div>
+    ${gameControls(betInlay('Bet', cfmt(S.bjBet)), `<div class="act-btns">${pickBtn(A,0,'Hand 1')}${pickBtn(B,1,'Hand 2')}</div>`)}
+  </div>
+</div>`;
+  }
   if(ph==='play'){
     if(S.bjSplit){
       const ai=S.bjSplitActive;
@@ -498,8 +595,9 @@ function screenBJ(){
 <div class="panel" style="display:flex;flex-direction:column">
         ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
         <div class="divider"></div>
-        <div id="bj-dealer-section" style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
+        <div id="bj-dealer-section" class="vband" style="text-align:center">${bjDealerHTML()}</div>
         <div class="divider"></div>
+        <div class="vband">
         ${S.bjSplitHands.length>1?`<div class="bj-split-aside">
           ${S.bjSplitHands.map((hand,i)=>{if(i===ai)return'';const hv=hVal(hand);const isDone=S.bjSplitDone[i];return`<div style="text-align:center;opacity:${isDone?0.55:0.8}">
             <div class="sec bj-split-lbl">Hand ${i+1} (${cfmt(S.bjSplitBets[i])})</div>
@@ -507,12 +605,13 @@ function screenBJ(){
             <div class="bj-split-val" style="color:${hv>21?'var(--lose)':'var(--shadow)'}">${hv}${hv>21?' BUST':''}</div>
           </div>`;}).join('')}
         </div>`:''}
-        <div class="bj-split-active" style="text-align:center;flex:1;">
+        <div class="bj-split-active" style="text-align:center;">
           <div class="sec bj-active-lbl">Hand ${ai+1} <span class="bj-active-bet">· Bet ${cfmt(S.bjSplitBets[ai])}</span></div>
           <div id="bj-active-hand" class="hand">${renderCards(activeHand,'lg',af,0.4,0.1)}</div>
           ${S.bjCelebrating||isBJ(activeHand)
             ?`<div style="${S.bjDealerReveal?'':'animation:fadein .4s .6s ease both'}"><div class="bj-celebrate-txt">Blackjack!</div></div>`
             :`<div id="bj-active-val" class="hand-val ${bust?'bust':done21?'bj':''}">${bust?pvStr+' BUST':done21?'21!':pvStr}</div>`}
+        </div>
         </div>
         <div class="divider"></div>
         <div style="margin-top:auto;">
@@ -528,9 +627,9 @@ function screenBJ(){
 <div class="panel" style="display:flex;flex-direction:column">
   ${gameDots(S.bjHistory,S.bjHand,S.bjPhase)}
   <div class="divider"></div>
-  <div id="bj-dealer-section" style="text-align:center;margin-bottom:12px">${bjDealerHTML()}</div>
+  <div id="bj-dealer-section" class="vband" style="text-align:center">${bjDealerHTML()}</div>
   <div class="divider"></div>
-  <div style="text-align:center;flex:1;">
+  <div class="vband" style="text-align:center">
     <div class="sec">Your Hand</div>
     <div id="bj-player-hand" class="hand">${renderCards(S.bjPlayer,'lg',S.bjAnimFrom,0.4,0.1)}</div>
     ${(S.bjCelebrating||isBJ(S.bjPlayer))
@@ -548,7 +647,7 @@ function screenBJ(){
   }
   // result
   const res=S.bjResult;
-  const {text:btnText, action:btnAction} = resultAdvanceBtn(S.bjHand>=3, NEXT_SCREEN['bj'], 'bjNext()');
+  const {text:btnText, action:btnAction} = resultAdvanceBtn(S.bjHand>=3, NEXT_SCREEN['bj']);
 
   if(S.bjSplit){
     const dv=hVal(S.bjDealer);

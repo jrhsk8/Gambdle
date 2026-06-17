@@ -673,6 +673,50 @@ describe('spinFromRandom — no boost, force group, Double Ball, override', () =
   });
 });
 
+// ─── Parity/color force-groups (Even Money, Odd One Out, Seeing Red, In the Black) ──────────────
+// Every outside group button now has a force-group mod. These reuse the generic R_GROUP_INFO walk
+// in spinFromRandom and the generic rBetBlocked overlap logic, so the tests confirm the new groups
+// wire through both correctly (each has 18 pockets, so a clean 18-bucket walk hits every one once).
+describe('spinFromRandom — parity/color force-groups', () => {
+  const walk = (mod, fits) => {
+    const prev = S.forcedMod; S.forcedMod = mod;
+    try {
+      const seen = new Set();
+      for (let k = 0; k < 18; k++) { const n = _spinW(k).n; assert(fits(n), `${mod} slot ${k} → ${n}`); seen.add(n); }
+      assertEqual(seen.size, 18, `${mod} walks all 18 group pockets`);
+      assertEqual(_spinW(18).n, _spinW(0).n, `${mod} slot 18 wraps to the first group pocket`);
+    } finally { S.forcedMod = prev; }
+  };
+  it('Even Money walks only the 18 even pockets',  () => walk('r_group_even',  n => n !== 0 && n % 2 === 0));
+  it('Odd One Out walks only the 18 odd pockets',  () => walk('r_group_odd',  n => n % 2 === 1));
+  it('Seeing Red walks only the 18 red pockets',   () => walk('r_group_red',  n => REDS.has(n)));
+  it('In the Black walks only the 18 black pockets',() => walk('r_group_black',n => n !== 0 && !REDS.has(n)));
+});
+
+describe('rBetBlocked — parity/color force-groups', () => {
+  const withGroup = (mod, fn) => { const p = S.forcedMod; S.forcedMod = mod; try { fn(); } finally { S.forcedMod = p; } };
+  it('Even Money: Even tile + odd numbers blocked; Red / dozen / even number stay open', () => {
+    withGroup('r_group_even', () => {
+      assert(rBetBlocked(44),  'Even (exact group) blocked');
+      assert(rBetBlocked(47),  'Odd (no overlap) blocked');
+      assert(rBetBlocked(5),   '#5 (odd, no overlap) blocked');
+      assert(!rBetBlocked(4),  '#4 (even, partial) open');
+      assert(!rBetBlocked(45), 'Red (some evens are red) open');
+      assert(!rBetBlocked(40), '1-12 (partial) open');
+    });
+  });
+  it('Seeing Red: Red tile + black numbers blocked; Even / dozen / red number stay open', () => {
+    withGroup('r_group_red', () => {
+      assert(rBetBlocked(45),  'Red (exact group) blocked');
+      assert(rBetBlocked(46),  'Black (no overlap) blocked');
+      assert(rBetBlocked(2),   '#2 (black, no overlap) blocked');
+      assert(!rBetBlocked(1),  '#1 (red, partial) open');
+      assert(!rBetBlocked(44), 'Even (some reds are even) open');
+      assert(!rBetBlocked(40), '1-12 (partial) open');
+    });
+  });
+});
+
 // ─── Sweet Sixteen — modifier configuration (the day wiring) ─────────────────────────────────────
 describe('Sweet Sixteen — modifier config', () => {
   it('preset exists with the right type, title, and boost keys', () => {

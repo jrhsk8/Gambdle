@@ -23,10 +23,11 @@ function _resetRun(){
   _restoreDEAL();
   S.screen='intro'; S.chips=START_CHIPS; S.tx=[];
   S.bjHand=0; S.bjPhase='bet'; S.bjBet=0; S.bjPlayer=[]; S.bjDealer=[]; S.bjResult=null; S.bjHistory=[]; S.bjIdx=0;
+  S.bjDeck2=null; S.bjDeck2Idx=0; S.bjCandidates=null; // Double Vision — clear the fresh per-hand deck between runs
   S.bjSplit=false; S.bjSplitHands=[]; S.bjSplitActive=0; S.bjSplitBets=[]; S.bjSplitResults=[]; S.bjSplitDone=[];
   S.bjDoubled=false; S.bjSplitDoubled=[]; S.bjActed=false; S.bjDealerReveal=false; S.bjCelebrating=false;
   S.uthHand=0; S.uthPhase='bet'; S.uthAnte=0; S.uthPlay=0; S.uthPlayMult=0; S.uthRaised=false; S.uthFolded=false;
-  S.uthHole=[]; S.uthDealer=[]; S.uthComm=[]; S.uthRevealComm=0; S.uthPrevRevealComm=0; S.uthHistory=[];
+  S.uthHole=[]; S.uthDealer=[]; S.uthComm=[]; S.uthPrivate=null; S.uthRevealComm=0; S.uthPrevRevealComm=0; S.uthHistory=[];
   S.uthRedealPtr=27; S.timeTravelUsed=false;
   S.ladPhase='bet'; S.ladBet=0; S.ladFree=false; S.ladIdx=0; S.ladRung=0; S.ladResult=null;
   S.rPhase='bet'; S.rBets=[]; S.rBet=0; S.rPick=null; S.rResult=null; S.rSpin=null; S.rSpin2=null; S.rReSpun=false; S.rUnverified=false;
@@ -40,9 +41,10 @@ function _modsFor(modKey){ S.forcedMod = modKey; return _activeMod() || {}; }
 // ─── Drive helpers (real game functions, resolution forced synchronously) ──────
 // BJ: deal + a list of 'hit'|'stand'|'double', then settle via bjResolve(true) (it draws the
 // dealer itself, exactly like the timer path does). Naturals skip the action loop.
-function _driveBJ(bet, actions){
+function _driveBJ(bet, actions, pick=0){
   S.bjBet=bet; S.bjPhase='bet';
   bjDeal();
+  if(S.bjPhase==='pick'){ _bjResolving=false; bjPickHand(pick); } // Double Vision: keep a candidate hand
   if(!isBJ(S.bjPlayer) && !isBJ(S.bjDealer)){
     for(const a of (actions||[])){
       _bjResolving=false;
@@ -164,6 +166,18 @@ describe('engine — BJ equivalence', () => {
     const {expected,out}=_replayOf(mods);
     assertEqual(out.chips, expected, 'split replay chips');
   });
+
+  it('bj_two_hands (Double Vision) fresh-deck deal + pick replays identically', () => {
+    _resetRun(); const mods=_modsFor('bj_two_hands');
+    // Each hand deals two candidate hands from a fresh per-hand deck (the shared shoe is untouched);
+    // keep one, then play. Pick different candidates across the hands and exercise hit/stand/double.
+    _driveBJ(100, ['stand'], 0);
+    _driveBJ(100, ['hit','stand'], 1);
+    _driveBJ(100, ['double'], 0);
+    const {expected,out}=_replayOf(mods);
+    assertEqual(out.chips, expected, 'Double Vision replay chips == recalcChips');
+    assertEqual(out.g1Net, gameNet('bj'), 'g1Net == bj net');
+  });
 });
 
 // ─── Equivalence: UTH ─────────────────────────────────────────────────────────
@@ -190,6 +204,14 @@ describe('engine — UTH equivalence', () => {
     _driveUTH(100,[{a:'raise',mult:3}]); _driveUTH(100,[{a:'check'},{a:'raise',mult:2}]); _driveUTH(100,[{a:'fold'}]);
     const {expected,out}=_replayOf(mods);
     assertEqual(out.chips, expected);
+  });
+
+  it('uth_sixth_card (Sixth Sense) private tail card replays identically', () => {
+    _resetRun(); const mods=_modsFor('uth_sixth_card');
+    // The private 6th community card (deck tail 27+) joins the PLAYER pool only; the dealer is unchanged.
+    _driveUTH(100,[{a:'raise',mult:3}]); _driveUTH(100,[{a:'check'},{a:'raise',mult:1}]); _driveUTH(100,[{a:'fold'}]);
+    const {expected,out}=_replayOf(mods);
+    assertEqual(out.chips, expected, 'Sixth Sense replay chips == recalcChips');
   });
 
   it('Time Travel (uth_time_travel) re-deal replays identically', () => {
@@ -303,6 +325,10 @@ describe('engine — legality rejection', () => {
   it('rejects a second borrow', () => {
     rejects('double_borrow', () => replayRun(1, {}, [{g:'sys',a:'borrow',amt:50},{g:'sys',a:'borrow',amt:50}], {}));
   });
+  it('rejects a forged Double-Vision pick on a non-mod day', () => {
+    // A 'pick' event is only legal under bj_two_hands; on an ordinary hand it's an illegal action.
+    rejects('bj_bad_pick', () => replayRun(1, {}, [{g:'bj',a:'deal',h:0,bet:100},{g:'bj',a:'pick',h:0,s:0}], { deal: emptyDeal() }));
+  });
   it('tolerates a trailing no-op action after a bust (skips it, consumes no shoe card)', () => {
     // player 10,10 = 20; hits a 10 -> 30 bust; dealer 5,6 draws K -> 21. A trailing 'stand' logged the
     // same frame the bust auto-advanced must be ignored, not rejected, and must not shift the deck.
@@ -319,6 +345,11 @@ describe('engine — legality rejection', () => {
   it('rejects a ladder cash-out before any rung is climbed', () => {
     const deal = { bjShoe:[], pokerDecks:[], uthDeck:[], ladderCards:[{r:'5',s:'♠'},{r:'9',s:'♦'}], rSpinOverride:null };
     rejects('lad_cash_norung', () => replayRun(1, {}, [{g:'lad',a:'stake',v:100},{g:'lad',a:'cash'}], { deal }));
+  });
+  it('rejects a UTH ante above the ⌊2/3⌋ cap even when it fits the stack', () => {
+    // START_CHIPS=1000 → maxFor('uth',1000)=666. An ante of 700 fits the stack but exceeds the cap
+    // the live bet UI enforces, so the Engine must reject it (it would otherwise replay as legal).
+    rejects('uth_overbet', () => replayRun(1, {}, [{g:'uth',a:'deal',h:0,ante:700}], { deal: emptyDeal() }));
   });
 });
 

@@ -109,6 +109,6 @@ function write() {
   console.log(`engine bundle written: ${OUT.replace(/\\/g, '/')} (${(bytes / 1024).toFixed(0)} KB)`);
 }
 
-module.exports = { build, buildSource, checkFresh, write, FILES, OUT };
+module.exports = { checkFresh };
 
 if (require.main === module) write();

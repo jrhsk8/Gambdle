@@ -57,7 +57,7 @@ Script load order matters and is already wired in `index.html`:
 
 ```
 modifiers.js → core.js → gametext.js → audio.js → ui.js → windows.js → menus.js
-→ dev.js → screens.js → flow.js → bj.js → uth.js → roulette.js → ladder.js → game.js
+→ dev.js → screens.js → flow.js → bj.js → uth.js → poker.js → roulette.js → ladder.js → game.js
 ```
 
 ## File structure
@@ -74,7 +74,8 @@ modifiers.js → core.js → gametext.js → audio.js → ui.js → windows.js �
 | `src/windows.js` | XP window chrome: dragging, floating window manager, notification balloon + tutorial runtime |
 | `src/menus.js` | Menu bar dropdowns + submenus, archive picker, preferences, feedback dialog |
 | `src/bj.js` | Blackjack logic and screen rendering |
-| `src/uth.js` | Ultimate Texas Hold'em + 5-card poker logic and screen rendering |
+| `src/uth.js` | Ultimate Texas Hold'em logic and screen rendering (also owns the shared `rankPoker` evaluator) |
+| `src/poker.js` | 5 Card Poker (partially built) logic and screen rendering |
 | `src/roulette.js` | Roulette board, wheel animation, bet resolution |
 | `src/ladder.js` | The Ladder (hi-lo streak-climb game; also the `ladder_day` free bonus round) |
 | `src/dev.js` | Dev menu actions, Dev Stats screen, layout-debug overlay |

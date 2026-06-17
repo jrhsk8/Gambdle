@@ -58,4 +58,4 @@ function versionedOutDir(engine) {
   return out;
 }
 
-module.exports = { gameVersion, versionedOutDir, pruneOldVersions, versionKey, KEEP_VERSIONS_BACK, ROOT };
+module.exports = { versionedOutDir };

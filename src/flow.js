@@ -84,6 +84,22 @@ function render(){
   _drawLayoutDebug();
 }
 
+// Smooth cross-screen render: wrap the full re-render in a View Transition so significantly different
+// screens (a new game, a hand's result panel, the next hand) crossfade instead of popping. Falls back
+// to a plain synchronous render() — which keeps card choreography, replay, and the layout suite intact —
+// whenever the API is unavailable (Node, Firefox, older Safari), the user prefers reduced motion, or a
+// test is running (__GAMBDLE_TEST__: the unit suite calls bjResolve/render directly and asserts on the
+// DOM synchronously, so it must never go async). Mid-hand renders keep calling render() directly.
+function navRender(){
+  if(typeof document==='undefined'
+     || typeof document.startViewTransition!=='function'
+     || (typeof window!=='undefined' && window.__GAMBDLE_TEST__)
+     || (typeof window!=='undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+    render(); return;
+  }
+  document.startViewTransition(()=>render());
+}
+
 function updateChipDisplay() {
   const el = document.getElementById('chip-badge');
   if (el) {
@@ -93,15 +109,18 @@ function updateChipDisplay() {
 
 // ─── NAVIGATION & ACTIONS ────────────────────────────────────────────────
 
-function goTo(s){S.screen=s;render();}
-// Shared skip logic for all_in_or_skip: push a skip entry, increment the hand counter,
-// advance to the next screen if done, otherwise reset and re-render.
-function _skipHand(arr, entry, counterKey, nextScreen, resetFn) {
-  arr.push(entry);
-  S[counterKey]++;
-  if (S[counterKey] >= 3) { advanceTo(nextScreen); return; }
-  resetFn();
-  render();
+function goTo(s){S.screen=s;navRender();} // crossfade screen changes (advanceTo → goTo, borrow, menu nav)
+// Shared skip logic for all_in_or_skip: push a skip entry, increment the hand counter, advance to the
+// next screen if done, otherwise reset and re-render. Everything game-specific — the history array, the
+// hand counter, the reset fn, the successor screen — is read from the Game registry keyed on `screen`,
+// so a caller only says which game and what entry to record.
+function _skipHand(screen, entry) {
+  const g = GAMES[screen];
+  gameHistory(screen).push(entry);
+  S[g.handKey]++;
+  if (S[g.handKey] >= 3) { advanceTo(NEXT_SCREEN[screen]); return; }
+  g.reset();
+  navRender();
 }
 
 // Shared "next hand" flow: sound → reset → re-render (or go to results/borrow if busted).
@@ -116,8 +135,16 @@ function _nextHand(resetFn) {
       S.screen = 'results';
     }
   }
-  render();
+  navRender();
 }
+
+// Advance to the next hand of the current game · the onclick target on every card game's result panel.
+// Dispatches through the Game registry so flow.js carries no per-game next-hand wrappers.
+function advanceHand(){ GAMES[S.screen].nextHand(); }
+
+// Enter the first game slot of the run at its bet phase. Reads the slot's phaseKey from the Game
+// registry so a swapped GAME1 (dev menu) initializes the right phase field, not a hardcoded bjPhase.
+function _enterFirstSlot(){ S.screen=GAME1; S[GAMES[GAME1].phaseKey]='bet'; }
 
 // Produces the standard result panel used by BJ, UTH-fold, etc.
 // detailHTML is injected between the delta line and the bottom control cluster: the bet inlay box
@@ -137,11 +164,11 @@ function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnT
 // The advance button (label + onclick) shown on a card game's result screen — shared by Blackjack,
 // Hold'em and Poker, which all phrase it identically. Busted → go to results; the last hand of 3 →
 // the next game (worded "Final Round: Roulette" when roulette is the finale, else "Round 2: <name>");
-// any earlier hand → the next hand. `nextScreen` is NEXT_SCREEN[game]; `nextHandCall` runs the
-// game's own next-hand function (e.g. 'bjNext()').
-function resultAdvanceBtn(isLast, nextScreen, nextHandCall) {
+// any earlier hand → the next hand (via the registry-dispatched advanceHand()). `nextScreen` is
+// NEXT_SCREEN[game].
+function resultAdvanceBtn(isLast, nextScreen) {
   if (isChipBusted()) return { text: `Game Over ${icon('skull',{fill:true})}`, action: "advanceTo('results')" };
-  if (!isLast)        return { text: 'Next Hand →',  action: nextHandCall };
+  if (!isLast)        return { text: 'Next Hand →',  action: 'advanceHand()' };
   // Use the SHORT game name ("Hold'em", not "Ultimate Texas Hold'em") so the label fits the
   // box-width advance button on one line at every breakpoint (the narrow 1024 panel especially).
   const text = nextScreen === 'roulette' ? 'Final Round: Roulette →' : `Round 2: ${GAME_META[nextScreen].short} →`;
@@ -200,8 +227,8 @@ function startGame(){
   sndChip('allin');
   // Player's Choice day: divert to the picker before the first game. The pick screen commits
   // S.pcPick, then routes into GAME1 (see pickModifier). On a normal day, go straight to Blackjack.
-  if(pendingPlayersChoice()){S.screen='choice';render();_submitStart();return;}
-  S.screen=GAME1;S.bjPhase='bet';render();_submitStart();
+  if(pendingPlayersChoice()){S.screen='choice';navRender();_submitStart();return;}
+  _enterFirstSlot();navRender();_submitStart();
 }
 
 // Fire-and-forget: records that this device started today's game.

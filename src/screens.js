@@ -124,7 +124,7 @@ function pickModifier(key){
   if(!choices || !choices.some(c=>c.key===key)) return; // only a currently-offered choice is valid
   txLog({g:'sys',a:'pick',mod:key}); // changes the day's active modifier — replay needs it
   S.pcPick=key;
-  S.screen=GAME1; S.bjPhase='bet';
+  _enterFirstSlot();
   saveState();
   sndChip('allin');
   render();

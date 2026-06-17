@@ -56,6 +56,15 @@
         S.bjDealerReveal = false; S.bjSplit = false;
       },
     },
+    'bj-pick': {
+      // Double Vision (bj_two_hands): two candidate hands + dealer upcard, pick one to keep.
+      group: 'Blackjack', mod: 'bj_two_hands',
+      setup: () => {
+        S.screen = 'bj'; S.bjPhase = 'pick'; S.chips = 950; S.bjBet = 50; S.bjHand = 0; S.bjHistory = [];
+        S.bjCandidates = [[card('10','h'), card('6','c')], [card('9','s'), card('8','d')]];
+        S.bjDealer = [card('Q','c'), card('7','s')]; S.bjDealerReveal = false; S.bjSplit = false;
+      },
+    },
     'bj-result': {
       group: 'Blackjack',
       setup: () => {
@@ -198,6 +207,17 @@
         S.uthRevealComm = 5; S.uthRaised = false;
       },
     },
+    'uth-sixth': {
+      // Sixth Sense (uth_sixth_card): the densest community row — 5 shared + 1 private card, all
+      // face-up at the turn (the private flips with the river for the final bet).
+      group: "Hold'em", mod: 'uth_sixth_card',
+      setup: () => {
+        S.screen = 'uth'; S.uthPhase = 'turn'; S.chips = 1100; S.uthAnte = 100; S.uthHand = 0; S.uthHistory = [];
+        S.uthHole = [card('A','s'), card('K','d')]; S.uthDealer = [card('2','c'), card('7','h')];
+        S.uthComm = [card('8','h'), card('6','s'), card('Q','h'), card('5','d'), card('A','d')];
+        S.uthPrivate = card('10','c'); S.uthRevealComm = 5; S.uthPrevRevealComm = 5; S.uthRaised = false;
+      },
+    },
     'uth-reveal': {
       // The transient "Dealer Reveals" frame (auto-advances to the result after ~2.3s). Pinned fully
       // revealed so the lab/screenshots can review a screen that otherwise never sits still.
@@ -249,6 +269,11 @@
     'roulette-result': {
       group: 'Roulette',
       setup: () => { S.screen = 'roulette'; S.rPhase = 'result'; S.chips = 900; S.rSpin = 17; S.rResult = { delta:350, bets:[{ pick:17, won:true, delta:350, pay:35, bet:10 }] }; },
+    },
+    'roulette-respin': {
+      // The once-per-day second-chance screen (r_respin): interior divider splits the result + bet rows.
+      group: 'Roulette', mod: 'r_respin',
+      setup: () => { S.screen = 'roulette'; S.rPhase = 'respin'; S.chips = 0; S.rSpin = 17; S.rReSpun = false; S.rBets = [{ pick:45, bet:50 }, { pick:17, bet:50 }]; },
     },
 
     // ── Final results ──────────────────────────────────────────────────────────

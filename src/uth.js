@@ -1,15 +1,16 @@
 // ─── CONTENTS (grep the banner/function name; line numbers drift) ──────────
-//   POKER HAND EVALUATION: rankPoker (shared 5-card evaluator)
-//   UTH / POKER STATE: resetUTHHand · per-hand deck slices
-//   5-CARD POKER LOGIC: the partially built 'poker' game
+//   POKER HAND EVALUATION: rankPoker (5-card evaluator; exported — UTH's bestOf7 + poker.js use it)
+//   UTH STATE: resetUTHHand · per-hand deck slices
 //   ULTIMATE TEXAS HOLD'EM LOGIC: deal · raise/check/fold · blind + ante
 //     pay tables · dealer qualify · showdown settlement
-//   SCREEN RENDERING: screenUTH · screenPoker · uthPayTableHTML
+//   SCREEN RENDERING: screenUTH · uthPayTableHTML
+//   (5 Card Poker lives in its own file, poker.js — it shares only rankPoker, below.)
 // ───────────────────────────────────────────────────────────────────────────
 
 // ─── POKER HAND EVALUATION ────────────────────────────────────────────────
 
-// Standard video poker hand evaluator (Jacks or Better threshold).
+// Standard video poker hand evaluator (Jacks or Better threshold). Used by UTH's bestOf7 here AND
+// by 5 Card Poker in poker.js, so it is exported from this file.
 function rankPoker(cs){
   const rs=cs.map(c=>c.r),ss=cs.map(c=>c.s),vs=cs.map(c=>cardNum(c.r));
   const rc={};for(const r of rs)rc[r]=(rc[r]||0)+1;
@@ -117,7 +118,7 @@ function uthPayTableHTML(blind){
 }
 function uthPayTableHead(blind){ return `Blind Pay Table${blind>0?` · ${cfmtK(blind)} chips`:''}`; }
 
-// ─── UTH / POKER STATE ───────────────────────────────────────────────────
+// ─── UTH STATE ───────────────────────────────────────────────────────────
 const UTH_CARD_START_MS    = 300;  // delay before first community card animates in
 const UTH_CARD_INTERVAL_MS = 400;  // stagger between each community card
 // Total reveal duration: UTH_CARD_START_MS + (5 cards × UTH_CARD_INTERVAL_MS) = 2300ms
@@ -128,9 +129,10 @@ function resetUTHHand(){
   S.uthAnte=0; S.uthPhase='bet'; S.uthPlay=0; S.uthPlayMult=0;
   S.uthRaised=false; S.uthFolded=false;
   S.uthHole=[]; S.uthDealer=[]; S.uthComm=[];
+  S.uthPrivate=null;
   S.uthRevealComm=0; S.uthPrevRevealComm=0;
 }
-GAMES.uth.reset = resetUTHHand; GAMES.uth.screen = screenUTH; // register this game's fns into the Game registry (defined in this file; core.js loads first)
+GAMES.uth.reset = resetUTHHand; GAMES.uth.screen = screenUTH; GAMES.uth.nextHand = () => _nextHand(resetUTHHand); // register this game's fns into the Game registry (defined in this file; core.js loads first)
 // Game-specific bet-UI patch (dispatched by patchBetUI): keep the stake summary + blind pay table in
 // step with the staked Ante · Blind split as the bet changes.
 GAMES.uth.patchBet = function(bet){
@@ -155,80 +157,7 @@ GAMES.uth.resume = function(){
 };
 
 /** Skip the current UTH hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function uthSkip(){ txLog({g:'uth',a:'skip',h:S.uthHand}); _skipHand(S.uthHistory,{ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0},'uthHand',NEXT_SCREEN['uth'],resetUTHHand); }
-
-/** Skip the current poker hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function pkSkip(){ txLog({g:'pk',a:'skip',h:S.pkHand}); _skipHand(S.pkHistory,{bet:0,result:'skip',pts:0,delta:0},'pkHand',NEXT_SCREEN['poker'],()=>{S.pkBet=0;S.pkPhase='bet';}); }
-
-// ─── 5-CARD POKER LOGIC ──────────────────────────────────────────────────
-
-/** Initial deal for 5-Card Draw Poker. */
-function pkDeal(){
-  if(!S.pkBet||S.pkPhase!=='bet')return;
-  S.pkPhase='dealing'; // lock immediately
-  debit(S.pkBet,'pk-deal');
-  txLog({g:'pk',a:'deal',h:S.pkHand,bet:S.pkBet});
-  S.pkCards=DEAL.pokerDecks[S.pkHand].slice(0,5);
-  S.pkHeld=new Set();
-  const db=document.getElementById('db');if(db)db.disabled=true;
-  sndShuffle(()=>{
-    S.pkPhase='hold';
-    render(); updateChipDisplay();
-    sndCard(40);sndCard(100);sndCard(160);sndCard(220);sndCard(280);
-  });
-}
-function toggleHold(i){
-  S.pkHeld.has(i)?S.pkHeld.delete(i):S.pkHeld.add(i);
-  const h=S.pkHeld.has(i);
-  const hw=document.getElementById('pk-hw-'+i);
-  if(hw){
-    const card=hw.querySelector('.card');
-    const tag=hw.querySelector('.hold-tag');
-    if(card){card.style.transform=h?'translateY(-10px)':'translateY(0)';card.style.boxShadow=h?'0 8px 20px rgba(196,147,58,.5),0 0 0 2px var(--gold)':'2px 3px 10px rgba(0,0,0,.5),0 0 0 2px rgba(196,48,48,.65)';}
-    if(tag){tag.style.color=h?'':'var(--red)';tag.textContent=h?'HOLD':'REPLACE';}
-    const status=document.querySelector('.pk-hold-status');
-    if(status)status.textContent=`Tap cards to hold · ${S.pkHeld.size} held · ${5-S.pkHeld.size} replaced`;
-    saveState();
-  }else{_noAnim=true;render();}
-}
-/** Discard unheld cards and draw new ones, then calculate final rank. */
-function pkDraw(){
-  // Idempotency guard (see _resolveRoulette): draw/settle exactly once. A double-tap on "Draw
-  // Cards" must not credit the payout and push a second history entry twice. Only runs from the
-  // 'hold' phase and flips to 'draw' below, so a duplicate call bails.
-  if(S.pkPhase!=='hold')return;
-  txLog({g:'pk',a:'draw',h:S.pkHand,held:[...S.pkHeld].sort((a,b)=>a-b)});
-  const draw=DEAL.pokerDecks[S.pkHand].slice(5);let di=0;
-  S.pkFinal=S.pkCards.map((c,i)=>S.pkHeld.has(i)?c:draw[di++]);
-  const res=rankPoker(S.pkFinal);
-  const wm=winMult();
-  const profit=res.p>0?S.pkBet*res.p*wm:0;
-  const delta=res.p>0?profit:-S.pkBet;
-  if(res.p>0)credit(S.pkBet+profit,'pk-win');
-  S.pkHistory.push(mkRound('pk',delta,res.n,{bet:S.pkBet,pts:res.p}));
-  const replaceIdxs=[0,1,2,3,4].filter(i=>!S.pkHeld.has(i));
-  S.pkRevealStep=0;S.pkPhase='draw';
-  _noAnim=true;render();updateChipDisplay();
-  function revealNext(){
-    if(S.pkRevealStep>=replaceIdxs.length){
-      if(delta>0)setTimeout(sndBigWin,200);
-      setTimeout(()=>{S.pkHand++;S.pkPhase='result';render();},900);
-      return;
-    }
-    S.pkRevealStep++;
-    _noAnim=true;render();
-    sndCard(50);
-    setTimeout(revealNext,650);
-  }
-  setTimeout(revealNext,300);
-}
-GAMES.poker.reset = () => { S.pkBet=0; S.pkPhase='bet'; }; GAMES.poker.screen = screenPoker; // 5-Card Poker has no dedicated file; its registry slots live here
-// Refresh landed mid-draw: bump the hand counter and show the result panel.
-GAMES.poker.resume = function(){
-  if(S.pkPhase!=='draw') return;
-  setTimeout(() => { S.pkHand++; S.pkPhase = 'result'; render(); }, 300);
-};
-function pkNext(){ _nextHand(GAMES.poker.reset); }
+function uthSkip(){ txLog({g:'uth',a:'skip',h:S.uthHand}); _skipHand('uth',{ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0}); }
 
 // ─── ULTIMATE TEXAS HOLD'EM LOGIC ────────────────────────────────────────
 
@@ -247,6 +176,11 @@ function uthDeal(){
     S.uthHole=aces;
     S.uthDealer=[rest[0],rest[1]];
     S.uthComm=rest.slice(2,7);
+  }else if(getMod('uth_suited_conn')){
+    // Suited Up: same fresh-per-hand-deck seeding as Pocket Aces, but the hole is a forced suited
+    // connector that varies per hand. suitedConnectorDeal (core.js) is shared with the engine replay.
+    const sc=suitedConnectorDeal(mkRng(getRngSeed()+(S.uthHand+1)*97));
+    S.uthHole=sc.hole;S.uthDealer=sc.dealer;S.uthComm=sc.comm;
   }else{
     const dk=DEAL.uthDeck,off=S.uthHand*9;
     S.uthHole=[dk[off],dk[off+1]];
@@ -254,6 +188,9 @@ function uthDeal(){
     // Time Travel re-deals from. The two mods never run on the same day, so no collision; and
     // the per-hand 9-card layout stays untouched, so test card overrides keep working.
     if(getMod('uth_three_hole'))S.uthHole.push(dk[27+S.uthHand]);
+    // Sixth Sense's private 6th community card comes from the same unused tail (27+) Triple Threat /
+    // Time Travel draw from. The mods never share a day, so the tail card can't collide.
+    if(getMod('uth_sixth_card'))S.uthPrivate=dk[27+S.uthHand];
     S.uthDealer=[dk[off+2],dk[off+3]];
     S.uthComm=[dk[off+4],dk[off+5],dk[off+6],dk[off+7],dk[off+8]];
   }
@@ -276,6 +213,20 @@ function _uthDealFlop(){
 // Whether community card i should be face-up. Cards reveal left-to-right by uthRevealComm;
 // River Monster additionally shows the river (index 4) from the start, before any street.
 function _uthCommShown(i){ return i < S.uthRevealComm || (getMod('uth_river_monster')===true && i===4); }
+// Sixth Sense: the private 6th community card is dealt up front but stays face-down through preflop/flop,
+// flipping with the turn + river (revealComm 5). It's face-up for the final turn bet.
+function _uthPrivateShown(){ return S.uthRevealComm>=5; }
+// The player's showdown pool: 2 hole + 5 community, plus the Sixth Sense private card when active.
+// Dealer's pool is unchanged (the private card is the player's alone), so this only wraps the player side.
+function _uthPlayerPool(){ return [...S.uthHole, ...S.uthComm, ...(S.uthPrivate?[S.uthPrivate]:[])]; }
+// Sixth Sense render: the private card sits as a 6th card in the community row with a gold glow + a YOU
+// tag. Face-down until the turn (_uthPrivateShown), then the real card. _uthPrivCardHTML is the card
+// element alone (so the turn flip can swap it surgically); _uthPrivSlot wraps it with the tag.
+const _UTH_PRIV_GLOW='box-shadow:0 0 0 2px var(--gold-hi),0 0 12px 3px rgba(196,147,58,.5);border-radius:8px';
+function _uthPrivCardHTML(anim){
+  return _uthPrivateShown()?cardHTML(S.uthPrivate,'sm',_UTH_PRIV_GLOW,anim?0.05:0,!!anim):cardHTML('back','sm',_UTH_PRIV_GLOW,0,false);
+}
+function _uthPrivSlot(){ return `<div id="uth-priv-slot" class="uth-priv-slot">${_uthPrivCardHTML(false)}<span class="uth-priv-tag">YOU</span></div>`; }
 // Reveal community cards 4 and 5 (turn + river combined).
 function _uthDealTurn(){
   S.uthPrevRevealComm=3;S.uthRevealComm=5;S.uthPhase='turn';
@@ -356,7 +307,7 @@ function uthFold(){
   S.uthHistory.push(mkRound('uth',-(ante+blind),'fold',{ante,blind,play:0,playMult:0,anteDelta:-ante,blindDelta:-blind,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false}));
   S.uthHand++;S.uthPhase='reveal';
   updateUthCommunityCards();
-  setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();},2300);
+  setTimeout(()=>{_noAnim=true;S.uthPhase='result';navRender();updateChipDisplay();},2300);
 }
 // Settles the UTH hand: three independent payouts (play, ante, blind) each have their own rules.
 // Play: 1:1 if player wins. Ante: 1:1 only if dealer qualifies. Blind: paytable if Straight+.
@@ -383,35 +334,41 @@ function resolveUTH(pb, db, ante, blind, play, mods){
   return { anteDelta, blindDelta, playDelta, delta, dealerQualifies, result: cmp>0?'win':cmp===0?'push':'lose' };
 }
 
+// Credit-from-result for a settled UTH hand — the ONE mapping shared by the live settle (uthResolve)
+// and the replay Engine. `res` is the resolveUTH outcome. Each leg's stake was debited at deal/raise,
+// so a win returns each stake + its profit (the ante pushes its stake back when the dealer doesn't
+// qualify), a tie returns all three stakes, a loss keeps nothing. `acct` is an Accountant.
+/** @param {Accountant} acct */
+function uthAward(acct, res, ante, blind, play){
+  if(res.result==='win'){
+    acct.credit(play+res.playDelta,'uth-play');
+    if(res.dealerQualifies) acct.credit(ante+res.anteDelta,'uth-ante'); else acct.credit(ante,'uth-ante-push');
+    acct.credit(blind+res.blindDelta,'uth-blind');
+  } else if(res.result==='push'){
+    acct.credit(ante+blind+play,'uth-push');
+  }
+}
 function uthResolve(){
   // Idempotency guard (see _resolveRoulette): settle a hand exactly once. A double-tap on the
   // resolving action or a stray call must not credit the three payouts and push a second history
   // entry twice. Only ever runs from the 'turn' phase and flips to 'reveal' below, so bail otherwise.
   if(S.uthPhase!=='turn')return;
   const ante=_uthAntePortion(),blind=_uthBlindPortion(),play=S.uthPlay;
-  const pb=bestOf7([...S.uthHole,...S.uthComm]);
+  const pb=bestOf7(_uthPlayerPool());
   const db2=bestOf7([...S.uthDealer,...S.uthComm]);
-  const {anteDelta,blindDelta,playDelta,delta,dealerQualifies,result}=resolveUTH(pb,db2,ante,blind,play,{
+  const res=resolveUTH(pb,db2,ante,blind,play,{
     wm:winMult(), doublePlay:!!getMod('uth_double_play'), hardQualify:!!getMod('uth_hard_qualify'),
     blindExtended:getMod('uth_blind_extended'), blindBoost:getMod('uth_blind_boost')||1,
   });
-  // Apply chips per leg (stake debited at deal/raise). Win: return each stake + profit; the ante
-  // pushes (stake back, no profit) when the dealer doesn't qualify. A tie returns all three stakes;
-  // a loss keeps nothing. Same credits/reasons as before — only the delta math moved into resolveUTH.
-  if(result==='win'){
-    credit(play+playDelta,'uth-play');
-    if(dealerQualifies)credit(ante+anteDelta,'uth-ante'); else credit(ante,'uth-ante-push');
-    credit(blind+blindDelta,'uth-blind');
-  }else if(result==='push'){
-    credit(ante+blind+play,'uth-push');
-  }
+  // Apply chips per leg through the shared award mapping (the same one the Engine replays).
+  uthAward(liveAcct(),res,ante,blind,play);
+  const {anteDelta,blindDelta,playDelta,delta,dealerQualifies,result}=res;
   S.uthHistory.push(mkRound('uth',delta,result,{ante,blind,play,playMult:S.uthPlayMult,anteDelta,blindDelta,playDelta,playerBest:pb,dealerBest:db2,dealerQualifies}));
   S.uthHand++;S.uthPhase='reveal';
   S.uthRevealComm=5;
   updateUthCommunityCards();
-  setTimeout(()=>{_noAnim=true;S.uthPhase='result';render();updateChipDisplay();if(delta>0)setTimeout(sndBigWin,UTH_CARD_INTERVAL_MS);},UTH_REVEAL_TOTAL_MS);
+  setTimeout(()=>{_noAnim=true;S.uthPhase='result';navRender();updateChipDisplay();if(delta>0)setTimeout(sndBigWin,UTH_CARD_INTERVAL_MS);},UTH_REVEAL_TOTAL_MS);
 }
-function uthNext(){ _nextHand(resetUTHHand); }
 
 // Surgically animates only the newly revealed community cards (uthPrevRevealComm → uthRevealComm).
 // Also updates the action UI and progress dots after the animation finishes.
@@ -466,6 +423,16 @@ function updateUthCommunityCards() {
     dealerHand.innerHTML = renderCards(S.uthDealer,'md',0,0.9,0.1);
   }
 
+  // Sixth Sense: flip the private 6th card face-up the moment the turn lands (revealComm crosses to 5),
+  // alongside the turn + river cards. It stays static on later updates (already shown).
+  if (getMod('uth_sixth_card') && S.uthRevealComm >= 5 && S.uthPrevRevealComm < 5) {
+    const slot = commHand.querySelector('#uth-priv-slot');
+    if (slot) setTimeout(() => {
+      slot.innerHTML = _uthPrivCardHTML(true) + '<span class="uth-priv-tag">YOU</span>';
+      sndCard();
+    }, startDelay + revealedCount * interval);
+  }
+
   const finishDelay = startDelay + (revealedCount * interval);
   S.uthPrevRevealComm = S.uthRevealComm;
 
@@ -513,79 +480,6 @@ function handDetail(cards, cat) {
 
 // ─── SCREEN RENDERING ────────────────────────────────────────────────────
 
-function screenPoker(){
-  const ph=S.pkPhase;
-  if(ph==='bet'){
-    const aios=getMod('all_in_or_skip');
-    return `${hdr('5 Card Poker · Hand '+(S.pkHand+1)+' of 3')}
-    <div class="panel">
-      ${gameDots(S.pkHistory,S.pkHand,S.pkPhase)}
-      <div class="divider"></div>
-      ${aios
-        ?`<div class="sec" style="text-align:center"><span class="sec-game-prefix">5 Card Poker · </span>All In or Skip · Wins Pay 2×</div>
-          ${aiosRow('allIn();pkDeal()', 'pkSkip()')}`
-        :`<div class="sec" style="text-align:center"><span class="sec-game-prefix">5 Card Poker · </span>Place Your Bet</div>
-          ${chipSel(S.chips,S.pkBet)}
-          <button id="db" class="btn-gold" style="margin-top:12px" onclick="pkDeal()" ${S.pkBet===0?'disabled':''}>Deal ${icon('shuffle',{cls:'btn-icon-gap'})}</button>
-          <div class="divider"></div>
-          <div class="sec">Paytable</div>
-          <div class="ptable">${[['Royal Flush','800x'],['Straight Flush','50x'],['Four of a Kind','25x'],['Full House','9x'],['Flush','6x'],['Straight','4x'],['Three of a Kind','3x'],['Two Pair','2x'],['Jacks or Better','1x']].map(([n,p])=>`<span class="pname">${n}</span><span class="ppay">${p}</span>`).join('')}</div>`}
-    </div>`;
-  }
-  if(ph==='hold'){
-    const held=S.pkHeld;
-    return `${hdr('5 Card Poker · Hand '+(S.pkHand+1)+' of 3')}
-    <div class="panel">
-      <div class="pk-hold-status" style="text-align:center;font-size:.82rem;color:var(--shadow);margin-bottom:10px">Tap cards to hold · ${held.size} held · ${5-held.size} replaced</div>
-      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px">
-        ${S.pkCards.map((c,i)=>{const h=held.has(i);return`<div id="pk-hw-${i}" class="hold-wrap" onclick="toggleHold(${i})">
-          ${cardHTML(c,'md',`transition:transform .2s,box-shadow .2s;transform:${h?'translateY(-10px)':'translateY(0)'};box-shadow:${h?'0 8px 20px rgba(196,147,58,.5),0 0 0 2px var(--gold)':'2px 3px 10px rgba(0,0,0,.5),0 0 0 2px rgba(196,48,48,.65)'}`,0.04+i*0.06)}
-          <div class="hold-tag" style="${h?'':'color:var(--red)'}">${h?'HOLD':'REPLACE'}</div></div>`;}).join('')}
-      </div>
-      <button class="btn-gold" style="margin-top:12px" onclick="pkDraw()">Draw Cards →</button>
-      <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${cfmt(S.pkBet)} chips</span></div>
-    </div>`;
-  }
-  if(ph==='draw'){
-    const replaceIdxs=[0,1,2,3,4].filter(i=>!S.pkHeld.has(i));
-    const newestPos=S.pkRevealStep-1;
-    return `${hdr('5 Card Poker · Hand '+(S.pkHand+1)+' of 3')}
-    <div class="panel">
-      <div style="text-align:center;font-size:.82rem;color:var(--shadow);margin-bottom:10px">Drawing replacements…</div>
-      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px">
-        ${[0,1,2,3,4].map(i=>{
-          const h=S.pkHeld.has(i);
-          const rPos=replaceIdxs.indexOf(i);
-          const revealed=rPos!==-1&&rPos<S.pkRevealStep;
-          const isNewest=rPos===newestPos;
-          if(h)return`<div class="hold-wrap">${cardHTML(S.pkFinal[i],'md','transform:translateY(-10px);box-shadow:0 8px 20px rgba(196,147,58,.5),0 0 0 2px var(--gold)',0,false)}<div class="hold-tag">HOLD</div></div>`;
-          if(revealed)return`<div class="hold-wrap">${cardHTML(S.pkFinal[i],'md','box-shadow:0 0 0 2px var(--gold-hi),2px 3px 10px rgba(0,0,0,.5)',0.05,isNewest)}<div class="hold-tag" style="color:var(--gold-hi);opacity:.85">NEW</div></div>`;
-          return`<div class="hold-wrap">${cardHTML('back','md','box-shadow:2px 3px 10px rgba(0,0,0,.5),0 0 0 2px rgba(196,48,48,.65)')}<div class="hold-tag" style="color:var(--red)">REPLACE</div></div>`;
-        }).join('')}
-      </div>
-      <button class="btn-gold" style="margin-top:12px;opacity:.35" disabled>Drawing…</button>
-      <div class="irow" style="margin-top:10px"><span class="ik">Bet</span><span class="iv">${cfmt(S.pkBet)} chips</span></div>
-    </div>`;
-  }
-  // result
-  const h=S.pkHistory[S.pkHand-1], res=rankPoker(S.pkFinal);
-  const {text:btnText, action:btnAction} = resultAdvanceBtn(S.pkHand>=3, NEXT_SCREEN['poker'], 'pkNext()');
-
-  return `${hdr('5 Card Poker · Result')}
-  <div class="panel" style="text-align:center">
-    ${gameDots(S.pkHistory,S.pkHand,S.pkPhase)}
-    <div class="divider"></div>
-    <div class="result-hl" style="color:${col(h.delta)}">${h.delta>0?'You Win!':h.delta<0?'You Lose!':'Push'}</div>
-    <div style="font-family:var(--btn-f);font-size:1.1rem;color:var(--gold);margin-bottom:2px">${res.n}</div>
-    <div class="result-sub" style="color:${col(h.delta)}">${csign(h.delta)} chips</div>
-    <div class="sec sec-sm">Your Hand</div>
-    <div class="hand" style="margin-bottom:12px">
-      ${S.pkFinal.map((c,i)=>{const isNew=!S.pkHeld.has(i);return cardHTML(c,'md',isNew?'box-shadow:0 0 0 2px var(--gold-hi),2px 3px 10px rgba(0,0,0,.5)':'',isNew?0.04+i*0.05:0);}).join('')}
-    </div>
-    ${gameControls(betInlay('Total', cfmt(S.chips)), `<button class="btn-gold" onclick="${btnAction}">${btnText}</button>`)}
-  </div>`;
-}
-
 function screenUTH(){
   const ph=S.uthPhase;
   const CAT_NAMES=['High Card','One Pair','Two Pair','Three of a Kind','Straight','Flush','Full House','Four of a Kind','Straight Flush','Royal Flush'];
@@ -620,9 +514,10 @@ function screenUTH(){
     </div>`;
   }
 
-  const commRow=()=>`<div id="uth-community-container" style="text-align:center">
+  const sixth=getMod('uth_sixth_card');
+  const commRow=(band=false)=>`<div id="uth-community-container" class="${band?'vband':''}" style="text-align:center">
     <div class="sec">Community Cards</div>
-    <div id="uth-community-hand" class="hand">${[0,1,2,3,4].map(i=>{
+    <div id="uth-community-hand" class="hand${sixth?' sixth-sense':''}">${[0,1,2,3,4].map(i=>{
       // Count-revealed cards animate when freshly dealt; River Monster's river (i=4) is shown
       // face-up from the start but is not count-revealed, so it stays static (isNew=false).
       const countShown=i<S.uthRevealComm;
@@ -631,15 +526,15 @@ function screenUTH(){
         return cardHTML(S.uthComm[i],'sm','',isNew?0.05+(i-S.uthPrevRevealComm)*0.12:0,isNew);
       }
       return cardHTML('back','sm','',0,false);
-    }).join('')}</div>
+    }).join('')}${sixth?_uthPrivSlot():''}</div>
   </div>`;
 
-  const playerRow=(anim=false)=>`<div style="text-align:center">
+  const playerRow=(anim=false)=>`<div class="vband" style="text-align:center">
     <div class="sec">Your Hand</div>
     <div class="hand">${renderCards(S.uthHole,'md',anim?0:ANIM_NONE,0.2,0.05)}</div>
   </div>`;
 
-  const dealerRow=(reveal=false)=>`<div id="uth-dealer-container" style="text-align:center">
+  const dealerRow=(reveal=false)=>`<div id="uth-dealer-container" class="vband" style="text-align:center">
     <div id="uth-dealer-sec" class="sec">${reveal?'Dealer':peekRevealed()?`Dealer · <span style="color:var(--gold-hi);font-size:.7rem">${icon('eye')} Peeked</span>`:'Dealer (Face Down)'}</div>
     <div class="dealer-hand-row">
       <div id="uth-dealer-hand" class="hand">${reveal
@@ -664,7 +559,7 @@ function screenUTH(){
       <div class="divider"></div>
       ${dealerRow(false)}
       <div class="divider"></div>
-      ${commRow()}
+      ${commRow(true)}
       <div class="divider"></div>
       ${playerRow(true)}
       <div class="divider"></div>
@@ -684,7 +579,7 @@ function screenUTH(){
       <div class="divider"></div>
       ${dealerRow(false)}
       <div class="divider"></div>
-      ${commRow()}
+      ${commRow(true)}
       <div class="divider"></div>
       ${playerRow(false)}
       <div class="divider"></div>
@@ -704,7 +599,7 @@ function screenUTH(){
       <div class="divider"></div>
       ${dealerRow(false)}
       <div class="divider"></div>
-      ${commRow()}
+      ${commRow(true)}
       <div class="divider"></div>
       ${playerRow(false)}
       <div class="divider"></div>
@@ -740,11 +635,11 @@ function screenUTH(){
   // result
   const hist=S.uthHistory[S.uthHand-1];
   if(!hist)return'';
-  const {text:btnText, action:btnAction} = resultAdvanceBtn(S.uthHand>=3, NEXT_SCREEN['uth'], 'uthNext()');
+  const {text:btnText, action:btnAction} = resultAdvanceBtn(S.uthHand>=3, NEXT_SCREEN['uth']);
 
   if(hist.result==='fold'){
     const dealerBest=bestOf7([...S.uthDealer,...S.uthComm]);
-    const playerBest=bestOf7([...S.uthHole,...S.uthComm]);
+    const playerBest=bestOf7(_uthPlayerPool());
     const foldSameRank=dealerBest.cat===playerBest.cat;
     const foldDbDetail=foldSameRank?' '+handDetail(dealerBest.cards,dealerBest.cat):'';
     const foldPbDetail=foldSameRank?' '+handDetail(playerBest.cards,playerBest.cat):'';
@@ -800,7 +695,7 @@ function screenUTH(){
         <div class="divider" style="width:100%;margin:10px 0"></div>
         <div style="text-align:center">
           <div class="sec sec-sm">Community</div>
-          <div id="uth-community-hand" class="hand" style="justify-content:center">${renderCards(S.uthComm,'sm',0,0.08,0.05,hl)}</div>
+          <div id="uth-community-hand" class="hand${getMod('uth_sixth_card')?' sixth-sense':''}" style="justify-content:center">${renderCards(S.uthComm,'sm',0,0.08,0.05,hl)}${getMod('uth_sixth_card')?_uthPrivSlot():''}</div>
         </div>
         <div class="divider" style="width:100%;margin:10px 0"></div>
         <div style="text-align:center">

@@ -13,6 +13,8 @@
  * - bj_double_bonus: true   Successful double-downs pay 2× profit
  * - bj_first_ace: true      Player's first card each BJ hand is always an Ace
  * - bj_wild_split: true     Any two cards can be split (max 4 hands); split wins pay 2×
+ * - bj_two_hands: true      BJ: dealt two starting hands each hand; pick one to play (naturals auto-pick). Fresh deck per hand
+ * - bj_safe_hit: true       BJ: your first hit each hand (and each split hand) can't bust; swaps in the nearest safe card
  * - min_chips: 50           Minimum chip requirement
  * - chip_div: 100           Show chips at 1/100 scale (a 10-chip stack that scores ×100); display-only,
  *                           the internal balance/score/leaderboard stay full-scale. Pair with min_chips: 100.
@@ -26,6 +28,8 @@
  * - uth_river_monster: true Hold'em: the river card is dealt face-up before the bet
  * - uth_time_travel: true   Hold'em: once/day, re-deal the flop or the turn+river
  * - uth_three_hole: true    Hold'em: player gets a 3rd hole card; best 5 of 8 plays (dealer keeps 2)
+ * - uth_sixth_card: true    Hold'em: a private 6th community card (only you use it) flips with the river; best 5 of 8 plays
+ * - uth_suited_conn: true   Hold'em: your hole cards are forced to a suited connector (lower card 7+), varying per hand
  * - all_in_or_skip: true    Each hand/spin: go all in or skip. Wins pay 2×
  * - r_double_ball: true     Two balls spin; a bet wins if either ball lands on it
  * - r_payout_mult: 2.0      All roulette wins pay this multiple
@@ -51,6 +55,8 @@ const PRESET_MODIFIERS = {
   high_stakes:     { type: 'bj',      title: "High Stakes",          desc: "Blackjack: Minimum chips requirement is 100",     min_chips: 100,                              devNote: '' },
   bj_first_ace:    { type: 'bj',      title: "Ace Up Your Sleeve",   desc: "Blackjack: Your first card each hand is always an Ace", bj_first_ace: true,                  devNote: 'Yall were losing way too much so I had to throw you a bone' },
   bj_wild_split:   { type: 'bj',      title: "Big Splitter",          desc: "Blackjack: Split any two cards. Split wins pay double.", bj_wild_split: true,                 devNote: 'Someone should do the math on how often you should split here. It\'s a very interesting problem' },
+  bj_two_hands:    { type: 'bj',      title: "Double Vision",        desc: "Blackjack: Dealt two hands each round. Pick one to play.", bj_two_hands: true,                devNote: 'You see both starting hands and the dealer upcard, then keep one. A natural blackjack is picked for you.' },
+  bj_safe_hit:     { type: 'bj',      title: "Soft Landing",         desc: "Blackjack: Your first hit each hand can't bust you.",   bj_safe_hit: true,                    devNote: 'If your first hit would bust, you draw the nearest card that keeps you at 21 or under. Doubles are not protected.' },
   // UTH
   uth_blind_boost:    { type: 'uth',  title: "Big Blind",            desc: "Hold'em: Blind payouts are doubled",              uth_blind_boost: 2.0,                        devNote: '' },
   uth_blind_extended: { type: 'uth',  title: "Loose Blind",          desc: "Hold'em: Blind pays on two pair and up",          uth_blind_extended: true,                    devNote: '' },
@@ -60,6 +66,8 @@ const PRESET_MODIFIERS = {
   uth_river_monster:  { type: 'uth',  title: "River Monster",        desc: "Hold'em: River card revealed immediately after you bet", uth_river_monster: true,              devNote: '' },
   uth_time_travel:    { type: 'uth',  title: "Time Travel",          desc: "Hold'em: Re-deal the flop or turn+river once today", uth_time_travel: true,                    devNote: '' },
   uth_three_hole:     { type: 'uth',  title: "Triple Threat",        desc: "Hold'em: You get 3 hole cards instead of 2",      uth_three_hole: true,                        devNote: 'Your best 5 of 8 cards play. The dealer still only gets 2.' },
+  uth_sixth_card:     { type: 'uth',  title: "Sixth Sense",          desc: "Hold'em: Get a 6th card only you can use", uth_sixth_card: true,  devNote: 'Your best 5 of 8 cards play. You bet the hand blind to it, then it flips face up with the river.' },
+  uth_suited_conn:    { type: 'uth',  title: "Suited Up",            desc: "Hold'em: Your hole cards are always suited connectors, 7 or higher", uth_suited_conn: true,              devNote: 'Each hand gets a different suited connector (lower card 7+), the same sequence for everyone.' },
   // Cross-game
   peek:            { type: 'cross',   title: "Dealer Peek",          desc: "Blackjack & Hold'em: 3 total peeks at a dealer card",  peek: 3,                                     devNote: '' },
   comeback:        { type: 'cross',   title: "Comeback",             desc: "Wins pay 2x if you are below 1000 chips",         comeback: true,                              devNote: '' },
@@ -67,10 +75,16 @@ const PRESET_MODIFIERS = {
   ladder_day:      { type: 'cross',   title: "The Ladder",           desc: "Bonus game after roulette with a free entry", ladder_free: 250, devNote: 'Hi-lo streak climb, shared sequence for everyone. Crash costs nothing, cash out keeps the full pot.' },
   pocket_change:   { type: 'cross',   title: "Pocket Change",        desc: "Play with just 10 chips. Your final score is multiplied by 100.", chip_div: 100, min_chips: 100, devNote: 'Your chips wear the grey 10-chip look but each is worth 1. Internal balance/score/integrity all stay full-scale, so only the readouts shrink.' },
   // Player's Choice — before the run, the player picks ONE of the three `choices` to be the day's
-  // modifier. Edit the `choices` array to set the trio (any 3 non-choice preset keys); the load-time
-  // guard below enforces exactly 3 valid keys. Add more variants and slot them into CYCLE_ORDER /
-  // DAILY_MODIFIERS to offer different trios on different days.
-  players_choice:  { type: 'choice',  title: "Player's Choice",      desc: "Pick one of three modifiers to play today",                 choices: ['bj_first_ace', 'uth_pocket_aces', 'r_hot_zero'], devNote: 'Same three options for everyone.' },
+  // modifier. Each variant below is just a different trio (any 3 non-choice preset keys); the
+  // load-time guard at the bottom of this file enforces exactly 3 valid keys per variant. Slot the
+  // variants into CYCLE_ORDER (spaced out) to offer different trios on different days. Two flavours:
+  // mixed (one mod from each game) and single-game (all three options affect the same game).
+  players_choice:        { type: 'choice', title: "Player's Choice",   desc: "Pick one of three modifiers to play today",               choices: ['bj_first_ace', 'uth_pocket_aces', 'r_hot_zero'],         devNote: 'Same three options for everyone.' },
+  players_choice_payout: { type: 'choice', title: "Big Spender",       desc: "Pick one of three payout boosts to play today",           choices: ['double_pay', 'uth_double_play', 'r_double_all'],         devNote: '' },
+  players_choice_wild:   { type: 'choice', title: "Wild Card",         desc: "Pick one of three high-variance modifiers to play today", choices: ['bj_wild_split', 'uth_three_hole', 'r_double_ball'],      devNote: '' },
+  players_choice_bj:     { type: 'choice', title: "House Rules",       desc: "Blackjack: pick one of three blackjack modifiers today",  choices: ['bj_first_ace', 'easy_dealer', 'bj_wild_split'],          devNote: '' },
+  players_choice_uth:    { type: 'choice', title: "Hold'em Pick",      desc: "Hold'em: pick one of three Hold'em modifiers today",      choices: ['uth_pocket_aces', 'uth_double_play', 'uth_time_travel'], devNote: '' },
+  players_choice_roul:   { type: 'choice', title: "Croupier's Choice", desc: "Roulette: pick one of three roulette modifiers today",    choices: ['r_hot_zero', 'r_color_lock', 'r_double_ball'],           devNote: '' },
   // Roulette
   r_double_all:   { type: 'roulette', title: "Double Payout",        desc: "Roulette: All wins are doubled. One bet max.",    r_payout_mult: 2.0, r_max_bets: 1,          devNote: '' },
   r_double_ball:  { type: 'roulette', title: "Double Ball",          desc: "Roulette: Two balls spin. Win if either lands on your bet.", r_double_ball: true,             devNote: '' },
@@ -86,46 +100,65 @@ const PRESET_MODIFIERS = {
   r_group_25_36:  { type: 'roulette', title: "Dozen III",            desc: "Roulette: Winning number will be from 25-36.",    r_force_group: '25_36', r_max_bets: 3,      devNote: '' },
   r_group_1_18:   { type: 'roulette', title: "Low Numbers",          desc: "Roulette: Winning number will be from 1-18.",     r_force_group: '1_18',  r_max_bets: 3,      devNote: '' },
   r_group_19_36:  { type: 'roulette', title: "High Numbers",         desc: "Roulette: Winning number will be from 19-36.",    r_force_group: '19_36', r_max_bets: 3,      devNote: '' },
+  r_group_even:   { type: 'roulette', title: "Even Money",           desc: "Roulette: Winning number will be even.",          r_force_group: 'even',  r_max_bets: 3,      devNote: '' },
+  r_group_odd:    { type: 'roulette', title: "Odd One Out",          desc: "Roulette: Winning number will be odd.",           r_force_group: 'odd',   r_max_bets: 3,      devNote: '' },
+  r_group_red:    { type: 'roulette', title: "Seeing Red",           desc: "Roulette: Winning number will be red.",           r_force_group: 'red',   r_max_bets: 3,      devNote: '' },
+  r_group_black:  { type: 'roulette', title: "In the Black",         desc: "Roulette: Winning number will be black.",         r_force_group: 'black', r_max_bets: 3,      devNote: '' },
 };
 
 /**
  * Daily cycling order — modifiers rotate through this list by slot index (day-1 mod length).
- * Reordered (v1.51) to ALTERNATE roulette and non-roulette days and to vary the non-roulette
- * gameplay type (uth / bj / cross) day to day. With 13 roulette and 15 non-roulette entries a
- * perfect 1:1 alternation is impossible, so exactly two adjacent non-roulette pairs exist
- * (slots 6&7 and 17&18); both pair DIFFERENT types so no two same-type days ever touch.
- * All days through the launch of Pocket Change (Jun 17, Day 44) are pinned in DAILY_MODIFIERS,
- * so this reorder only affects Day 45 (Jun 18) onward — no past archive shifts.
+ * Two rhythm rules hold (enforced by the alternation tests in modifiers.test.js):
+ *   1. No two roulette days are ever adjacent. There are 17 roulette entries vs 21 non-roulette,
+ *      so roulette stays fully separated.
+ *   2. Any two adjacent non-roulette days are DIFFERENT gameplay types (bj / uth / cross / choice).
+ * The six Player's Choice variants (type 'choice') are interleaved, each placed right after a
+ * roulette day; because they share the 'choice' type, rule 2 keeps any two of them from ever
+ * landing back to back. With 21 non-roulette vs 17 roulette entries a strict 1:1 roulette
+ * alternation is impossible, so a few adjacent non-roulette pairs exist by necessity (exactly
+ * 21 - 17 = 4) — expected, not a regression.
+ * The Jun 17-24 single-game showcase (Days 44-51) is pinned in DAILY_MODIFIERS, so CYCLE_ORDER
+ * edits only affect Day 52 (Jun 25) onward — no past archive shifts.
  */
 const CYCLE_ORDER = [
-  'r_hot_numbers',      // 1  — roulette
-  'uth_river_monster',  // 2  — uth
-  'r_group_1_12',       // 3  — roulette
-  'comeback',           // 4  — cross
-  'r_double_ball',      // 5  — roulette
-  'easy_dealer',        // 6  — bj   ┐ non-roulette pair (bj→uth)
-  'uth_double_play',    // 7  — uth  ┘
-  'r_group_13_24',      // 8  — roulette
-  'peek',               // 9  — cross
-  'r_color_double',     // 10 — roulette
-  'uth_blind_extended', // 11 — uth
-  'r_group_25_36',      // 12 — roulette
-  'bj_double_bonus',    // 13 — bj
-  'r_sweet_sixteen',    // 14 — roulette
-  'pocket_change',      // 15 — cross (Pocket Change — launched Jun 17 via DAILY_MODIFIERS)
-  'r_group_1_18',       // 16 — roulette
-  'uth_three_hole',     // 17 — uth   ┐ non-roulette pair (uth→cross)
-  'players_choice',     // 18 — cross ┘
-  'r_double_all',       // 19 — roulette
-  'bj_first_ace',       // 20 — bj
-  'r_group_19_36',      // 21 — roulette
-  'uth_time_travel',    // 22 — uth
-  'r_hot_zero',         // 23 — roulette
-  'ladder_day',         // 24 — cross (The Ladder bonus round)
-  'r_respin',           // 25 — roulette
-  'bj_wild_split',      // 26 — bj
-  'r_color_lock',       // 27 — roulette
-  'uth_pocket_aces',    // 28 — uth
+  'r_hot_numbers',         // 1  — roulette
+  'uth_river_monster',     // 2  — uth
+  'r_group_1_12',          // 3  — roulette
+  'bj_double_bonus',       // 4  — bj
+  'r_double_ball',         // 5  — roulette
+  'players_choice_bj',     // 6  — choice (House Rules — all-blackjack trio)
+  'r_group_13_24',         // 7  — roulette
+  'players_choice_roul',   // 8  — choice (Croupier's Choice — all-roulette trio) ┐ non-roulette pair (choice→cross)
+  'ladder_day',            // 9  — cross (The Ladder bonus round)                 ┘
+  'r_color_double',        // 10 — roulette
+  'uth_three_hole',        // 11 — uth
+  'r_group_25_36',         // 12 — roulette
+  'bj_first_ace',          // 13 — bj
+  'r_sweet_sixteen',       // 14 — roulette
+  'players_choice_uth',    // 15 — choice (Hold'em Pick — all-Hold'em trio)
+  'r_group_1_18',          // 16 — roulette
+  'uth_sixth_card',        // 17 — uth (Sixth Sense)                              ┐ non-roulette pair (uth→bj)
+  'bj_two_hands',          // 18 — bj  (Double Vision)                            ┘
+  'r_group_even',          // 19 — roulette (Even Money)
+  'pocket_change',         // 20 — cross (Pocket Change)
+  'r_double_all',          // 21 — roulette
+  'uth_time_travel',       // 22 — uth
+  'r_group_19_36',         // 23 — roulette
+  'easy_dealer',           // 24 — bj
+  'r_group_red',           // 25 — roulette (Seeing Red)
+  'players_choice',        // 26 — choice (mixed trio — one mod from each game)   ┐ non-roulette pair (choice→cross)
+  'peek',                  // 27 — cross (Dealer Peek)                            ┘
+  'r_hot_zero',            // 28 — roulette
+  'uth_pocket_aces',       // 29 — uth
+  'r_group_odd',           // 30 — roulette (Odd One Out)
+  'bj_wild_split',         // 31 — bj
+  'r_respin',              // 32 — roulette
+  'players_choice_payout', // 33 — choice (Big Spender — payout trio, one mod from each game)
+  'r_group_black',         // 34 — roulette (In the Black)
+  'uth_suited_conn',       // 35 — uth (Suited Up)                                ┐ non-roulette pair (uth→bj)
+  'bj_safe_hit',           // 36 — bj  (Soft Landing)                             ┘
+  'r_color_lock',          // 37 — roulette
+  'players_choice_wild',   // 38 — choice (Wild Card — high-variance trio, one mod from each game)
 ];
 
 /**
@@ -179,7 +212,17 @@ const DAILY_MODIFIERS = {
   20260614: 'ladder_day',          // Day 41 — launch of The Ladder (free 250 hi-lo climb after roulette)
   20260615: 'r_group_25_36',       // Day 42 — frozen at its pre-reorder cycle value before the v1.51 CYCLE_ORDER reshuffle
   20260616: 'r_double_ball',       // Day 43
-  20260617: 'pocket_change',       // Day 44 — launch of Pocket Change (10-chip stack, score ×100)
+  // ── Jun 17-24 single-game showcase (Days 44-51): the 4 roulette force-groups + 4 new single-game
+  //    mods, interleaved roulette / new so no two roulette days touch. Pocket Change is unpinned and
+  //    now debuts via the cycle (Day 52+). ⚠ Redeploy the engine bundle before each new mod's day.
+  20260617: 'uth_sixth_card',        // Day 44 — Sixth Sense (UTH: private 6th community card)
+  20260618: 'r_group_even',          // Day 45 —
+  20260619: 'bj_safe_hit',         // Day 45 — Soft Landing (BJ: first hit can't bust)
+  20260620: 'r_group_odd',         // Day 46 — Odd One Out (roulette force-group)
+  20260621: 'uth_suited_conn',     // Day 47 — Suited Up (UTH: forced suited connectors)
+  20260622: 'r_group_red',         // Day 48 — Seeing Red (roulette force-group)
+  20260623: 'bj_two_hands',        // Day 49 — Double Vision (BJ: pick one of two hands)
+  20260624: 'r_group_black',       // Day 50 — In the Black (roulette force-group)
 };
 
 /**

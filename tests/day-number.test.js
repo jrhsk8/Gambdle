@@ -51,14 +51,14 @@ describe('seedToDayNum — known values', () => {
 // ─── CYCLE_ORDER wrap ─────────────────────────────────────────────────────────
 
 describe('CYCLE_ORDER cycle wrap', () => {
-  it('has exactly 28 entries', () => {
-    assertEqual(CYCLE_ORDER.length, 28);
+  it('has exactly 38 entries', () => {
+    assertEqual(CYCLE_ORDER.length, 38);
   });
 
-  it('Day 1 maps to cycle index 0; Day 29 is the first wrap back to index 0', () => {
+  it('Day 1 maps to cycle index 0; Day 39 is the first wrap back to index 0', () => {
     assertEqual((_seedToDayNum(20260505) - 1) % CYCLE_ORDER.length, 0,  'Day 1 → index 0');
-    assertEqual((_seedToDayNum(20260601) - 1) % CYCLE_ORDER.length, 27, 'Day 28 → index 27 (last slot)');
-    assertEqual((_seedToDayNum(20260602) - 1) % CYCLE_ORDER.length, 0,  'Day 29 → index 0 (first wrap)');
+    assertEqual((_seedToDayNum(20260611) - 1) % CYCLE_ORDER.length, 37, 'Day 38 → index 37 (last slot)');
+    assertEqual((_seedToDayNum(20260612) - 1) % CYCLE_ORDER.length, 0,  'Day 39 → index 0 (first wrap)');
   });
 
   it('Day 24 maps to cycle index 23', () => {

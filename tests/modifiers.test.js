@@ -63,7 +63,9 @@ describe('CYCLE_ORDER alternation', () => {
       assert(!(isR(a) && isR(b)), `roulette days adjacent at slot ${i + 1}: ${a} & ${b}`);
     }
   });
-  it('at most two adjacent non-roulette pairs, each a DIFFERENT gameplay type', () => {
+  it('adjacent non-roulette pairs are each a DIFFERENT gameplay type', () => {
+    const N = CYCLE_ORDER.filter(k => !isR(k)).length;
+    const R = CYCLE_ORDER.length - N;
     let pairs = 0;
     for (let i = 0; i < CYCLE_ORDER.length; i++) {
       const a = CYCLE_ORDER[i], b = CYCLE_ORDER[(i + 1) % CYCLE_ORDER.length];
@@ -73,7 +75,10 @@ describe('CYCLE_ORDER alternation', () => {
           `same-type non-roulette days adjacent at slot ${i + 1}: ${a} & ${b}`);
       }
     }
-    assert(pairs <= 2, `expected at most 2 non-roulette adjacencies, got ${pairs}`);
+    // With no two roulette days adjacent (prior test) and R < N, every roulette day is separated
+    // by >=1 non-roulette day, so non-roulette adjacencies are exactly N - R. The Player's Choice
+    // family raised N well past R, so this derived bound replaces the old fixed cap of 2.
+    assert(pairs === N - R, `expected exactly ${N - R} non-roulette adjacencies, got ${pairs}`);
   });
 });
 
@@ -89,12 +94,133 @@ describe('Pocket Change — modifier config', () => {
     assertEqual(m.min_chips, 100, 'min_chips (drives borrow=1 + bust-below-1)');
     assert(!/—/.test(m.title + m.desc + m.devNote), 'no em dashes in player-facing copy');
   });
-  it('is in the cycle and launches Jun 17 (Day 44)', () => {
-    assert(CYCLE_ORDER.includes('pocket_change'), 'pocket_change not in CYCLE_ORDER');
-    assertEqual(DAILY_MODIFIERS[20260617], 'pocket_change', 'Jun 17 launch pin');
+  it('stays in the cycle but is unpinned from Jun 17 (showcase bumped it to a cycle debut)', () => {
+    assert(CYCLE_ORDER.includes('pocket_change'), 'pocket_change still in CYCLE_ORDER for its cycle debut');
+    assertEqual(DAILY_MODIFIERS[20260617], 'uth_sixth_card', 'Jun 17 now launches Sixth Sense, not Pocket Change');
   });
   it('Jun 15 (Day 42) frozen at its pre-reorder cycle value before the reshuffle', () => {
     assertEqual(DAILY_MODIFIERS[20260615], 'r_group_25_36', 'Day 42 freeze pin');
+  });
+});
+
+// ─── New single-game mods + retirements — config ──────────────────────────────
+// Sixth Sense / Suited Up (UTH) + Double Vision / Soft Landing (BJ) are appended (cycle 37→38);
+// Raise the Roof, Loose Blind, and Comeback are RETIRED (removed from CYCLE_ORDER, presets kept for
+// Archive replay + dev menu). The Jun 17-24 showcase pins all 8 single-game mods to consecutive days.
+
+describe('new single-game mods + retirements — config', () => {
+  const NEW = [
+    ['uth_sixth_card',  'Sixth Sense',   'uth', 'uth_sixth_card'],
+    ['uth_suited_conn', 'Suited Up',     'uth', 'uth_suited_conn'],
+    ['bj_two_hands',    'Double Vision', 'bj',  'bj_two_hands'],
+    ['bj_safe_hit',     'Soft Landing',  'bj',  'bj_safe_hit'],
+  ];
+  for (const [key, title, type, flag] of NEW) {
+    it(`${key}: preset fields + in cycle + no em dashes`, () => {
+      const m = PRESET_MODIFIERS[key];
+      assert(m, `${key} preset exists`);
+      assertEqual(m.type, type, 'type');
+      assertEqual(m.title, title, 'title');
+      assertEqual(m[flag], true, `${flag} flag set`);
+      assert(CYCLE_ORDER.includes(key), `${key} in CYCLE_ORDER`);
+      assert(!/—/.test(m.title + m.desc + m.devNote), 'no em dashes in player-facing copy');
+    });
+  }
+  it('cycle grew to 38 with 17 roulette / 21 non-roulette', () => {
+    assertEqual(CYCLE_ORDER.length, 38, 'cycle length');
+    const r = CYCLE_ORDER.filter(k => PRESET_MODIFIERS[k].type === 'roulette').length;
+    assertEqual(r, 17, 'roulette count');
+    assertEqual(CYCLE_ORDER.length - r, 21, 'non-roulette count');
+  });
+  it('retires Raise the Roof, Loose Blind, and Comeback from the cycle but keeps their presets', () => {
+    for (const k of ['uth_double_play', 'uth_blind_extended', 'comeback']) {
+      assert(!CYCLE_ORDER.includes(k), `${k} removed from CYCLE_ORDER`);
+      assert(PRESET_MODIFIERS[k], `${k} preset retained for Archive replay + dev menu`);
+    }
+  });
+  it('pins the 8-mod showcase across Jun 17-24 (new then roulette)', () => {
+    assertEqual(DAILY_MODIFIERS[20260617], 'uth_sixth_card',  'Jun 17 Day 44');
+    assertEqual(DAILY_MODIFIERS[20260618], 'r_group_even',    'Jun 18 Day 45');
+    assertEqual(DAILY_MODIFIERS[20260619], 'bj_safe_hit',     'Jun 19 Day 46');
+    assertEqual(DAILY_MODIFIERS[20260620], 'r_group_odd',     'Jun 20 Day 47');
+    assertEqual(DAILY_MODIFIERS[20260621], 'uth_suited_conn', 'Jun 21 Day 48');
+    assertEqual(DAILY_MODIFIERS[20260622], 'r_group_red',     'Jun 22 Day 49');
+    assertEqual(DAILY_MODIFIERS[20260623], 'bj_two_hands',    'Jun 23 Day 50');
+    assertEqual(DAILY_MODIFIERS[20260624], 'r_group_black',   'Jun 24 Day 51');
+  });
+});
+
+// ─── Parity/color force-group mods — config ───────────────────────────────────
+// Even Money / Odd One Out / Seeing Red / In the Black give every outside group button (besides the
+// 2:1 columns) a force-group day. Appended to the rotation (33 → 37); the alternation tests above
+// already prove the reshuffle keeps roulette days non-adjacent.
+
+describe('parity/color force-group mods — config', () => {
+  const CASES = [
+    ['r_group_even',  'Even Money',   'even'],
+    ['r_group_odd',   'Odd One Out',  'odd'],
+    ['r_group_red',   'Seeing Red',   'red'],
+    ['r_group_black', 'In the Black', 'black'],
+  ];
+  for (const [key, title, grp] of CASES) {
+    it(`${key}: preset fields + group def + in cycle + no em dashes`, () => {
+      const m = PRESET_MODIFIERS[key];
+      assert(m, `${key} preset exists`);
+      assertEqual(m.type, 'roulette', 'type');
+      assertEqual(m.title, title, 'title');
+      assertEqual(m.r_force_group, grp, 'r_force_group');
+      assertEqual(m.r_max_bets, 3, 'r_max_bets');
+      assert(R_GROUP_INFO[grp], `R_GROUP_INFO['${grp}'] defined`);
+      assert(CYCLE_ORDER.includes(key), `${key} in CYCLE_ORDER`);
+      assert(!/—/.test(m.title + m.desc + m.devNote), 'no em dashes in player-facing copy');
+    });
+  }
+});
+
+// ─── Player's Choice variants — modifier config ───────────────────────────────
+
+describe("Player's Choice variants", () => {
+  const VARIANTS = ['players_choice', 'players_choice_payout', 'players_choice_wild',
+                    'players_choice_bj', 'players_choice_uth', 'players_choice_roul'];
+  const NEW = VARIANTS.filter(k => k !== 'players_choice');
+
+  it('every variant is a choice preset offering 3 distinct, non-choice options', () => {
+    for (const k of VARIANTS) {
+      const m = PRESET_MODIFIERS[k];
+      assert(m, `${k} preset missing`);
+      assertEqual(m.type, 'choice', `${k}.type`);
+      assert(Array.isArray(m.choices) && m.choices.length === 3, `${k} must offer 3 choices`);
+      assertEqual(new Set(m.choices).size, 3, `${k} choices must be distinct`);
+      for (const c of m.choices) {
+        assert(PRESET_MODIFIERS[c], `${k} offers unknown modifier "${c}"`);
+        assert(!PRESET_MODIFIERS[c].choices, `${k} choice "${c}" cannot itself be a Player's Choice`);
+      }
+      assert(!/—/.test(m.title + m.desc + m.devNote), `${k}: no em dashes in player-facing copy`);
+    }
+  });
+
+  it('single-game variants offer three options of one game type', () => {
+    const cases = { players_choice_bj: 'bj', players_choice_uth: 'uth', players_choice_roul: 'roulette' };
+    for (const [k, type] of Object.entries(cases)) {
+      const types = PRESET_MODIFIERS[k].choices.map(c => PRESET_MODIFIERS[c].type);
+      assert(types.every(t => t === type), `${k} options should all be ${type}, got ${types.join(',')}`);
+    }
+  });
+
+  it('mixed variants offer one option from each game (bj, uth, roulette)', () => {
+    for (const k of ['players_choice', 'players_choice_payout', 'players_choice_wild']) {
+      const types = PRESET_MODIFIERS[k].choices.map(c => PRESET_MODIFIERS[c].type).sort();
+      assertEqual(types.join(','), 'bj,roulette,uth', `${k} should span bj/uth/roulette`);
+    }
+  });
+
+  it('all variants are in the cycle, with no two choice days adjacent', () => {
+    for (const k of NEW) assert(CYCLE_ORDER.includes(k), `${k} not in CYCLE_ORDER`);
+    for (let i = 0; i < CYCLE_ORDER.length; i++) {
+      const a = CYCLE_ORDER[i], b = CYCLE_ORDER[(i + 1) % CYCLE_ORDER.length];
+      assert(!(PRESET_MODIFIERS[a].type === 'choice' && PRESET_MODIFIERS[b].type === 'choice'),
+        `two Player's Choice days adjacent at slot ${i + 1}: ${a} & ${b}`);
+    }
   });
 });
 
@@ -713,6 +839,26 @@ describe('r_force_group — group boundary integrity', () => {
     assert(!R_GROUP_INFO['19_36'].nums.has(18));
     assert(!R_GROUP_INFO['19_36'].nums.has(0));
     assertEqual(R_GROUP_INFO['19_36'].nums.size, 18);
+  });
+  it('even has 18 pockets incl 2 & 36, excludes odd 1 and 0', () => {
+    assert(R_GROUP_INFO['even'].nums.has(2) && R_GROUP_INFO['even'].nums.has(36));
+    assert(!R_GROUP_INFO['even'].nums.has(1) && !R_GROUP_INFO['even'].nums.has(0));
+    assertEqual(R_GROUP_INFO['even'].nums.size, 18);
+  });
+  it('odd has 18 pockets incl 1 & 35, excludes even 2 and 0', () => {
+    assert(R_GROUP_INFO['odd'].nums.has(1) && R_GROUP_INFO['odd'].nums.has(35));
+    assert(!R_GROUP_INFO['odd'].nums.has(2) && !R_GROUP_INFO['odd'].nums.has(0));
+    assertEqual(R_GROUP_INFO['odd'].nums.size, 18);
+  });
+  it('red has 18 pockets incl 1 & 3, excludes black 2 and 0', () => {
+    assert(R_GROUP_INFO['red'].nums.has(1) && R_GROUP_INFO['red'].nums.has(3));
+    assert(!R_GROUP_INFO['red'].nums.has(2) && !R_GROUP_INFO['red'].nums.has(0));
+    assertEqual(R_GROUP_INFO['red'].nums.size, 18);
+  });
+  it('black has 18 pockets incl 2 & 4, excludes red 1 and 0', () => {
+    assert(R_GROUP_INFO['black'].nums.has(2) && R_GROUP_INFO['black'].nums.has(4));
+    assert(!R_GROUP_INFO['black'].nums.has(1) && !R_GROUP_INFO['black'].nums.has(0));
+    assertEqual(R_GROUP_INFO['black'].nums.size, 18);
   });
   it('every group has a bannedIdx in valid R_BETS range', () => {
     for (const [name, g] of Object.entries(R_GROUP_INFO)) {

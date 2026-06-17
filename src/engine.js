@@ -40,18 +40,15 @@ function _engMod(modifiers){
   return key => (modifiers && modifiers[key] !== undefined ? modifiers[key] : null);
 }
 
-// Running-balance win multiplier, mirroring winMult(): all_in_or_skip always doubles wins;
-// comeback doubles them only while the stack is under 1000. `chips` is the live balance at the
-// moment of resolution (after the stake was debited), exactly as the in-page winMult() reads S.chips.
-function _engWinMult(mod, chips){
-  if(mod('all_in_or_skip')) return 2;
-  if(mod('comeback') && chips < 1000) return 2;
-  return 1;
-}
+// The running-balance win multiplier (winMultFor) and every per-game credit-from-result mapping
+// (bjAward/bjAwardSplit, uthAward, rouletteAward, ladderAward) are shared with the live games — they
+// live in core.js / the game files and run here over the headless accountant below. Pinning them in
+// one place is the whole point: live and replay can no longer drift.
 
-// Chip accountant mirroring credit()/debit(): Math.round on every delta, debit floors at 0.
-// Tracks the LIVE balance (used only for winMult + legality); the returned score is recomputed
+// Headless Accountant adapter mirroring credit()/debit(): Math.round on every delta, debit floors at
+// 0. Tracks the LIVE balance (used only for winMult + legality); the returned score is recomputed
 // from the per-slot net sums, matching recalcChips() exactly.
+/** @returns {Accountant} */
 function _engAcct(){
   return {
     chips: START_CHIPS,
@@ -61,37 +58,71 @@ function _engAcct(){
 }
 
 // ─── BLACKJACK ────────────────────────────────────────────────────────────────
-// Stake debited at deal; on a win/blackjack the shell returns stake+profit, on a push the stake,
-// on a loss nothing — exactly bjResolve's credits, derived from the pure resolver's result.
-function _engBJCredit(acct, result, bet, delta){
-  if(result === 'blackjack' || result === 'win') acct.credit(bet + delta);
-  else if(result === 'push') acct.credit(bet);
+// Soft Landing replay twin of _bjSafeHitSwap (bj.js): on a hand's first hit (length 2) swap the next
+// shoe card for the nearest later card that keeps the total ≤21, if it would otherwise bust.
+function _replaySafeHitSwap(shoe, idx, hand, mod){
+  if(!mod('bj_safe_hit') || hand.length !== 2) return;
+  if(hVal(hand.concat(shoe[idx])) <= 21) return;
+  const si = shoe.findIndex((c, k) => k > idx && hVal(hand.concat(c)) <= 21);
+  if(si !== -1){ const t = shoe[idx]; shoe[idx] = shoe[si]; shoe[si] = t; }
 }
 
 // Replays one Blackjack hand starting at tx[i] (a 'deal' or 'skip'). Returns the cursor past it.
-function _replayBJHand(tx, i, deal, mod, acct, addNet, st){
+function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   const dealEv = tx[i];
   if(dealEv.a === 'skip'){ addNet('bj', 0); st.hand++; return i + 1; }
   if(dealEv.a !== 'deal') _replayFail('bj_no_deal');
   const bet0 = dealEv.bet | 0;
   if(bet0 <= 0) _replayFail('bj_bad_bet');
-  if(bet0 > acct.chips) _replayFail('bj_overbet');
+  if(bet0 > maxFor('bj', acct.chips)) _replayFail('bj_overbet');
   acct.debit(bet0);
 
-  const shoe = deal.bjShoe;
-  // bj_first_ace: if the next card isn't an Ace, swap the nearest later Ace into its slot (mutates
-  // this Deal copy in place, exactly like bjDeal mutates DEAL.bjShoe).
-  if(mod('bj_first_ace') && shoe[st.idx] && shoe[st.idx].r !== 'A'){
+  // Card source + cursor: the shared shoe at st.idx by default, or a fresh isolated deck under Double
+  // Vision (bj_two_hands) — which never touches deal.bjShoe / st.idx, mirroring bjDeal's per-hand deck.
+  // draw() is the single sequential accessor both paths use (twin of bj.js _bjDraw).
+  const twoHands = mod('bj_two_hands');
+  let shoe = deal.bjShoe;
+  if(twoHands){
+    shoe = shuffle(buildDeck(), mkRng(seed + (st.hand + 1) * 97));
+  } else if(mod('bj_first_ace') && shoe[st.idx] && shoe[st.idx].r !== 'A'){
+    // bj_first_ace: if the next card isn't an Ace, swap the nearest later Ace into its slot (mutates
+    // this Deal copy in place, exactly like bjDeal mutates DEAL.bjShoe).
     const ai = shoe.findIndex((c, k) => k > st.idx && c.r === 'A');
     if(ai !== -1){ const t = shoe[st.idx]; shoe[st.idx] = shoe[ai]; shoe[ai] = t; }
   }
-  const player = [shoe[st.idx++], shoe[st.idx++]];
-  const dealer = [shoe[st.idx++], shoe[st.idx++]];
+  const cur = { i: 0 };                                   // local cursor, used only under twoHands
+  const draw = twoHands ? (() => shoe[cur.i++]) : (() => shoe[st.idx++]);
 
-  // Gather this hand's action events (consecutive bj events that aren't a new deal/skip).
-  let j = i + 1;
+  let player, dealer, j;
+  if(twoHands){
+    // Deal two candidate hands + dealer from the fresh deck, then keep one per the recorded 'pick'.
+    const A = [draw(), draw()], B = [draw(), draw()];
+    dealer = [draw(), draw()];
+    const nat = isBJ(A) ? 0 : isBJ(B) ? 1 : -1;
+    const ev1 = tx[i + 1];
+    const hasPick = !!(ev1 && ev1.g === 'bj' && ev1.a === 'pick');
+    if(nat !== -1){
+      // A candidate natural is auto-kept live (no pick logged); a stray pick is forged.
+      if(hasPick) _replayFail('bj_pick_on_natural');
+      player = nat === 0 ? A : B; j = i + 1;
+    } else {
+      if(!hasPick) _replayFail('bj_no_pick');
+      if(ev1.s !== 0 && ev1.s !== 1) _replayFail('bj_bad_pick');
+      player = ev1.s === 0 ? A : B; j = i + 2;            // consume the deal + the pick
+    }
+  } else {
+    player = [draw(), draw()];
+    dealer = [draw(), draw()];
+    j = i + 1;
+  }
+
+  // Gather this hand's action events (consecutive bj events that aren't a new deal/skip). A 'pick'
+  // here is illegal — it's only valid as the single consumed event above (mod on, no natural).
   const actions = [];
-  while(j < tx.length && tx[j].g === 'bj' && tx[j].a !== 'deal' && tx[j].a !== 'skip'){ actions.push(tx[j]); j++; }
+  while(j < tx.length && tx[j].g === 'bj' && tx[j].a !== 'deal' && tx[j].a !== 'skip'){
+    if(tx[j].a === 'pick') _replayFail('bj_bad_pick');
+    actions.push(tx[j]); j++;
+  }
 
   const stand17 = mod('bj_dealer_stand') || 17;
   const bjMult = mod('bj_payout') || 1.5;
@@ -102,16 +133,16 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st){
     if(actions.length) _replayFail('bj_act_after_natural');
     // Dealer blackjack settles on the two up-cards (no draw). A player blackjack with a non-BJ
     // dealer STILL draws the dealer to 17+ (bjResolve does), consuming the shoe — pin that here.
-    if(!dBJ0){ let dv = hVal(dealer); while(dv < stand17){ dealer.push(shoe[st.idx++]); dv = hVal(dealer); } }
-    const wm = _engWinMult(mod, acct.chips);
+    if(!dBJ0){ let dv = hVal(dealer); while(dv < stand17){ dealer.push(draw()); dv = hVal(dealer); } }
+    const wm = winMultFor(mod, acct.chips);
     const res = resolveBJHand({ pv: hVal(player), pBJ, dv: hVal(dealer), dBJ: isBJ(dealer), bet: bet0, wm, bjMult, ddm: 1 });
-    _engBJCredit(acct, res.result, bet0, res.delta);
+    bjAward(acct, res.result, bet0, res.delta);
     addNet('bj', res.delta); st.hand++;
     return j;
   }
 
   if(actions.some(ev => ev.a === 'split')){
-    return _replayBJSplit(tx, j, deal, mod, acct, addNet, st, { player, dealer, bet0, actions, stand17 });
+    return _replayBJSplit(tx, j, deal, mod, acct, addNet, st, { player, dealer, bet0, actions, stand17 }, shoe, draw);
   }
 
   // Straight (no-split) play. Once the hand has definitively ended (a stand, a double, or a hit that
@@ -124,17 +155,17 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st){
   let bet = bet0, doubled = false, ended = false;
   for(const ev of actions){
     if(ended) continue;
-    if(ev.a === 'hit'){ player.push(shoe[st.idx++]); if(hVal(player) >= 21) ended = true; }
-    else if(ev.a === 'double'){ if(acct.chips < bet) _replayFail('bj_double_nofund'); acct.debit(bet); bet *= 2; doubled = true; player.push(shoe[st.idx++]); ended = true; }
+    if(ev.a === 'hit'){ _replaySafeHitSwap(shoe, st.idx, player, mod); player.push(draw()); if(hVal(player) >= 21) ended = true; }
+    else if(ev.a === 'double'){ if(acct.chips < bet) _replayFail('bj_double_nofund'); acct.debit(bet); bet *= 2; doubled = true; player.push(draw()); ended = true; }
     else if(ev.a === 'stand'){ ended = true; }
     else _replayFail('bj_bad_action');
   }
   let dv = hVal(dealer);
-  while(dv < stand17){ dealer.push(shoe[st.idx++]); dv = hVal(dealer); }
-  const wm = _engWinMult(mod, acct.chips);
+  while(dv < stand17){ dealer.push(draw()); dv = hVal(dealer); }
+  const wm = winMultFor(mod, acct.chips);
   const ddm = (mod('bj_double_bonus') && doubled) ? 2 : 1;
   const res = resolveBJHand({ pv: hVal(player), pBJ: false, dv, dBJ: isBJ(dealer), bet, wm, bjMult, ddm });
-  _engBJCredit(acct, res.result, bet, res.delta);
+  bjAward(acct, res.result, bet, res.delta);
   addNet('bj', res.delta); st.hand++;
   return j;
 }
@@ -142,13 +173,15 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st){
 // Replays a split hand. `j` is the cursor at the first action; init carries the dealt cards + the
 // already-collected action list (which begins with the first 'split'). Mirrors the bjSplit /
 // bjAdvanceSplit / bjCheckSplitHand deck-consumption state machine, driven by the recorded actions.
-function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init){
-  const shoe = deal.bjShoe;
+// `shoe` + `draw` are threaded from _replayBJHand so a Double Vision split draws from the same fresh
+// per-hand deck (twoHands ⇒ draw() advances a local cursor, not st.idx). _replaySafeHitSwap still reads
+// st.idx, which is correct: safe_hit and two_hands never co-occur, so under two_hands it's a no-op.
+function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw){
   const { player, dealer, bet0, actions, stand17 } = init;
   // First split: stake a second hand, deal one card to sub-hand 0, sub-hand 1 waits for its 2nd card.
   if(acct.chips < bet0) _replayFail('bj_split_nofund');
   acct.debit(bet0);
-  const hands = [[player[0], shoe[st.idx++]], [player[1]]];
+  const hands = [[player[0], draw()], [player[1]]];
   const bets = [bet0, bet0];
   const doubled = [false, false];
   const done = [false, false];
@@ -158,7 +191,7 @@ function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init){
   // card and auto-resolving any sub-hand that's already 21+ (bjCheckSplitHand auto-advances those).
   const settleToActionable = () => {
     while(true){
-      if(hands[active].length === 1) hands[active].push(shoe[st.idx++]);
+      if(hands[active].length === 1) hands[active].push(draw());
       if(hVal(hands[active]) < 21) return false;   // player must act
       done[active] = true;
       const next = done.indexOf(false);
@@ -188,18 +221,19 @@ function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init){
       if(acct.chips < bet) _replayFail('bj_resplit_nofund');
       acct.debit(bet);
       const [c0, c1] = hands[active];
-      hands.splice(active, 1, [c0, shoe[st.idx++]], [c1]);
+      hands.splice(active, 1, [c0, draw()], [c1]);
       bets.splice(active, 1, bet, bet);
       doubled.splice(active, 1, false, false);
       done.splice(active, 1, false, false);
       allDone = settleToActionable();
     } else if(ev.a === 'hit'){
-      hands[active].push(shoe[st.idx++]);
+      _replaySafeHitSwap(shoe, st.idx, hands[active], mod);
+      hands[active].push(draw());
       if(hVal(hands[active]) >= 21) allDone = advance();
     } else if(ev.a === 'double'){
       if(acct.chips < bets[active]) _replayFail('bj_split_double_nofund');
       acct.debit(bets[active]); bets[active] *= 2; doubled[active] = true;
-      hands[active].push(shoe[st.idx++]);
+      hands[active].push(draw());
       allDone = advance();
     } else if(ev.a === 'stand'){
       allDone = advance();
@@ -208,17 +242,16 @@ function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init){
 
   // Resolve: draw the dealer once, settle every sub-hand (resolveBJSplitHand has no blackjack branch).
   let dv = hVal(dealer);
-  while(dv < stand17){ dealer.push(shoe[st.idx++]); dv = hVal(dealer); }
+  while(dv < stand17){ dealer.push(draw()); dv = hVal(dealer); }
   const dvFinal = hVal(dealer);
-  const wm = _engWinMult(mod, acct.chips);
+  const wm = winMultFor(mod, acct.chips);
   const spm = mod('bj_wild_split') ? 2 : 1;
   let total = 0;
   for(let h = 0; h < hands.length; h++){
     const bet = bets[h];
     const ddm = (mod('bj_double_bonus') && doubled[h]) ? 2 : 1;
     const res = resolveBJSplitHand({ pv: hVal(hands[h]), dv: dvFinal, bet, wm, ddm, spm });
-    if(res.result === 'win') acct.credit(bet + res.delta);
-    else if(res.result === 'push') acct.credit(bet);
+    bjAwardSplit(acct, res.result, bet, res.delta);
     total += res.delta;
   }
   addNet('bj', total); st.hand++;
@@ -233,21 +266,27 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
   if(dealEv.a !== 'deal') _replayFail('uth_no_deal');
   const ante = dealEv.ante | 0;
   if(ante <= 0) _replayFail('uth_bad_ante');
-  if(ante > acct.chips) _replayFail('uth_overbet');
+  // Enforce the SAME cap the live bet UI applies — maxFor('uth') = ⌊chips·2/3⌋ — not merely "fits the
+  // stack". Without this, a forged ante between ⌊2/3⌋ and the full stack would replay as legal.
+  if(ante > maxFor('uth', acct.chips)) _replayFail('uth_overbet');
   acct.debit(ante);
 
   // Deal hole / dealer / community, mirroring uthDeal (incl. uth_pocket_aces and uth_three_hole).
-  let hole, dealer, comm;
+  let hole, dealer, comm, priv = [];
   if(mod('uth_pocket_aces')){
     const hr = mkRng(seed + (st.hand + 1) * 97);
     const d = shuffle(buildDeck(), hr);
     const aces = [], rest = [];
     for(const c of d) (c.r === 'A' && aces.length < 2 ? aces : rest).push(c);
     hole = aces; dealer = [rest[0], rest[1]]; comm = rest.slice(2, 7);
+  } else if(mod('uth_suited_conn')){
+    // Suited Up: shared deal twin of uthDeal — same per-hand seed feeds suitedConnectorDeal (core.js).
+    ({ hole, dealer, comm } = suitedConnectorDeal(mkRng(seed + (st.hand + 1) * 97)));
   } else {
     const dk = deal.uthDeck, off = st.hand * 9;
     hole = [dk[off], dk[off + 1]];
     if(mod('uth_three_hole')) hole.push(dk[27 + st.hand]); // Triple Threat's 3rd hole card from the tail
+    if(mod('uth_sixth_card')) priv = [dk[27 + st.hand]];   // Sixth Sense's private community card (player pool only)
     dealer = [dk[off + 2], dk[off + 3]];
     comm = [dk[off + 4], dk[off + 5], dk[off + 6], dk[off + 7], dk[off + 8]];
   }
@@ -284,21 +323,15 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
     j++;
   }
 
-  // Showdown: best 5 of the 7 (8 under Triple Threat) for each side, then the pure settlement.
-  const pb = bestOf7([...hole, ...comm]);
+  // Showdown: best 5 of the 7 (8 under Triple Threat / Sixth Sense) for the player, 7 for the dealer.
+  const pb = bestOf7([...hole, ...comm, ...priv]);
   const db = bestOf7([...dealer, ...comm]);
-  const wm = _engWinMult(mod, acct.chips);
+  const wm = winMultFor(mod, acct.chips);
   const res = resolveUTH(pb, db, antePortion, blindPortion, play, {
     wm, doublePlay: !!mod('uth_double_play'), hardQualify: !!mod('uth_hard_qualify'),
     blindExtended: mod('uth_blind_extended'), blindBoost: mod('uth_blind_boost') || 1,
   });
-  if(res.result === 'win'){
-    acct.credit(play + res.playDelta);
-    if(res.dealerQualifies) acct.credit(antePortion + res.anteDelta); else acct.credit(antePortion);
-    acct.credit(blindPortion + res.blindDelta);
-  } else if(res.result === 'push'){
-    acct.credit(antePortion + blindPortion + play);
-  }
+  uthAward(acct, res, antePortion, blindPortion, play);
   addNet('uth', res.delta); st.hand++;
   return j;
 }
@@ -337,14 +370,14 @@ function _replayRoulette(tx, i, deal, mod, acct, addNet, spinWords){
 
   const bets = (spinEv.bets || []).map(([pick, bet]) => ({ pick, bet }));
   const stake = bets.reduce((s, b) => s + b.bet, 0);
-  if(stake > acct.chips) _replayFail('r_overbet');
+  if(stake > maxFor('roulette', acct.chips)) _replayFail('r_overbet');
   acct.debit(stake);
 
   const sp = spinFromRandom(words, spinModsFor(mod, bets, deal.rSpinOverride));
   const em = evalBetModsFor(mod, sp.n2);
-  const wm = _engWinMult(mod, acct.chips);
+  const wm = winMultFor(mod, acct.chips);
   const { delta } = resolveRoulette(bets, sp.n, { ...em, wm });
-  acct.credit(stake + delta);
+  rouletteAward(acct, stake, delta);
   addNet('r', delta);
   return j;
 }
@@ -359,7 +392,7 @@ function _replayLadder(tx, i, deal, mod, acct, addNet){
   const free = mod('ladder_free');
   let bet, ladFree = false;
   if(free){ bet = free; ladFree = true; }
-  else { bet = stakeEv.v | 0; if(bet < 25 || bet > ladderMaxStake(acct.chips)) _replayFail('lad_bad_stake'); }
+  else { bet = stakeEv.v | 0; if(bet < 25 || bet > maxFor('ladder', acct.chips)) _replayFail('lad_bad_stake'); }
   j++;
 
   let ladIdx = 0, ladRung = 0, outcome = null;
@@ -379,7 +412,7 @@ function _replayLadder(tx, i, deal, mod, acct, addNet){
   }
   if(!outcome){ return j; } // abandoned run (never reached in a submitted Run) — nothing to settle
   const { delta } = resolveLadder(outcome, bet, ladRung, ladFree);
-  if(delta > 0) acct.credit(delta); else if(delta < 0) acct.debit(-delta);
+  ladderAward(acct, delta);
   addNet('lad', delta);
   return j;
 }
@@ -415,7 +448,7 @@ function replayRun(seed, modifiers, transcript, opts = {}){
       }
       i++; continue;
     }
-    if(g === 'bj') i = _replayBJHand(tx, i, deal, mod, acct, addNet, bjSt);
+    if(g === 'bj') i = _replayBJHand(tx, i, deal, mod, acct, addNet, bjSt, seed);
     else if(g === 'uth') i = _replayUTHHand(tx, i, deal, mod, acct, addNet, uthSt, seed);
     else if(g === 'pk') i = _replayPokerHand(tx, i, addNet, pkSt);
     else if(g === 'r') i = _replayRoulette(tx, i, deal, mod, acct, addNet, spinWords);
@@ -438,7 +471,7 @@ function replayRun(seed, modifiers, transcript, opts = {}){
 // `mods` is the resolved preset; pass mods.wm to override the win multiplier (e.g. under comeback).
 function auditRound(record, deal, mods = {}){
   const mod = _engMod(mods);
-  const wm = (mods.wm != null) ? mods.wm : _engWinMult(mod, Infinity);
+  const wm = (mods.wm != null) ? mods.wm : winMultFor(mod, Infinity);
   if(record.slot === 'bj'){
     if(record.result === 'split') return record.delta; // per-sub-hand bets not recorded — see note above
     const player = record.player || [], dealer = record.dealer || [];
@@ -478,12 +511,10 @@ function auditRound(record, deal, mods = {}){
 function replayDayMods(calSeed, pcPick){
   const y = Math.floor(calSeed / 10000), m = Math.floor((calSeed % 10000) / 100) - 1, d = calSeed % 100;
   const dayNum = Math.floor((Date.UTC(y, m, d) - START_DATE_UTC) / 86400000) + 1;
-  const cycled = CYCLE_ORDER[((dayNum - 1) % CYCLE_ORDER.length + CYCLE_ORDER.length) % CYCLE_ORDER.length];
-  const ref = DAILY_MODIFIERS[calSeed] || cycled;
-  if(!ref) return null;
-  let mod = typeof ref === 'string' ? PRESET_MODIFIERS[ref] : ref;
-  if(mod && mod.choices && pcPick) mod = PRESET_MODIFIERS[pcPick] || mod;
-  return mod || null;
+  // The precedence + cycle composition lives in resolveDayMod (core.js), shared with the live
+  // _activeMod so the two paths can't drift; replay never has a forced mod. Player's Choice is applied
+  // here, exactly as getMod does live.
+  return applyPlayersChoice(resolveDayMod(calSeed, dayNum, null), pcPick);
 }
 
 // The RNG seed for a calendar seed: DAILY_SEED_OVERRIDES swaps the card draws for some days (mods

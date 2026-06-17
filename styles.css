@@ -291,6 +291,17 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
   border-top: 1px solid var(--shadow); border-bottom: 1px solid var(--highlight);
 }
 
+/* ── Even bands: align content using the dividers ────────────
+   A content band between two dividers fills an equal share of the panel (flex:1) and centers its
+   content vertically (equal space above/below). With the panel's symmetric gap + divider margins, the
+   interior dividers then land exactly on the split lines: 1 interior divider → dead centre between the
+   top and bottom dividers, 2 interior → even thirds. min-height:0 lets a band shrink on short screens. */
+.vband { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+/* Split play is the exception to even bands: the active hand plus its aside (the other hands' summary)
+   needs far more room than the dealer, so the dealer band sizes to content and the middle divider moves
+   UP, handing the rest of the board to the active hand. Keeps the cards at full size with no bet-box overlap. */
+.panel:has(.bj-split-active) #bj-dealer-section { flex: 0 0 auto; }
+
 /* ── Headline label (section) ───────────────────────────── */
 .sec {
   font-family: var(--btn-f);
@@ -322,19 +333,6 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
    stroke-width is in viewBox units (256 = 1em), so it scales with the title font. */
 .ic.mod-star { color: #ffd11a; stroke: var(--ink); stroke-width: 24px; stroke-linejoin: round; paint-order: stroke; }
 .mod-banner-r { font-size: 1.35rem; color: var(--ink); text-align: right; line-height: 1.3; min-width: 0; }
-
-/* ── Sunken readout box (stack, bet etc.) ───────────────── */
-.readout {
-  background: var(--panel2); color: var(--ink);
-  border: 1px solid var(--ink);
-  box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
-  padding: 5px 12px; flex: 1; min-width: 0;
-  font-family: var(--btn-f);
-}
-.readout-label { font-size: 1.2rem; color: var(--shadow); letter-spacing: 0.08em; }
-.readout-value { font-family: var(--btn-f); font-size: 1.7rem; line-height: 1; color: var(--ink); }
-.readout-value.gold { color: var(--gold); }
-.readout-row { display: flex; gap: 10px; }
 
 /* ── Logo / brand ───────────────────────────────────────── */
 .logo {
@@ -649,6 +647,17 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 @keyframes deal { from { opacity: 0; transform: translateY(-24px) scale(.9); } to { opacity: 1; transform: translateZ(0); } }
 @keyframes fadein { from { opacity: 1; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
+/* Cross-screen view transitions (navRender): a plain crossfade between significantly different
+   screens — a new game, a hand's result panel, the next hand. The default root transition is already
+   a crossfade; we just give it a consistent, snappy duration. Gated in JS (feature-detect + the test
+   flag); this reduced-motion guard is belt-and-suspenders. */
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 0.25s; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation: none; }
+}
+
 .hand {
   display: flex; gap: 8px; align-items: flex-end; justify-content: center; flex-wrap: wrap;
   isolation: isolate;
@@ -741,6 +750,35 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* UTH community cards — cancel auto-fan, keep all 5 evenly spaced */
 #uth-community-hand.hand:has(.card:nth-child(5)) { flex-wrap: nowrap; gap: 5px; }
 #uth-community-hand.hand:has(.card:nth-child(5)) .card + .card { margin-left: 0; }
+
+/* ── Sixth Sense (uth_sixth_card): a private 6th community card ───────────
+   Six cards (5 shared + the player's private one) on one row — shrink the community cards so the row
+   still fits the 360px floor. The private card carries a gold glow + a "YOU" tag. */
+#uth-community-hand.sixth-sense.hand:has(.card:nth-child(5)) { gap: 4px; }
+#uth-community-hand.sixth-sense .card { width: 48px; height: 67px; }
+#uth-community-hand.sixth-sense .card .ct-r { font-size: 0.74rem; }
+#uth-community-hand.sixth-sense .card .ct-s { font-size: 0.6rem; }
+#uth-community-hand.sixth-sense .card .csuit { font-size: 1.7rem; }
+#uth-community-hand.sixth-sense .card .ct-r[data-r="10"] { font-size: 0.58rem !important; }
+.uth-priv-slot { position: relative; display: flex; align-items: flex-end; }
+.uth-priv-tag {
+  position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+  background: var(--gold); color: var(--ink);
+  font-family: var(--btn-f); font-size: 0.5rem; font-weight: 700; letter-spacing: 0.08em;
+  padding: 1px 5px; border-radius: 3px; border: 1px solid var(--ink); z-index: 2; line-height: 1.25;
+}
+
+/* ── Double Vision (bj_two_hands): pick one of two candidate hands ────────
+   Cards sit side by side in the middle (each a blackjack hand). The keep action is two solid-gold
+   buttons in the action-button zone (.act-btn.primary, height-locked to --btn-h) so the bottom cluster
+   matches the play screen and the bet inlay lands in exactly the same spot. */
+.bj-pick-row { display: flex; gap: 18px; justify-content: center; align-items: flex-start; margin-top: 10px; }
+.bj-pick-cards { flex-wrap: nowrap; gap: 5px; } /* two candidate cards stay side by side, never stacked */
+.bj-pick-val { font-family: var(--btn-f); font-size: 1.5rem; color: var(--cream); letter-spacing: 0.04em; line-height: 1; margin-top: 8px; }
+.panel.cream .bj-pick-val { color: var(--ink); }
+.bj-pick-btn { flex-direction: column; gap: 1px; line-height: 1.05; }
+.bj-pick-btn-lbl { font-size: 0.8rem; letter-spacing: 0.06em; opacity: 0.85; }
+.bj-pick-btn-val { font-size: 1.2rem; font-weight: 700; }
 
 /* ── BJ bet screen: empty card slots framing the chip selector ─── */
 .bj-bet-table {
@@ -873,11 +911,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
 /* ── Hand progress dots (pills) ─────────────────────────── */
 .dots-row { display: flex; gap: 8px; margin: 4px 0 4px; }
-/* UTH wraps its dots in #uth-dots-container (for surgical re-renders). On the bet screen, make that
-   wrapper generate no box (display:contents) so the .dots-row becomes a direct flex child of the panel
-   exactly like Blackjack — otherwise the wrapper absorbs the row's vertical margins and sits a few px
-   taller, nudging the chip selector out of pixel-alignment with the BJ bet screen. */
-.panel:has(#uth-summary) #uth-dots-container { display: contents; }
+/* UTH wraps its dots in #uth-dots-container (for surgical re-renders). Make that wrapper always
+   generate no box (display:contents) so .dots-row is a direct flex child of the panel on every UTH
+   phase — otherwise the wrapper introduces margin-collapse and block-layout quirks that shift the
+   dots-row by 2-6px between bet and play phases depending on viewport width. */
+#uth-dots-container { display: contents; }
 .hand-dot {
   flex: 1; min-width: 0; padding: 4px 10px;
   background: var(--panel); color: var(--shadow);
@@ -890,8 +928,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 .hand-dot.cur  { background: var(--gold); color: var(--ink); font-weight: 700;
   box-shadow: inset 2px 2px 0 var(--gold-lo), inset -1px -1px 0 var(--gold-hi); }
-.hand-dot.won  { color: var(--ink); font-weight: 700; opacity: 0.6; }
-.hand-dot.lost { color: var(--ink); font-weight: 700; opacity: 0.6; }
+.hand-dot.won, .hand-dot.lost { color: var(--ink); font-weight: 700; opacity: 0.6; }
 .hand-dot.won  .dot-detail { color: var(--win); }
 .hand-dot.lost .dot-detail { color: var(--lose); }
 .hand-dot.push { color: var(--shadow); opacity: 0.6; }
@@ -1078,7 +1115,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .rn-red { background: #a32f24; }
 .rn-blk { background: #1f1c18; color: #ffffff; }
 .rn-grn { background: #156c3a; }
-.r2to1 {
+.r2to1, .rout {
   background: var(--panel); color: var(--ink);
   border: 1px solid var(--ink); cursor: pointer; padding: 0;
   font-family: var(--btn-f); font-size: 1.45rem; font-weight: 700;
@@ -1086,19 +1123,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   box-shadow: var(--raised); letter-spacing: 0.02em;
   position: relative;
 }
-.r2to1:hover { filter: brightness(1.06); }
-.r2to1.r-sel { background: var(--gold); color: var(--ink); box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2px -2px 0 var(--gold-lo); }
-.rout {
-  background: var(--panel); color: var(--ink);
-  border: 1px solid var(--ink); cursor: pointer;
-  font-family: var(--btn-f); font-size: 1.45rem; font-weight: 700;
-  padding: 0; position: relative;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: var(--raised);
-  letter-spacing: 0.02em;
-}
-.rout:hover { filter: brightness(1.06); }
-.rout.r-sel { background: var(--gold); color: var(--ink); box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2px -2px 0 var(--gold-lo); }
+.r2to1:hover, .rout:hover { filter: brightness(1.06); }
+.r2to1.r-sel, .rout.r-sel { background: var(--gold); color: var(--ink); box-shadow: inset 1.5px 1.5px 0 var(--gold-hi), inset -2px -2px 0 var(--gold-lo); }
 .rout-r { box-shadow: var(--raised), inset 4px 0 0 #a32f24; padding-left: 5px; }
 .rout-b { box-shadow: var(--raised), inset 4px 0 0 var(--ink); padding-left: 5px; }
 .r-boost { box-shadow: inset 1.5px 1.5px 0 rgba(255,255,255,0.18), inset -2px -2px 0 rgba(0,0,0,0.40), 0 0 0 2px var(--gold-hi); animation: r-pulse 1.4s ease-in-out infinite; }
@@ -1156,12 +1182,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 @keyframes popIn { from { transform: scale(.5) rotate(-20deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
 
 /* ── Results screen ─────────────────────────────────────── */
-.score-row {
-  display: flex; justify-content: space-between; align-items: baseline;
-  padding: 10px 14px; background: var(--panel);
-  border: 1px solid var(--ink);
-  box-shadow: var(--raised-sm);
-}
 /* The daily-modifier banner's pale-gold gradient + ink border, but pressed INTO the panel via
    the canonical inlay bevel (shadow top-left, highlight bottom-right — same as .bet-amt) so it
    reads as a recessed plaque, not a raised button/overlay. */
@@ -1203,8 +1223,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   flex: 1 1 auto; min-height: 0;
 }
 .results-tier { font-size: 1.15rem; }
-/* Daily-streak flame: a bold solid flame in fiery orange (line + the gold streak text). */
-.ic.streak-flame { color: #f9731e; }
 
 .dist-bars {
   display: flex; align-items: flex-end; gap: 4px;
@@ -1360,15 +1378,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .dd-game-btn { font-family: var(--btn-f); font-size: .95rem; padding: 1px 8px; border: 1px solid var(--shadow); background: transparent; color: var(--ink); cursor: pointer; }
 .dd-game-btn.active { background: var(--gold); border-color: var(--gold-lo); }
 .dd-game-btn:hover:not(.active) { background: var(--highlight); }
-
-/* ── Mod-badge (small inline) ───────────────────────────── */
-.mod-badge {
-  display: inline-block; padding: 4px 10px;
-  background: #f3e2b8; color: var(--ink);
-  border: 1px solid var(--ink);
-  box-shadow: var(--raised-sm);
-  font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em;
-}
 
 /* ── XP Notification Balloon ─────────────────────────────── */
 #xp-balloon {
@@ -1760,8 +1769,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Keep tight screens' cards at original size — they have no room for growth */
   #bj-dealer-section .card.lg { width: 72px; height: 102px; }
   .uth-result-panel .card.sm { width: 44px; height: 62px; }
-  /* BJ 4-way split play — shrink aside cards + dealer spacing */
-  #bj-dealer-section { margin-bottom: 6px !important; }
+  /* Even bands centre the dealer in its half, so no asymmetric dealer margin (was margin-bottom:6px). */
   /* The face-down dealer's value line is a hidden spacer (.hand-val-ghost) reserving the reveal
      height. On the tight mobile play screens, collapse it to reclaim the dealer-card→separator gap —
      the slack the bet inlay box + action buttons now need under a full mod banner. The reveal
@@ -1944,6 +1952,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
   /* Hand-progress dots */
   .dots-row { gap: 8px; margin: 2px 0; }
+  /* Bet panels have gap:8px (panel:has(> #db:last-child)); cancel the extra 4px so dots-row top
+     stays at the same distance from the mod-banner as on play panels (gap:4px + margin:2px = 6px). */
+  .panel:has(> #db:last-child) .dots-row { margin-top: -2px; }
   .hand-dot { padding: 4px 12px; font-size: 1.25rem; }
 
   /* Hand values under cards */
@@ -1991,7 +2002,6 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .game-manifest .rnd-dc { font-size: 1.15rem; margin-top: 1px; }
 
   /* ── BJ play (normal) ─────────────────────────── */
-  #bj-dealer-section { margin-bottom: 2px !important; }
   #bj-dealer-section .hand-val { font-size: 1.9rem; margin-top: 3px; }
   .bj-celebrate-txt { font-size: 2rem; margin-top: 6px; }
   .act-btns { gap: 6px; }
@@ -2005,11 +2015,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      Card width is held in check by the multi-card fan on the narrow 1024 panel,
      so height grows a little more than width; the widest sizes are gated to
      wider windows below. Daily-mod banner and progress dots are left alone. */
-  /* Override the inline flex:1 on the player block so it sizes to content; the
-     dealer's margin-top:auto + the buttons' margin-bottom:auto then center the
-     whole dealer→player→buttons group, instead of stranding the dealer at the
-     top with a wide gap above the player cards. */
-  .panel:has(#bj-player-hand) > div:has(#bj-player-hand) { flex: 0 0 auto !important; }
+  /* Even bands: the player block matches the dealer band (both .vband flex:1) so the middle divider
+     stays dead-centre between the top and bottom dividers. (Was content-sized + margin-auto group-centered.) */
+  .panel:has(#bj-player-hand) > div:has(#bj-player-hand) { flex: 1 1 0 !important; }
   .panel:has(#bj-player-hand) .card.lg { width: 92px; height: 130px; }
   .panel:has(#bj-player-hand) .card.lg .csuit { font-size: 3.6rem; }
   .panel:has(#bj-player-hand) .card.lg .ct-r { font-size: 1.42rem; }
@@ -2109,6 +2117,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
     padding-bottom: 6px;
     gap: 2px;
   }
+  /* gap:2px → banner_mb(5)+gap(2)+dots_mt = 11 → dots_mt = 4px */
+  .panel:has(#uth-actions-ui) .dots-row { margin-top: 4px; }
   .panel:has(#uth-actions-ui) .divider { margin: 1px 0; }
   .panel:has(#uth-actions-ui) .sec { font-size: 1.2rem; margin-bottom: 1px; }
   .panel:has(#uth-actions-ui) .card.md { width: 72px; height: 102px; }
@@ -2358,15 +2368,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   }
   .panel:has(#rwheel) > div:last-child { margin-bottom: auto; }
 
-  /* Center the live table area inside the felt without moving the modifier. */
+  /* Even bands centre each half; with both bands flex:1 these margin-top:auto resolve to 0 (no free
+     space left after flex-grow), so they're harmless and the dividers split the board evenly. */
   .panel:has(#bj-player-hand) #bj-dealer-section,
   .panel:has(#uth-actions-ui) #uth-dealer-container {
     margin-top: auto;
   }
-  /* Split play: a fixed gap so "Dealer Shows" always clears the progress dots,
-     even on short windows where auto-centering collapses to ~0. The active hand
-     (flex:1 below) absorbs the remaining slack and stays centered. */
-  .panel:has(.bj-split-active) #bj-dealer-section { margin-top: 12px; }
   .panel:has(#bj-player-hand) > div:has(#bj-player-hand),
   .panel:has(.bj-split-active) .bj-split-active {
     display: flex;
@@ -2416,6 +2423,21 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(> #db:last-child) .card-slot { width: 56px; height: 78px; }
   .panel:has(> #db:last-child) .bj-bet-slot-lbl { font-size: 1rem; }
   .panel:has(> #db:last-child) .felt-rules { font-size: 0.95rem; padding: 4px 0; }
+}
+/* Short desktop windows (e.g. 1024×640 landscape) lack the vertical room for the full split cards, so the
+   active hand would spill into the bet box. Shrink the split cards just here (only where forced) so the
+   active hand clears the controls — every taller window keeps the full size. */
+@media (min-width: 1024px) and (max-height: 720px) {
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg,
+  .bj-split-active .card.lg { width: 72px; height: 100px; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .csuit,
+  .bj-split-active .card.lg .csuit { font-size: 2.7rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-r,
+  .bj-split-active .card.lg .ct-r { font-size: 1.1rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-s,
+  .bj-split-active .card.lg .ct-s { font-size: 0.92rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg.back::before { font-size: 2.5rem; }
+  .bj-split-active .hand-val { font-size: 1.5rem !important; margin-top: 4px !important; }
 }
 @media (min-width: 1024px) and (min-height: 880px) {
   :root { --btn-h: 50px; --btn-fs: 1.42rem; }
@@ -2540,6 +2562,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* UTH mid-hand (preflop/flop/turn) — grow cards/UI to shrink the
      margin-auto gaps above the dealer and below the actions. */
   .panel:has(#uth-actions-ui) { gap: 4px; }
+  /* gap:4px → banner_mb(5)+gap(4)+dots_mt = 11 → dots_mt = 2px (reset to standard) */
+  .panel:has(#uth-actions-ui) .dots-row { margin-top: 2px; }
   .panel:has(#uth-actions-ui) .divider { margin: 3px 0; }
   .panel:has(#uth-actions-ui) .sec { font-size: 1.4rem; margin-bottom: 2px; }
   .panel:has(#uth-actions-ui) .card.md { width: 82px; height: 116px; }
@@ -2713,6 +2737,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
   /* UTH mid-hand (preflop/flop/turn) — largest cards/UI on the tallest windows */
   .panel:has(#uth-actions-ui) { gap: 6px; }
+  /* gap:6px → banner_mb(5)+gap(6)+dots_mt = 11 → dots_mt = 0 */
+  .panel:has(#uth-actions-ui) .dots-row { margin-top: 0; }
   .panel:has(#uth-actions-ui) .divider { margin: 5px 0; }
   .panel:has(#uth-actions-ui) .sec { font-size: 1.55rem; margin-bottom: 3px; }
   .panel:has(#uth-actions-ui) .card.md { width: 94px; height: 132px; }

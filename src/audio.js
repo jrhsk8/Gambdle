@@ -56,30 +56,3 @@ let _ac=null;
 // Returns the shared AudioContext, creating or resuming it on first use.
 function getAC(){if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();return _ac;}
 
-// Synthesized ball-rattle using Web Audio oscillators — no audio file required.
-// Clicks get slower and further apart as the ball decelerates over `dur` seconds.
-function sndSpin(dur){
-  if(getPref('mute'))return;
-  try{
-    const c=getAC(),t0=c.currentTime+0.05;
-    let t=t0;
-    while(t<t0+dur){
-      const prog=(t-t0)/dur;
-      const eased=1-Math.pow(1-prog,3);
-      const interval=0.038+eased*0.52;
-      const o=c.createOscillator(),g=c.createGain();
-      o.connect(g);g.connect(c.destination);
-      o.type='sine';
-      o.frequency.setValueAtTime(380+Math.random()*180,t);
-      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.055,t+0.004);g.gain.exponentialRampToValueAtTime(0.001,t+0.04);
-      o.start(t);o.stop(t+0.05);
-      t+=interval;
-    }
-    const o2=c.createOscillator(),g2=c.createGain();
-    o2.connect(g2);g2.connect(c.destination);
-    o2.type='sine';
-    o2.frequency.setValueAtTime(180,t0+dur);o2.frequency.exponentialRampToValueAtTime(60,t0+dur+0.25);
-    g2.gain.setValueAtTime(0.32,t0+dur);g2.gain.exponentialRampToValueAtTime(0.001,t0+dur+0.3);
-    o2.start(t0+dur);o2.stop(t0+dur+0.35);
-  }catch(e){}
-}

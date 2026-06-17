@@ -477,6 +477,160 @@ describe('bjDeal — dealer peek for blackjack', () => {
   });
 });
 
+// ─── Soft Landing (bj_safe_hit) — first hit never busts ─────────────────────────
+// The live swap (_bjSafeHitSwap, bj.js) reorders the shoe in place at S.bjIdx so a hand's first hit
+// can't bust; the engine twin (_replaySafeHitSwap, engine.js) mirrors it from the stored shoe. No
+// extra draw, so the deck stays aligned and the server replay matches byte-for-byte.
+describe('Soft Landing — _bjSafeHitSwap (live)', () => {
+  const C = (r, s) => card(r, s);
+  const hand = (...cs) => cs.map(([r, s]) => C(r, s));
+  // Run fn with a controlled shoe positioned at S.bjIdx = base; restore the real shoe + idx after.
+  function withShoe(cards, base, fn) {
+    const origShoe = DEAL.bjShoe, origIdx = S.bjIdx;
+    DEAL.bjShoe = cards.map(([r, s]) => C(r, s));
+    S.bjIdx = base;
+    try { return fn(); } finally { DEAL.bjShoe = origShoe; S.bjIdx = origIdx; }
+  }
+  it('swaps a busting first-hit card for the nearest safe one (hard 16)', () => {
+    withShoe([['6','d'],['3','c'],['9','s']], 0, () => {
+      _bjSafeHitSwap(hand(['10','s'],['6','h']));            // 16; the 6 would bust (22)
+      assertEqual(DEAL.bjShoe[0].r, '3', 'nearest non-busting card moved into the draw slot');
+      assert(hVal([C('10','s'),C('6','h'),DEAL.bjShoe[0]]) <= 21, 'first hit stays ≤21');
+    });
+  });
+  it('leaves an already-safe first-hit card untouched', () => {
+    withShoe([['3','c'],['6','d']], 0, () => {
+      _bjSafeHitSwap(hand(['10','s'],['6','h']));            // 16 + 3 = 19, already safe
+      assertEqual(DEAL.bjShoe[0].r, '3', 'no swap when the natural draw is safe');
+    });
+  });
+  it('skips past multiple busting cards to the nearest safe one', () => {
+    withShoe([['K','d'],['Q','c'],['2','s']], 0, () => {
+      _bjSafeHitSwap(hand(['10','s'],['6','h']));            // K, Q bust; 2 is first safe
+      assertEqual(DEAL.bjShoe[0].r, '2');
+    });
+  });
+  it('counts an Ace as 1 to stay safe at hard 20', () => {
+    withShoe([['5','d'],['A','c']], 0, () => {
+      _bjSafeHitSwap(hand(['10','s'],['10','h']));           // 20; only an Ace (=1 → 21) is safe
+      assertEqual(DEAL.bjShoe[0].r, 'A');
+      assertEqual(hVal([C('10','s'),C('10','h'),DEAL.bjShoe[0]]), 21);
+    });
+  });
+  it('swaps at S.bjIdx, not index 0', () => {
+    withShoe([['2','s'],['7','h'],['6','d'],['4','c']], 2, () => {
+      _bjSafeHitSwap(hand(['10','s'],['6','h']));            // idx 2 = 6 busts; idx 3 = 4 safe
+      assertEqual(DEAL.bjShoe[2].r, '4', 'swap happens at the current draw position');
+      assertEqual(DEAL.bjShoe[0].r, '2', 'earlier cards untouched');
+    });
+  });
+});
+
+describe('Soft Landing — _replaySafeHitSwap (engine twin) gate + first-hit guard', () => {
+  const C = (r, s) => card(r, s);
+  const modOn = k => k === 'bj_safe_hit';
+  const modOff = () => null;
+  it('on + first hit (length 2): swaps the busting card', () => {
+    const shoe = [C('6','d'), C('3','c')];
+    _replaySafeHitSwap(shoe, 0, [C('10','s'), C('6','h')], modOn);
+    assertEqual(shoe[0].r, '3', 'mod on + length 2 → swap');
+  });
+  it('mod off: no swap', () => {
+    const shoe = [C('6','d'), C('3','c')];
+    _replaySafeHitSwap(shoe, 0, [C('10','s'), C('6','h')], modOff);
+    assertEqual(shoe[0].r, '6', 'mod off → untouched');
+  });
+  it('later hit (hand length > 2): not protected', () => {
+    const shoe = [C('6','d'), C('3','c')];
+    _replaySafeHitSwap(shoe, 0, [C('7','s'), C('2','h'), C('7','d')], modOn); // 16, length 3
+    assertEqual(shoe[0].r, '6', 'only the first hit is protected');
+  });
+});
+
+// ─── Double Vision (bj_two_hands) — two candidate hands, pick one ───────────────
+// The whole hand is dealt from a fresh per-hand deck (S.bjDeck2) routed through _bjDraw, so the
+// shared seeded shoe is untouched. The player keeps one of two candidate hands; a natural is auto-kept.
+describe('Double Vision — _bjDraw routing', () => {
+  const C = (r, s) => card(r, s);
+  it('draws from bjDeck2 (advancing bjDeck2Idx) when set, else the shared shoe at bjIdx', () => {
+    try {
+      S.bjDeck2 = [C('A','s'), C('K','d')]; S.bjDeck2Idx = 0;
+      assertEqual(_bjDraw().r, 'A'); assertEqual(_bjDraw().r, 'K');
+      assertEqual(S.bjDeck2Idx, 2, 'fresh-deck cursor advanced');
+      S.bjDeck2 = null; S.bjIdx = 0;
+      const top = DEAL.bjShoe[0];
+      assertEqual(_bjDraw(), top, 'falls back to the shared shoe'); assertEqual(S.bjIdx, 1);
+    } finally { _bjRestoreS(); }
+  });
+});
+
+describe('Double Vision — bjDeal + bjPickHand', () => {
+  const C = (r, s) => card(r, s);
+  // Deal under the mod with a rigged fresh deck (shuffle stubbed) and timers/audio swallowed.
+  function dealTwo(deck) {
+    const origST = window.setTimeout, origShuffle = window.sndShuffle, origShuf = window.shuffle;
+    window.setTimeout = () => 0;
+    window.sndShuffle = cb => { if (cb) cb(); };
+    window.shuffle = () => deck.map(([r, s]) => C(r, s));
+    Object.assign(S, { screen:'bj', forcedMod:'bj_two_hands', bjPhase:'bet', bjBet:100, chips:1000, bjIdx:0, bjHistory:[], bjHand:0, bjSplit:false, tx:[] });
+    _bjResolving = false; S.bjCelebrating = false;
+    try {
+      bjDeal();
+      return { phase:S.bjPhase, candidates:S.bjCandidates, dealer:[...S.bjDealer], deck2Idx:S.bjDeck2Idx, bjIdx:S.bjIdx, player:[...S.bjPlayer], celebrating:S.bjCelebrating, tx:[...S.tx], shoeTop:DEAL.bjShoe[0] };
+    } finally {
+      window.setTimeout = origST; window.sndShuffle = origShuffle; window.shuffle = origShuf;
+      resetBJHand(); _bjRestoreS();
+    }
+  }
+
+  it('deals two candidate hands + dealer from the fresh deck, leaving the shared shoe untouched', () => {
+    const shoeTopBefore = DEAL.bjShoe[0];
+    // A=5,6 (11) · B=9,7 (16) · dealer=10,8 (18) — no naturals → the pick phase.
+    const r = dealTwo([['5','s'],['6','d'],['9','h'],['7','c'],['10','d'],['8','s'],['2','h'],['3','c']]);
+    assertEqual(r.phase, 'pick', 'no natural → pick phase');
+    assertEqual(r.candidates.length, 2, 'two candidate hands');
+    assertEqual(r.candidates[0].length, 2); assertEqual(r.candidates[1].length, 2);
+    assertEqual(hVal(r.candidates[0]), 11); assertEqual(hVal(r.candidates[1]), 16);
+    assertEqual(r.dealer.length, 2);
+    assertEqual(r.deck2Idx, 6, 'six cards drawn from the fresh deck (2+2 candidates + 2 dealer)');
+    assertEqual(r.bjIdx, 0, 'shared shoe cursor never moved');
+    assertEqual(r.shoeTop, shoeTopBefore, 'shared shoe untouched');
+  });
+
+  it('auto-keeps a candidate natural (no pick event) and plays it out', () => {
+    // A=A,K (blackjack) · B=9,7 · dealer=9,7 (not a natural) → auto-pick A, celebrate.
+    const r = dealTwo([['A','s'],['K','d'],['9','h'],['7','c'],['9','d'],['7','s']]);
+    assertEqual(r.phase, 'play', 'natural skips the pick phase');
+    assert(isBJ(r.player), 'the natural candidate was kept');
+    assert(r.celebrating, 'player blackjack celebrates');
+    assert(!r.tx.some(e => e.a === 'pick'), 'no pick decision is logged for an auto-kept natural');
+  });
+
+  it('bjPickHand commits the chosen candidate, logs the pick, and advances to play', () => {
+    const origST = window.setTimeout; window.setTimeout = () => 0;
+    Object.assign(S, { screen:'bj', forcedMod:'bj_two_hands', bjPhase:'pick', bjBet:100, chips:900, bjHand:0, bjHistory:[], bjSplit:false, tx:[],
+      bjCandidates:[[C('5','s'),C('6','d')],[C('9','h'),C('7','c')]], bjDealer:[C('10','d'),C('8','s')], bjDeck2:[C('2','s')], bjDeck2Idx:0 });
+    _bjResolving = false;
+    try {
+      bjPickHand(1);
+      assertEqual(S.bjPhase, 'play', 'advances to play');
+      assertEqual(hVal(S.bjPlayer), 16, 'kept candidate B (9,7)');
+      assertEqual(S.bjCandidates, null, 'candidates cleared');
+      const pick = S.tx.find(e => e.a === 'pick');
+      assert(pick && pick.g === 'bj' && pick.s === 1, 'pick event logged with s=1');
+    } finally { window.setTimeout = origST; resetBJHand(); _bjRestoreS(); }
+  });
+
+  it('bjPickHand ignores an out-of-range index and a non-pick phase', () => {
+    Object.assign(S, { bjPhase:'pick', bjCandidates:[[C('5','s'),C('6','d')],[C('9','h'),C('7','c')]], tx:[] });
+    try {
+      bjPickHand(2); // invalid index
+      assertEqual(S.bjPhase, 'pick', 'invalid index is a no-op');
+      assert(!S.tx.some(e => e.a === 'pick'), 'nothing logged');
+    } finally { _bjRestoreS(); }
+  });
+});
+
 describe('bjResolve — dealer blackjack outcome', () => {
   it('player loses only the original bet to a dealer blackjack (no extra from doubling/splitting)', () => {
     withBJ({ player:[['K','s'],['9','h']], dealer:[['A','d'],['10','c']], bet:100, chips:900 }, () => {

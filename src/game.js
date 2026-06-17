@@ -3,9 +3,9 @@
 // screen, wires window dragging, and resumes any animation a refresh interrupted.
 
 // Handles mid-animation refreshes by dispatching to the current screen's `resume` slot in the Game
-// registry (GAMES[screen].resume, registered by each game's own file — UTH, Poker, Roulette). Each
-// slot guards its own phase internally, so this is a pure screen lookup. Blackjack is the exception:
-// its resume (_bjResumeAfterRefresh) stays a separate boot call due to its dealer-draw choreography.
+// registry (GAMES[screen].resume, registered by each game's own file — BJ, UTH, Poker, Roulette).
+// Each slot guards its own phase internally, so this is a pure screen lookup with no per-game
+// branches: every game, Blackjack included, resumes through the one registry path.
 function _resumeAfterRefresh() {
   GAMES[S.screen]?.resume?.();
 }
@@ -22,6 +22,5 @@ loadState();
 applyPrefs();
 render();
 initWindowDrag();
-_bjResumeAfterRefresh();
 _resumeAfterRefresh();
 _maybeShowWelcomePopup();

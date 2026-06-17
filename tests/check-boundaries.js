@@ -22,18 +22,18 @@ const SRC = path.join(__dirname, '..', 'src');
 const MANIFEST = {
   'audio.js': ['_safePlay', 'playMp3', 'sndBigWin', 'sndCard', 'sndChip', 'sndShuffle'],
   'bet.js': ['addToBet', 'allInAmount', 'clearedBet', 'ladderMaxStake', 'maxFor'],
-  'bj.js': ['_bjResumeAfterRefresh', 'bjSplit', 'peekBtnHTML', 'peekRevealed', 'resetBJHand', 'resolveBJHand', 'resolveBJSplitHand', 'screenBJ'],
+  'bj.js': ['_bjResumeAfterRefresh', 'bjAward', 'bjAwardSplit', 'bjSplit', 'peekBtnHTML', 'peekRevealed', 'resetBJHand', 'resolveBJHand', 'resolveBJSplitHand', 'screenBJ'],
   'core.js': [
     'ANIM_NONE', 'BORROW_AMOUNT', 'DEAL', 'DEV_OVERRIDE', 'GAME1', 'GAME1_OPTIONS', 'GAME2',
     'GAME2_OPTIONS', 'GAME_META', 'GAME_VERSION', 'GAMES', 'NEXT_SCREEN', 'RED_S', 'S', 'START_CHIPS',
     'START_DATE_UTC', 'SUPABASE_ANON_KEY', 'SUPABASE_HEADERS', 'SUPABASE_URL', '_PHOENIX_OFFSET_MS',
     '_backlogSeed', '_canShowBorrow', '_effectiveBorrowAmount', '_lbTopPct', '_ls', '_nextDailySeed',
-    '_testActive', 'buildDeal', 'buildDeck', 'card', 'computeStreak', 'credit', 'debit', 'gameNet',
+    '_testActive', 'applyPlayersChoice', 'buildDeal', 'buildDeck', 'card', 'computeStreak', 'credit', 'debit', 'gameHistory', 'gameNet',
     'getActiveSeed', 'getDailySeed', 'getDayNum', 'getDeviceId', 'getMod', 'getNetTier',
     'getRngSeed', 'getStateKey', 'getTier', 'hVal', 'hValDisplay', 'isBJ', 'isChipBusted',
-    'loadState', 'mkRng', 'mkRound', 'next',
-    'pendingPlayersChoice', 'profileStats', 'recalcChips', 'saveState', 'shuffle', 'txLog',
-    'UNLOCKS', 'winMult',
+    'liveAcct', 'loadState', 'mkRng', 'mkRound', 'next', 'normalizeModRef',
+    'pendingPlayersChoice', 'profileStats', 'recalcChips', 'resolveDayMod', 'saveState', 'shuffle', 'suitedConnectorDeal', 'txLog',
+    'UNLOCKS', 'winMult', 'winMultFor',
   ],
   'engine.js': ['auditRound', 'replayConfigHorizon', 'replayDayMods', 'replayRngSeed', 'replayRun'],
   'dev.js': [
@@ -41,8 +41,8 @@ const MANIFEST = {
     'devToggleLayoutDebug', 'devToggleUnlocks', 'fetchDevStats', 'screenDevStats', 'toggleTestSeed',
   ],
   'flow.js': [
-    '_nextHand', '_noAnim', '_resultPanel', '_skipHand', '_submitBorrow', 'advanceTo', 'goTo',
-    'render', 'resultAdvanceBtn', 'startGame', 'updateChipDisplay',
+    '_enterFirstSlot', '_nextHand', '_noAnim', '_resultPanel', '_skipHand', '_submitBorrow', 'advanceTo',
+    'goTo', 'navRender', 'render', 'resultAdvanceBtn', 'startGame', 'updateChipDisplay',
   ],
   'game.js': [],
   'gametext.js': [
@@ -51,12 +51,13 @@ const MANIFEST = {
   ],
   'icons.js': ['icon'],
   'ladder.js': [
-    'LADDER_MULTS', 'ladCall', 'ladCallCorrect', 'ladCashOut', 'ladMaxStake', 'ladPotAt',
+    'LADDER_MULTS', 'ladCall', 'ladCallCorrect', 'ladCashOut', 'ladderAward', 'ladMaxStake', 'ladPotAt',
     'ladRankVal', 'ladStakeCommit', 'resetLadderRun', 'resolveLadder', 'screenLadder',
   ],
   'menus.js': ['applyPrefs', 'closeDropdowns', 'getPref', 'setPref', 'showActiveModInfo', 'toggleMenu', 'togglePref'],
   'modifiers.js': ['CYCLE_ORDER', 'DAILY_MODIFIERS', 'DAILY_SEED_OVERRIDES', 'PRESET_MODIFIERS'],
-  'roulette.js': ['_resolveSpinNumber', '_rouletteAudio', 'evalBetModsFor', 'rBetsZone', 'rSelBox', 'rSpin', 'resolveRoulette', 'screenRoulette', 'spinFromRandom', 'spinModsFor', 'startWheelAnim'],
+  'poker.js': ['pkDeal', 'pkDraw', 'pkSkip', 'screenPoker', 'toggleHold'],
+  'roulette.js': ['_resolveSpinNumber', '_rouletteAudio', 'evalBetModsFor', 'rBetsZone', 'rSelBox', 'rSpin', 'resolveRoulette', 'rouletteAward', 'screenRoulette', 'spinFromRandom', 'spinModsFor', 'startWheelAnim'],
   'screens.js': [
     'fetchScoreDistribution', 'screenBorrow', 'screenChoice', 'screenIntro', 'screenResults',
     'submitAndFetchLeaderboard',
@@ -64,12 +65,12 @@ const MANIFEST = {
   'ui.js': [
     '_refreshShareBox', 'aiosRow', 'allIn', 'betInlay', 'betInlaySum', 'cardHTML', 'cfmt', 'cfmtK',
     'chipDispDiv', 'chipScale', 'chipSel', 'col', 'csign', 'doShare', 'fmt', 'fmtK', 'gameControls',
-    'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn', 'patchBetUI', 'patchOrRender', 'patchZones',
-    'renderCards', 'sign', 'toast',
+    'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn', 'patchBetUI', 'patchEl', 'patchOrRender',
+    'patchZones', 'renderCards', 'sign', 'toast',
   ],
   'uth.js': [
-    'UTH_CARD_INTERVAL_MS', 'bestOf7', 'resetUTHHand', 'resolveUTH', 'screenPoker', 'screenUTH',
-    'uthPayTableHTML', 'uthPayTableHead',
+    'UTH_CARD_INTERVAL_MS', 'bestOf7', 'rankPoker', 'resetUTHHand', 'resolveUTH', 'screenUTH',
+    'uthAward', 'uthPayTableHTML', 'uthPayTableHead',
   ],
   'windows.js': [
     '_isMobile', '_openInfoModal', '_openWindow', '_reapplyDragPos', '_recenterBtnHTML',

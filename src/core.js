@@ -17,7 +17,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.55';
+const GAME_VERSION = 'v1.64';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -192,6 +192,8 @@ const GAME2 = _ls.getItem('gambdle_dev_game2') || 'uth';
 //   handKey  — the S field counting hands played (the 3-hand card games only; single-run games omit it)
 //   reset    — the hand-reset fn, attached by each game's own file (which loads after core.js) and read
 //              by the borrow flow to return the player to a fresh bet phase
+//   nextHand — advances to the next hand (the result panel's advance button), attached by each card
+//              game as () => _nextHand(<its reset>) and dispatched by advanceHand() (flow.js)
 //   resume   — mid-animation refresh-restore fn, attached by each game's own file and dispatched by
 //              _resumeAfterRefresh (game.js) keyed on S.screen. Each guards its own phase internally.
 //              Blackjack is the exception · its resume (_bjResumeAfterRefresh) stays a separate boot
@@ -267,7 +269,13 @@ function _validateRound(slot, detail){
     throw new Error(`mkRound: '${slot}' detail has unexpected key '${k}'. Typo? Expected one of: ${allowed.join(', ')}`);
 }
 function mkRound(slot, delta, result, detail = {}){
-  if(_strictRounds()) _validateRound(slot, detail);
+  if(_strictRounds()){
+    // `delta` (the only field score derivation reads) and `result` are the record's load-bearing
+    // fields — a non-finite delta or a missing result would silently corrupt the score / replay.
+    if(!Number.isFinite(delta)) throw new Error(`mkRound: '${slot}' delta must be a finite number, got ${delta}`);
+    if(result == null) throw new Error(`mkRound: '${slot}' missing result`);
+    _validateRound(slot, detail);
+  }
   return { slot, delta, result, ...detail };
 }
 
@@ -320,21 +328,46 @@ if(DEV_OVERRIDE) document.body.classList.add('dev-mode');
 /** Manual overrides for deck seeding (independent of ?dev=true flag) */
 const ENABLE_CARD_SEEDING = false; // Set to true to enable the overrides below
 
-// Resolves today's active modifier preset object (forced > date override > cycle), or null.
-// Does NOT apply the Player's Choice indirection — that's getMod's job.
+// A modifier reference is either a PRESET_MODIFIERS key (string) or an inline preset object. This
+// turns either into the preset object (or null). One place, so live play and the server replay
+// normalize a day's modifier ref identically.
+function normalizeModRef(ref) {
+  if (!ref) return null;
+  return typeof ref === 'string' ? PRESET_MODIFIERS[ref] : ref;
+}
+
+// The Player's Choice indirection — the ONE place the rule lives, shared by live play (getMod) and
+// the server replay (replayDayMods). Once a pick is committed on a choices-day, the chosen preset IS
+// the active modifier; any other day (or no pick) the preset is unchanged.
+function applyPlayersChoice(mod, pick) {
+  return (mod && mod.choices && pick) ? (PRESET_MODIFIERS[pick] || mod) : mod;
+}
+
+// The ONE place a day's active modifier preset is composed from its inputs — shared by live play
+// (_activeMod → getMod) and the server replay (replayDayMods, engine.js) so the precedence chain and
+// the cycle index can't drift between them (see the 2026-06-16 config-horizon incident). Does NOT apply
+// the Player's Choice indirection — that's the caller's job (getMod live, replayDayMods on the server),
+// so pendingPlayersChoice can still read the unresolved .choices list. Returns the preset object or null.
+//   seed      — calendar seed (YYYYMMDD) selecting a DAILY_MODIFIERS override
+//   dayNum    — run day number, indexing the CYCLE_ORDER rotation (modulo kept safe for any integer)
+//   forcedMod — dev-only forced ref (live only; never set server-side)
+function resolveDayMod(seed, dayNum, forcedMod) {
+  const len = CYCLE_ORDER.length;
+  const cycled = CYCLE_ORDER[((dayNum - 1) % len + len) % len];
+  return normalizeModRef(forcedMod || DAILY_MODIFIERS[seed] || cycled);
+}
+
+// Resolves today's active modifier preset object (forced > date override > cycle), or null. Does NOT
+// apply the Player's Choice indirection — that's getMod's job (so pendingPlayersChoice can still read
+// the unresolved .choices list).
 function _activeMod() {
-  const cycled = CYCLE_ORDER[(getActiveDayNum()-1) % CYCLE_ORDER.length];
-  const modRef = S.forcedMod || DAILY_MODIFIERS[getActiveSeed()] || cycled;
-  if (!modRef) return null;
-  return typeof modRef === 'string' ? PRESET_MODIFIERS[modRef] : modRef;
+  return resolveDayMod(getActiveSeed(), getActiveDayNum(), S.forcedMod);
 }
 
 function getMod(key) {
-  let mod = _activeMod();
-  if (!mod) return null;
-  // Player's Choice: once the player commits a pick, the active modifier IS their chosen preset,
-  // so every getMod() call (game rules, banner title/desc, results recalc) reads through it.
-  if (mod.choices && S.pcPick) mod = PRESET_MODIFIERS[S.pcPick] || mod;
+  // Player's Choice: once the player commits a pick, the active modifier IS their chosen preset, so
+  // every getMod() call (game rules, banner title/desc, results recalc) reads through it.
+  const mod = applyPlayersChoice(_activeMod(), S.pcPick);
   return (mod && mod[key] !== undefined) ? mod[key] : null;
 }
 
@@ -354,6 +387,18 @@ const RED_S=new Set(['♥','♦']);
 const buildDeck=()=>SUITS.flatMap(s=>RANKS.map(r=>({s,r})));
 // Fisher-Yates shuffle — returns a new shuffled array, leaves the original unchanged.
 function shuffle(d,rng){const a=[...d];for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+// Suited Up (uth_suited_conn): build a fresh per-hand deck and force the player's hole cards to a
+// suited connector with the lower card 7+ — the seven pairs 7-8, 8-9, 9-10, 10-J, J-Q, Q-K, K-A (Ace
+// high). Returns {hole, dealer, comm}; dealer + community come from the shuffled remainder. Pure in
+// `hr`, so the live deal (uthDeal) and the server replay (_replayUTHHand) build identical hands.
+const UTH_CONN_LOWS=['7','8','9','10','J','Q','K'], UTH_CONN_NEXT={'7':'8','8':'9','9':'10','10':'J','J':'Q','Q':'K','K':'A'};
+function suitedConnectorDeal(hr){
+  const d=shuffle(buildDeck(),hr);
+  const lo=UTH_CONN_LOWS[Math.floor(hr()*UTH_CONN_LOWS.length)], hi=UTH_CONN_NEXT[lo];
+  const suit=SUITS[Math.floor(hr()*SUITS.length)];
+  const rest=d.filter(c=>!(c.s===suit&&(c.r===lo||c.r===hi)));
+  return {hole:[{s:suit,r:lo},{s:suit,r:hi}], dealer:[rest[0],rest[1]], comm:rest.slice(2,7)};
+}
 function cVal(r){return 'JQK'.includes(r)?10:r==='A'?11:+r;}
 // Totals a hand; aces start as 11 and are downgraded to 1 one-at-a-time to avoid bust.
 function hVal(cs){let v=0,a=0;for(const c of cs){v+=cVal(c.r);if(c.r==='A')a++;}while(v>21&&a-- >0)v-=10;return v;}
@@ -548,6 +593,7 @@ let S={
   bjHand:0, bjPhase:'bet', bjBet:0,
   bjPlayer:[], bjDealer:[], bjResult:null,
   bjHistory:[], bjIdx:0,
+  bjDeck2:null, bjDeck2Idx:0, bjCandidates:null,  // Double Vision (bj_two_hands): a fresh per-hand deck + its cursor, and the two candidate hands during the 'pick' phase
   bjSplit:false, bjSplitHands:[], bjSplitActive:0, bjSplitBets:[], bjSplitResults:[], bjSplitDone:[], bjDoubled:false, bjSplitDoubled:[],
   bjAnimFrom:0, bjDealerAnimFrom:0, bjSplitAnimFrom:[], bjDealerReveal:false, bjCelebrating:false,
   bjActed:false,    // player finished acting on the current (sub-)hand (stood/doubled) — lets a refresh resume the dealer's turn
@@ -557,6 +603,7 @@ let S={
   uthHand:0, uthPhase:'bet', uthAnte:0, uthPlay:0, uthPlayMult:0,
   uthRaised:false, uthFolded:false,
   uthHole:[], uthDealer:[], uthComm:[],
+  uthPrivate:null,  // Sixth Sense (uth_sixth_card): the player-only 6th community card; dealt at deal, shown from the turn
   uthRevealComm:0, uthPrevRevealComm:0, uthHistory:[],
   ladPhase:'bet',   // The Ladder: 'bet' | 'climb' | 'done'
   ladBet:0, ladFree:false,
@@ -597,12 +644,17 @@ function isChipBusted() {
   return minC > 0 && S.chips < minC;
 }
 
-/** Returns 2 when the all_in_or_skip or comeback modifier is active (wins are doubled), else 1. */
-function winMult(){
-  if(getMod('all_in_or_skip'))return 2;
-  if(getMod('comeback')&&S.chips<1000)return 2;
+// Pure win multiplier — the ONE place the doubling rule lives, shared by the live games (via
+// winMult, below) and the replay Engine. `mod` is a key→value accessor (getMod live, _engMod in
+// replay); `chips` is the live balance at the moment of resolution. Returns 2 when all_in_or_skip
+// is active, or while comeback is active and the stack is under 1000, else 1.
+function winMultFor(mod, chips){
+  if(mod('all_in_or_skip'))return 2;
+  if(mod('comeback')&&chips<1000)return 2;
   return 1;
 }
+/** Live win multiplier: winMultFor read through getMod against the live S.chips. */
+function winMult(){ return winMultFor(getMod, S.chips); }
 
 // ─── CHIP ACCOUNTING ───────────────────────────────────────────────────────
 // Single chokepoint for every chip-balance change. Every game routes winnings,
@@ -620,6 +672,31 @@ function debit(n, reason){
   if(DEV_OVERRIDE) console.log(`[chips] -${Math.round(n)} (${reason||'?'}) → ${S.chips}`);
 }
 
+/**
+ * @typedef {Object} Accountant
+ * The chip-accounting seam the per-game award helpers settle through, so the SAME credit-from-result
+ * mapping runs live and in the replay Engine. Two adapters satisfy it: liveAcct (below) writes S.chips
+ * through the credit/debit chokepoint; the Engine's _engAcct (engine.js) is a headless in-memory tally.
+ * Both round every delta (Math.round) and floor a debit at 0 — a third adapter MUST keep that rule or
+ * live↔replay parity breaks.
+ * @property {number} chips - current balance.
+ * @property {(n:number, reason?:string) => void} credit - add n chips, rounded.
+ * @property {(n:number, reason?:string) => void} debit - subtract n chips, rounded, floored at 0.
+ */
+
+// Live accountant adapter — an Accountant backed by S.chips through the credit/debit chokepoint. The
+// per-game award helpers (bjAward, uthAward, rouletteAward, ladderAward) take an Accountant so the SAME
+// credit-from-result mapping runs live here and headless in the replay Engine (which passes its own
+// in-memory adapter). Two adapters, one shared mapping.
+/** @returns {Accountant} */
+function liveAcct(){
+  return {
+    get chips(){ return S.chips; },
+    credit(n, reason){ credit(n, reason); },
+    debit(n, reason){ debit(n, reason); },
+  };
+}
+
 // ─── RUN TRANSCRIPT ────────────────────────────────────────────────────────
 // Append-only log of every replay-relevant player decision: bets and moves in each game,
 // the borrow, the Player's Choice pick, Time Travel re-deals, and the locked roulette bets.
@@ -627,7 +704,34 @@ function debit(n, reason){
 // for auditing — and, in integrity Phase 2, replayed server-side to recompute the score
 // (see .claude/LEADERBOARD-INTEGRITY.md). Dealer peeks are NOT logged (no chip/card effect).
 // Persistence rides the caller's existing saveState()/render() flow.
-function txLog(e){ if(Array.isArray(S.tx)) S.tx.push(e); }
+//
+// Allowed transcript events per game (and 'sys'), each mapped to the fields its server replay reads
+// — the typo guard for the Transcript, mirroring ROUND_DETAIL_KEYS for settled rounds. A decision
+// written with the wrong `g`/`a`, or missing a field the Engine needs (a 'uth' deal with no `ante`,
+// `bett` for `bet`), would otherwise pass silently and only surface as a Phase-2 replay mismatch.
+// Listed fields must be present (!== undefined); `g` and `a` are always required, `h` is implied.
+const TX_SHAPE = {
+  bj:  { skip:[], deal:['bet'], pick:['s'], hit:[], stand:[], double:[], split:[] },
+  uth: { skip:[], deal:['ante'], timetravel:['st'], raise:['mult'], check:[], fold:[] },
+  pk:  { skip:[], deal:['bet'], draw:['held'] },
+  lad: { stake:['v'], hi:[], lo:[], cash:[] },
+  r:   { skip:[], spin:['bets'], keep:[] },
+  sys: { borrow:['amt'], pick:['mod'] },
+};
+function _validateTx(e){
+  if(!e || typeof e !== 'object') throw new Error(`txLog: event must be an object, got ${e}`);
+  const actions = TX_SHAPE[e.g];
+  if(!actions) throw new Error(`txLog: unknown game '${e.g}'`);
+  const required = actions[e.a];
+  if(!required) throw new Error(`txLog: unknown '${e.g}' action '${e.a}'. Expected one of: ${Object.keys(actions).join(', ')}`);
+  for(const k of required) if(e[k] === undefined) throw new Error(`txLog: '${e.g}' ${e.a} missing required field '${k}'`);
+}
+// Validated at write time in strict mode (dev/test) only — a never-anticipated production shape must
+// never crash a live Run, but a typo blows up loudly the moment it is written, not days later.
+function txLog(e){
+  if(_strictRounds()) _validateTx(e);
+  if(Array.isArray(S.tx)) S.tx.push(e);
+}
 
 /** Writes the current run state to _ls for persistence. */
 function saveState() {

@@ -17,18 +17,28 @@ describe('txLog — basics', () => {
   it('appends events in order', () => {
     S.tx = [];
     try {
-      txLog({ g: 'sys', a: 'one' });
-      txLog({ g: 'sys', a: 'two' });
+      txLog({ g: 'lad', a: 'hi' });
+      txLog({ g: 'lad', a: 'cash' });
       assertEqual(S.tx.length, 2);
-      assertEqual(S.tx[0].a, 'one');
-      assertEqual(S.tx[1].a, 'two');
+      assertEqual(S.tx[0].a, 'hi');
+      assertEqual(S.tx[1].a, 'cash');
     } finally { _txRestore(); }
   });
 
   it('tolerates a stale save without S.tx (no throw, no-op)', () => {
     S.tx = undefined;
-    try { txLog({ g: 'sys', a: 'x' }); assertEqual(S.tx, undefined); }
+    try { txLog({ g: 'lad', a: 'cash' }); assertEqual(S.tx, undefined); }
     finally { _txRestore(); }
+  });
+
+  it('rejects a mistyped transcript field in strict mode (write-time, not at replay)', () => {
+    S.tx = [];
+    try {
+      let threw = null;
+      try { txLog({ g: 'uth', a: 'deal', h: 0, antee: 150 }); } catch (e) { threw = e; } // 'antee' typo
+      assert(threw, 'expected txLog to reject the missing ante field');
+      assertEqual(S.tx.length, 0, 'the malformed event was not appended');
+    } finally { _txRestore(); }
   });
 });
 

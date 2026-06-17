@@ -611,6 +611,52 @@ describe('pkDraw — guarded against a duplicate draw', () => {
 });
 
 // ─── River Monster (uth_river_monster): the river card dealt face-up ─────────
+// ─── Suited Up (uth_suited_conn): forced per-hand suited connector via a fresh deck ──────────
+describe('uth_suited_conn — Suited Up', () => {
+  const ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+  const ri = r => ORDER.indexOf(r);
+  const key = c => c.r + c.s;
+
+  it('suitedConnectorDeal forces a suited connector: same suit, consecutive ranks, lower card 7+', () => {
+    for (let s = 1; s <= 50; s++) {
+      const { hole } = suitedConnectorDeal(mkRng(20260620 + s));
+      assertEqual(hole.length, 2, 'two hole cards');
+      assertEqual(hole[0].s, hole[1].s, `suited (seed ${s})`);
+      assertEqual(ri(hole[1].r) - ri(hole[0].r), 1, `consecutive ranks (seed ${s}): ${hole[0].r}-${hole[1].r}`);
+      assert(ri(hole[0].r) >= ri('7'), `lower card 7+ (seed ${s}): ${hole[0].r}`);
+    }
+  });
+
+  it('deals 2 dealer + 5 community cards, none duplicating a hole card', () => {
+    const { hole, dealer, comm } = suitedConnectorDeal(mkRng(12345));
+    assertEqual(dealer.length, 2, '2 dealer cards');
+    assertEqual(comm.length, 5, '5 community cards');
+    assertEqual(new Set([...hole, ...dealer, ...comm].map(key)).size, 9, 'all 9 cards distinct');
+  });
+
+  it('is deterministic in its RNG so the live deal and engine replay match', () => {
+    assertEqual(JSON.stringify(suitedConnectorDeal(mkRng(98765))),
+                JSON.stringify(suitedConnectorDeal(mkRng(98765))), 'same seed → identical deal');
+  });
+
+  it('all seven connector lows (7..K) are reachable across seeds', () => {
+    const lows = new Set();
+    for (let s = 0; s < 300; s++) lows.add(suitedConnectorDeal(mkRng(s)).hole[0].r);
+    for (const lo of ['7','8','9','10','J','Q','K']) assert(lows.has(lo), `${lo}-connector reachable`);
+  });
+
+  it('uthDeal sets a suited-connector hole when the mod is active', () => {
+    withUth({ screen:'uth', uthPhase:'bet', uthAnte:100, uthHand:0, uthHistory:[], chips:800, forcedMod:'uth_suited_conn' }, () => {
+      uthDeal();
+      const [a, b] = S.uthHole;
+      assertEqual(a.s, b.s, 'hole is suited');
+      assertEqual(ri(b.r) - ri(a.r), 1, `hole is a connector: ${a.r}-${b.r}`);
+      assert(ri(a.r) >= ri('7'), `lower card 7+: ${a.r}`);
+      assertEqual(S.uthComm.length, 5, '5 community cards dealt');
+    });
+  });
+});
+
 describe('uth_river_monster — River Monster', () => {
   const _baseDeal = (forcedMod) => ({
     screen:'uth', uthPhase:'bet', uthAnte:100, uthHand:0, uthHistory:[],
@@ -651,6 +697,75 @@ describe('uth_river_monster — River Monster', () => {
       const backs = comm.querySelectorAll('.back, [class*="back"]').length;
       assert(comm.innerHTML.includes('9') , 'the river rank (9) is face-up in the community row');
       assert(backs >= 4, `four flop/turn cards stay face-down (found ${backs} backs)`);
+    });
+  });
+});
+
+// ─── Sixth Sense (uth_sixth_card): a private 6th community card the player alone uses ──────
+describe('uth_sixth_card — Sixth Sense', () => {
+  it('uthDeal sets the private card from the deck tail (27 + hand), leaving hole/community at 2/5', () => {
+    withUth({ screen:'uth', uthPhase:'bet', uthAnte:100, uthHand:0, uthHistory:[], chips:800, forcedMod:'uth_sixth_card' }, () => {
+      uthDeal();
+      assert(S.uthPrivate, 'private card dealt');
+      assertEqual(S.uthPrivate.r, DEAL.uthDeck[27].r, 'private rank from tail index 27');
+      assertEqual(S.uthPrivate.s, DEAL.uthDeck[27].s, 'private suit from tail index 27');
+      assertEqual(S.uthHole.length, 2, 'hole stays 2');
+      assertEqual(S.uthComm.length, 5, 'community stays 5');
+    });
+  });
+
+  it('_uthPrivateShown: hidden through preflop/flop, shown from the turn (revealComm 5)', () => {
+    withUth({ forcedMod:'uth_sixth_card', uthRevealComm:0 }, () => assertEqual(_uthPrivateShown(), false, 'hidden preflop'));
+    withUth({ forcedMod:'uth_sixth_card', uthRevealComm:3 }, () => assertEqual(_uthPrivateShown(), false, 'hidden on the flop'));
+    withUth({ forcedMod:'uth_sixth_card', uthRevealComm:5 }, () => assertEqual(_uthPrivateShown(), true, 'shown from the turn'));
+  });
+
+  it('eval: the private card joins the player pool (royal flush) but not the dealer pool', () => {
+    // Hole A♠K♠ + community Q♠J♠… is only a high card; the private 10♠ completes a royal flush, flipping
+    // a loss (vs the dealer's pair of Queens) into a win. The dealer's best is keyed off the 7-card pool.
+    withUth({
+      screen:'uth', uthPhase:'turn', uthAnte:100, uthPlay:0, uthPlayMult:0, uthRaised:false,
+      uthHand:0, uthHistory:[], chips:700, forcedMod:'uth_sixth_card',
+      uthHole:[card('A','s'),card('K','s')], uthDealer:[card('Q','h'),card('9','c')],
+      uthComm:[card('Q','s'),card('J','s'),card('5','d'),card('7','c'),card('2','h')],
+      uthPrivate:card('10','s'), uthRevealComm:5, uthPrevRevealComm:5,
+    }, () => {
+      uthResolve();
+      const h = S.uthHistory[S.uthHistory.length - 1];
+      assertEqual(h.playerBest.cat, 9, 'private 10♠ completes the royal flush');
+      assertEqual(h.dealerBest.cat, 1, 'dealer best (pair of Queens) is unaffected by the private card');
+      assertEqual(h.result, 'win', 'the upgraded hand wins');
+    });
+  });
+
+  it('preflop render: the private card sits in the community row face-down with a YOU tag', () => {
+    withUth({
+      screen:'uth', uthPhase:'preflop', forcedMod:'uth_sixth_card', uthHand:0, uthHistory:[], chips:800,
+      uthHole:[card('K','s'),card('K','h')], uthDealer:[card('7','d'),card('2','c')],
+      uthComm:[card('3','s'),card('4','d'),card('5','c'),card('6','h'),card('9','d')],
+      uthPrivate:card('A','s'), uthRevealComm:0, uthPrevRevealComm:0, uthRaised:false,
+    }, () => {
+      render();
+      const comm = document.getElementById('uth-community-hand');
+      assert(comm && comm.classList.contains('sixth-sense'), 'community row flagged for the 6th card');
+      const slot = comm.querySelector('#uth-priv-slot');
+      assert(slot, 'private slot present');
+      assert(slot.innerHTML.includes('YOU'), 'tagged YOU');
+      assert(slot.querySelector('.back'), 'face-down before the turn');
+    });
+  });
+
+  it('turn render: the private card flips face-up (no longer a back) for the final bet', () => {
+    withUth({
+      screen:'uth', uthPhase:'turn', forcedMod:'uth_sixth_card', uthHand:0, uthHistory:[], chips:800,
+      uthHole:[card('K','s'),card('K','h')], uthDealer:[card('7','d'),card('2','c')],
+      uthComm:[card('3','s'),card('4','d'),card('5','c'),card('6','h'),card('9','d')],
+      uthPrivate:card('A','s'), uthRevealComm:5, uthPrevRevealComm:5, uthRaised:false,
+    }, () => {
+      render();
+      const slot = document.getElementById('uth-priv-slot');
+      assert(slot && !slot.querySelector('.back'), 'face-up at the turn');
+      assert(slot.innerHTML.includes('YOU'), 'still tagged YOU');
     });
   });
 });

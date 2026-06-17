@@ -2,6 +2,7 @@ node_modules/
 package-lock.json
 .claude/
 screenshots/
+test-results/
 supabase/
 docs/
 .superpowers/

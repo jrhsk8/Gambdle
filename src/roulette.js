@@ -6,7 +6,7 @@
 //   ROULETTE SCREENS: screenRoulette (bet + spin phases)
 //   ROULETTE ACTIONS: rSpin (server fetch + local fallback) ·
 //     spinFromRandom (PURE word→pocket mapping, server-replayed) ·
-//     modifier draws (rHotNumber, rColorBoost) · _evalBets payouts ·
+//     modifier draws (rHotNumber) · _evalBets payouts ·
 //     rFinish / rDoRespin
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -46,6 +46,10 @@ const R_GROUP_INFO={
   '25_36': {nums:new Set([25,26,27,28,29,30,31,32,33,34,35,36]),bannedIdx:42},
   '1_18':  {nums:new Set([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]),bannedIdx:43},
   '19_36': {nums:new Set([19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36]),bannedIdx:48},
+  'even':  {nums:new Set([2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36]),bannedIdx:44},
+  'odd':   {nums:new Set([1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35]),bannedIdx:47},
+  'red':   {nums:new Set([...REDS]),bannedIdx:45},
+  'black': {nums:new Set(Array.from({length:36},(_,n)=>n+1).filter(n=>!REDS.has(n))),bannedIdx:46},
 };
 
 // Lookup table for getRBetNums (indices 37-48).
@@ -178,6 +182,11 @@ function rBoard(){
 
 // Holds the preloaded Audio object for the current spin; null when muted.
 let _rouletteAudio = null;
+// (Re)arm the ball-spin audio: build the Audio (or null when muted), set volume, preload.
+function _initRouletteAudio(){
+  _rouletteAudio = getPref('mute') ? null : new Audio('assets/sounds/roulette ball.mp3');
+  if (_rouletteAudio) { _rouletteAudio.volume = 0.5; _rouletteAudio.load(); }
+}
 
 // Standard European single-zero wheel pocket sequence (clockwise from 0).
 const WO=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
@@ -324,8 +333,7 @@ GAMES.roulette.patchBet = function(bet){
 // idempotent per device-day, so the re-fetch returns the same words.
 GAMES.roulette.resume = function(){
   if(S.rPhase!=='spinning') return;
-  _rouletteAudio = getPref('mute') ? null : new Audio('assets/sounds/roulette ball.mp3');
-  if (_rouletteAudio) { _rouletteAudio.volume = 0.5; _rouletteAudio.load(); }
+  _initRouletteAudio();
   if (S.rSpin == null) {
     const bets = S.rBets.map(b => [b.pick, b.bet]);
     _resolveSpinNumber(bets).then(sp => {
@@ -356,10 +364,12 @@ function screenRouletteRespin(){
   <div class="panel" style="text-align:center">
     ${gameDots([], 0, 'spinning', 2)}
     <div class="divider"></div>
-    ${rResultNumsHTML()}
-    <div style="font-size:1.6rem;font-weight:700;color:${col(displayDelta)};margin-bottom:8px">${csign(displayDelta)} chips</div>
+    <div class="vband">
+      ${rResultNumsHTML()}
+      <div style="font-size:1.6rem;font-weight:700;color:${col(displayDelta)};margin-bottom:8px">${csign(displayDelta)} chips</div>
+    </div>
     <div class="divider"></div>
-    ${betRows}
+    <div class="vband">${betRows}</div>
     <div class="divider"></div>
     <div style="font-size:.9rem;color:var(--cream);margin-bottom:10px">Keep this result, or use your one re-spin?</div>
     <div style="display:flex;gap:10px">
@@ -370,7 +380,7 @@ function screenRouletteRespin(){
 }
 
 function screenRouletteSpinning(){
-  const maxBets=getMod('r_max_bets')||6;
+  const maxBets=rMaxBets();
   // Show the real "Your Bets" tracker (read-only, no × remove buttons) during the spin so the
   // player sees exactly what's riding. The box uses the bare .r-bets-zone class (not the
   // #r-bets-zone id), so the bet-screen's id-scoped width/centering + mobile font-shrink rules
@@ -387,7 +397,7 @@ function screenRouletteSpinning(){
 }
 
 function screenRouletteBet(){
-  const maxBets=getMod('r_max_bets')||6;
+  const maxBets=rMaxBets();
   const aios=getMod('all_in_or_skip');
   // Clear a now-illegal pick (e.g. a force-group mod blocks the previously-selected tile).
   if(rBetBlocked(S.rPick)){S.rPick=null;S.rBet=0;}
@@ -473,7 +483,7 @@ function screenRouletteResult(){
 /** Skip the roulette spin (all_in_or_skip modifier). Records delta 0 and goes to result. */
 function rSkip(){
   txLog({g:'r',a:'skip'});
-  S.rResult=mkRound('r',0,'skipped',{skipped:true});S.rPhase='result';render();
+  S.rResult=mkRound('r',0,'skipped',{skipped:true});S.rPhase='result';navRender();
 }
 
 function pickBet(i){
@@ -526,9 +536,11 @@ function rBetsZone(bets,maxBets,readOnly){
   }
   return`<div class="rbz-title">Your Bets ${bets.length}/${maxBets}</div><div class="rbz-grid">${cells}</div>`;
 }
+// Board bet-count cap; a mod can raise it, default 6.
+function rMaxBets(){ return getMod('r_max_bets')||6; }
 /** Adds current rPick+rBet to the placed bets list (multi-bet mode). */
 function rAddBet(){
-  const maxBets=getMod('r_max_bets')||6;
+  const maxBets=rMaxBets();
   const isNew=!S.rBets.find(b=>b.pick===S.rPick);
   if(S.rPick===null||!S.rBet||(isNew&&S.rBets.length>=maxBets))return;
 
@@ -553,20 +565,13 @@ function rAddBet(){
   if(existingChip)existingChip.textContent=chipLbl(total);
   else boardBtn.insertAdjacentHTML('beforeend',`<span class="r-chip r-chip-placed">${chipLbl(total)}</span>`);
 
-  const bv=document.getElementById('bv');
-  if(bv)bv.textContent=cfmt(S.rBet); // keep showing the retained amount, not 0
+  patchEl('bv', bv=>bv.textContent=cfmt(S.rBet)); // keep showing the retained amount, not 0
   document.querySelectorAll('.chbtn').forEach(b=>{b.disabled=S.rBet+(+b.dataset.v)>S.chips;});
 
-  const z=document.getElementById('r-bets-zone');
-  if(z)z.innerHTML=rBetsZone(S.rBets,maxBets);
-  const sb=document.getElementById('r-sel-box');
-  if(sb)sb.innerHTML=rSelBox(S.rPick,S.rBet);
-
-  const pba=document.getElementById('pb-add');
-  if(pba){pba.textContent=`Place Bet (${S.rBets.length}/${maxBets})`;pba.disabled=true;}
-
-  const db=document.getElementById('db');
-  if(db)db.disabled=false;
+  patchEl('r-bets-zone', z=>z.innerHTML=rBetsZone(S.rBets,maxBets));
+  patchEl('r-sel-box', sb=>sb.innerHTML=rSelBox(S.rPick,S.rBet));
+  patchEl('pb-add', pba=>{pba.textContent=`Place Bet (${S.rBets.length}/${maxBets})`;pba.disabled=true;});
+  patchEl('db', db=>db.disabled=false);
 
   updateChipDisplay();
 }
@@ -610,9 +615,8 @@ function _colorBoostFor(mod, bets){
   for(let p=0;p<=36;p++) if(!chosen.has(p)) others.push(p); // 19 pockets: other color + green 0
   return {nums, others, pct};
 }
-// In-page adapters: read today's globals through getMod / the locked S.rBets.
+// In-page adapter: reads today's globals through getMod.
 function rHotNumber(){ return _hotFor(getMod); }
-function rColorBoost(){ return _colorBoostFor(getMod, S.rBets); }
 
 // Pure spin-distribution bundle from an explicit (mod, bets, override) — the replay-friendly core
 // of spinMods(). Same shape spinFromRandom needs, built without globals so the Phase-2 engine can
@@ -730,8 +734,7 @@ async function rSpin(){
   render();updateChipDisplay();
   drawStaticWheel();   // paint the wheel face now, so it appears WITH its gold ring (not after the resolve round-trip)
   // Preload the audio now so its duration is available by the time startWheelAnim runs.
-  _rouletteAudio = getPref('mute') ? null : new Audio('assets/sounds/roulette ball.mp3');
-  if (_rouletteAudio) { _rouletteAudio.volume = 0.5; _rouletteAudio.load(); }
+  _initRouletteAudio();
   try{
     const sp=await _resolveSpinNumber(bets);
     S.rSpin=sp.n;S.rSpin2=sp.n2;
@@ -797,6 +800,12 @@ function resolveRoulette(bets, spin, mods){
   if (mods.wm>1 && delta>0) delta *= mods.wm;
   return { betResults, delta, result: delta>0?'win':delta<0?'lose':'push' };
 }
+// Credit-from-result for the settled roulette round — the ONE mapping shared by the live settle
+// (_resolveRoulette) and the replay Engine. The whole stake was debited at placement, so returning
+// stake + delta lands the balance exactly `delta` from break-even in one credit. `acct` is an
+// Accountant (liveAcct live, the Engine's _engAcct in replay).
+/** @param {Accountant} acct */
+function rouletteAward(acct, stake, delta){ acct.credit(stake+delta,'roulette'); }
 // Settles all bets: returns stake + profit for winners, with the win multiplier folded into delta.
 function _resolveRoulette(){
   // Idempotency guard: only ever credit a spin once. A duplicate/late rFinish — flaky mobile
@@ -811,14 +820,14 @@ function _resolveRoulette(){
   // score / server replay.
   const {betResults, delta, result} = resolveRoulette(S.rBets, S.rSpin, {...evalBetMods(), wm: winMult()});
   const stake = S.rBets.reduce((s,b) => s + b.bet, 0);
-  credit(stake + delta, 'roulette');
+  rouletteAward(liveAcct(), stake, delta);
   S.rResult = mkRound('r', delta, result, {bets:betResults});
-  S.rPhase='result';render();updateChipDisplay();
+  S.rPhase='result';navRender();updateChipDisplay(); // crossfade spin → result panel
   if(delta>0)setTimeout(sndBigWin,400);
 }
 // Called when the wheel animation finishes — goes to respin phase if unused, otherwise resolves.
 function rFinish(){
-  if(getMod('r_respin')&&!S.rReSpun){S.rPhase='respin';render();return;}
+  if(getMod('r_respin')&&!S.rReSpun){S.rPhase='respin';navRender();return;}
   _resolveRoulette();
 }
 function rKeepSpin(){txLog({g:'r',a:'keep'});_resolveRoulette();} // player chose to keep the respin result

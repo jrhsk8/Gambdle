@@ -44,9 +44,9 @@ const SIZES = [
 // registry (screen-fixtures.js); this is just the selection + ordering. The PNG filename is
 // the fixture name, so this set reproduces the same review shots as before.
 const SCREENS = [
-  'intro', 'choice', 'bj-bet', 'bj-play', 'bj-result', 'bj-result-last',
-  'uth-bet', 'uth-flop', 'uth-showdown',
-  'roulette-bet', 'roulette-bet-max', 'roulette-spinning', 'roulette-result',
+  'intro', 'choice', 'bj-bet', 'bj-play', 'bj-pick', 'bj-split-2', 'bj-split-3', 'bj-split-4', 'bj-result', 'bj-result-last',
+  'uth-bet', 'uth-preflop', 'uth-flop', 'uth-turn', 'uth-sixth', 'uth-showdown', 'uth-fold',
+  'roulette-bet', 'roulette-bet-max', 'roulette-spinning', 'roulette-respin', 'roulette-result',
   'results', 'ladder-bet-free', 'ladder-climb', 'ladder-crash', 'ladder-cash',
 ];
 

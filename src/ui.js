@@ -188,6 +188,16 @@ function patchZones(map, opts){
   for(const id of ids) document.getElementById(id).innerHTML = map[id]();
   return true;
 }
+// Lightweight guard for fine-grained surgical mutation: run fn(el) only if #id is on screen, else
+// no-op (returns whether it ran). The companion to patchOrRender/patchZones — those replace innerHTML
+// and fall back to a full render(); reach for patchEl when you're mutating one element's
+// style/textContent/children in place and a missing element should simply be skipped, concentrating
+// the get-by-id-then-guard dance in one seam instead of hand-rolling it at every call site.
+function patchEl(id, fn){
+  const el = document.getElementById(id);
+  if(el){ fn(el); return true; }
+  return false;
+}
 
 // Updates chip buttons, bet display, and action button states without a full re-render.
 function patchBetUI() {
