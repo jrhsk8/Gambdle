@@ -26,7 +26,7 @@ function _resetRun(){
   S.bjDeck2=null; S.bjDeck2Idx=0; S.bjCandidates=null; // Double Vision — clear the fresh per-hand deck between runs
   S.bjSplit=false; S.bjSplitHands=[]; S.bjSplitActive=0; S.bjSplitBets=[]; S.bjSplitResults=[]; S.bjSplitDone=[];
   S.bjDoubled=false; S.bjSplitDoubled=[]; S.bjActed=false; S.bjDealerReveal=false; S.bjCelebrating=false;
-  S.uthHand=0; S.uthPhase='bet'; S.uthAnte=0; S.uthPlay=0; S.uthPlayMult=0; S.uthRaised=false; S.uthFolded=false;
+  S.uthHand=0; S.uthPhase='bet'; S.uthAnte=0; S.uthRaise=0; S.uthRaiseMult=0; S.uthRaised=false; S.uthFolded=false;
   S.uthHole=[]; S.uthDealer=[]; S.uthComm=[]; S.uthPrivate=null; S.uthRevealComm=0; S.uthPrevRevealComm=0; S.uthHistory=[];
   S.uthRedealPtr=27; S.timeTravelUsed=false;
   S.ladPhase='bet'; S.ladBet=0; S.ladFree=false; S.ladIdx=0; S.ladRung=0; S.ladResult=null;
@@ -93,7 +93,7 @@ function _driveUTH(ante, actions){
   for(const a of (actions||[])){
     if(S.uthPhase==='reveal'||S.uthPhase==='result') break;
     if(a.a==='check') uthCheck();
-    else if(a.a==='raise') uthRaise(a.mult);
+    else if(a.a==='raise') uthPlaceRaise(a.mult);
     else if(a.a==='fold') uthFold();
     else if(a.a==='timetravel') doTimeTravel();
   }
@@ -353,15 +353,15 @@ describe('engine — legality rejection', () => {
   });
 });
 
-// ─── auditRound ───────────────────────────────────────────────────────────────
-describe('engine — auditRound', () => {
+// ─── auditOutcome ───────────────────────────────────────────────────────────────
+describe('engine — auditOutcome', () => {
   it('recomputes each recorded round to its stored delta', () => {
     _resetRun(); const mods=_modsFor({});
     _driveBJ(100,['stand']); _driveBJ(120,['hit','stand']);
     _driveUTH(100,[{a:'check'},{a:'raise',mult:2}]);
     const deal=_freshDeal();
-    for(const r of S.bjHistory) if(r.result!=='split') assertEqual(auditRound(r, deal, mods), r.delta, 'bj round audits to its delta');
-    for(const r of S.uthHistory) assertEqual(auditRound(r, deal, mods), r.delta, 'uth round audits to its delta');
+    for(const r of S.bjHistory) if(r.result!=='split') assertEqual(auditOutcome(r, deal, mods), r.delta, 'bj round audits to its delta');
+    for(const r of S.uthHistory) assertEqual(auditOutcome(r, deal, mods), r.delta, 'uth round audits to its delta');
   });
 });
 

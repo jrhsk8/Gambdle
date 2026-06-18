@@ -1,13 +1,13 @@
 // ─── THE RECORD ──────────────────────────────────────────────────────────────
 // The canonical settled-round record + the Run Transcript: the one shape integrity Phase-2 replay
-// reads. Write via mkRound / txLog, read via settledRounds / recalcChips, validate via the shape
+// reads. Write via mkOutcome / txLog, read via settledOutcomes / recalcChips, validate via the shape
 // tables (ROUND_DETAIL_KEYS, TX_SHAPE) — the strict-mode typo guards. Lifted out of core.js so the
 // whole record/transcript contract is one seam (its own test surface). Depends on core.js: S,
-// START_CHIPS, GAME1/GAME2, DEV_OVERRIDE. Loads right after core.js. PUBLIC: mkRound, gameHistory,
+// START_CHIPS, GAME1/GAME2, DEV_OVERRIDE. Loads right after core.js. PUBLIC: mkOutcome, gameHistory,
 // gameNet, recalcChips, txLog, _normalizeRounds (called by core.loadState).
 // ─────────────────────────────────────────────────────────────────────────────
 // ─── CANONICAL SETTLED-ROUND RECORD ─────────────────────────────────────────
-// Every game records the outcome of a settled round in ONE shape via mkRound, so the score basis
+// Every game records the outcome of a settled round in ONE shape via mkOutcome, so the score basis
 // (recalcChips) and integrity Phase-2 server replay read a single record format instead of three
 // (the per-game history arrays, the rResult singleton, the ladResult singleton). The envelope is
 // {slot, delta, result}: `delta` is the signed net chips — the only field score derivation reads —
@@ -31,16 +31,16 @@ const ROUND_DETAIL_KEYS = {
 const _strictRounds = () => !!DEV_OVERRIDE || !!(typeof window !== 'undefined' && window.__GAMBDLE_TEST__);
 function _validateRound(slot, detail){
   const allowed = ROUND_DETAIL_KEYS[slot];
-  if(!allowed) throw new Error(`mkRound: unknown slot '${slot}'`);
+  if(!allowed) throw new Error(`mkOutcome: unknown slot '${slot}'`);
   for(const k of Object.keys(detail)) if(!allowed.includes(k))
-    throw new Error(`mkRound: '${slot}' detail has unexpected key '${k}'. Typo? Expected one of: ${allowed.join(', ')}`);
+    throw new Error(`mkOutcome: '${slot}' detail has unexpected key '${k}'. Typo? Expected one of: ${allowed.join(', ')}`);
 }
-function mkRound(slot, delta, result, detail = {}){
+function mkOutcome(slot, delta, result, detail = {}){
   if(_strictRounds()){
     // `delta` (the only field score derivation reads) and `result` are the record's load-bearing
     // fields — a non-finite delta or a missing result would silently corrupt the score / replay.
-    if(!Number.isFinite(delta)) throw new Error(`mkRound: '${slot}' delta must be a finite number, got ${delta}`);
-    if(result == null) throw new Error(`mkRound: '${slot}' missing result`);
+    if(!Number.isFinite(delta)) throw new Error(`mkOutcome: '${slot}' delta must be a finite number, got ${delta}`);
+    if(result == null) throw new Error(`mkOutcome: '${slot}' missing result`);
     _validateRound(slot, detail);
   }
   return { slot, delta, result, ...detail };
@@ -55,7 +55,7 @@ function gameNet(g){ return gameHistory(g).reduce((a,h)=>a+(Number.isFinite(h.de
 // Every settled round of this run, in canonical form: the two played game slots' histories plus the
 // roulette and ladder records (singletons — each runs once). The single list recalcChips and a
 // future server replay iterate, with no per-game special-casing.
-function settledRounds(){ return [...gameHistory(GAME1), ...gameHistory(GAME2), ...(S.rResult ? [S.rResult] : []), ...(S.ladResult ? [S.ladResult] : [])]; }
+function settledOutcomes(){ return [...gameHistory(GAME1), ...gameHistory(GAME2), ...(S.rResult ? [S.rResult] : []), ...(S.ladResult ? [S.ladResult] : [])]; }
 // Recomputes the run's chip total from recorded history, so a stale or edited save can't inflate a
 // score. Borrowed chips count as part of the effective starting stack. Returns NaN if history is
 // corrupt; callers fall back to the saved value. Single source of truth for loadState + advanceTo.
@@ -64,7 +64,7 @@ function settledRounds(){ return [...gameHistory(GAME1), ...gameHistory(GAME2), 
 // loan, leaving borrowAmount 0. So a declined "Accept defeat" must add 0, not fall back to
 // BORROW_AMOUNT — otherwise giving up hands out a free 50 the Transcript never records, and the
 // server replay (which only sees logged borrows) would disagree with the client.
-function recalcChips(){ return START_CHIPS + (S.borrowUsed ? S.borrowAmount : 0) + settledRounds().reduce((a,r)=>a+(Number.isFinite(r.delta)?r.delta:0),0); }
+function recalcChips(){ return START_CHIPS + (S.borrowUsed ? S.borrowAmount : 0) + settledOutcomes().reduce((a,r)=>a+(Number.isFinite(r.delta)?r.delta:0),0); }
 // Backward-compat: upgrade pre-v1.42 settled records to the canonical {slot,result,…} shape on load.
 // Score is unaffected (delta was always present and is what recalcChips reads); this keeps the
 // result-screen readers — which now use the unified `result` field (ladder's old `outcome`) — working

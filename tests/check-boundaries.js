@@ -37,8 +37,8 @@ const MANIFEST = {
   ],
   'deal.js': ['DEAL', 'buildDeal'],
   'dom-ids.js': ['DOM'],
-  'record.js': ['_normalizeRounds', 'gameHistory', 'gameNet', 'mkRound', 'recalcChips', 'txLog'],
-  'engine.js': ['auditRound', 'replayConfigHorizon', 'replayDayMods', 'replayRngSeed', 'replayRun'],
+  'record.js': ['_normalizeRounds', 'gameHistory', 'gameNet', 'mkOutcome', 'recalcChips', 'txLog'],
+  'engine.js': ['auditOutcome', 'replayConfigHorizon', 'replayDayMods', 'replayRngSeed', 'replayRun'],
   'dev.js': [
     '_doReload', '_drawLayoutDebug', 'devApplyMod', 'devLadder', 'devReset', 'devSetGame', 'devSpin',
     'devToggleLayoutDebug', 'devToggleUnlocks', 'fetchDevStats', 'fetchRetention', 'screenDevStats',
@@ -59,6 +59,7 @@ const MANIFEST = {
     'ladRankVal', 'ladStakeCommit', 'resetLadderRun', 'resolveLadder', 'screenLadder',
   ],
   'menus.js': ['applyPrefs', 'closeDropdowns', 'getPref', 'setPref', 'showActiveModInfo', 'toggleMenu', 'togglePref'],
+  'net.js': ['sbConfigured', 'sbFetch', 'sbJson'],
   'modifiers.js': ['CYCLE_ORDER', 'DAILY_MODIFIERS', 'DAILY_SEED_OVERRIDES', 'PRESET_MODIFIERS'],
   'poker.js': ['pkDeal', 'pkDraw', 'pkSkip', 'screenPoker', 'toggleHold'],
   'roulette.js': ['_resolveSpinNumber', '_rouletteAudio', 'evalBetModsFor', 'rBetsZone', 'rSelBox', 'rSpin', 'resolveRoulette', 'rouletteAward', 'screenRoulette', 'spinFromRandom', 'spinModsFor', 'startWheelAnim'],

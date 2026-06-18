@@ -31,9 +31,18 @@ function chipScale(){ return getMod('chip_div') || 1; }
 function chipDispDiv(){ return CHIP_SCALE_SCREENS.has(S.screen) ? chipScale() : 1; }
 // Scale an internal chip amount to its displayed value (rounded to 2dp to kill FP fuzz).
 function _chipScaled(n){ const d=chipDispDiv(); return d===1 ? n : Math.round(n/d*100)/100; }
-function cfmt(n){ return _chipScaled(n).toLocaleString(undefined,{maximumFractionDigits:2}); }
-function cfmtK(n){ return fmtK(_chipScaled(n)); }
-function csign(n){ const v=_chipScaled(n); const s=v.toLocaleString(undefined,{maximumFractionDigits:2}); return v>=0?'+'+s:s; }
+// The one display formatter for a chip amount: scales it (chipDispDiv), then formats. `short` uses
+// the compact k/m form; `sign` prepends '+' for non-negatives. cfmt/cfmtK/csign are sugar over it
+// so the scale-then-format rule lives in exactly one place.
+function chipDisp(n, { short=false, sign=false } = {}){
+  const v=_chipScaled(n);
+  if(short) return fmtK(v);
+  const s=v.toLocaleString(undefined,{maximumFractionDigits:2});
+  return sign && v>=0 ? '+'+s : s;
+}
+function cfmt(n){ return chipDisp(n); }
+function cfmtK(n){ return chipDisp(n,{short:true}); }
+function csign(n){ return chipDisp(n,{sign:true}); }
 
 // Maps suit symbols to CSS classes for coloring (red suits get a different color than black).
 const SUIT_CLS={'♠':'suit-s','♥':'suit-h','♦':'suit-d','♣':'suit-c'};

@@ -239,7 +239,7 @@ describe('render — UTH bet phase', () => {
 
 describe('render — UTH play phases', () => {
   const _baseUTH = {
-    screen:'uth', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0,
+    screen:'uth', chips:800, uthAnte:100, uthRaise:0, uthRaiseMult:0,
     uthHole:_uthHoleP, uthDealer:_uthHoleD, uthComm:_uthComm,
     // The deal always sets uthPrivate (uth.js:193) — model it so renders don't crash on the days the
     // Sixth Sense modifier (uth_sixth_card) is active, which reveals this 6th card face-up at the turn.
@@ -269,7 +269,7 @@ describe('render — UTH play phases', () => {
   });
 
   it('flop after raise: shows advance button instead of raise/check', () => {
-    withRender({ ..._baseUTH, uthPhase:'flop', uthRevealComm:3, uthRaised:true, uthPlay:200, uthPlayMult:4 }, html => {
+    withRender({ ..._baseUTH, uthPhase:'flop', uthRevealComm:3, uthRaised:true, uthRaise:200, uthRaiseMult:4 }, html => {
       assert(html.includes('Turn') || html.includes('River'), 'advance button present');
     });
   });
@@ -277,7 +277,7 @@ describe('render — UTH play phases', () => {
   it('reveal: dealer cards and community cards visible', () => {
     withRender({
       ..._baseUTH, uthPhase:'reveal',
-      uthRevealComm:5, uthHand:1, uthPlay:200, uthPlayMult:4,
+      uthRevealComm:5, uthHand:1, uthRaise:200, uthRaiseMult:4,
       uthHistory:[_uthWinEntry],
     }, html => {
       assert(html.includes('Dealer'), 'dealer section present');

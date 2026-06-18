@@ -10,7 +10,19 @@
 // Run: npm run test:webkit   (first time: npx playwright install webkit)
 
 const { webkit } = require('playwright');
+const fs = require('fs');
+const path = require('path');
 const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
+
+// VT323 (the game's pixel font) self-hosted as a data: URL so the harness never races the Google Fonts
+// CDN. Headless WebKit would sometimes report the CDN font as loaded yet never apply it to LAYOUT for a
+// whole session, leaving text in the wider Courier-New fallback and spuriously tripping the no-scroll
+// check. Injecting a fully-loaded FontFace from these bytes (see runOnce) makes every pass deterministic
+// and the run fully offline. This is the latin subset — the only glyphs the English UI renders in VT323;
+// chars outside it (e.g. →) fall back identically on a real device, so the metrics match. Font: VT323
+// (Google Fonts, SIL OFL 1.1 — see assets/VT323-OFL.txt), the exact woff2 the live CDN serves WebKit.
+const VT323_DATA_URL = 'data:font/woff2;base64,' +
+  fs.readFileSync(path.join(__dirname, '..', 'assets', 'vt323-latin.woff2')).toString('base64');
 
 // Supported floor is iPhone 12/13-mini (360×780) and up — the user's reports are iPhone 15
 // (393×852). iPhone SE (375×667) is intentionally NOT tested yet.
@@ -175,11 +187,20 @@ async function runOnce(verbose) {
     await page.route('**/rest/v1/**', json([]));
     await page.route('**/rpc/get_score_distribution', json([5, 8, 12, 16, 10, 5, 2].map((count, bucket) => ({ bucket, count }))));
     await page.route('**/rpc/get_percentile', json([{ top_pct: 44, total: 142 }]));
+    // Block the live font CDN: the page would otherwise race to fetch VT323 from Google Fonts. We serve
+    // it deterministically from the local data: URL below instead, so the run is hermetic (and faster).
+    await page.route('**/fonts.googleapis.com/**', r => r.abort());
+    await page.route('**/fonts.gstatic.com/**', r => r.abort());
     await page.goto(BASE);
-    // Let the VT323 web font (Google Fonts CDN, loaded non-blocking) finish loading before rendering
-    // any fixture, so the first pass measures with the real font on most launches and rarely needs the
-    // re-run guard below. Bounded so an offline run proceeds instead of hanging.
-    await page.waitForFunction(() => document.fonts.check('16px "VT323"'), null, { timeout: 4000 }).catch(() => {});
+    // Register VT323 as a fully-loaded FontFace before snapshotting, so every fixture lays out with the
+    // real pixel-font metrics on the FIRST pass. Replaces the old "poll document.fonts.check() and hope
+    // it applied" wait, which non-deterministically left the whole session in the Courier-New fallback.
+    await page.evaluate(async (url) => {
+      const ff = new FontFace('VT323', `url(${url})`);
+      await ff.load();
+      document.fonts.add(ff);
+      await document.fonts.ready;
+    }, VT323_DATA_URL);
     await page.evaluate(() => { window.__SNAP = JSON.stringify({ ...S, pkHeld: [...S.pkHeld] }); });
 
     for (const inset of INSETS) {
@@ -231,12 +252,11 @@ async function runOnce(verbose) {
 (async () => {
   // First pass (normal streaming output).
   let { totalChecks, failLines } = await runOnce(true);
-  // Per-launch headless-WebKit font quirk: VT323 sometimes loads (document.fonts.check passes) but is
-  // never applied to LAYOUT for the whole browser session, so the wider Courier New fallback makes a
-  // couple of chip/bet rows wrap an extra line and spuriously trip the no-scroll check. The state
-  // re-rolls on a fresh launch, so confirm any failure on up to 2 fresh browsers and keep only the
-  // ones that persist (a real overflow fails every launch). Re-runs happen ONLY after a failed first
-  // pass, so the common all-pass run stays a single fast pass.
+  // Safety net: confirm any failure on up to 2 fresh browser launches and keep only the ones that
+  // persist (a real overflow fails every launch). The headless-WebKit font flake this used to absorb is
+  // now fixed at the source — VT323 is injected as a local fully-loaded FontFace above, so the first
+  // pass is deterministic — but the cheap re-check stays as insurance against any other per-launch
+  // fluke. Re-runs happen ONLY after a failed first pass, so the common all-pass run stays one fast pass.
   for (let i = 0; i < 2 && failLines.length; i++) {
     console.log(`\n… re-running ${failLines.length} failed check(s) on a fresh browser (per-launch font-flake guard ${i + 1}/2)…`);
     const again = await runOnce(false);

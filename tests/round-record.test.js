@@ -1,8 +1,8 @@
 // ─── Canonical settled-round record (deepen-game-envelopes #2) ────────────────
-// Every game records a settled round in ONE shape via mkRound({slot,delta,result,…detail}); the
-// score basis (recalcChips, through settledRounds) and a future server replay read that single
+// Every game records a settled round in ONE shape via mkOutcome({slot,delta,result,…detail}); the
+// score basis (recalcChips, through settledOutcomes) and a future server replay read that single
 // format instead of the old three (per-game history arrays, the rResult singleton, the ladResult
-// singleton). These tests pin: the envelope mkRound builds; that settledRounds/recalcChips read it
+// singleton). These tests pin: the envelope mkOutcome builds; that settledOutcomes/recalcChips read it
 // uniformly; that roulette's win-multiplier is folded into one net delta (one credit); that each
 // game emits the canonical shape; and that the loadState shim upgrades pre-v1.42 saved records.
 
@@ -31,45 +31,45 @@ function withResolve(overrides, fn) {
   try { fn(); } finally { Object.assign(window, saved); _rrRestore(snap); }
 }
 
-// ─── mkRound — the canonical envelope ─────────────────────────────────────────
-describe('mkRound — builds the {slot,delta,result,…detail} envelope', () => {
+// ─── mkOutcome — the canonical envelope ─────────────────────────────────────────
+describe('mkOutcome — builds the {slot,delta,result,…detail} envelope', () => {
   it('spreads detail fields after the envelope', () => {
-    assertDeepEqual(mkRound('bj', 100, 'win', { bet: 50, player: [], dealer: [] }),
+    assertDeepEqual(mkOutcome('bj', 100, 'win', { bet: 50, player: [], dealer: [] }),
                     { slot: 'bj', delta: 100, result: 'win', bet: 50, player: [], dealer: [] });
   });
   it('works with no detail (terminal envelope only)', () => {
-    assertDeepEqual(mkRound('lad', -100, 'crash'), { slot: 'lad', delta: -100, result: 'crash' });
+    assertDeepEqual(mkOutcome('lad', -100, 'crash'), { slot: 'lad', delta: -100, result: 'crash' });
   });
   it('carries the roulette skip flag through detail', () => {
-    assertDeepEqual(mkRound('r', 0, 'skipped', { skipped: true }),
+    assertDeepEqual(mkOutcome('r', 0, 'skipped', { skipped: true }),
                     { slot: 'r', delta: 0, result: 'skipped', skipped: true });
   });
 });
 
-// ─── mkRound — detail-shape validation (dev/test only) ────────────────────────
+// ─── mkOutcome — detail-shape validation (dev/test only) ────────────────────────
 // The typo guard from PRD integrity Phase 2: a mistyped or stray detail key records silently today and
-// only surfaces as a server-replay mismatch. Under the test harness (and ?dev=true) mkRound throws;
+// only surfaces as a server-replay mismatch. Under the test harness (and ?dev=true) mkOutcome throws;
 // production runtime stays lenient so an unanticipated shape can't crash a live Run mid-game.
-describe('mkRound — rejects an off-schema detail (dev/test strict)', () => {
+describe('mkOutcome — rejects an off-schema detail (dev/test strict)', () => {
   const _throws = fn => { try { fn(); return false; } catch { return true; } };
   it("throws on a typo'd detail key", () => {
-    assert(_throws(() => mkRound('uth', -100, 'lose', { antDelta: -50 })), 'expected a throw on the antDelta typo');
+    assert(_throws(() => mkOutcome('uth', -100, 'lose', { antDelta: -50 })), 'expected a throw on the antDelta typo');
   });
   it('throws on an unknown slot', () => {
-    assert(_throws(() => mkRound('zz', 0, 'x', {})), 'expected a throw on an unknown slot');
+    assert(_throws(() => mkOutcome('zz', 0, 'x', {})), 'expected a throw on an unknown slot');
   });
   it('accepts the canonical uth detail shape', () => {
-    assert(!_throws(() => mkRound('uth', 10, 'win', { ante: 50, blind: 50, play: 0, playMult: 1,
+    assert(!_throws(() => mkOutcome('uth', 10, 'win', { ante: 50, blind: 50, play: 0, playMult: 1,
       anteDelta: 50, blindDelta: 0, playDelta: 0, playerBest: 'x', dealerBest: 'y', dealerQualifies: true })),
       'canonical uth shape should not throw');
   });
   it('accepts an empty detail (terminal envelope only)', () => {
-    assert(!_throws(() => mkRound('lad', -100, 'crash')), 'empty detail should not throw');
+    assert(!_throws(() => mkOutcome('lad', -100, 'crash')), 'empty detail should not throw');
   });
 });
 
-// ─── settledRounds + recalcChips — one read path for the score basis ──────────
-describe('settledRounds — the unified record list', () => {
+// ─── settledOutcomes + recalcChips — one read path for the score basis ──────────
+describe('settledOutcomes — the unified record list', () => {
   it('concatenates the two played slots plus roulette and ladder, in order', () => {
     withRR({
       bjHistory: [{ slot: 'bj', delta: 100, result: 'win' }],
@@ -77,14 +77,14 @@ describe('settledRounds — the unified record list', () => {
       rResult: { slot: 'r', delta: 300, result: 'win' },
       ladResult: { slot: 'lad', delta: 220, result: 'cash' },
     }, () => {
-      const rounds = settledRounds();
+      const rounds = settledOutcomes();
       assertEqual(rounds.length, 4);
       assertDeepEqual(rounds.map(r => r.slot), ['bj', 'uth', 'r', 'lad']);
     });
   });
   it('omits roulette/ladder when their singletons are null', () => {
     withRR({ bjHistory: [{ delta: 1 }], uthHistory: [{ delta: 2 }], rResult: null, ladResult: null },
-      () => assertEqual(settledRounds().length, 2));
+      () => assertEqual(settledOutcomes().length, 2));
   });
 });
 

@@ -126,7 +126,7 @@ const UTH_REVEAL_TOTAL_MS  = UTH_CARD_START_MS + 5 * UTH_CARD_INTERVAL_MS;
 
 
 function resetUTHHand(){
-  S.uthAnte=0; S.uthPhase='bet'; S.uthPlay=0; S.uthPlayMult=0;
+  S.uthAnte=0; S.uthPhase='bet'; S.uthRaise=0; S.uthRaiseMult=0;
   S.uthRaised=false; S.uthFolded=false;
   S.uthHole=[]; S.uthDealer=[]; S.uthComm=[];
   S.uthPrivate=null;
@@ -194,7 +194,7 @@ function uthDeal(){
     S.uthDealer=[dk[off+2],dk[off+3]];
     S.uthComm=[dk[off+4],dk[off+5],dk[off+6],dk[off+7],dk[off+8]];
   }
-  S.uthRaised=false;S.uthFolded=false;S.uthPlay=0;S.uthPlayMult=0;
+  S.uthRaised=false;S.uthFolded=false;S.uthRaise=0;S.uthRaiseMult=0;
   S.uthRevealComm=0;S.uthPrevRevealComm=0;
   const db=document.getElementById(DOM.dealBtn);if(db)db.disabled=true;
   sndShuffle(()=>{
@@ -273,15 +273,15 @@ function _uthBlindPortion(){ return Math.floor(S.uthAnte/2); }
 function uthBetSummary(){
   const part=(lbl,v)=>`${lbl} <b style="color:var(--gold)">${cfmtK(v)}</b>`;
   let s=`${part('Ante',_uthAntePortion())} · ${part('Blind',_uthBlindPortion())}`;
-  if(S.uthPlay>0) s+=` · ${part('Raise',S.uthPlay)}`;
+  if(S.uthRaise>0) s+=` · ${part('Raise',S.uthRaise)}`;
   return s;
 }
 
-function uthRaise(mult){
+function uthPlaceRaise(mult){
   const bet=_uthAntePortion()*mult;
   if(S.chips<bet)return;
   txLog({g:'uth',a:'raise',h:S.uthHand,mult,st:S.uthPhase});
-  debit(bet,'uth-raise');S.uthPlay=bet;S.uthPlayMult=mult;S.uthRaised=true;
+  debit(bet,'uth-raise');S.uthRaise=bet;S.uthRaiseMult=mult;S.uthRaised=true;
   sndChip();
   if(S.uthPhase==='preflop'){_uthDealFlop();updateChipDisplay();}
   else if(S.uthPhase==='flop'){_uthDealTurn();updateChipDisplay();}
@@ -304,7 +304,7 @@ function uthFold(){
   txLog({g:'uth',a:'fold',h:S.uthHand,st:S.uthPhase});
   S.uthFolded=true;
   const ante=_uthAntePortion(),blind=_uthBlindPortion();
-  S.uthHistory.push(mkRound('uth',-(ante+blind),'fold',{ante,blind,play:0,playMult:0,anteDelta:-ante,blindDelta:-blind,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false}));
+  S.uthHistory.push(mkOutcome('uth',-(ante+blind),'fold',{ante,blind,play:0,playMult:0,anteDelta:-ante,blindDelta:-blind,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false}));
   S.uthHand++;S.uthPhase='reveal';
   updateUthCommunityCards();
   setTimeout(()=>{_noAnim=true;S.uthPhase='result';navRender();updateChipDisplay();},2300);
@@ -353,7 +353,7 @@ function uthResolve(){
   // resolving action or a stray call must not credit the three payouts and push a second history
   // entry twice. Only ever runs from the 'turn' phase and flips to 'reveal' below, so bail otherwise.
   if(S.uthPhase!=='turn')return;
-  const ante=_uthAntePortion(),blind=_uthBlindPortion(),play=S.uthPlay;
+  const ante=_uthAntePortion(),blind=_uthBlindPortion(),play=S.uthRaise;
   const pb=bestOf7(_uthPlayerPool());
   const db2=bestOf7([...S.uthDealer,...S.uthComm]);
   const res=resolveUTH(pb,db2,ante,blind,play,{
@@ -363,7 +363,7 @@ function uthResolve(){
   // Apply chips per leg through the shared award mapping (the same one the Engine replays).
   uthAward(liveAcct(),res,ante,blind,play);
   const {anteDelta,blindDelta,playDelta,delta,dealerQualifies,result}=res;
-  S.uthHistory.push(mkRound('uth',delta,result,{ante,blind,play,playMult:S.uthPlayMult,anteDelta,blindDelta,playDelta,playerBest:pb,dealerBest:db2,dealerQualifies}));
+  S.uthHistory.push(mkOutcome('uth',delta,result,{ante,blind,play,playMult:S.uthRaiseMult,anteDelta,blindDelta,playDelta,playerBest:pb,dealerBest:db2,dealerQualifies}));
   S.uthHand++;S.uthPhase='reveal';
   S.uthRevealComm=5;
   updateUthCommunityCards();
@@ -446,8 +446,8 @@ function updateUthCommunityCards() {
       if (S.uthRaised) {
         actionUi.innerHTML = `<button class="btn-gold" onclick="uthNextStreet()">${S.uthPhase==='flop'?'See Turn & River →':'→ Showdown'}</button>`;
       } else {
-        if (S.uthPhase === 'flop') { const r2=_uthAntePortion()*2; actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(2)" ${S.chips < r2 ? 'disabled' : ''}>Raise 2× (${cfmt(r2)})</button><button class="act-btn" onclick="uthCheck()">Check</button></div>`; }
-        else if (S.uthPhase === 'turn') { const r1=_uthAntePortion(); actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthRaise(1)" ${S.chips < r1 ? 'disabled' : ''}>Raise 1× (${cfmt(r1)})</button><button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button></div>`; }
+        if (S.uthPhase === 'flop') { const r2=_uthAntePortion()*2; actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthPlaceRaise(2)" ${S.chips < r2 ? 'disabled' : ''}>Raise 2× (${cfmt(r2)})</button><button class="act-btn" onclick="uthCheck()">Check</button></div>`; }
+        else if (S.uthPhase === 'turn') { const r1=_uthAntePortion(); actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthPlaceRaise(1)" ${S.chips < r1 ? 'disabled' : ''}>Raise 1× (${cfmt(r1)})</button><button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button></div>`; }
       }
       // The dealer row isn't re-rendered on a street change, so the phase-gated Time Travel button
       // must be injected here when the flop/turn lands (it returns '' when used or off, a safe no-op).
@@ -564,8 +564,8 @@ function screenUTH(){
       ${playerRow(true)}
       <div class="divider"></div>
       ${uthControls(`<div id="uth-action-btns" class="act-btns">
-          <button class="act-btn" onclick="uthRaise(4)" ${canR4?'':'disabled'}>Raise 4× (${cfmt(r4Cost)})</button>
-          <button class="act-btn" onclick="uthRaise(3)" ${canR3?'':'disabled'}>Raise 3× (${cfmt(r3Cost)})</button>
+          <button class="act-btn" onclick="uthPlaceRaise(4)" ${canR4?'':'disabled'}>Raise 4× (${cfmt(r4Cost)})</button>
+          <button class="act-btn" onclick="uthPlaceRaise(3)" ${canR3?'':'disabled'}>Raise 3× (${cfmt(r3Cost)})</button>
           <button class="act-btn" onclick="uthCheck()">Check</button>
         </div>`)}
     </div>`;
@@ -585,7 +585,7 @@ function screenUTH(){
       <div class="divider"></div>
       ${uthControls(S.uthRaised ? `<button class="btn-gold" onclick="uthNextStreet()">See Turn &amp; River →</button>` : `
           <div id="uth-action-btns" class="act-btns">
-            <button class="act-btn" onclick="uthRaise(2)" ${canR2?'':'disabled'}>Raise 2× (${cfmt(S.uthAnte)})</button>
+            <button class="act-btn" onclick="uthPlaceRaise(2)" ${canR2?'':'disabled'}>Raise 2× (${cfmt(S.uthAnte)})</button>
             <button class="act-btn" onclick="uthCheck()">Check</button>
           </div>`)}
     </div>`;
@@ -605,7 +605,7 @@ function screenUTH(){
       <div class="divider"></div>
       ${uthControls(S.uthRaised ? `<button class="btn-gold" onclick="uthNextStreet()">→ Showdown</button>` : `
           <div id="uth-action-btns" class="act-btns">
-            <button class="act-btn" onclick="uthRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${cfmt(_uthAntePortion())})</button>
+            <button class="act-btn" onclick="uthPlaceRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${cfmt(_uthAntePortion())})</button>
             <button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button>
           </div>`)}
     </div>`;

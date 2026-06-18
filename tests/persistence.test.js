@@ -167,7 +167,7 @@ describe('loadState — mid-UTH resume', () => {
     withSave({
       screen: 'uth', chips: 750,
       uthPhase: 'flop', uthAnte: 200,
-      uthPlay: 400, uthPlayMult: 4, uthRaised: true,
+      uthRaise: 400, uthRaiseMult: 4, uthRaised: true,
       uthRevealComm: 3,
       uthHole:   [{ r: 'A', s: '♠' }, { r: 'K', s: '♠' }],
       uthDealer: [{ r: '2', s: '♥' }, { r: '7', s: '♦' }],
@@ -178,8 +178,8 @@ describe('loadState — mid-UTH resume', () => {
     }, () => {
       assertEqual(S.uthPhase,      'flop');
       assertEqual(S.uthAnte,       200);
-      assertEqual(S.uthPlay,       400);
-      assertEqual(S.uthPlayMult,   4);
+      assertEqual(S.uthRaise,       400);
+      assertEqual(S.uthRaiseMult,   4);
       assert(S.uthRaised,          'uthRaised');
       assertEqual(S.uthRevealComm, 3);
       assertEqual(S.uthHole[0].r,  'A');
@@ -190,7 +190,7 @@ describe('loadState — mid-UTH resume', () => {
   it('restores turn phase with no raise yet', () => {
     withSave({
       screen: 'uth', uthPhase: 'turn',
-      uthRaised: false, uthAnte: 100, uthPlay: 0, uthRevealComm: 5,
+      uthRaised: false, uthAnte: 100, uthRaise: 0, uthRevealComm: 5,
     }, () => {
       assertEqual(S.uthPhase,      'turn');
       assert(!S.uthRaised,         'uthRaised is false');

@@ -183,69 +183,72 @@ function screenResults(){
 
 /**
  * ─── LEADERBOARD ─────────────────────────────────────────────────────────
- * Submits score to Supabase once per day per device, then fetches the
- * player's percentile rank among all submissions for that day's seed.
+ * Submits the score to Supabase once per day per device, then RESOLVES the player's percentile rank
+ * for the day. Resolve and render are split: submitAndFetchLeaderboard does the I/O (through the
+ * net.js adapter) and caches the row per seed; paintLeaderboard renders it into the DOM. render()
+ * calls this on every results draw, but the fetch runs once — a re-render is a cache hit that just
+ * repaints (so a redraw keeps the rank instead of dropping back to "Loading…").
  */
+let _lbRowCache = null; // { seed, status:'row'|'norow', row } — only success is cached, so a failed
+                        // fetch leaves "Loading…" and the next re-render retries.
+
 async function submitAndFetchLeaderboard() {
-  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return;
+  if (!sbConfigured()) return;
   const seed = getActiveSeed();
   const subKey = `gambdle_submitted_${seed}`;
-  const headers = SUPABASE_HEADERS;
 
   if (!_backlogSeed && !_ls.getItem(subKey) && !DEV_OVERRIDE && !_testActive()) {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-score`, {
-        method: 'POST',
-        headers,
-        // The transcript (S.tx) is stored server-side for auditing and, in integrity Phase 2,
-        // replayed to recompute the score. unverifiedSpin marks a run whose spin had to fall
-        // back to a local draw (server unreachable at spin time).
-        body: JSON.stringify({
-          seed,
-          chips: Math.max(0, S.chips),
-          fingerprint: getDeviceId(),
-          tx: Array.isArray(S.tx) ? S.tx : [],
-          unverifiedSpin: S.rUnverified === true,
-        })
-      });
-      // 409 = this device already has a row for today (DB-level dedup) — treat as submitted.
-      if (res.ok || res.status === 409) _ls.setItem(subKey, '1');
-    } catch(e) {
-      if (DEV_OVERRIDE) console.error("Leaderboard submission failed:", e);
-    }
+    // The transcript (S.tx) is stored server-side for auditing and, in integrity Phase 2, replayed
+    // to recompute the score. unverifiedSpin marks a run whose spin fell back to a local draw.
+    // 409 = this device already has a row for today (DB-level dedup) — treat as submitted.
+    const res = await sbFetch('/functions/v1/submit-score', {
+      method: 'POST',
+      body: {
+        seed,
+        chips: Math.max(0, S.chips),
+        fingerprint: getDeviceId(),
+        tx: Array.isArray(S.tx) ? S.tx : [],
+        unverifiedSpin: S.rUnverified === true,
+      },
+    });
+    if (res && (res.ok || res.status === 409)) _ls.setItem(subKey, '1');
   }
 
-  _lbTopPct = null;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_percentile`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ p_seed: seed, p_chips: S.chips })
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    const row = Array.isArray(data) ? data[0] : data;
-    const el = document.getElementById('lb-stat');
-    if (!el) return;
-    if (!row) { el.style.display = 'none'; return; }
-    if (row.total < 10) {
-      const rank = Math.ceil(row.top_pct / 100 * row.total);
-      const lbl = _backlogSeed ? `Day #${S.day} Ranking` : "Today's Ranking";
-      const lr = el.querySelector('.lb-row');
-      if (lr) lr.innerHTML = `<span class="ik">${lbl}</span><span class="iv" style="color:var(--ink)">Rank ${rank} of ${row.total}</span>`;
-      return;
+  // Resolve the ranking row once per seed. On failure leave the cache empty (paint is a no-op, so
+  // the "Loading…" row stays and a later re-render retries); on success cache the row.
+  if (!_lbRowCache || _lbRowCache.seed !== seed) {
+    _lbRowCache = null;
+    _lbTopPct = null;
+    const data = await sbJson('/rest/v1/rpc/get_percentile', { method: 'POST', body: { p_seed: seed, p_chips: S.chips } });
+    if (data != null) {
+      const row = Array.isArray(data) ? data[0] : data;
+      _lbRowCache = { seed, status: row ? 'row' : 'norow', row };
     }
-    _lbTopPct = row.top_pct;
-    _refreshShareBox(); // now that the percentile is known, fold "Finished Top X%" into the share text
-    const iv = row.top_pct > 50
-      ? `Bottom ${100 - row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`
-      : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
-    const lbl = _backlogSeed ? `Day #${S.day} Ranking` : "Today's Ranking";
-    const lr = el.querySelector('.lb-row');
-    if (lr) lr.innerHTML = `<span class="ik">${lbl}</span><span class="iv" style="color:var(--ink)">${iv}</span>`;
-  } catch(e) {
-    if (DEV_OVERRIDE) console.error("Leaderboard fetch failed:", e);
   }
+  paintLeaderboard();
+}
+
+// Renders the resolved ranking row into #lb-stat from _lbRowCache — pure DOM, no I/O. A no-op until
+// the row resolves (leaving the "Loading…" placeholder); 'norow' hides the row; a real row paints it.
+function paintLeaderboard() {
+  if (!_lbRowCache) return;
+  const el = document.getElementById('lb-stat');
+  if (!el) return;
+  const row = _lbRowCache.row;
+  if (_lbRowCache.status === 'norow' || !row) { el.style.display = 'none'; return; }
+  const lbl = _backlogSeed ? `Day #${S.day} Ranking` : "Today's Ranking";
+  const lr = el.querySelector('.lb-row');
+  if (row.total < 10) {
+    const rank = Math.ceil(row.top_pct / 100 * row.total);
+    if (lr) lr.innerHTML = `<span class="ik">${lbl}</span><span class="iv" style="color:var(--ink)">Rank ${rank} of ${row.total}</span>`;
+    return;
+  }
+  _lbTopPct = row.top_pct;
+  _refreshShareBox(); // now that the percentile is known, fold "Finished Top X%" into the share text
+  const iv = row.top_pct > 50
+    ? `Bottom ${100 - row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`
+    : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
+  if (lr) lr.innerHTML = `<span class="ik">${lbl}</span><span class="iv" style="color:var(--ink)">${iv}</span>`;
 }
 
 function _showHistoryChart(el) {
@@ -284,38 +287,44 @@ function _showHistoryChart(el) {
   el.innerHTML = `<div class="dist-bars">${bars}</div>`;
 }
 
+// Resolves the score-distribution chart data once per seed (cached so a re-render repaints without
+// re-fetching), then paints it. Outcomes preserved exactly: a network error / timeout falls back to
+// the local history chart; a server error or empty set hides the chart; a thin field (< 10 plays)
+// also shows history; a full field renders the live distribution.
+let _distCache = null; // { seed, mode:'dist'|'history'|'hide', counts? }
+
 async function fetchScoreDistribution() {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5000);
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_score_distribution`, {
-      method: 'POST',
-      headers: SUPABASE_HEADERS,
-      body: JSON.stringify({ p_seed: getActiveSeed() }),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    const el = document.getElementById('dist-chart');
-    if (!el) return;
-    if (!res.ok) { el.style.display = 'none'; document.getElementById('dist-title')?.style.setProperty('display','none'); return; }
-    const data = await res.json();
-    if (!Array.isArray(data) || data.length === 0) { el.style.display = 'none'; document.getElementById('dist-title')?.style.setProperty('display','none'); return; }
-
-    const counts = data.map(b => parseInt(b.count));
-    const total = counts.reduce((a, c) => a + c, 0);
-
-    if (total < 10) {
-      _showHistoryChart(el);
-      return;
+  const seed = getActiveSeed();
+  if (!_distCache || _distCache.seed !== seed) {
+    _distCache = null;
+    const res = await sbFetch('/rest/v1/rpc/get_score_distribution', { method: 'POST', body: { p_seed: seed }, timeout: 5000 });
+    if (res === null) { _distCache = { seed, mode: 'history' }; }      // network error / timeout
+    else if (!res.ok) { _distCache = { seed, mode: 'hide' }; }         // server error
+    else {
+      // undefined = a 2xx body that failed to parse → history (matches the original outer-catch);
+      // a body that legitimately parses to null/[]/non-array → hide.
+      let data; try { data = await res.json(); } catch(e) { data = undefined; }
+      if (data === undefined) { _distCache = { seed, mode: 'history' }; }
+      else if (!Array.isArray(data) || data.length === 0) { _distCache = { seed, mode: 'hide' }; }
+      else {
+        const counts = data.map(b => parseInt(b.count));
+        const total = counts.reduce((a, c) => a + c, 0);
+        _distCache = total < 10 ? { seed, mode: 'history' } : { seed, mode: 'dist', counts };
+      }
     }
-    _renderScoreDist(el, counts);
-  } catch(e) {
-    clearTimeout(timer);
-    const el = document.getElementById('dist-chart');
-    if (!el) return;
-    _showHistoryChart(el);
-    if (DEV_OVERRIDE) console.error('Distribution fetch failed:', e);
   }
+  paintDistribution();
+}
+
+// Paints the resolved distribution from _distCache — pure DOM, no I/O.
+function paintDistribution() {
+  if (!_distCache) return;
+  const el = document.getElementById('dist-chart');
+  if (!el) return;
+  if (_distCache.mode === 'dist') { _renderScoreDist(el, _distCache.counts); return; }
+  if (_distCache.mode === 'history') { _showHistoryChart(el); return; }
+  el.style.display = 'none';
+  document.getElementById('dist-title')?.style.setProperty('display', 'none');
 }
 
 // Builds the 7-bucket score-distribution chart (bars + counts + bucket labels + the You line/label)

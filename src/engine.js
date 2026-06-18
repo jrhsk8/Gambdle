@@ -418,6 +418,20 @@ function _replayLadder(tx, i, deal, mod, acct, addNet){
 }
 
 // ─── COMPOSE ──────────────────────────────────────────────────────────────────
+// Replay dispatch reads the SAME Game registry the live Run uses: each game's entry carries its
+// per-hand replay handler, adapted here to the bespoke argument list each one needs. Adding a game
+// is then one registry entry instead of an extra branch in the loop below, so live and replay can't
+// drift on which handler a game maps to. `_byTxKey` reverses txKey (the Transcript tag) back to the
+// registry key — the Transcript stores 'pk'/'r'/'lad' but the registry keys are 'poker'/'roulette'/
+// 'ladder'. Handler arg-lists differ, so each adapter picks what it needs from the per-Run context.
+GAMES.bj.replay       = (i, c) => _replayBJHand(c.tx, i, c.deal, c.mod, c.acct, c.addNet, c.bjSt, c.seed);
+GAMES.uth.replay      = (i, c) => _replayUTHHand(c.tx, i, c.deal, c.mod, c.acct, c.addNet, c.uthSt, c.seed);
+GAMES.poker.replay    = (i, c) => _replayPokerHand(c.tx, i, c.addNet, c.pkSt);
+GAMES.roulette.replay = (i, c) => _replayRoulette(c.tx, i, c.deal, c.mod, c.acct, c.addNet, c.spinWords);
+GAMES.ladder.replay   = (i, c) => _replayLadder(c.tx, i, c.deal, c.mod, c.acct, c.addNet);
+const _byTxKey = {};
+for(const _gk in GAMES){ if(GAMES[_gk].txKey) _byTxKey[GAMES[_gk].txKey] = _gk; }
+
 function replayRun(seed, modifiers, transcript, opts = {}){
   const mod = _engMod(modifiers);
   const deal = opts.deal || buildDeal(seed);
@@ -432,6 +446,9 @@ function replayRun(seed, modifiers, transcript, opts = {}){
   const bjSt = { idx: 0, hand: 0 };
   const uthSt = { hand: 0, redealPtr: 27, ttUsed: false };
   const pkSt = { hand: 0 };
+
+  // Per-Run context handed to each registry replay handler (each picks the args it needs).
+  const _ctx = { tx, deal, mod, acct, addNet, seed, spinWords, bjSt, uthSt, pkSt };
 
   let i = 0;
   while(i < tx.length){
@@ -448,18 +465,15 @@ function replayRun(seed, modifiers, transcript, opts = {}){
       }
       i++; continue;
     }
-    if(g === 'bj') i = _replayBJHand(tx, i, deal, mod, acct, addNet, bjSt, seed);
-    else if(g === 'uth') i = _replayUTHHand(tx, i, deal, mod, acct, addNet, uthSt, seed);
-    else if(g === 'pk') i = _replayPokerHand(tx, i, addNet, pkSt);
-    else if(g === 'r') i = _replayRoulette(tx, i, deal, mod, acct, addNet, spinWords);
-    else if(g === 'lad') i = _replayLadder(tx, i, deal, mod, acct, addNet);
+    const entry = GAMES[_byTxKey[g]];
+    if(entry && entry.replay) i = entry.replay(i, _ctx);
     else i++; // unknown event — skip
   }
 
   // Authoritative score, recomputed exactly like recalcChips(): START + borrow + every round's net.
   const chips = START_CHIPS + (borrowed ? (borrowAmount || BORROW_AMOUNT) : 0)
     + net.bj + net.uth + net.pk + net.r + net.lad;
-  const slotNet = k => k === 'bj' ? net.bj : k === 'uth' ? net.uth : k === 'poker' ? net.pk : k === 'ladder' ? net.lad : 0;
+  const slotNet = k => net[GAMES[k]?.txKey] ?? 0;
   return { chips, g1Net: slotNet(GAME1), g2Net: slotNet(GAME2), rNet: net.r, ladNet: net.lad };
 }
 
@@ -469,7 +483,7 @@ function replayRun(seed, modifiers, transcript, opts = {}){
 // the slots whose record carries enough to recompute (bj non-split, uth, r); split bj and ladder
 // don't record per-sub-hand bets / the stake, so full re-derivation there is replayRun's job.
 // `mods` is the resolved preset; pass mods.wm to override the win multiplier (e.g. under comeback).
-function auditRound(record, deal, mods = {}){
+function auditOutcome(record, deal, mods = {}){
   const mod = _engMod(mods);
   const wm = (mods.wm != null) ? mods.wm : winMultFor(mod, Infinity);
   if(record.slot === 'bj'){
@@ -546,5 +560,5 @@ function replayConfigHorizon(){
 // Function) expose them without a build step. The server bootstrap provides the pure dependencies
 // (resolvers, buildDeal, card helpers, constants) on globalThis before importing this file.
 if(typeof module !== 'undefined' && module.exports){
-  module.exports = { replayRun, auditRound, replayDayMods, replayRngSeed, replayConfigHorizon };
+  module.exports = { replayRun, auditOutcome, replayDayMods, replayRngSeed, replayConfigHorizon };
 }

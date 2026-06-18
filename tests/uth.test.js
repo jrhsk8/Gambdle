@@ -333,7 +333,7 @@ function withUth(overrides, fn) {
 describe('uthFold — records loss and advances state', () => {
   it('sets uthFolded and increments hand counter', () => {
     withUth({
-      screen:'uth', uthPhase:'preflop', uthAnte:200, uthPlay:0,
+      screen:'uth', uthPhase:'preflop', uthAnte:200, uthRaise:0,
       uthHand:0, uthHistory:[], chips:800, forcedMod:{},
     }, () => {
       uthFold();
@@ -345,7 +345,7 @@ describe('uthFold — records loss and advances state', () => {
 
   it('history entry records ante×2 loss with -ante on each of ante/blind deltas', () => {
     withUth({
-      screen:'uth', uthPhase:'preflop', uthAnte:200, uthPlay:0,
+      screen:'uth', uthPhase:'preflop', uthAnte:200, uthRaise:0,
       uthHand:0, uthHistory:[], chips:800, forcedMod:{},
     }, () => {
       uthFold();
@@ -365,15 +365,15 @@ describe('uthFold — records loss and advances state', () => {
 describe('uthRaise — deducts play bet and advances street', () => {
   it('preflop 4× raise deducts 4×(ante/2) and moves to flop', () => {
     withUth({
-      screen:'uth', uthPhase:'preflop', uthAnte:200, uthPlay:0, uthPlayMult:0,
+      screen:'uth', uthPhase:'preflop', uthAnte:200, uthRaise:0, uthRaiseMult:0,
       uthRaised:false, chips:1000, forcedMod:{},
       uthHole:[card('K','s'),card('K','h')],
       uthDealer:[card('7','d'),card('2','c')],
       uthComm:[card('3','s'),card('4','d'),card('5','c'),card('6','h'),card('8','d')],
     }, () => {
-      uthRaise(4); // 4× ante/2 = 4×100 = 400
-      assertEqual(S.uthPlay, 400, 'play bet should equal 4×(ante/2)');
-      assertEqual(S.uthPlayMult, 4);
+      uthPlaceRaise(4); // 4× ante/2 = 4×100 = 400
+      assertEqual(S.uthRaise, 400, 'play bet should equal 4×(ante/2)');
+      assertEqual(S.uthRaiseMult, 4);
       assertEqual(S.uthRaised, true);
       assertEqual(S.chips, 600, '1000 - 400 = 600');
       assertEqual(S.uthPhase, 'flop', 'should advance to flop');
@@ -382,11 +382,11 @@ describe('uthRaise — deducts play bet and advances street', () => {
 
   it('rejects raise when chips insufficient', () => {
     withUth({
-      screen:'uth', uthPhase:'preflop', uthAnte:200, uthPlay:0,
+      screen:'uth', uthPhase:'preflop', uthAnte:200, uthRaise:0,
       uthRaised:false, chips:50, forcedMod:{},
     }, () => {
-      uthRaise(4); // would cost 400, only 50 available
-      assertEqual(S.uthPlay, 0, 'play should stay 0');
+      uthPlaceRaise(4); // would cost 400, only 50 available
+      assertEqual(S.uthRaise, 0, 'play should stay 0');
       assertEqual(S.chips, 50, 'chips unchanged');
       assertEqual(S.uthRaised, false);
     });
@@ -396,7 +396,7 @@ describe('uthRaise — deducts play bet and advances street', () => {
 describe('uthResolve — chip math', () => {
   // Setup helper: dealer has pair (qualifies under default rules), player varies.
   const _baseUth = (forcedMod = {}) => ({
-    screen:'uth', uthPhase:'turn', uthAnte:200, uthPlay:0, uthPlayMult:0,
+    screen:'uth', uthPhase:'turn', uthAnte:200, uthRaise:0, uthRaiseMult:0,
     uthHand:0, uthHistory:[], forcedMod,
     uthDealer:[card('7','d'),card('2','c')],
     uthComm:  [card('7','h'),card('3','s'),card('9','c'),card('J','d'),card('4','h')], // dealer pairs 7s
@@ -406,7 +406,7 @@ describe('uthResolve — chip math', () => {
     withUth({
       ..._baseUth(),
       uthHole:[card('K','s'),card('K','h')], // pair of Kings beats pair of 7s
-      uthPlay:100,
+      uthRaise:100,
       chips:500, // after pre-deductions
     }, () => {
       uthResolve();
@@ -427,7 +427,7 @@ describe('uthResolve — chip math', () => {
     withUth({
       ..._baseUth(),
       uthHole:[card('2','s'),card('3','h')], // garbage vs pair of 7s
-      uthPlay:100,
+      uthRaise:100,
       chips:500,
     }, () => {
       uthResolve();
@@ -448,7 +448,7 @@ describe('uthResolve — chip math', () => {
       uthHole:[card('7','s'),card('2','h')], // makes pair of 7s using community
       uthDealer:[card('7','d'),card('2','c')], // same hand (community pairs both)
       uthComm:[card('K','h'),card('3','s'),card('9','c'),card('J','d'),card('4','h')],
-      uthPlay:100,
+      uthRaise:100,
       chips:500,
     }, () => {
       uthResolve();
@@ -466,7 +466,7 @@ describe('uthResolve — chip math', () => {
       uthHole:[card('A','s'),card('K','h')], // high card vs dealer high card
       uthDealer:[card('Q','d'),card('2','c')],
       uthComm:[card('3','s'),card('4','d'),card('5','c'),card('9','d'),card('J','h')], // no pair anywhere
-      uthPlay:100,
+      uthRaise:100,
       chips:500,
     }, () => {
       uthResolve();
@@ -487,7 +487,7 @@ describe('uthResolve — chip math', () => {
 describe('UTH odd-bet handling — ante=ceil, blind=floor', () => {
   it('25-chip ante: uthFold splits 13+12, history reflects whole chips', () => {
     withUth({
-      screen:'uth', uthPhase:'preflop', uthAnte:25, uthPlay:0,
+      screen:'uth', uthPhase:'preflop', uthAnte:25, uthRaise:0,
       uthHand:0, uthHistory:[], chips:1000, forcedMod:{},
     }, () => {
       uthFold();
@@ -502,14 +502,14 @@ describe('UTH odd-bet handling — ante=ceil, blind=floor', () => {
 
   it('25-chip ante: 4× raise costs 4×13 = 52 (whole chips)', () => {
     withUth({
-      screen:'uth', uthPhase:'preflop', uthAnte:25, uthPlay:0, uthPlayMult:0,
+      screen:'uth', uthPhase:'preflop', uthAnte:25, uthRaise:0, uthRaiseMult:0,
       uthRaised:false, chips:1000, forcedMod:{},
       uthHole:[card('K','s'),card('K','h')],
       uthDealer:[card('7','d'),card('2','c')],
       uthComm:[card('3','s'),card('4','d'),card('5','c'),card('6','h'),card('8','d')],
     }, () => {
-      uthRaise(4);
-      assertEqual(S.uthPlay, 52, 'play bet = 4 × ante portion (13)');
+      uthPlaceRaise(4);
+      assertEqual(S.uthRaise, 52, 'play bet = 4 × ante portion (13)');
       assertEqual(S.chips, 948, '1000 - 52 = 948 (no partial chips)');
     });
   });
@@ -521,7 +521,7 @@ describe('UTH odd-bet handling — ante=ceil, blind=floor', () => {
 describe('uthResolve / uthFold — settle exactly once', () => {
   it('a duplicate uthResolve does not re-credit or double the history', () => {
     withUth({
-      screen:'uth', uthPhase:'turn', uthAnte:200, uthPlay:100, uthPlayMult:0,
+      screen:'uth', uthPhase:'turn', uthAnte:200, uthRaise:100, uthRaiseMult:0,
       uthHand:0, uthHistory:[], chips:500, forcedMod:{},
       uthHole:[card('K','s'),card('K','h')],          // pair of Kings beats dealer's pair of 7s
       uthDealer:[card('7','d'),card('2','c')],
@@ -540,7 +540,7 @@ describe('uthResolve / uthFold — settle exactly once', () => {
 
   it('a duplicate uthFold does not push the loss or advance the hand twice', () => {
     withUth({
-      screen:'uth', uthPhase:'turn', uthAnte:200, uthPlay:0,
+      screen:'uth', uthPhase:'turn', uthAnte:200, uthRaise:0,
       uthHand:0, uthHistory:[], chips:800, forcedMod:{},
     }, () => {
       uthFold();
@@ -724,7 +724,7 @@ describe('uth_sixth_card — Sixth Sense', () => {
     // Hole A♠K♠ + community Q♠J♠… is only a high card; the private 10♠ completes a royal flush, flipping
     // a loss (vs the dealer's pair of Queens) into a win. The dealer's best is keyed off the 7-card pool.
     withUth({
-      screen:'uth', uthPhase:'turn', uthAnte:100, uthPlay:0, uthPlayMult:0, uthRaised:false,
+      screen:'uth', uthPhase:'turn', uthAnte:100, uthRaise:0, uthRaiseMult:0, uthRaised:false,
       uthHand:0, uthHistory:[], chips:700, forcedMod:'uth_sixth_card',
       uthHole:[card('A','s'),card('K','s')], uthDealer:[card('Q','h'),card('9','c')],
       uthComm:[card('Q','s'),card('J','s'),card('5','d'),card('7','c'),card('2','h')],

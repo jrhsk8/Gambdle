@@ -483,7 +483,7 @@ describe('layout — BJ screens', () => {
 // ─── UTH ─────────────────────────────────────────────────────────────────────
 describe('layout — UTH screens', () => {
   const _uthBase = {
-    screen:'uth', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0,
+    screen:'uth', chips:800, uthAnte:100, uthRaise:0, uthRaiseMult:0,
     uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm,
     uthRaised:false, uthRevealComm:0, uthPrevRevealComm:0, uthHand:0, uthHistory:[],
   };
@@ -995,10 +995,10 @@ describe('layout - bet box parity', () => {
     // + All In onto one line, so the pixel-width parity is a bj/uth/poker/ladder guarantee, not roulette.
     ['bj-play',      { screen:'bj', bjPhase:'play', chips:950, bjBet:150, bjHand:0, bjHistory:[], bjPlayer:_bjPair, bjDealer:_bjDealer }],
     ['bj-split',     { screen:'bj', bjPhase:'play', chips:600, bjBet:100, bjHand:0, bjHistory:[], bjPlayer:[], bjDealer:_bjDealer, bjSplit:true, bjSplitActive:0, bjSplitHands:[_bjPair,_bjPair], bjSplitBets:[100,100], bjSplitDone:[false,false], bjSplitDoubled:[false,false], bjSplitAnimFrom:[0,0] }],
-    ['uth-preflop',  { screen:'uth', uthPhase:'preflop', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:0, uthPrevRevealComm:0, uthHand:0, uthHistory:[] }],
-    ['uth-flop',     { screen:'uth', uthPhase:'flop', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:3, uthPrevRevealComm:3, uthHand:0, uthHistory:[] }],
-    ['uth-turn',     { screen:'uth', uthPhase:'turn', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:5, uthPrevRevealComm:5, uthHand:0, uthHistory:[] }],
-    ['uth-reveal',   { screen:'uth', uthPhase:'reveal', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:5, uthPrevRevealComm:5, uthHand:1, uthHistory:[{ante:50,blind:50,play:0,playMult:0,result:'win',delta:0,anteDelta:0,blindDelta:0,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:true}] }],
+    ['uth-preflop',  { screen:'uth', uthPhase:'preflop', chips:800, uthAnte:100, uthRaise:0, uthRaiseMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:0, uthPrevRevealComm:0, uthHand:0, uthHistory:[] }],
+    ['uth-flop',     { screen:'uth', uthPhase:'flop', chips:800, uthAnte:100, uthRaise:0, uthRaiseMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:3, uthPrevRevealComm:3, uthHand:0, uthHistory:[] }],
+    ['uth-turn',     { screen:'uth', uthPhase:'turn', chips:800, uthAnte:100, uthRaise:0, uthRaiseMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:5, uthPrevRevealComm:5, uthHand:0, uthHistory:[] }],
+    ['uth-reveal',   { screen:'uth', uthPhase:'reveal', chips:800, uthAnte:100, uthRaise:0, uthRaiseMult:0, uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm, uthRaised:false, uthRevealComm:5, uthPrevRevealComm:5, uthHand:1, uthHistory:[{ante:50,blind:50,play:0,playMult:0,result:'win',delta:0,anteDelta:0,blindDelta:0,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:true}] }],
     ['bj-result',    { screen:'bj', bjPhase:'result', chips:1100, bjBet:150, bjHand:1, bjSplit:false, bjDealerReveal:true, bjPlayer:_bjPair, bjDealer:_bjDealer, bjResult:{result:'win',delta:150}, bjHistory:[{bet:150,result:'win',delta:150,player:_bjPair,dealer:_bjDealer}] }],
   ];
 
@@ -1260,7 +1260,7 @@ describe('layout — progress dots stable across phases', () => {
 
   // ── UTH ─────────────────────────────────────────────────────────────────────
   const _dotsUthBase = {
-    screen:'uth', chips:800, uthAnte:100, uthPlay:0, uthPlayMult:0,
+    screen:'uth', chips:800, uthAnte:100, uthRaise:0, uthRaiseMult:0,
     uthHole:_uthHole, uthDealer:_uthDlrCds, uthComm:_uthComm,
     uthRaised:false, uthRevealComm:0, uthPrevRevealComm:0, uthHand:0, uthHistory:[],
   };

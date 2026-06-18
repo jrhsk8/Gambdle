@@ -515,7 +515,7 @@ describe('uth_three_hole — Triple Threat third hole card', () => {
   it('uthResolve scores the player on best 5 of 8 (third hole card wins the hand)', () => {
     S.forcedMod = 'uth_three_hole';
     Object.assign(S, {
-      screen:'uth', uthPhase:'turn', uthAnte:100, uthPlay:50, uthPlayMult:1,
+      screen:'uth', uthPhase:'turn', uthAnte:100, uthRaise:50, uthRaiseMult:1,
       uthHole:  [card('2','c'), card('7','d'), card('A','h')],  // A♥ pairs the board Ace
       uthDealer:[card('K','s'), card('Q','d')],                 // dealer ends with high card
       uthComm:  [card('A','s'), card('5','h'), card('9','c'), card('J','d'), card('3','h')],
@@ -551,7 +551,7 @@ describe('uth_hard_qualify — dealer qualification threshold', () => {
   function _runQualifyHand(mod) {
     S.forcedMod = mod;
     Object.assign(S, {
-      screen:'uth', uthPhase:'turn', uthAnte:100, uthPlay:0, uthPlayMult:0,
+      screen:'uth', uthPhase:'turn', uthAnte:100, uthRaise:0, uthRaiseMult:0,
       uthHole:  [card('K','s'), card('K','h')],         // pair of Kings (player wins)
       uthDealer:[card('7','d'), card('2','c')],         // dealer base
       uthComm:  [card('7','h'), card('3','s'), card('9','c'), card('J','d'), card('4','h')], // dealer pairs 7s

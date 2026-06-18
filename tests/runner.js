@@ -81,7 +81,7 @@ function _makeGroupRow(group) {
   return row;
 }
 
-window.addEventListener('load', () => {
+function _renderResults() {
   const summary   = document.getElementById('summary');
   const container = document.getElementById('groups-grid');
 
@@ -149,4 +149,12 @@ window.addEventListener('load', () => {
     }
     document.body.appendChild(mc);
   }
+}
+
+// A harness that gates test execution on async work (layout-test.html waits for the web font to APPLY
+// before measuring, so its slack checks aren't read against the wider Courier-New fallback) sets
+// window.__DEFER_RENDER__ and calls _renderResults() itself once its tests have run. Every other harness
+// (the unit suite in test.html) renders on load exactly as before.
+window.addEventListener('load', () => {
+  if (!window.__DEFER_RENDER__) _renderResults();
 });

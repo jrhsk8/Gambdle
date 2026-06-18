@@ -131,12 +131,11 @@ async function fetchDevStats() {
   // ── Fast path: one RPC returns the entire payload (see supabase/dev_stats.sql). Falls through to
   // the multi-query path below if get_dev_stats isn't deployed yet. ─────────────────────────────
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_dev_stats`, {
+    const r = await sbFetch('/rest/v1/rpc/get_dev_stats', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify({ p_seed: seed }),
+      body: { p_seed: seed },
     });
-    if (r.ok) {
+    if (r && r.ok) {
       const d = await r.json();
       if (d && d.today && d.lifetime && d.last7) {
         const T = d.today, L = d.lifetime, W = d.last7;
@@ -371,7 +370,6 @@ async function fetchRetention() {
   const el = document.getElementById('retention-body');
   if (!el) return;
   const seed = getActiveSeed();
-  const headers = { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
   // Same inlaid two-column box layout as the Player Stats page.
   const renderGroups = (groups) =>
     `<div class="dvs-groups">` +
@@ -385,10 +383,10 @@ async function fetchRetention() {
   const rate = (n, d) => d > 0 ? `${Math.round(n/d*100)}% <span style="color:var(--shadow);font-size:.75rem">(${fmt(n)}/${fmt(d)})</span>` : warn('no data yet');
 
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_retention`, {
-      method: 'POST', headers, body: JSON.stringify({ p_seed: seed }),
+    const r = await sbFetch('/rest/v1/rpc/get_retention', {
+      method: 'POST', body: { p_seed: seed },
     });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    if (!r || !r.ok) throw new Error(`HTTP ${r ? r.status : 'network'}`);
     const d = await r.json();
     if (!d || !d.returns) { el.innerHTML = `<div style="color:var(--shadow);padding:14px 0;text-align:center">${warn('get_retention RPC not deployed yet · run supabase/retention.sql')}</div>`; return; }
     const R = d.returns, F = d.funnel || {}, Q = d.quit || {};
@@ -423,9 +421,10 @@ async function fetchRetention() {
     const qN = chips.n || 0;
     const SCREEN_LBL = { bj: 'Blackjack', uth: "Hold'em", poker: 'Poker', roulette: 'Roulette', ladder: 'The Ladder', borrow: 'Borrow', results: 'Results', intro: 'Intro', choice: 'Choice' };
     const byScreen = Array.isArray(Q.by_screen) ? Q.by_screen : [];
-    const quitGroup = ['Quit position · by screen', byScreen.length
+    // Excludes finishers (screen='results') server-side — this is mid-run abandonment only.
+    const quitGroup = ['Quit position · mid-run', byScreen.length
       ? byScreen.slice(0, 8).map(b => [`${SCREEN_LBL[b.screen] || b.screen}${b.phase && b.phase !== '?' ? ' · ' + b.phase : ''}`, `${fmt(b.n)}${pct(b.n, qN)}`])
-      : [['Status', warn('no quit snapshots yet')]]];
+      : [['Status', warn('no mid-run quits yet')]]];
     const chipsGroup = qN > 0 ? ['Chips at quit', [
       ['Snapshots', fmt(qN)],
       ['Average',   fmt(chips.avg || 0)],

@@ -453,12 +453,11 @@ async function submitFeedback() {
   const btn = document.getElementById('feedback-send-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/rapid-service`, {
+    const res = await sbFetch('/functions/v1/rapid-service', {
       method: 'POST',
-      headers: SUPABASE_HEADERS,
-      body: JSON.stringify({ content: _feedbackBody(msg) })
+      body: { content: _feedbackBody(msg) }
     });
-    if (!res.ok) throw new Error();
+    if (!res || !res.ok) throw new Error();
     closeFeedbackDialog();
     toast('Feedback sent! Thanks 🎲');
   } catch {

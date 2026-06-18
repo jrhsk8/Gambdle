@@ -500,7 +500,7 @@ function screenRouletteResult(){
 /** Skip the roulette spin (all_in_or_skip modifier). Records delta 0 and goes to result. */
 function rSkip(){
   txLog({g:'r',a:'skip'});
-  S.rResult=mkRound('r',0,'skipped',{skipped:true});S.rPhase='result';navRender();
+  S.rResult=mkOutcome('r',0,'skipped',{skipped:true});S.rPhase='result';navRender();
 }
 
 function pickBet(i){
@@ -546,7 +546,7 @@ function rSelBox(pick,curBet){
   if(pick==null)return`<div class="rsb-prompt">Select a tile to bet on</div>`;
   const d=R_BETS[pick];
   // Three fixed-width columns (CSS), so varying label/payout length never shifts the other sections.
-  return`<div class="rsb-box"><span class="rsb-on">Bet on <b class="${rBetCls(pick)}">${rBetLabel(pick)}</b></span><span class="rsb-pays">pays ${d.pay}:1</span><span class="rsb-win">${curBet>0?'win +'+cfmt(curBet*d.pay):''}</span></div>`;
+  return`<div class="rsb-box"><span class="rsb-on">Bet on <b class="${rBetCls(pick)}">${rBetLabel(pick)}</b></span><span class="rsb-pays">Pays ${d.pay}:1</span><span class="rsb-win">${curBet>0?'Win +'+cfmt(curBet*d.pay):''}</span></div>`;
 }
 // The BETS-TRACKER box (below): "Your Bets n/max" + a 2-column grid of maxBets slots. Each placed bet
 // shows its potential winnings (bet × pay); unused slots stay faint, so the box is always full.
@@ -714,21 +714,15 @@ async function _spinWords(bets){
     if(crypto.getRandomValues)return[...crypto.getRandomValues(new Uint32Array(4))];
     return [0,0,0,0].map(()=>Math.floor(Math.random()*4294967296));
   };
-  if(DEV_OVERRIDE||_testActive()||_backlogSeed||SUPABASE_URL==='YOUR_SUPABASE_URL')return local();
+  if(DEV_OVERRIDE||_testActive()||_backlogSeed||!sbConfigured())return local();
   try{
     const betHash=await _betHash(bets);
-    const ctrl=new AbortController();
-    const timer=setTimeout(()=>ctrl.abort(),5000);
-    const res=await fetch(`${SUPABASE_URL}/functions/v1/spin`,{
+    const data=await sbJson('/functions/v1/spin',{
       method:'POST',
-      headers:SUPABASE_HEADERS,
-      body:JSON.stringify({seed:getActiveSeed(),fingerprint:getDeviceId(),respin:S.rReSpun,betHash}),
-      signal:ctrl.signal,
+      body:{seed:getActiveSeed(),fingerprint:getDeviceId(),respin:S.rReSpun,betHash},
+      timeout:5000,
     });
-    clearTimeout(timer);
-    if(!res.ok)throw new Error('spin http '+res.status);
-    const data=await res.json();
-    if(!Array.isArray(data.words)||data.words.length<4||!data.words.every(Number.isFinite))throw new Error('bad spin words');
+    if(!data||!Array.isArray(data.words)||data.words.length<4||!data.words.every(Number.isFinite))throw new Error('bad spin words');
     return data.words;
   }catch(e){
     if(DEV_OVERRIDE)console.error('Server spin failed, falling back to local draw:',e);
@@ -844,7 +838,7 @@ function _resolveRoulette(){
   const {betResults, delta, result} = resolveRoulette(S.rBets, S.rSpin, {...evalBetMods(), wm: winMult()});
   const stake = S.rBets.reduce((s,b) => s + b.bet, 0);
   rouletteAward(liveAcct(), stake, delta);
-  S.rResult = mkRound('r', delta, result, {bets:betResults});
+  S.rResult = mkOutcome('r', delta, result, {bets:betResults});
   S.rPhase='result';navRender();updateChipDisplay(); // crossfade spin → result panel
   if(delta>0)setTimeout(sndBigWin,400);
 }

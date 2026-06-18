@@ -1049,12 +1049,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   flex: 0 0 auto; padding: 5px 12px; text-align: center; font-family: var(--btn-f); color: var(--ink);
   font-size: 1.35rem; }
 .rsb-prompt { color: var(--shadow); text-align: center; }
-/* Three fixed-width columns so a long label or big payout never shifts the other sections. */
+/* Three equal-width columns (left/center/right anchored) so the groups stay evenly spaced and a long
+   label or big payout never shifts the other sections. */
 .rsb-box { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
-.rsb-on   { flex: 1 1 42%; text-align: left; white-space: nowrap; overflow: hidden; }
+.rsb-on   { flex: 1 1 0; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; }
 .rsb-on b { font-weight: 700; }        /* wheel color comes from the rbz-red/blk/grn class on the same <b> */
-.rsb-pays { flex: 0 0 26%; text-align: center; color: var(--shadow); white-space: nowrap; }
-.rsb-win  { flex: 1 1 32%; text-align: right; color: var(--ink); font-weight: 700; white-space: nowrap; }
+.rsb-pays { flex: 1 1 0; min-width: 0; text-align: center; color: var(--shadow); white-space: nowrap; }
+.rsb-win  { flex: 1 1 0; min-width: 0; text-align: right; color: var(--ink); font-weight: 700; white-space: nowrap; }
 /* Bets tracker: grows to fill the remaining slack (capped); title pinned to the TOP, grid below it. */
 .r-bets-zone { background: var(--panel); border: 1px solid var(--ink); box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
   padding: 6px 12px; margin: 0; overflow-y: auto;

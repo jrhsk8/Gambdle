@@ -122,12 +122,12 @@ describe('transcript — UTH actions', () => {
       screen: 'uth', uthPhase: 'preflop', uthAnte: 100, uthHand: 0, chips: 900, tx: [],
       uthHole: [card('2', 'c'), card('7', 'd')], uthDealer: [card('K', 's'), card('Q', 'd')],
       uthComm: [card('A', 's'), card('5', 'h'), card('9', 'c'), card('J', 'd'), card('3', 'h')],
-      uthRevealComm: 0, uthPrevRevealComm: 0, uthRaised: false, uthPlay: 0, uthHistory: [],
+      uthRevealComm: 0, uthPrevRevealComm: 0, uthRaised: false, uthRaise: 0, uthHistory: [],
     });
     try {
       uthCheck(); // preflop → flop
       assertDeepEqual(_lastTx(), { g: 'uth', a: 'check', h: 0, st: 'preflop' });
-      uthRaise(2); // flop raise
+      uthPlaceRaise(2); // flop raise
       assertDeepEqual(_lastTx(), { g: 'uth', a: 'raise', h: 0, mult: 2, st: 'flop' });
       S.uthPhase = 'turn'; S.uthFolded = false;
       uthFold();

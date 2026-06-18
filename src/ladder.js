@@ -91,7 +91,7 @@ function ladderAward(acct, delta){ if(delta>0) acct.credit(delta,'ladder'); else
 function _ladSettle(outcome){
   const { delta } = resolveLadder(outcome, S.ladBet, S.ladRung, S.ladFree);
   ladderAward(liveAcct(), delta);
-  S.ladResult = mkRound('lad', delta, outcome, { rung: S.ladRung, free: S.ladFree });
+  S.ladResult = mkOutcome('lad', delta, outcome, { rung: S.ladRung, free: S.ladFree });
   S.ladPhase = 'done';
   saveState();
   // Cash out is a money event (chips); crash/top reveal a card (card sound).
@@ -169,7 +169,7 @@ function _ladReadoutHTML(){
   if (S.ladPhase === 'bet') {
     return S.ladFree || getMod('ladder_free')
       ? box(`Stack: <b>${fmt(S.chips)}</b>`, `Entry: <b class="lad-gold">FREE ${fmt(getMod('ladder_free')||S.ladBet)}</b>`)
-      : box(`Stack: <b>${fmt(S.chips)}</b>`, `Max stake: <b>${fmt(ladMaxStake())}</b>`);
+      : box(`Stack: <b>${fmt(S.chips)}</b>`, `Max bet: <b>${fmt(ladMaxStake())}</b>`);
   }
   if (S.ladPhase === 'climb') {
     const next = ladPotAt(S.ladBet, S.ladRung + 1);
@@ -178,7 +178,7 @@ function _ladReadoutHTML(){
   const r = S.ladResult;
   if (r.result === 'crash') {
     return r.free ? box(`Free entry`, `<b>+0 chips</b>`)
-                  : box(`Stake lost`, `<b class="lad-bad">${sign(r.delta)} chips</b>`);
+                  : box(`Bet lost`, `<b class="lad-bad">${sign(r.delta)} chips</b>`);
   }
   return box(`Pot: <b>${fmt(ladPotAt(S.ladBet, r.rung))}</b>`, `<b class="lad-good">${sign(r.delta)} chips</b>`);
 }
@@ -202,7 +202,7 @@ function _ladMsgHTML(){
     const why = a && b && a.r === b.r ? `${a.r} matched ${b.r}. Ties lose.` : `Wrong call.`;
     return `${why} Crashed on rung ${r.rung + 1}.`;
   }
-  if (r.result === 'top') return `All ${LADDER_MULTS.length} rungs. ×${LADDER_MULTS[LADDER_MULTS.length-1]} your stake.`;
+  if (r.result === 'top') return `All ${LADDER_MULTS.length} rungs. ×${LADDER_MULTS[LADDER_MULTS.length-1]} your bet.`;
   return `You climbed ${r.rung} rung${r.rung===1?'':'s'} for ${LADDER_MULTS[r.rung-1]}x profit.`;
 }
 

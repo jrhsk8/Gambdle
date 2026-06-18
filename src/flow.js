@@ -241,14 +241,12 @@ async function _submitStart() {
   const seed = getActiveSeed();
   const key = `gambdle_started_${seed}`;
   if (_ls.getItem(key) || DEV_OVERRIDE || _testActive() || _backlogSeed) return;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/starts`, {
-      method: 'POST',
-      headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ seed, fingerprint: getDeviceId() }),
-    });
-    if (res.ok) _ls.setItem(key, '1');
-  } catch(e) {}
+  const res = await sbFetch('/rest/v1/starts', {
+    method: 'POST',
+    headers: { 'Prefer': 'return=minimal' },
+    body: { seed, fingerprint: getDeviceId() },
+  });
+  if (res && res.ok) _ls.setItem(key, '1');
 }
 
 // Fire-and-forget: records that this device took the borrow loan today (only when the chips are
@@ -259,14 +257,12 @@ async function _submitBorrow() {
   const seed = getActiveSeed();
   const key = `gambdle_borrowed_${seed}`;
   if (_ls.getItem(key) || DEV_OVERRIDE || _testActive() || _backlogSeed) return;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/borrows`, {
-      method: 'POST',
-      headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ seed, fingerprint: getDeviceId() }),
-    });
-    if (res.ok) _ls.setItem(key, '1');
-  } catch(e) {}
+  const res = await sbFetch('/rest/v1/borrows', {
+    method: 'POST',
+    headers: { 'Prefer': 'return=minimal' },
+    body: { seed, fingerprint: getDeviceId() },
+  });
+  if (res && res.ok) _ls.setItem(key, '1');
 }
 
 // Fire-and-forget: records the furthest game stage this device reached today (beaconed on entry to
@@ -277,14 +273,12 @@ async function _submitProgress(stage) {
   const seed = getActiveSeed();
   const key = `gambdle_progress_${seed}_${stage}`;
   if (_ls.getItem(key) || DEV_OVERRIDE || _testActive() || _backlogSeed) return;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/progress`, {
-      method: 'POST',
-      headers: { ...SUPABASE_HEADERS, 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ seed, fingerprint: getDeviceId(), stage }),
-    });
-    if (res.ok) _ls.setItem(key, '1');
-  } catch(e) {}
+  const res = await sbFetch('/rest/v1/progress', {
+    method: 'POST',
+    headers: { 'Prefer': 'return=minimal' },
+    body: { seed, fingerprint: getDeviceId(), stage },
+  });
+  if (res && res.ok) _ls.setItem(key, '1');
 }
 
 // The game stages a progress beacon fires on (entry to game 2, the roulette finale, and the Ladder
@@ -311,14 +305,14 @@ function _submitQuit() {
   const sig = JSON.stringify([snap.screen, snap.phase, snap.hand, snap.chips]);
   if (sig === _lastQuitSnap) return;
   _lastQuitSnap = sig;
-  try {
-    fetch(`${SUPABASE_URL}/rest/v1/quits`, {
-      method: 'POST',
-      keepalive: true,
-      headers: { ...SUPABASE_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify(snap),
-    });
-  } catch(e) {}
+  // Fire-and-forget on an unloading page: not awaited, keepalive so the request survives, no timeout
+  // (an AbortController during teardown is pointless). sbFetch swallows any error internally.
+  sbFetch('/rest/v1/quits', {
+    method: 'POST',
+    keepalive: true,
+    headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: snap,
+  });
 }
 
 // visibilitychange→hidden is the reliable "leaving" signal on mobile (fires on tab-switch, phone-lock,

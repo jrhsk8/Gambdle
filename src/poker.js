@@ -63,7 +63,7 @@ function pkDraw(){
   const res=rankPoker(S.pkFinal);
   const {result,delta}=resolvePoker(res,S.pkBet,winMult());
   pkAward(liveAcct(),S.pkBet,delta);
-  S.pkHistory.push(mkRound('pk',delta,result,{bet:S.pkBet,pts:res.p}));
+  S.pkHistory.push(mkOutcome('pk',delta,result,{bet:S.pkBet,pts:res.p}));
   const replaceIdxs=[0,1,2,3,4].filter(i=>!S.pkHeld.has(i));
   S.pkRevealStep=0;S.pkPhase='draw';
   _noAnim=true;render();updateChipDisplay();

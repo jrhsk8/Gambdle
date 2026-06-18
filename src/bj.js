@@ -413,14 +413,14 @@ function bjResolve(dealerDrawn=false){
     });
     S.bjSplitResults=handResults;
     S.bjResult={result:'split',delta:totalDelta};
-    S.bjHistory.push(mkRound('bj',totalDelta,'split',{bet:S.bjSplitBets.reduce((a,b)=>a+b,0),player:S.bjSplitHands.map(h=>[...h]),dealer:[...S.bjDealer]}));
+    S.bjHistory.push(mkOutcome('bj',totalDelta,'split',{bet:S.bjSplitBets.reduce((a,b)=>a+b,0),player:S.bjSplitHands.map(h=>[...h]),dealer:[...S.bjDealer]}));
   }else{
     const bjMult = getMod('bj_payout') || 1.5;
     const ddm=getMod('bj_double_bonus')&&S.bjDoubled?2:1; // double-down profit multiplier
     const {result,delta}=resolveBJHand({pv:hVal(S.bjPlayer),pBJ:isBJ(S.bjPlayer),dv,dBJ,bet:S.bjBet,wm,bjMult,ddm});
     bjAward(acct,result,S.bjBet,delta);
     S.bjResult={result,delta};
-    S.bjHistory.push(mkRound('bj',delta,result,{bet:S.bjBet,player:[...S.bjPlayer],dealer:[...S.bjDealer]}));
+    S.bjHistory.push(mkOutcome('bj',delta,result,{bet:S.bjBet,player:[...S.bjPlayer],dealer:[...S.bjDealer]}));
   }
   S.bjHand++;S.bjPhase='result';navRender(); // crossfade play → result panel
   updateChipDisplay();

@@ -11,13 +11,13 @@
 //   chips: START_CHIPS, BORROW_AMOUNT, CHIP_TIERS/getTier, NET_TIERS/getNetTier
 //   GLOBAL STATE (the S object) · borrow/bust helpers · winMult
 //   CHIP ACCOUNTING (credit, debit)
-//   saveState / loadState   ·   → THE RECORD lifted to record.js (mkRound, recalcChips, gameNet/gameHistory, txLog + shape guards)
+//   saveState / loadState   ·   → THE RECORD lifted to record.js (mkOutcome, recalcChips, gameNet/gameHistory, txLog + shape guards)
 // ───────────────────────────────────────────────────────────────────────────
 
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.71';
+const GAME_VERSION = 'v1.74';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -204,12 +204,14 @@ const GAME2 = _ls.getItem('gambdle_dev_game2') || 'uth';
 // meta.short: label used in dev menu buttons and share text. meta.icon: on-screen SVG/glyph (rendered
 // as HTML). meta.shareIcon: plain emoji/glyph for the copyable share text — must stay text, never <svg>.
 const GAMES = {
-  bj:      { meta: { icon: icon('cards'),  shareIcon: '🃏', name: 'Blackjack',             short: 'Blackjack',    desc: '3 hands · Hit, Stand, Double, Split' }, phaseKey: 'bjPhase',  betKey: 'bjBet',   handKey: 'bjHand', historyKey: 'bjHistory' },
-  uth:     { meta: { icon: '♠',            shareIcon: '♠',  name: "Ultimate Texas Hold'em", short: "Hold'em",      desc: '3 hands · Ante, Blind & Play' },        phaseKey: 'uthPhase', betKey: 'uthAnte', handKey: 'uthHand', historyKey: 'uthHistory' },
-  poker:   { meta: { icon: '♠',            shareIcon: '♠',  name: '5 Card Poker',           short: '5 Card Poker', desc: '3 hands · Jacks or Better' },           phaseKey: 'pkPhase',  betKey: 'pkBet',   handKey: 'pkHand', historyKey: 'pkHistory' },
-  ladder:  { meta: { icon: icon('ladder'), shareIcon: '🪜', name: 'The Ladder',             short: 'The Ladder',   desc: '1 run · Higher or lower, ties lose' },  phaseKey: 'ladPhase', betKey: 'ladBet' },
-  roulette:{ phaseKey: 'rPhase', betKey: 'rBet' },
+  bj:      { meta: { icon: icon('cards'),  shareIcon: '🃏', name: 'Blackjack',             short: 'Blackjack',    desc: '3 hands · Hit, Stand, Double, Split' }, phaseKey: 'bjPhase',  betKey: 'bjBet',   handKey: 'bjHand', historyKey: 'bjHistory', txKey: 'bj' },
+  uth:     { meta: { icon: '♠',            shareIcon: '♠',  name: "Ultimate Texas Hold'em", short: "Hold'em",      desc: '3 hands · Ante, Blind & Play' },        phaseKey: 'uthPhase', betKey: 'uthAnte', handKey: 'uthHand', historyKey: 'uthHistory', txKey: 'uth' },
+  poker:   { meta: { icon: '♠',            shareIcon: '♠',  name: '5 Card Poker',           short: '5 Card Poker', desc: '3 hands · Jacks or Better' },           phaseKey: 'pkPhase',  betKey: 'pkBet',   handKey: 'pkHand', historyKey: 'pkHistory', txKey: 'pk' },
+  ladder:  { meta: { icon: icon('ladder'), shareIcon: '🪜', name: 'The Ladder',             short: 'The Ladder',   desc: '1 run · Higher or lower, ties lose' },  phaseKey: 'ladPhase', betKey: 'ladBet', txKey: 'lad' },
+  roulette:{ phaseKey: 'rPhase', betKey: 'rBet', txKey: 'r' },
 };
+// txKey: the short tag a game writes into the Transcript (txLog {g}) and the net bucket the replay
+// Engine accumulates into — the one link between a game's registry entry and its replay handler.
 
 // Display metadata for every slot game — the entries of GAMES that carry `meta`. Back-compat view
 // consumed by the dev menu (GAME1_OPTIONS) and the share text (buildShareText).
@@ -382,7 +384,7 @@ let S={
 
   pkHand:0, pkPhase:'bet', pkBet:0,
   pkCards:[], pkHeld:new Set(), pkFinal:[], pkHistory:[], pkRevealStep:0,
-  uthHand:0, uthPhase:'bet', uthAnte:0, uthPlay:0, uthPlayMult:0,
+  uthHand:0, uthPhase:'bet', uthAnte:0, uthRaise:0, uthRaiseMult:0,
   uthRaised:false, uthFolded:false,
   uthHole:[], uthDealer:[], uthComm:[],
   uthPrivate:null,  // Sixth Sense (uth_sixth_card): the player-only 6th community card; dealt at deal, shown from the turn

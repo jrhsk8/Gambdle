@@ -62,7 +62,7 @@ const TUTORIAL_TIPS = {
   },
   ladder: {
     title: "The Ladder",
-    body: "Call the next card <b>higher or lower</b>. Each correct call climbs a rung, multiplying your stake. Cash out any time, but a wrong call or a <b>tie loses the pot</b>.",
+    body: "Call the next card <b>higher or lower</b>. Each correct call climbs a rung, multiplying your bet. Cash out any time, but a wrong call or a <b>tie loses the pot</b>.",
   },
 };
 
@@ -130,7 +130,7 @@ const INFO_SECTIONS = {
   uth: {
     title: "♠ Ultimate Texas Hold'em",
     body: `<div>A poker game, similar to classic Texas Hold'em, but <b>adapted for solo play</b> against the dealer.
-      <div>Start by placing equal <b>Ante</b> and <b>Blind</b> bets (the game splits your stake in two for you).</div>
+      <div>Start by placing equal <b>Ante</b> and <b>Blind</b> bets (the game splits your bet in two for you).</div>
       <div>The <b>ante</b> pays out if you beat the dealer. The <b>blind</b> pays if you win with a high ranking hand (straight or better).</div>
       <div>You and the dealer each get 2 private cards, then 5 shared cards are revealed one group at a time. Best 5-card hand out of 7 wins.</div>
       <div><b>Preflop:</b> Your two cards are revealed. Raise <b>4×</b> (strong hand), raise <b>3×</b> (decent hand), or <b>Check</b> to wait and see more cards.</div>
@@ -140,7 +140,7 @@ const INFO_SECTIONS = {
   },
   roulette: {
     title: `${icon('target')} Roulette`,
-    body: `<div>A ball is dropped onto a spinning wheel numbered 0–36. Pick where you think it'll land, set your stake, and spin. <b>One spin</b> ends the run.</div>
+    body: `<div>A ball is dropped onto a spinning wheel numbered 0–36. Pick where you think it'll land, set your bet, and spin. <b>One spin</b> ends the run.</div>
       <div><b>Numbers 0–36:</b> An exact match pays <b>35:1</b>. Daily modifiers that increase odds of specific numbers can make this very profitable!</div>
       <div><b>Rows (2:1 tiles):</b> Bet on one of the three rows on the board. Does not include 0.</div>
       <div><b>Dozens:</b> 1–12, 13–24, or 25–36. Pays <b>2:1</b>.</div>

@@ -4,14 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>♣ Gambdle Layout Tests</title>
-  <!-- Real game font — must load for accurate text sizing -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=VT323&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap"></noscript>
   <!-- Real game stylesheet — required so CSS media queries fire at the correct breakpoints -->
   <link rel="stylesheet" href="../styles.css">
   <style>
+    /* Real game font, self-hosted (latin subset, SIL OFL — see assets/VT323-OFL.txt) instead of the
+       Google Fonts CDN. Text sizing must use VT323's real metrics, and the CDN load is an async race
+       that intermittently left a measurement on the wider Courier-New fallback (the bj-result-split-3-gap
+       flake). Local + the deferred run below (waits for fonts.ready) make every measurement deterministic
+       and the suite fully offline. font-display:block so nothing is ever measured mid-swap. */
+    @font-face {
+      font-family: 'VT323';
+      font-style: normal;
+      font-weight: 400;
+      font-display: block;
+      src: url('../assets/vt323-latin.woff2') format('woff2');
+    }
     /* Test output overlay — position:fixed so it has zero effect on document flow/height */
     #test-overlay {
       position: fixed; bottom: 8px; right: 8px; z-index: 9999;
@@ -55,6 +62,7 @@
   <script src="../src/modifiers.js"></script>
   <script src="../src/icons.js"></script>
   <script src="../src/core.js"></script>
+  <script src="../src/net.js"></script>
   <script src="../src/deal.js"></script>
   <script src="../src/record.js"></script>
   <script src="../src/dom-ids.js"></script>
@@ -96,8 +104,30 @@
 
   <script src="runner.js"></script>
   <script src="layout-dsl.js"></script>
-  <script src="layout.test.js"></script>
-  <script src="layout-balloon.test.js"></script>
-  <script src="layout-dsl.test.js"></script>
+
+  <!-- Defer the layout test BODIES until VT323 has loaded AND applied, so every fixture is measured with
+       the real pixel-font metrics rather than the wider Courier-New fallback. The test files call
+       describe()/expectLayout() at parse time (render → measure, interleaved per fixture), so the only
+       place to gate is before they run. The font is self-hosted (no network) so fonts.ready resolves
+       immediately — this adds no meaningful time. runner.js skips its own on-load render (__DEFER_RENDER__)
+       and we call _renderResults() once the deferred tests have populated the results. -->
+  <script>
+    window.__DEFER_RENDER__ = true;
+    window.addEventListener('load', async () => {
+      try {
+        try { await document.fonts.load('1em "VT323"'); } catch (e) {}
+        try { await document.fonts.ready; } catch (e) {}
+        for (const f of ['layout.test.js', 'layout-balloon.test.js', 'layout-dsl.test.js']) {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = f; s.onload = resolve; s.onerror = () => reject(new Error('failed to load ' + f));
+            document.body.appendChild(s);
+          });
+        }
+      } finally {
+        _renderResults(); // always populate #summary so the CLI runner never hangs on the wait
+      }
+    });
+  </script>
 </body>
 </html>
