@@ -94,6 +94,30 @@ function _extendBjShoe(seed){
 // RNG draw ORDER is load-bearing — bjShoe shuffle, then the 3 poker decks, then the uthDeck,
 // then the ladder cards. _extendBjShoe seeds its own independent rng, so the no-run-dry tail is
 // appended without shifting the shared sequence (do not reorder these lines).
+// Per-hand BJ segment start. Each of the 3 BJ hands draws from its own fixed slice of the shoe, so a
+// split/hit/double in one hand never shifts another hand's cards — BJ hands are independent (like the
+// per-hand UTH slices), which also lets the future-seed checker evaluate each hand in isolation. Hand 0
+// still starts at index 0. The shoe (base 104 + 2-deck tail = 208) is far larger than 3× a hand's
+// worst case (split-to-4 + dealer ≈ 30), so segments never overflow.
+//
+// ┌─ TEMPORARY DEPLOY GATE — added 2026-06-19, REMOVE on/after 2026-06-23 ───────────────────────────┐
+// │ Per-hand segments apply only for RNG seeds from BJ_SEGMENT_CUTOVER onward; earlier seeds return     │
+// │ null and every caller falls back to the OLD continuous shoe (no per-hand cursor reset, unbounded    │
+// │ First-Ace / Soft-Landing swaps). This lets the change ship MID-DAY without rejecting in-flight runs: │
+// │ a run dealt on the old continuous client still replays identically on the new server for any         │
+// │ pre-cutover day (client/server cards match — avoids the 2026-06-16 incident). Today + every already- │
+// │ started run stays continuous; only the next Phoenix day onward goes segmented.                       │
+// │ REMOVAL (once old clients have cycled past the cutover, ~2-3 days, and no pre-cutover day resubmits   │
+// │ — backlog never submits): delete the cutover check + the constant, drop the `seed` param, and        │
+// │ simplify the `if (seg !== null)` guards in bj.js / engine.js / seedcheck.js to reset unconditionally. │
+// └──────────────────────────────────────────────────────────────────────────────────────────────────┘
+// Pure: (shoeLen, hand, seed) → start idx, or null when the seed predates the cutover (continuous shoe).
+const BJ_SEGMENT_CUTOVER = 20260620; // first Phoenix day (YYYYMMDD) dealt in per-hand segments
+function bjSegStart(shoeLen, hand, seed){
+  if(seed < BJ_SEGMENT_CUTOVER) return null;        // TEMPORARY (see note) — pre-cutover stays continuous
+  return hand * Math.floor(shoeLen / 3);
+}
+
 function buildDeal(seed){
   const rng=mkRng(seed);
   const shoe=[];for(let i=0;i<2;i++)shoe.push(...buildDeck());

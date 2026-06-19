@@ -24,3 +24,7 @@ render();
 initWindowDrag();
 _resumeAfterRefresh();
 _maybeShowWelcomePopup();
+// Device/environment profile beacon (Devices dev page). Gated out of the unit-test harness so it
+// never fires a live network write at boot — the rest of its skip logic (dev/test/backlog/dedup)
+// lives in _submitClient itself, mirroring the other beacons.
+if (!(typeof window !== 'undefined' && window.__GAMBDLE_TEST__)) _submitClient();

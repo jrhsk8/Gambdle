@@ -60,11 +60,23 @@ function _engAcct(){
 // ─── BLACKJACK ────────────────────────────────────────────────────────────────
 // Soft Landing replay twin of _bjSafeHitSwap (bj.js): on a hand's first hit (length 2) swap the next
 // shoe card for the nearest later card that keeps the total ≤21, if it would otherwise bust.
-function _replaySafeHitSwap(shoe, idx, hand, mod){
+function _replaySafeHitSwap(shoe, idx, hand, mod, segEnd){
   if(!mod('bj_safe_hit') || hand.length !== 2) return;
   if(hVal(hand.concat(shoe[idx])) <= 21) return;
-  const si = shoe.findIndex((c, k) => k > idx && hVal(hand.concat(c)) <= 21);
+  const end = segEnd == null ? shoe.length : segEnd;   // stay inside this hand's segment (hands are independent)
+  const si = shoe.findIndex((c, k) => k > idx && k < end && hVal(hand.concat(c)) <= 21);
   if(si !== -1){ const t = shoe[idx]; shoe[idx] = shoe[si]; shoe[si] = t; }
+}
+
+// Shared: the bj_first_ace deal swap — if the next shoe card isn't an Ace, swap the nearest later
+// Ace into its slot (mutates the Deal copy in place, exactly like bjDeal mutates DEAL.bjShoe). Pure
+// given (shoe, idx, mod); the dev-only future-seed checker (seedcheck.js) calls the same helper so
+// the two can never deal a hand differently.
+function bjFirstAceSwap(shoe, idx, mod, segEnd){
+  if(!mod('bj_first_ace') || !shoe[idx] || shoe[idx].r === 'A') return;
+  const end = segEnd == null ? shoe.length : segEnd;   // stay inside this hand's segment (hands are independent)
+  const ai = shoe.findIndex((c, k) => k > idx && k < end && c.r === 'A');
+  if(ai !== -1){ const t = shoe[idx]; shoe[idx] = shoe[ai]; shoe[ai] = t; }
 }
 
 // Replays one Blackjack hand starting at tx[i] (a 'deal' or 'skip'). Returns the cursor past it.
@@ -84,11 +96,13 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   let shoe = deal.bjShoe;
   if(twoHands){
     shoe = shuffle(buildDeck(), mkRng(seed + (st.hand + 1) * 97));
-  } else if(mod('bj_first_ace') && shoe[st.idx] && shoe[st.idx].r !== 'A'){
-    // bj_first_ace: if the next card isn't an Ace, swap the nearest later Ace into its slot (mutates
-    // this Deal copy in place, exactly like bjDeal mutates DEAL.bjShoe).
-    const ai = shoe.findIndex((c, k) => k > st.idx && c.r === 'A');
-    if(ai !== -1){ const t = shoe[st.idx]; shoe[st.idx] = shoe[ai]; shoe[ai] = t; }
+  } else {
+    // Each hand draws from its own fixed segment of the shoe, so a split/hit in one hand never shifts
+    // another's cards (BJ hands are independent). Reset the cursor to this hand's segment start.
+    // (Pre-cutover seeds return null → keep the old continuous cursor + unbounded swap; see bjSegStart.)
+    const seg = bjSegStart(shoe.length, st.hand, seed);
+    if(seg !== null) st.idx = seg;
+    bjFirstAceSwap(shoe, st.idx, mod, bjSegStart(shoe.length, st.hand + 1, seed)); // Ace into the next slot, within-segment
   }
   const cur = { i: 0 };                                   // local cursor, used only under twoHands
   const draw = twoHands ? (() => shoe[cur.i++]) : (() => shoe[st.idx++]);
@@ -155,7 +169,7 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   let bet = bet0, doubled = false, ended = false;
   for(const ev of actions){
     if(ended) continue;
-    if(ev.a === 'hit'){ _replaySafeHitSwap(shoe, st.idx, player, mod); player.push(draw()); if(hVal(player) >= 21) ended = true; }
+    if(ev.a === 'hit'){ _replaySafeHitSwap(shoe, st.idx, player, mod, bjSegStart(shoe.length, st.hand + 1, seed)); player.push(draw()); if(hVal(player) >= 21) ended = true; }
     else if(ev.a === 'double'){ if(acct.chips < bet) _replayFail('bj_double_nofund'); acct.debit(bet); bet *= 2; doubled = true; player.push(draw()); ended = true; }
     else if(ev.a === 'stand'){ ended = true; }
     else _replayFail('bj_bad_action');
@@ -176,19 +190,33 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
 // `shoe` + `draw` are threaded from _replayBJHand so a Double Vision split draws from the same fresh
 // per-hand deck (twoHands ⇒ draw() advances a local cursor, not st.idx). _replaySafeHitSwap still reads
 // st.idx, which is correct: safe_hit and two_hands never co-occur, so under two_hands it's a no-op.
-function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw){
-  const { player, dealer, bet0, actions, stand17 } = init;
-  // First split: stake a second hand, deal one card to sub-hand 0, sub-hand 1 waits for its 2nd card.
-  if(acct.chips < bet0) _replayFail('bj_split_nofund');
+// Shared headless split stepper — the ONE place the split deck-consumption state machine lives, used by
+// BOTH the replay engine (decisions read from the transcript) and the dev-only future-seed checker
+// (decisions from a basic-strategy table), so their split draw order can never diverge. Mirrors the live
+// bjSplit / bjAdvanceSplit / bjCheckSplitHand sequence: stake a 2nd hand, deal sub-hand 0 its card,
+// sub-hand 1 waits, auto-resolve 21s, resplit up to 4, double-after-split, then draw the dealer.
+//   pair       — the opening matched pair [c0, c1]
+//   dealer     — the dealer's 2 up-cards (mutated: drawn to stand17)
+//   draw       — sequential card accessor (advances the caller's shoe/segment cursor)
+//   acct       — chip ledger {chips, debit}; the checker passes an unbounded stub (no real staking)
+//   beforeHit  — called with the active hand before each hit (Soft Landing swap); default no-op
+//   nextAction — (activeHand, {canResplit, canDouble, active}) → 'hit'|'stand'|'double'|'split', or null
+//                to stop (transcript exhausted; resolve the hands as they stand)
+//   fail       — illegal-state reporter (engine: _replayFail; default throws)
+// Returns { hands, bets, doubled, dealer } for the caller to settle (award vs count).
+function bjSplitStep({ pair, dealer, bet0, mod, stand17, draw, acct, nextAction, beforeHit, fail }){
+  const _fail = fail || _replayFail;
+  const _beforeHit = beforeHit || (() => {});
+  if(acct.chips < bet0) _fail('bj_split_nofund');
   acct.debit(bet0);
-  const hands = [[player[0], draw()], [player[1]]];
+  const hands = [[pair[0], draw()], [pair[1]]];
   const bets = [bet0, bet0];
   const doubled = [false, false];
   const done = [false, false];
   let active = 0;
 
-  // Advance to the next sub-hand that needs a player action, dealing a waiting sub-hand its 2nd
-  // card and auto-resolving any sub-hand that's already 21+ (bjCheckSplitHand auto-advances those).
+  // Advance to the next sub-hand that needs a player action, dealing a waiting sub-hand its 2nd card
+  // and auto-resolving any sub-hand already at 21+ (bjCheckSplitHand auto-advances those).
   const settleToActionable = () => {
     while(true){
       if(hands[active].length === 1) hands[active].push(draw());
@@ -208,17 +236,20 @@ function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw){
   };
 
   let allDone = settleToActionable();
-
-  // The first action is the initial 'split' itself; consume it, then drive the rest.
-  for(let k = 0; k < actions.length; k++){
-    const ev = actions[k];
-    if(k === 0){ if(ev.a !== 'split') _replayFail('bj_split_order'); continue; }
-    if(allDone) _replayFail('bj_act_after_end');
-    if(ev.a === 'split'){
-      // Re-split the active sub-hand into two (max 4 hands total).
-      if(hands.length >= 4) _replayFail('bj_resplit_max');
+  while(!allDone){
+    const hand = hands[active];
+    const isPair = hand.length === 2 && (hand[0].r === hand[1].r || !!mod('bj_wild_split'));
+    const ctx = {
+      canResplit: isPair && hands.length < 4 && acct.chips >= bets[active],
+      canDouble: hand.length === 2 && acct.chips >= bets[active],
+      active,
+    };
+    const a = nextAction(hand, ctx);
+    if(a == null) break;                            // transcript exhausted — resolve the hands as they stand
+    if(a === 'split'){
+      if(hands.length >= 4) _fail('bj_resplit_max');
       const bet = bets[active];
-      if(acct.chips < bet) _replayFail('bj_resplit_nofund');
+      if(acct.chips < bet) _fail('bj_resplit_nofund');
       acct.debit(bet);
       const [c0, c1] = hands[active];
       hands.splice(active, 1, [c0, draw()], [c1]);
@@ -226,24 +257,42 @@ function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw){
       doubled.splice(active, 1, false, false);
       done.splice(active, 1, false, false);
       allDone = settleToActionable();
-    } else if(ev.a === 'hit'){
-      _replaySafeHitSwap(shoe, st.idx, hands[active], mod);
+    } else if(a === 'hit'){
+      _beforeHit(hands[active]);
       hands[active].push(draw());
       if(hVal(hands[active]) >= 21) allDone = advance();
-    } else if(ev.a === 'double'){
-      if(acct.chips < bets[active]) _replayFail('bj_split_double_nofund');
+    } else if(a === 'double'){
+      if(acct.chips < bets[active]) _fail('bj_split_double_nofund');
       acct.debit(bets[active]); bets[active] *= 2; doubled[active] = true;
       hands[active].push(draw());
       allDone = advance();
-    } else if(ev.a === 'stand'){
+    } else if(a === 'stand'){
       allDone = advance();
-    } else _replayFail('bj_bad_action');
+    } else _fail('bj_bad_action');
   }
 
-  // Resolve: draw the dealer once, settle every sub-hand (resolveBJSplitHand has no blackjack branch).
+  // Dealer draws once after all sub-hands (resolveBJSplitHand, called by the caller, has no BJ branch).
   let dv = hVal(dealer);
   while(dv < stand17){ dealer.push(draw()); dv = hVal(dealer); }
-  const dvFinal = hVal(dealer);
+  return { hands, bets, doubled, dealer };
+}
+
+// Replays a split hand from the transcript. `init.actions` is the pre-collected consecutive bj action
+// list, beginning with the initial 'split'. Drives the shared bjSplitStep with a transcript-reading
+// callback (still strict — forged/extra actions abort the Run), then settles each sub-hand.
+function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw){
+  const { player, dealer, bet0, actions, stand17 } = init;
+  if(!actions.length || actions[0].a !== 'split') _replayFail('bj_split_order');
+  let k = 1;                                         // actions[0] is the initial split (already decided)
+  const { hands, bets, doubled, dealer: dlr } = bjSplitStep({
+    pair: player, dealer, bet0, mod, stand17, draw, acct,
+    beforeHit: (hand) => _replaySafeHitSwap(shoe, st.idx, hand, mod, bjSegStart(shoe.length, st.hand + 1, seed)),
+    nextAction: () => (k < actions.length ? actions[k++].a : null),
+    fail: _replayFail,
+  });
+  if(k < actions.length) _replayFail('bj_act_after_end'); // extra actions after the hand ended → forged
+
+  const dvFinal = hVal(dlr);
   const wm = winMultFor(mod, acct.chips);
   const spm = mod('bj_wild_split') ? 2 : 1;
   let total = 0;
@@ -260,6 +309,36 @@ function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw){
 
 // ─── ULTIMATE TEXAS HOLD'EM ─────────────────────────────────────────────────────
 // Replays one UTH hand starting at tx[i] (a 'deal' or 'skip'). Returns the cursor past it.
+// Shared: the per-hand UTH card layout (hole / dealer / community / private), mirroring uthDeal incl.
+// the per-hand fresh-deck mods (uth_pocket_aces, uth_suited_conn) and the deck-tail mods
+// (uth_three_hole, uth_sixth_card). Pure: (deal, mod, hand, seed) → { hole, dealer, comm, priv }.
+// Used by the replay path AND the dev-only future-seed checker (seedcheck.js) so neither can deal a
+// UTH hand differently. `comm` is a fresh array the caller may mutate (Time Travel re-deals it).
+function uthHandCards(deal, mod, hand, seed){
+  if(mod('uth_pocket_aces')){
+    const d = shuffle(buildDeck(), mkRng(seed + (hand + 1) * 97));
+    const aces = [], rest = [];
+    for(const c of d) (c.r === 'A' && aces.length < 2 ? aces : rest).push(c);
+    return { hole: aces, dealer: [rest[0], rest[1]], comm: rest.slice(2, 7), priv: [] };
+  }
+  if(mod('uth_suited_conn')){
+    // Suited Up: shared deal twin of uthDeal — same per-hand seed feeds suitedConnectorDeal (core.js).
+    const { hole, dealer, comm } = suitedConnectorDeal(mkRng(seed + (hand + 1) * 97));
+    return { hole, dealer, comm, priv: [] };
+  }
+  const dk = deal.uthDeck, off = hand * 9;
+  const hole = [dk[off], dk[off + 1]];
+  let priv = [];
+  if(mod('uth_three_hole')) hole.push(dk[27 + hand]); // Triple Threat's 3rd hole card from the tail
+  if(mod('uth_sixth_card')) priv = [dk[27 + hand]];   // Sixth Sense's private community card (player pool only)
+  return {
+    hole,
+    dealer: [dk[off + 2], dk[off + 3]],
+    comm: [dk[off + 4], dk[off + 5], dk[off + 6], dk[off + 7], dk[off + 8]],
+    priv,
+  };
+}
+
 function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
   const dealEv = tx[i];
   if(dealEv.a === 'skip'){ addNet('uth', 0); st.hand++; return i + 1; }
@@ -271,25 +350,9 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
   if(ante > maxFor('uth', acct.chips)) _replayFail('uth_overbet');
   acct.debit(ante);
 
-  // Deal hole / dealer / community, mirroring uthDeal (incl. uth_pocket_aces and uth_three_hole).
-  let hole, dealer, comm, priv = [];
-  if(mod('uth_pocket_aces')){
-    const hr = mkRng(seed + (st.hand + 1) * 97);
-    const d = shuffle(buildDeck(), hr);
-    const aces = [], rest = [];
-    for(const c of d) (c.r === 'A' && aces.length < 2 ? aces : rest).push(c);
-    hole = aces; dealer = [rest[0], rest[1]]; comm = rest.slice(2, 7);
-  } else if(mod('uth_suited_conn')){
-    // Suited Up: shared deal twin of uthDeal — same per-hand seed feeds suitedConnectorDeal (core.js).
-    ({ hole, dealer, comm } = suitedConnectorDeal(mkRng(seed + (st.hand + 1) * 97)));
-  } else {
-    const dk = deal.uthDeck, off = st.hand * 9;
-    hole = [dk[off], dk[off + 1]];
-    if(mod('uth_three_hole')) hole.push(dk[27 + st.hand]); // Triple Threat's 3rd hole card from the tail
-    if(mod('uth_sixth_card')) priv = [dk[27 + st.hand]];   // Sixth Sense's private community card (player pool only)
-    dealer = [dk[off + 2], dk[off + 3]];
-    comm = [dk[off + 4], dk[off + 5], dk[off + 6], dk[off + 7], dk[off + 8]];
-  }
+  // Deal hole / dealer / community via the shared deal twin (also used by seedcheck.js). `comm` is
+  // mutated in place by Time Travel below, so keep these as mutable bindings.
+  let { hole, dealer, comm, priv } = uthHandCards(deal, mod, st.hand, seed);
   const antePortion = Math.ceil(ante / 2), blindPortion = Math.floor(ante / 2);
 
   let play = 0, raised = false;

@@ -264,20 +264,23 @@ describe('engine — Ladder equivalence', () => {
 });
 
 // ─── Targeted: a player blackjack still draws the dealer (deck consumption) ────
-describe('engine — player blackjack draws the dealer', () => {
+describe('engine — player blackjack draws the dealer (within its own segment)', () => {
   const C = (r,s) => ({r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]});
-  it('consumes the dealer draw, scoring blackjack and shifting the next hand', () => {
-    // Crafted shoe: hand 0 = player A,K (blackjack) vs dealer 9,7 (=16, must draw). The draw card is
-    // a 5 (→21, stand). Hand 1's cards therefore start AFTER that drawn card.
-    const deal = { bjShoe:[C('A','s'),C('K','d'),C('9','h'),C('7','c'),C('5','s'),
-                           C('10','d'),C('6','h'),C('Q','c'),C('2','s'),C('8','d')],
-                   pokerDecks:[], uthDeck:[], ladderCards:[], rSpinOverride:null };
+  it('scores blackjack and draws the dealer without shifting the independent next hand', () => {
+    // 30-card shoe → SEG = ⌊30/3⌋ = 10, so hand 0 draws from [0,10) and hand 1 from [10,20) — independent.
+    // Hand 0: player A,K (blackjack) vs dealer 9,7 (=16, must draw idx4 = 5 → 21). That dealer draw is
+    // consumed INSIDE hand 0's segment and does NOT reach hand 1. Hand 1 (segment start idx10): player
+    // 10,6 vs dealer Q,2 (=12, draws idx14 = 8 → 20).
+    const shoe = Array(30).fill(C('2','s'));
+    [C('A','s'),C('K','d'),C('9','h'),C('7','c'),C('5','s')].forEach((c,i) => shoe[i] = c);      // hand 0
+    [C('10','d'),C('6','h'),C('Q','c'),C('2','s'),C('8','d')].forEach((c,i) => shoe[10 + i] = c); // hand 1
+    const deal = { bjShoe: shoe, pokerDecks:[], uthDeck:[], ladderCards:[], rSpinOverride:null };
     const tx = [ {g:'bj',a:'deal',h:0,bet:100},
                  {g:'bj',a:'deal',h:1,bet:100}, {g:'bj',a:'stand',h:1,s:0} ];
-    const out = replayRun(1, {}, tx, { deal: _clone(deal) });
-    // Hand 0: blackjack pays 3:2 → +150. The dealer drew the 5 (index 4), so hand 1 = player 10,6
-    // vs dealer Q,2 (=12, draws the 8 → 20). Player 16 stands, loses → -100. Net +50.
-    assertEqual(out.chips, START_CHIPS + 150 - 100, 'BJ draw consumes a card, hand 1 follows it');
+    const out = replayRun(20260620, {}, tx, { deal: _clone(deal) }); // seed ≥ cutover → per-hand segments
+    // Hand 0: blackjack +150 (the dealer draw never changes a blackjack win). Hand 1: player 16 stands
+    // vs dealer 20 → -100. Net +50.
+    assertEqual(out.chips, START_CHIPS + 150 - 100, 'blackjack +150; independent hand 1 loses 100');
   });
 });
 

@@ -647,15 +647,20 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 @keyframes deal { from { opacity: 0; transform: translateY(-24px) scale(.9); } to { opacity: 1; transform: translateZ(0); } }
 @keyframes fadein { from { opacity: 1; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-/* Cross-screen view transitions (navRender): a plain crossfade between significantly different
-   screens — a new game, a hand's result panel, the next hand. The default root transition is already
-   a crossfade; we just give it a consistent, snappy duration. Gated in JS (feature-detect + the test
-   flag); this reduced-motion guard is belt-and-suspenders. */
-::view-transition-old(root),
-::view-transition-new(root) { animation-duration: 0.25s; }
+/* Cross-screen view transitions (navRender): crossfade ONLY the centered .panel card between
+   significantly different screens — a new game, a hand's result panel, the next hand. We take the
+   root OUT of the transition (view-transition-name:none) so the full viewport is never snapshotted
+   or animated: that whole-screen capture+composite scaled with pixel count and was the source of
+   the desktop lag (big window → big textures; mobile's small viewport was always cheap). The static
+   window frame, background, and status bar now swap instantly while the bounded panel crossfades.
+   Exactly one .panel exists per render (even BJ split nests its aside hands inside it), so the name
+   stays unique. Gated in JS (feature-detect + the test flag); reduced-motion guard belt-and-suspenders. */
+:root { view-transition-name: none; }
+.panel { view-transition-name: gambdle-panel; }
+::view-transition-old(gambdle-panel),
+::view-transition-new(gambdle-panel) { animation-duration: 0.18s; }
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root),
-  ::view-transition-new(root) { animation: none; }
+  :root, .panel { view-transition-name: none; }
 }
 
 .hand {

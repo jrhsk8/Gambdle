@@ -32,7 +32,7 @@ function statusBar(){
 function render(){
   // Game screens dispatch through the Game registry (GAMES[screen].screen, registered by each game's
   // file); the non-game shell screens stay in this local table.
-  const scr={intro:screenIntro,choice:screenChoice,borrow:screenBorrow,results:screenResults,devstats:screenDevStats,retention:screenRetention};
+  const scr={intro:screenIntro,choice:screenChoice,borrow:screenBorrow,results:screenResults,devstats:screenDevStats,retention:screenRetention,devices:screenDevices,seedcheck:screenSeedCheck};
   const inner = (GAMES[S.screen]?.screen||scr[S.screen]||screenIntro)();
   document.getElementById('app').innerHTML=`<div class="app">
     <div class="window">
@@ -41,7 +41,8 @@ function render(){
     </div>
   </div>`;
   const _panel = document.querySelector('.panel');
-  const _mod = modBannerHTML(S.screen === 'results');
+  // The Seed Checker scans FUTURE days, so today's modifier banner would be misleading there — suppress it.
+  const _mod = S.screen === 'seedcheck' ? '' : modBannerHTML(S.screen === 'results');
   // Inject the modifier banner at the top of the panel after the screen HTML is in place.
   if (_panel && _mod) {
     _panel.insertAdjacentHTML('afterbegin', _mod);
@@ -81,6 +82,7 @@ function render(){
   if (S.screen === 'results') { submitAndFetchLeaderboard(); fetchScoreDistribution(); }
   if (S.screen === 'devstats') fetchDevStats();
   if (S.screen === 'retention') fetchRetention();
+  if (S.screen === 'devices') fetchDevices();
   _runTutorial();
   _drawLayoutDebug();
 }
@@ -285,6 +287,90 @@ async function _submitProgress(stage) {
 // bonus round on ladder_day). Game 1 is already covered by the `starts` row, and reaching 'results'
 // is covered by the score submission. 'ladder' only occurs on ladder_day; it's a no-op otherwise.
 const PROGRESS_STAGES = new Set([GAME2, 'roulette', 'ladder']);
+
+// ─── Client/device profile beacon (Devices dev page) ─────────────────────────
+// Fire-and-forget at app LOAD: INSERTs ONE row per device/day describing this client's viewport,
+// browser/OS, traffic source, and environment prefs. Powers the dev-only "Devices" screen
+// (goTo('devices'), fetchDevices in dev.js). Analytics-only: every field is client-asserted and
+// unvalidated (NOT leaderboard-grade). Captured at load so the referrer is freshest and even players
+// who bounce on a broken layout are sampled. Skipped in dev/test/backlog; deduped per device/day via
+// localStorage (key set only on a 2xx). A plain INSERT (not an upsert) on purpose: a merge-duplicates
+// upsert needs anon SELECT on the table, which would expose the raw `ua` — so we forgo updates and let
+// the (seed,fingerprint) PK turn the rare double-fire (cleared storage) into a harmless 409. Called
+// once from game.js boot (gated there to never fire under the unit-test harness). Requires a `clients`
+// table + `clients_public` view — see supabase/clients.sql.
+
+// Parse a userAgent into coarse browser/os tokens — cheap GROUP BY on the read side. Pure (string in,
+// tokens out), so it's unit-testable. Order matters: Edge ('Edg/') and Chromium-derivatives (Opera
+// 'OPR/', Samsung) are checked before Chrome, and Chrome before Safari, because every Chromium UA
+// also contains 'Safari' (and Chromium UAs contain 'Chrome').
+function _parseUA(ua){
+  const s = (ua || '').toLowerCase();
+  const browser = /edg\//.test(s) ? 'edge'
+    : /opr\/|opera/.test(s) ? 'opera'
+    : /samsungbrowser/.test(s) ? 'samsung'
+    : /firefox|fxios/.test(s) ? 'firefox'
+    : /chrome|crios|chromium/.test(s) ? 'chrome'
+    : /safari/.test(s) ? 'safari'
+    : 'other';
+  const os = /iphone|ipad|ipod/.test(s) ? 'ios'
+    : /android/.test(s) ? 'android'
+    : /windows/.test(s) ? 'windows'
+    : /mac os x|macintosh/.test(s) ? 'macos'
+    : /linux/.test(s) ? 'linux'
+    : 'other';
+  return { browser, os };
+}
+
+// Traffic source token: an explicit ?utm_source/?src/?ref param wins; else the referrer's host
+// (www-stripped); same-origin referrers and no referrer collapse to 'direct'. Best-effort.
+function _srcToken(){
+  try {
+    const p = new URLSearchParams(location.search);
+    const tag = p.get('utm_source') || p.get('src') || p.get('ref');
+    if (tag) return tag.slice(0, 40).toLowerCase();
+    const ref = document.referrer;
+    if (!ref) return 'direct';
+    const host = new URL(ref).hostname.replace(/^www\./, '');
+    return (!host || host === location.hostname) ? 'direct' : host.slice(0, 60).toLowerCase();
+  } catch { return 'direct'; }
+}
+
+// Environment prefs bundle. tz = getTimezoneOffset() in minutes (positive = west of UTC; Phoenix=420).
+// `private` flags the localStorage→sessionStorage fallback (private browsing), which explains some
+// device-id churn behind the retention undercount. Each matchMedia read is defensive.
+function _clientPrefs(){
+  const mm = (q) => { try { return matchMedia(q).matches; } catch { return false; } };
+  return {
+    tz: new Date().getTimezoneOffset(),
+    reduced_motion: mm('(prefers-reduced-motion: reduce)'),
+    color_scheme: mm('(prefers-color-scheme: dark)') ? 'dark' : 'light',
+    lang: (navigator.language || '').slice(0, 10),
+    private: _ls === sessionStorage,
+  };
+}
+
+async function _submitClient() {
+  const seed = getActiveSeed();
+  const key = `gambdle_client_${seed}`;
+  if (_ls.getItem(key) || DEV_OVERRIDE || _testActive() || _backlogSeed) return;
+  // Skip speculative prerenders (bot/Chrome-prefetch noise); real visible/backgrounded loads still fire.
+  if (typeof document !== 'undefined' && document.visibilityState === 'prerender') return;
+  const { browser, os } = _parseUA(navigator.userAgent || '');
+  const prefs = _clientPrefs();
+  const res = await sbFetch('/rest/v1/clients', {
+    method: 'POST',
+    headers: { 'Prefer': 'return=minimal' },
+    body: {
+      seed, fingerprint: getDeviceId(),
+      w: innerWidth, h: innerHeight, dpr: Math.round((devicePixelRatio || 1) * 100) / 100,
+      browser, os, ua: (navigator.userAgent || '').slice(0, 180), src: _srcToken(),
+      tz: prefs.tz, reduced_motion: prefs.reduced_motion, color_scheme: prefs.color_scheme,
+      lang: prefs.lang, private: prefs.private,
+    },
+  });
+  if (res && res.ok) _ls.setItem(key, '1');
+}
 
 // Fire-and-forget: snapshots where this device is the moment the tab hides (visibilitychange→hidden)
 // or the page is torn down (pagehide) — the exact screen, its phase, the hand index (3-hand games),

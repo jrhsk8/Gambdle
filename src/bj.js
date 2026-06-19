@@ -126,10 +126,13 @@ function bjDeal(){
     }
     return;
   }
-  if(getMod('bj_first_ace')&&DEAL.bjShoe[S.bjIdx]?.r!=='A'){
-    const ai=DEAL.bjShoe.findIndex((c,i)=>i>S.bjIdx&&c.r==='A');
-    if(ai!==-1)[DEAL.bjShoe[S.bjIdx],DEAL.bjShoe[ai]]=[DEAL.bjShoe[ai],DEAL.bjShoe[S.bjIdx]];
-  }
+  // Each hand draws from its own fixed segment of the shoe, so a split/hit in one hand never shifts
+  // another hand's cards (BJ hands are independent). Reset the cursor to this hand's segment, then run
+  // the First Ace swap bounded to that segment (shared with the replay engine so they can't diverge).
+  // Pre-cutover seeds return null → keep the old continuous cursor + unbounded swap (see bjSegStart's gate).
+  const _seg=bjSegStart(DEAL.bjShoe.length,S.bjHand,getRngSeed());
+  if(_seg!==null)S.bjIdx=_seg;
+  bjFirstAceSwap(DEAL.bjShoe,S.bjIdx,getMod,bjSegStart(DEAL.bjShoe.length,S.bjHand+1,getRngSeed()));
   S.bjPlayer=[_bjDraw(),_bjDraw()];
   S.bjDealer=[_bjDraw(),_bjDraw()];
   const db=document.getElementById(DOM.dealBtn);if(db)db.disabled=true;
@@ -182,7 +185,8 @@ function bjPickHand(idx){
 function _bjSafeHitSwap(hand){
   const idx=S.bjIdx;
   if(hVal(hand.concat(DEAL.bjShoe[idx]))<=21)return;            // the natural draw is already safe
-  const si=DEAL.bjShoe.findIndex((c,k)=>k>idx&&hVal(hand.concat(c))<=21);
+  const end=bjSegStart(DEAL.bjShoe.length,S.bjHand+1,getRngSeed())??DEAL.bjShoe.length; // segment bound; null (pre-cutover) → unbounded
+  const si=DEAL.bjShoe.findIndex((c,k)=>k>idx&&k<end&&hVal(hand.concat(c))<=21);
   if(si!==-1)[DEAL.bjShoe[idx],DEAL.bjShoe[si]]=[DEAL.bjShoe[si],DEAL.bjShoe[idx]];
 }
 

@@ -485,11 +485,15 @@ describe('Soft Landing — _bjSafeHitSwap (live)', () => {
   const C = (r, s) => card(r, s);
   const hand = (...cs) => cs.map(([r, s]) => C(r, s));
   // Run fn with a controlled shoe positioned at S.bjIdx = base; restore the real shoe + idx after.
+  // The live swap now bounds its search to this hand's segment (⌊len/3⌋ for hand 0), so pad the shoe
+  // to 3× the provided cards — the segment then spans exactly the cards under test (fillers sit past it).
   function withShoe(cards, base, fn) {
-    const origShoe = DEAL.bjShoe, origIdx = S.bjIdx;
-    DEAL.bjShoe = cards.map(([r, s]) => C(r, s));
-    S.bjIdx = base;
-    try { return fn(); } finally { DEAL.bjShoe = origShoe; S.bjIdx = origIdx; }
+    const origShoe = DEAL.bjShoe, origIdx = S.bjIdx, origHand = S.bjHand;
+    const built = cards.map(([r, s]) => C(r, s));
+    while (built.length < cards.length * 3) built.push(C('K', 's'));
+    DEAL.bjShoe = built;
+    S.bjIdx = base; S.bjHand = 0;
+    try { return fn(); } finally { DEAL.bjShoe = origShoe; S.bjIdx = origIdx; S.bjHand = origHand; }
   }
   it('swaps a busting first-hit card for the nearest safe one (hard 16)', () => {
     withShoe([['6','d'],['3','c'],['9','s']], 0, () => {

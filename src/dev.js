@@ -438,6 +438,148 @@ async function fetchRetention() {
   }
 }
 
+// ─── DEVICES SCREEN ────────────────────────────────────────────────────────
+// Dev-only page (goTo('devices')) for the player device/environment census: a viewport-size
+// distribution plus browser/OS, form factor, traffic source, timezone, and environment prefs — the
+// gap the Player Stats (audience) and Retention pages don't cover. Reads the clients_public VIEW
+// (raw UA omitted) for today's seed and aggregates client-side (beacon: _submitClient in flow.js;
+// schema: supabase/clients.sql). Seed-scoped like the other dev pages; intentionally exempt from the
+// strict layout fit rule (it may scroll).
+
+function screenDevices() {
+  const seed = getActiveSeed();
+  return `${hdr('Devices · Day #' + S.day)}
+  <div class="panel" style="text-align:center">
+    <div style="font-family:var(--btn-f);font-size:1.6rem;color:var(--gold-hi);margin-bottom:2px">Devices &amp; Environment</div>
+    <div style="font-size:0.72rem;color:var(--shadow);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Seed ${seed} · today · client-reported</div>
+    <div class="divider"></div>
+    <div id="devices-body">
+      <div style="color:var(--shadow);padding:18px 0">Fetching…</div>
+    </div>
+    <div class="divider"></div>
+    <button class="btn-gold" onclick="goTo('intro')">← Close</button>
+  </div>`;
+}
+
+// Generic vertical bar chart for an arbitrary labeled bucket list ([{label,count}]). The score
+// distribution's _distChartHTML is hardcoded to 7 chip buckets, so this is its general-purpose
+// sibling, used for the Devices viewport-width chart. Inline-styled (no new CSS) and bottom-aligned:
+// each column is count/bar/label stacked, and equal-height count+label rows make the bar baselines
+// line up. Sqrt-scales the heights when one bucket dwarfs the rest (same trick as _distChartHTML).
+function _barsHTML(bars, heading) {
+  if (!Array.isArray(bars) || !bars.length) return '';
+  const counts = bars.map(b => b.count);
+  const sorted = [...counts].sort((a, b) => b - a);
+  const useLog = sorted[0] > 0 && sorted[1] > 0 && sorted[0] / sorted[1] > 3;
+  const scaled = counts.map(c => useLog ? Math.sqrt(c) : c);
+  const max = Math.max(...scaled, 1);
+  const cols = bars.map((b, i) => {
+    const h = b.count > 0 ? Math.max(Math.round(scaled[i] / max * 70), 2) : 0;
+    return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;gap:2px;min-width:0">
+      <span style="font-size:.66rem;color:var(--gold-hi);line-height:1">${b.count}</span>
+      <div style="width:62%;max-width:30px;height:${h}px;background:var(--gold-hi);border-radius:2px 2px 0 0"></div>
+      <span style="font-size:.58rem;color:var(--shadow);line-height:1.1;white-space:nowrap">${b.label}</span>
+    </div>`;
+  }).join('');
+  return `<div class="dvs-grp-lbl dvs-grp-lbl-bare" style="margin-top:10px">${heading}</div>
+    <div style="display:flex;align-items:flex-end;gap:5px;padding:6px 4px 0">${cols}</div>`;
+}
+
+// Viewport-width buckets (ordered) for the Devices distribution chart. Pure → unit-testable.
+const _VP_BUCKETS = ['<360', '360-413', '414-767', '768-1023', '1024+'];
+function _vpBucket(w) {
+  w = +w || 0;
+  return w < 360 ? '<360' : w < 414 ? '360-413' : w < 768 ? '414-767' : w < 1024 ? '768-1023' : '1024+';
+}
+
+async function fetchDevices() {
+  const el = document.getElementById('devices-body');
+  if (!el) return;
+  const seed = getActiveSeed();
+  // Same inlaid two-column box layout as Player Stats / Retention.
+  const renderGroups = (groups) =>
+    `<div class="dvs-groups">` +
+    groups.map(([title, rows]) =>
+      `<div class="dvs-box"><div class="dvs-grp-lbl">${title}</div>` +
+      rows.map(([k, v]) => `<div class="irow"><span class="ik">${k}</span><span class="iv">${v}</span></div>`).join('') +
+      `</div>`
+    ).join('') + `</div>`;
+  const warn = (txt) => `<span style="color:var(--shadow);font-size:.75rem">${txt}</span>`;
+  const pct  = (n, d) => d > 0 ? ` <span style="color:var(--shadow);font-size:.75rem">(${Math.round(n / d * 100)}%)</span>` : '';
+
+  try {
+    const r = await sbFetch(`/rest/v1/clients_public?seed=eq.${seed}&select=w,h,dpr,browser,os,src,tz,reduced_motion,color_scheme,lang,private`);
+    if (!r || !r.ok) throw new Error(`HTTP ${r ? r.status : 'network'}`);
+    const rows = await r.json();
+    const total = Array.isArray(rows) ? rows.length : 0;
+    if (!total) {
+      el.innerHTML = `<div style="color:var(--shadow);padding:14px 0;text-align:center">No device data yet for seed ${seed}. ${warn('(the clients beacon fires on real loads only)')}</div>`;
+      return;
+    }
+
+    // Tally a field into [label, count] entries, sorted desc; optional mapper coarsens the raw value.
+    const tally = (key, map) => {
+      const m = {};
+      for (const row of rows) { const k = map ? map(row[key]) : (row[key] == null ? '?' : String(row[key])); m[k] = (m[k] || 0) + 1; }
+      return Object.entries(m).sort((a, b) => b[1] - a[1]);
+    };
+    const asRows = (entries, top = 6) => entries.slice(0, top).map(([k, n]) => [k, `${fmt(n)}${pct(n, total)}`]);
+
+    // Viewport distribution (bar chart) — counts per ordered width bucket.
+    const vpCounts = {};
+    for (const row of rows) { const b = _vpBucket(row.w); vpCounts[b] = (vpCounts[b] || 0) + 1; }
+    const vpBars = _VP_BUCKETS.map(b => ({ label: b, count: vpCounts[b] || 0 }));
+
+    // Form factor from width (matches the feedback dialog's thresholds: <=480 mobile, <=1024 tablet).
+    const form = { mobile: 0, tablet: 0, desktop: 0 };
+    for (const row of rows) { const w = +row.w || 0; form[w <= 480 ? 'mobile' : w <= 1024 ? 'tablet' : 'desktop']++; }
+    const formRows = [
+      ['Mobile',  `${fmt(form.mobile)}${pct(form.mobile, total)}`],
+      ['Tablet',  `${fmt(form.tablet)}${pct(form.tablet, total)}`],
+      ['Desktop', `${fmt(form.desktop)}${pct(form.desktop, total)}`],
+    ];
+
+    // Display: snapshot count, average DPR, retina share.
+    const dprVals = rows.map(row => +row.dpr || 1);
+    const avgDpr = dprVals.reduce((a, b) => a + b, 0) / dprVals.length;
+    const retina = dprVals.filter(d => d >= 2).length;
+    const displayRows = [['Snapshots', fmt(total)], ['Avg DPR', avgDpr.toFixed(2)], ['Retina (2x+)', `${fmt(retina)}${pct(retina, total)}`]];
+
+    // Timezone — getTimezoneOffset() minutes → "UTC±H" label (offset is positive WEST, so negate).
+    const tzLabel = (min) => {
+      const o = -(+min) / 60; if (!Number.isFinite(o)) return '?';
+      const a = Math.abs(o);
+      return `UTC${o >= 0 ? '+' : '-'}${Number.isInteger(a) ? a : a.toFixed(1)}`;
+    };
+
+    // Environment prefs.
+    const dark = rows.filter(row => row.color_scheme === 'dark').length;
+    const rm   = rows.filter(row => row.reduced_motion).length;
+    const priv = rows.filter(row => row.private).length;
+    const topLang = tally('lang')[0];
+    const prefRows = [
+      ['Dark scheme',     `${fmt(dark)}${pct(dark, total)}`],
+      ['Reduced motion',  `${fmt(rm)}${pct(rm, total)}`],
+      ['Private / no-LS', `${fmt(priv)}${pct(priv, total)}`],
+      ['Top language',    topLang ? `${topLang[0]}${pct(topLang[1], total)}` : warn('n/a')],
+    ];
+
+    el.innerHTML =
+      _barsHTML(vpBars, 'Viewport width (CSS px)') +
+      renderGroups([
+        ['Display',        displayRows],
+        ['Form factor',    formRows],
+        ['Browser',        asRows(tally('browser'))],
+        ['OS',             asRows(tally('os'))],
+        ['Traffic source', asRows(tally('src'))],
+        ['Timezone',       asRows(tally('tz', tzLabel))],
+        ['Environment',    prefRows],
+      ]);
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--lose);padding:10px 0">Error: ${err.message}</div>`;
+  }
+}
+
 // ─── DEV: Layout Debug Overlay ──────────────────────────────────────────
 // Toggleable visualizer that overlays red/cyan/yellow lines on the panel
 // showing the top of every direct child + the slack region at the bottom.
