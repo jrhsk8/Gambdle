@@ -213,6 +213,26 @@ function showAbout() {
   _openInfoModal('About Gambdle', content, 'about');
 }
 
+// Donate menu-bar tab. A small thank-you note plus a button that opens the developer's Ko-fi page in
+// a new tab. The raw URL is shown below the button as a fallback for anyone who can't click through.
+// All copy (heading/body/button/url) lives in DONATE (src/gametext.js).
+function showDonate() {
+  closeDropdowns();
+  const d = (typeof DONATE !== 'undefined' && DONATE) || { url: '', heading: '', body: '', btn: 'Donate' };
+  const content = `
+    <div style="text-align:center;padding:4px 4px 2px">
+      <div style="font-size:2.6rem;line-height:1;color:var(--gold)">${icon('coins', { fill: true })}</div>
+      <div class="logo-sub" style="margin-top:6px">${d.heading || ''}</div>
+    </div>
+    <div class="divider" style="margin:14px 0"></div>
+    <div style="font-size:1.15rem;color:var(--ink);line-height:1.55">${d.body || ''}</div>
+    <div class="act-btns" style="margin-top:16px">
+      <a class="act-btn primary" href="${d.url}" target="_blank" rel="noopener" style="text-decoration:none">${icon('coins')} ${d.btn || 'Donate'}</a>
+    </div>
+    <div style="font-size:0.9rem;color:var(--shadow);text-align:center;margin-top:10px;word-break:break-all">${d.url || ''}</div>`;
+  _openInfoModal('Support Gambdle', content, 'donate');
+}
+
 // File → Player Profile. Lifetime stats from this device only (profileStats in core.js):
 // tier line (graded on lifetime net via NET_TIERS), stat grid, 4-week calendar, and the
 // cosmetic unlock chase. Standard cream info-window chrome, same as Help/About.

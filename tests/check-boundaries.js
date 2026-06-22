@@ -52,7 +52,7 @@ const MANIFEST = {
   ],
   'game.js': [],
   'gametext.js': [
-    'ABOUT_GAMBDLE', 'INFO_SECTIONS', 'POPUP_ENABLED', 'POPUP_MESSAGES', 'STATUS_HINT',
+    'ABOUT_GAMBDLE', 'DONATE', 'INFO_SECTIONS', 'POPUP_ENABLED', 'POPUP_MESSAGES', 'STATUS_HINT',
     'TUTORIAL_OFF_NOTE', 'TUTORIAL_TIPS', 'WHATS_NEW', 'buildShareText',
   ],
   'icons.js': ['icon'],
@@ -82,7 +82,7 @@ const MANIFEST = {
   'windows.js': [
     '_isMobile', '_openInfoModal', '_openWindow', '_reapplyDragPos', '_recenterBtnHTML',
     '_runTutorial', '_testTutorial', '_updateBalloonPosition', 'devToggleTestTutorial',
-    'initWindowDrag', 'showAbout', 'showInfo', 'showPopup', 'showProfile', 'snapWindowToOrigin',
+    'initWindowDrag', 'showAbout', 'showDonate', 'showInfo', 'showPopup', 'showProfile', 'snapWindowToOrigin',
     'toggleTutorial',
   ],
 };

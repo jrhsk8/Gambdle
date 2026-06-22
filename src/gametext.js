@@ -84,9 +84,9 @@ const TUTORIAL_OFF_NOTE =
 // their normal new-player tutorial tips above are unaffected. Honors the Help-menu "Tips" off switch.
 const WHATS_NEW = {
   enabled: true,
-  id: 'v1.38',
-  title: "UI Update!",
-  body: "The UI across the whole game has been tweaked to be more consistent and make more sense. Feedback is always appreciated!",
+  id: 'v1.79',
+  title: "Donate to Gambdle!",
+  body: "By player request, a donate button has been added to the menu bar. Thanks for playing!",
 };
 
 // ─── ABOUT GAMBDLE ─────────────────────────────────────────────────────────
@@ -99,6 +99,18 @@ const ABOUT_GAMBDLE = {
   Discord: jrhsk8<br>
   <br>
   `,
+};
+
+// ─── DONATE ────────────────────────────────────────────────────────────────
+// Shown by the "Donate" menu-bar tab (showDonate, windows.js). `url` is the Ko-fi page; `heading`
+// is the line under the icon; `body` accepts simple HTML and `btn` is the button label. Edit freely
+// (no em dashes — see COPY-STYLE.md). The button + raw-URL fallback are built around these.
+const DONATE = {
+  url: "https://ko-fi.com/jrhsk8",
+  heading: "Help support Gambdle!",
+  body: `Gambdle is free and ad-free. The casino has generously donated over 10 million lifetime chips to players so far.
+    Your real life Ko-fi donations will be used to cover this devastating loss. Thank you!`,
+  btn: "Donate on Ko-fi",
 };
 
 // ─── HELP-MENU WINDOWS ─────────────────────────────────────────────────────

@@ -137,6 +137,7 @@ function hdr(sub){
   <div class="menu-bar">
     <span class="mb-item" onclick="toggleMenu('file',this);event.stopPropagation()"><u>F</u>ile</span>
     <span class="mb-item" onclick="toggleMenu('help',this);event.stopPropagation()"><u>H</u>elp</span>
+    <span class="mb-item" onclick="showDonate();event.stopPropagation()"><u>D</u>onate</span>
     ${DEV_OVERRIDE ? `<span class="mb-item" style="color:var(--gold)" onclick="toggleMenu('dev',this);event.stopPropagation()"><u>D</u>eveloper</span>` : ''}
     <span class="mb-right"><span id="${DOM.chipBadge}" class="chip-badge">${icon('chip')} ${cfmt(S.chips)}</span></span>
   </div>
