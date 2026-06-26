@@ -300,12 +300,15 @@ function startWheelAnim(){
   // HTMLAudioElement limit, or play() blocked without rejecting — the same stall sndShuffle guards
   // against with its 2000ms ceiling. The guard also collapses any double-fire (e.g. a late 'error'
   // after 'loadedmetadata' already ran go()) into a single resolve.
-  let _finished=false,_ceiling=null;
-  const finishOnce=()=>{ if(_finished)return; _finished=true; clearTimeout(_ceiling); rFinish(); };
-  // Absolute backstop for the worst case where audio metadata never loads, so go() (and thus the
-  // animation) never runs and no other signal ever fires. Slack past the longest real path
-  // (≈R_SPIN_MS spin + settle) so a normal spin is never cut short.
-  _ceiling=setTimeout(finishOnce,R_SPIN_MS+R_SETTLE_MS+2500);
+  // Single-fire finish + absolute ceiling backstop via the shared scheduler (runReveal) — this is the
+  // exact pattern runReveal generalizes from. The RAF wheel draw + audio-duration negotiation stay
+  // bespoke here; only the "resolve exactly once, with a stall backstop" wiring is shared. The ceiling
+  // covers the worst case where audio metadata never loads so go()/the animation never run and no other
+  // signal fires; its slack is past the longest real path so a normal spin is never cut short. The
+  // signal (!S.rResult) plus _resolveRoulette's own `if(S.rResult)return` are belt-and-suspenders
+  // against the iOS-audio double-fire / late-error stall class.
+  const _rev=runReveal({steps:[],finishAt:null,ceilingMs:R_SPIN_MS+R_SETTLE_MS+2500,signal:()=>!S.rResult,onFinish:rFinish});
+  const finishOnce=()=>_rev.finish();
   if(audio){
     const go=()=>{
       const DUR=Math.round(audio.duration*1000);

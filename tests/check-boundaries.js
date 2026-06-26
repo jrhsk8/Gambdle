@@ -64,6 +64,7 @@ const MANIFEST = {
   'net.js': ['sbConfigured', 'sbFetch', 'sbJson'],
   'modifiers.js': ['CYCLE_ORDER', 'DAILY_MODIFIERS', 'DAILY_SEED_OVERRIDES', 'PRESET_MODIFIERS'],
   'poker.js': ['pkDeal', 'pkDraw', 'pkSkip', 'screenPoker', 'toggleHold'],
+  'reveal.js': ['runReveal'],
   'roulette.js': ['_resolveSpinNumber', '_rouletteAudio', 'evalBetModsFor', 'rBetsZone', 'rSelBox', 'rSpin', 'resolveRoulette', 'rouletteAward', 'screenRoulette', 'spinFromRandom', 'spinModsFor', 'startWheelAnim'],
   'screens.js': [
     'fetchScoreDistribution', 'screenBorrow', 'screenChoice', 'screenIntro', 'screenResults',

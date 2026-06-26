@@ -67,18 +67,13 @@ function pkDraw(){
   const replaceIdxs=[0,1,2,3,4].filter(i=>!S.pkHeld.has(i));
   S.pkRevealStep=0;S.pkPhase='draw';
   _noAnim=true;render();updateChipDisplay();
-  function revealNext(){
-    if(S.pkRevealStep>=replaceIdxs.length){
-      if(delta>0)setTimeout(sndBigWin,200);
-      setTimeout(()=>{S.pkHand++;S.pkPhase='result';navRender();},900); // crossfade draw → result panel
-      return;
-    }
-    S.pkRevealStep++;
-    _noAnim=true;render();
-    sndCard(50);
-    setTimeout(revealNext,650);
-  }
-  setTimeout(revealNext,300);
+  // Staggered reveal → settle through the shared scheduler (was a hand-rolled setTimeout recursion).
+  // Each replaced card flips at 300 + k*650ms; the result panel follows 900ms after the last.
+  const steps=replaceIdxs.map((_,k)=>({at:300+k*650,do:()=>{S.pkRevealStep++;_noAnim=true;render();sndCard(50);}}));
+  const base=300+replaceIdxs.length*650;
+  if(delta>0)steps.push({at:base+200,do:sndBigWin});
+  runReveal({steps,finishAt:base+900,signal:()=>S.pkPhase==='draw',
+    onFinish:()=>{S.pkHand++;S.pkPhase='result';navRender();}}); // crossfade draw → result panel
 }
 GAMES.poker.reset = () => { S.pkBet=0; S.pkPhase='bet'; }; GAMES.poker.screen = screenPoker; GAMES.poker.nextHand = () => _nextHand(GAMES.poker.reset); // register this game's fns into the Game registry (defined in this file; core.js loads first)
 // Refresh landed mid-draw: bump the hand counter and show the result panel.

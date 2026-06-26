@@ -149,11 +149,11 @@ GAMES.uth.patchBet = function(bet){
 // Refresh landed mid-reveal: settle to the result panel after a beat, mirroring the live reveal timer.
 GAMES.uth.resume = function(){
   if(S.uthPhase!=='reveal') return;
-  setTimeout(() => {
+  runReveal({steps:[],finishAt:300,signal:()=>S.uthPhase==='reveal',onFinish:()=>{
     _noAnim = true; S.uthPhase = 'result'; render(); updateChipDisplay();
     const last = S.uthHistory[S.uthHistory.length - 1];
     if (last && last.delta > 0) setTimeout(sndBigWin, UTH_CARD_INTERVAL_MS);
-  }, 300);
+  }});
 };
 
 /** Skip the current UTH hand (all_in_or_skip modifier). Records delta 0 and advances. */
@@ -307,7 +307,8 @@ function uthFold(){
   S.uthHistory.push(mkOutcome('uth',-(ante+blind),'fold',{ante,blind,play:0,playMult:0,anteDelta:-ante,blindDelta:-blind,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false}));
   S.uthHand++;S.uthPhase='reveal';
   updateUthCommunityCards();
-  setTimeout(()=>{_noAnim=true;S.uthPhase='result';navRender();updateChipDisplay();},2300);
+  runReveal({steps:[],finishAt:UTH_REVEAL_TOTAL_MS,signal:()=>S.uthPhase==='reveal',
+    onFinish:()=>{_noAnim=true;S.uthPhase='result';navRender();updateChipDisplay();}});
 }
 // Settles the UTH hand: three independent payouts (play, ante, blind) each have their own rules.
 // Play: 1:1 if player wins. Ante: 1:1 only if dealer qualifies. Blind: paytable if Straight+.
@@ -369,7 +370,9 @@ function uthResolve(){
   S.uthHand++;S.uthPhase='reveal';
   S.uthRevealComm=5;
   updateUthCommunityCards();
-  setTimeout(()=>{_noAnim=true;S.uthPhase='result';navRender();updateChipDisplay();if(delta>0)setTimeout(sndBigWin,UTH_CARD_INTERVAL_MS);},UTH_REVEAL_TOTAL_MS);
+  // Settle to the result panel after the reveal, via the shared scheduler's single-fire finish.
+  runReveal({steps:[],finishAt:UTH_REVEAL_TOTAL_MS,signal:()=>S.uthPhase==='reveal',
+    onFinish:()=>{_noAnim=true;S.uthPhase='result';navRender();updateChipDisplay();if(delta>0)setTimeout(sndBigWin,UTH_CARD_INTERVAL_MS);}});
 }
 
 // Surgically animates only the newly revealed community cards (uthPrevRevealComm → uthRevealComm).
