@@ -465,6 +465,35 @@ describe('loadState — format migration', () => {
   });
 });
 
+// Candidate 6: the mutate-then-persist seam. The load-bearing new behaviour is the save-on-exit
+// (incl. the throw path) that a bare `S.x = …; saveState()` can forget.
+describe('mutate — mutate-then-persist seam', () => {
+  const cleanup = () => { _ls.removeItem(_PKEY); _restoreS(); };
+  it('applies fn to S and persists it in one call', () => {
+    try {
+      mutate(s => { s.chips = 1234; s.bjBet = 99; });
+      assertEqual(S.chips, 1234, 'S updated in memory');
+      const saved = JSON.parse(_ls.getItem(_PKEY));
+      assertEqual(saved.chips, 1234, 'chips persisted');
+      assertEqual(saved.bjBet, 99, 'bjBet persisted');
+    } finally { cleanup(); }
+  });
+  it("returns fn's return value (so callers can `return mutate(...)`)", () => {
+    try { assertEqual(mutate(() => 42), 42, 'return passthrough'); } finally { cleanup(); }
+  });
+  it('saves even when fn throws (the load-bearing finally)', () => {
+    try {
+      let threw = false;
+      try { mutate(s => { s.chips = 777; throw new Error('boom'); }); } catch { threw = true; }
+      assert(threw, 'the error propagated');
+      assertEqual(JSON.parse(_ls.getItem(_PKEY)).chips, 777, 'the pre-throw mutation still persisted');
+    } finally { cleanup(); }
+  });
+  it('passes the live S object (no copy, no proxy)', () => {
+    try { mutate(s => assert(s === S, 's is the live S')); } finally { cleanup(); }
+  });
+});
+
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 _ls.removeItem(_PKEY);
 _savedSeedFlag  === null ? _ls.removeItem('gambdle_use_test_seed') : _ls.setItem('gambdle_use_test_seed', _savedSeedFlag);

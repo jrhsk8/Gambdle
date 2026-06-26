@@ -42,8 +42,7 @@ function ladStakeCommit(){
   if (free) { S.ladBet = free; S.ladFree = true; }
   if (!S.ladFree && (S.ladBet < 25 || S.ladBet > ladMaxStake())) return;
   txLog({g:'lad', a:'stake', v:S.ladBet});
-  S.ladPhase = 'climb'; S.ladIdx = 0; S.ladRung = 0;
-  saveState();
+  mutate(s => { s.ladPhase = 'climb'; s.ladIdx = 0; s.ladRung = 0; }); // mutate-then-save seam (C6)
   _ladAfterAction('chips');
 }
 
@@ -53,9 +52,8 @@ function ladCall(dir){
   const cur = DEAL.ladderCards[S.ladIdx], next = DEAL.ladderCards[S.ladIdx + 1];
   txLog({g:'lad', a:dir});
   if (ladCallCorrect(cur, next, dir)) {
-    S.ladRung++; S.ladIdx++;
-    if (S.ladRung >= LADDER_MULTS.length) { _ladSettle('top'); return; }
-    saveState();
+    mutate(s => { s.ladRung++; s.ladIdx++; }); // mutate-then-save seam (C6)
+    if (S.ladRung >= LADDER_MULTS.length) { _ladSettle('top'); return; } // _ladSettle saves again (last write wins)
     _ladAfterAction('card');
   } else {
     S.ladIdx++; // advance so the killer card is the one on display
@@ -89,10 +87,11 @@ function ladderAward(delta){ return delta>0 ? [{op:'credit', n:delta, reason:'la
 // cash out keeps the full pot.
 function _ladSettle(outcome){
   const { delta } = resolveLadder(outcome, S.ladBet, S.ladRung, S.ladFree);
-  applyLedger(liveAcct(), ladderAward(delta));
-  S.ladResult = mkOutcome('lad', delta, outcome, { rung: S.ladRung, free: S.ladFree });
-  S.ladPhase = 'done';
-  saveState();
+  applyLedger(liveAcct(), ladderAward(delta)); // credits/debits S.chips (no save); the mutate below persists it
+  mutate(s => { // mutate-then-save seam (C6)
+    s.ladResult = mkOutcome('lad', delta, outcome, { rung: s.ladRung, free: s.ladFree });
+    s.ladPhase = 'done';
+  });
   // Cash out is a money event (chips); crash/top reveal a card (card sound).
   _ladAfterAction(outcome === 'cash' ? 'chips' : 'card');
 }

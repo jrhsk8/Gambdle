@@ -31,7 +31,7 @@ const MANIFEST = {
     '_testActive', 'applyLedger', 'applyPlayersChoice', 'buildDeck', 'card', 'computeStreak', 'credit', 'debit',
     'getActiveSeed', 'getDailySeed', 'getDayNum', 'getDeviceId', 'getMod', 'getNetTier',
     'getRngSeed', 'getStateKey', 'getTier', 'hVal', 'hValDisplay', 'isBJ', 'isChipBusted',
-    'liveAcct', 'loadState', 'mkRng', 'next', 'normalizeModRef',
+    'liveAcct', 'loadState', 'mkRng', 'mutate', 'next', 'normalizeModRef',
     'pendingPlayersChoice', 'profileStats', 'resolveDayMod', 'saveState', 'shuffle', 'suitedConnectorDeal',
     'UNLOCKS', 'winMult', 'winMultFor',
   ],

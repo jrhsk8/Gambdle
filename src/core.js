@@ -516,6 +516,20 @@ function applyLedger(acct, ledger){
   }
 }
 
+// Mutate-then-persist seam (Candidate 6). Apply `fn` to S, then saveState() EXACTLY once on exit — even
+// if `fn` returns early or throws (the save still fires, matching today's "save what we have"). Returns
+// `fn`'s value so callers can `return mutate(...)`. Reads stay direct (S.x); only WRITES route here so
+// the save can't be forgotten — the #1 hard rule ("saveState() after any mutation to S") exists because
+// the bare seam leaks. Single-purpose: it does NOT render() (a flow concern, forbidden mid-hand). `s` IS
+// the live S (same object), so there's no copy/proxy and zero overhead.
+//   mutate(s => { s.bjPhase = 'play'; });
+//   const pot = mutate(s => { s.ladRung++; return ladPotAt(s.ladBet, s.ladRung); });
+// Async: await OUTSIDE, then mutate() the settled values so the save fires after the state is final.
+function mutate(fn){
+  try { return fn(S); }
+  finally { saveState(); }
+}
+
 
 /** Writes the current run state to _ls for persistence. */
 function saveState() {
