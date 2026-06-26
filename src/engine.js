@@ -42,8 +42,9 @@ function _engMod(modifiers){
 
 // The running-balance win multiplier (winMultFor) and every per-game credit-from-result mapping
 // (bjAward/bjAwardSplit, uthAward, rouletteAward, ladderAward) are shared with the live games — they
-// live in core.js / the game files and run here over the headless accountant below. Pinning them in
-// one place is the whole point: live and replay can no longer drift.
+// live in the game files, return a pure settlement Ledger, and are applied here over the headless
+// accountant via applyLedger (core.js). Pinning them in one place is the whole point: live and replay
+// build the identical ledger, so they can no longer drift.
 
 // Headless Accountant adapter mirroring credit()/debit(): Math.round on every delta, debit floors at
 // 0. Tracks the LIVE balance (used only for winMult + legality); the returned score is recomputed
@@ -150,7 +151,7 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
     if(!dBJ0){ let dv = hVal(dealer); while(dv < stand17){ dealer.push(draw()); dv = hVal(dealer); } }
     const wm = winMultFor(mod, acct.chips);
     const res = resolveBJHand({ pv: hVal(player), pBJ, dv: hVal(dealer), dBJ: isBJ(dealer), bet: bet0, wm, bjMult, ddm: 1 });
-    bjAward(acct, res.result, bet0, res.delta);
+    applyLedger(acct, bjAward(res.result, bet0, res.delta));
     addNet('bj', res.delta); st.hand++;
     return j;
   }
@@ -179,7 +180,7 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   const wm = winMultFor(mod, acct.chips);
   const ddm = (mod('bj_double_bonus') && doubled) ? 2 : 1;
   const res = resolveBJHand({ pv: hVal(player), pBJ: false, dv, dBJ: isBJ(dealer), bet, wm, bjMult, ddm });
-  bjAward(acct, res.result, bet, res.delta);
+  applyLedger(acct, bjAward(res.result, bet, res.delta));
   addNet('bj', res.delta); st.hand++;
   return j;
 }
@@ -300,7 +301,7 @@ function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw){
     const bet = bets[h];
     const ddm = (mod('bj_double_bonus') && doubled[h]) ? 2 : 1;
     const res = resolveBJSplitHand({ pv: hVal(hands[h]), dv: dvFinal, bet, wm, ddm, spm });
-    bjAwardSplit(acct, res.result, bet, res.delta);
+    applyLedger(acct, bjAwardSplit(res.result, bet, res.delta));
     total += res.delta;
   }
   addNet('bj', total); st.hand++;
@@ -394,7 +395,7 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
     wm, doublePlay: !!mod('uth_double_play'), hardQualify: !!mod('uth_hard_qualify'),
     blindExtended: mod('uth_blind_extended'), blindBoost: mod('uth_blind_boost') || 1,
   });
-  uthAward(acct, res, antePortion, blindPortion, play);
+  applyLedger(acct, uthAward(res, antePortion, blindPortion, play));
   addNet('uth', res.delta); st.hand++;
   return j;
 }
@@ -440,7 +441,7 @@ function _replayRoulette(tx, i, deal, mod, acct, addNet, spinWords){
   const em = evalBetModsFor(mod, sp.n2);
   const wm = winMultFor(mod, acct.chips);
   const { delta } = resolveRoulette(bets, sp.n, { ...em, wm });
-  rouletteAward(acct, stake, delta);
+  applyLedger(acct, rouletteAward(stake, delta));
   addNet('r', delta);
   return j;
 }
@@ -475,7 +476,7 @@ function _replayLadder(tx, i, deal, mod, acct, addNet){
   }
   if(!outcome){ return j; } // abandoned run (never reached in a submitted Run) — nothing to settle
   const { delta } = resolveLadder(outcome, bet, ladRung, ladFree);
-  ladderAward(acct, delta);
+  applyLedger(acct, ladderAward(delta));
   addNet('lad', delta);
   return j;
 }

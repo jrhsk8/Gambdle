@@ -272,3 +272,13 @@ describe('resolveLadder — settled-run chip outcome (pure)', () => {
     assertEqual(resolveLadder('cash', 250, 2, false).result, 'cash');
   });
 });
+
+// The credit mapping as pure data (Candidate 5): ladderAward is the only ledger that can carry a
+// debit (a staked crash). Zero is a no-op (a free-entry crash).
+describe('ladderAward — settlement ledger (pure)', () => {
+  it('positive delta credits, negative delta debits, zero is a no-op', () => {
+    assertDeepEqual(ladderAward(500), [{ op: 'credit', n: 500, reason: 'ladder' }]);
+    assertDeepEqual(ladderAward(-250), [{ op: 'debit', n: 250, reason: 'ladder' }]);
+    assertDeepEqual(ladderAward(0), []);
+  });
+});

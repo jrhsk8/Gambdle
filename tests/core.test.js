@@ -393,6 +393,26 @@ describe('credit / debit', () => {
   });
 });
 
+// Candidate 5: the accountant is now a dumb replayer of a settlement ledger. applyLedger is the ONE
+// place a payout touches chips; order is preserved verbatim (each entry rounds independently).
+describe('applyLedger — replays a settlement ledger through an accountant in order', () => {
+  it('applies each credit/debit op in sequence with its amount + reason', () => {
+    const calls = [];
+    const acct = { credit: (n, r) => calls.push(['credit', n, r]), debit: (n, r) => calls.push(['debit', n, r]) };
+    applyLedger(acct, [
+      { op: 'credit', n: 10, reason: 'a' },
+      { op: 'debit', n: 3, reason: 'b' },
+      { op: 'credit', n: 5, reason: 'c' },
+    ]);
+    assertDeepEqual(calls, [['credit', 10, 'a'], ['debit', 3, 'b'], ['credit', 5, 'c']]);
+  });
+  it('an empty ledger touches the accountant zero times', () => {
+    let n = 0;
+    applyLedger({ credit: () => n++, debit: () => n++ }, []);
+    assertEqual(n, 0);
+  });
+});
+
 describe('fmtK — compact k/m abbreviation', () => {
   const cases = [
     [0, '0'], [50, '50'], [999, '999'],

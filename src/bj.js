@@ -378,21 +378,21 @@ function resolveBJSplitHand({pv, dv, bet, wm, ddm, spm}){
 }
 
 /** Settles all bets and records history. dealerDrawn=true means the dealer already animated; false means we skip straight to resolve (e.g. player blackjack). */
-// Credit-from-result for a settled Blackjack hand — the ONE mapping shared by the live settle
-// (bjResolve) and the replay Engine. `acct` is an Accountant: liveAcct (mutates S.chips via
-// credit/debit) live, or the Engine's _engAcct in replay. The stake was debited at deal, so a
-// win/blackjack returns stake + profit, a push the stake, a loss nothing.
-/** @param {Accountant} acct */
-function bjAward(acct, result, bet, delta){
-  if(result==='blackjack') acct.credit(bet+delta,'bj-blackjack');
-  else if(result==='win')  acct.credit(bet+delta,'bj-win');
-  else if(result==='push') acct.credit(bet,'bj-push');
+// Settlement Ledger for a settled Blackjack hand — the ONE credit mapping shared by the live settle
+// (bjResolve) and the replay Engine. PURE: returns the list of {op,n,reason} entries (applied via
+// applyLedger), no acct, no S. The stake was debited at deal, so a win/blackjack returns stake +
+// profit, a push the stake, a loss/bust nothing.
+function bjAward(result, bet, delta){
+  if(result==='blackjack') return [{op:'credit', n:bet+delta, reason:'bj-blackjack'}];
+  if(result==='win')       return [{op:'credit', n:bet+delta, reason:'bj-win'}];
+  if(result==='push')      return [{op:'credit', n:bet,       reason:'bj-push'}];
+  return [];
 }
-// Per sub-hand credit for a split — no blackjack branch (a split hand can't be a natural).
-/** @param {Accountant} acct */
-function bjAwardSplit(acct, result, bet, delta){
-  if(result==='win')       acct.credit(bet+delta,'bj-split-win');
-  else if(result==='push') acct.credit(bet,'bj-split-push');
+// Per sub-hand Ledger for a split — no blackjack branch (a split hand can't be a natural).
+function bjAwardSplit(result, bet, delta){
+  if(result==='win')  return [{op:'credit', n:bet+delta, reason:'bj-split-win'}];
+  if(result==='push') return [{op:'credit', n:bet,       reason:'bj-split-push'}];
+  return [];
 }
 function bjResolve(dealerDrawn=false){
   // Idempotency guard (see _resolveRoulette): settle a hand exactly once. bjResolve is fired
@@ -412,7 +412,7 @@ function bjResolve(dealerDrawn=false){
       const bet=S.bjSplitBets[i];
       const ddm=getMod('bj_double_bonus')&&S.bjSplitDoubled[i]?2:1; // double-down profit multiplier
       const {result,delta}=resolveBJSplitHand({pv:hVal(hand),dv,bet,wm,ddm,spm});
-      bjAwardSplit(acct,result,bet,delta);
+      applyLedger(acct,bjAwardSplit(result,bet,delta));
       totalDelta+=delta;return{result,delta,bet};
     });
     S.bjSplitResults=handResults;
@@ -422,7 +422,7 @@ function bjResolve(dealerDrawn=false){
     const bjMult = getMod('bj_payout') || 1.5;
     const ddm=getMod('bj_double_bonus')&&S.bjDoubled?2:1; // double-down profit multiplier
     const {result,delta}=resolveBJHand({pv:hVal(S.bjPlayer),pBJ:isBJ(S.bjPlayer),dv,dBJ,bet:S.bjBet,wm,bjMult,ddm});
-    bjAward(acct,result,S.bjBet,delta);
+    applyLedger(acct,bjAward(result,S.bjBet,delta));
     S.bjResult={result,delta};
     S.bjHistory.push(mkOutcome('bj',delta,result,{bet:S.bjBet,player:[...S.bjPlayer],dealer:[...S.bjDealer]}));
   }

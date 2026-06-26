@@ -79,18 +79,17 @@ function resolveLadder(outcome, bet, rung, free){
   return { delta, result: outcome };
 }
 
-// Credit-from-result for the settled Ladder run — the ONE mapping shared by the live settle
-// (_ladSettle) and the replay Engine. A positive delta credits the net, a negative delta debits it.
-// `acct` is an Accountant (liveAcct live, the Engine's _engAcct in replay).
-/** @param {Accountant} acct */
-function ladderAward(acct, delta){ if(delta>0) acct.credit(delta,'ladder'); else if(delta<0) acct.debit(-delta,'ladder'); }
+// Settlement Ledger for the settled Ladder run — the ONE credit mapping shared by the live settle
+// (_ladSettle) and the replay Engine. PURE: a positive delta credits the net, a negative delta debits
+// it, zero is a no-op (applied via applyLedger). This is the only game whose ledger can carry a debit.
+function ladderAward(delta){ return delta>0 ? [{op:'credit', n:delta, reason:'ladder'}] : delta<0 ? [{op:'debit', n:-delta, reason:'ladder'}] : []; }
 
 // Ends the run: applies the chip delta and records ladResult for recalcChips,
 // the results screen, and the share text. Free entry: crash costs nothing,
 // cash out keeps the full pot.
 function _ladSettle(outcome){
   const { delta } = resolveLadder(outcome, S.ladBet, S.ladRung, S.ladFree);
-  ladderAward(liveAcct(), delta);
+  applyLedger(liveAcct(), ladderAward(delta));
   S.ladResult = mkOutcome('lad', delta, outcome, { rung: S.ladRung, free: S.ladFree });
   S.ladPhase = 'done';
   saveState();

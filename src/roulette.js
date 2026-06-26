@@ -817,12 +817,11 @@ function resolveRoulette(bets, spin, mods){
   if (mods.wm>1 && delta>0) delta *= mods.wm;
   return { betResults, delta, result: delta>0?'win':delta<0?'lose':'push' };
 }
-// Credit-from-result for the settled roulette round — the ONE mapping shared by the live settle
-// (_resolveRoulette) and the replay Engine. The whole stake was debited at placement, so returning
-// stake + delta lands the balance exactly `delta` from break-even in one credit. `acct` is an
-// Accountant (liveAcct live, the Engine's _engAcct in replay).
-/** @param {Accountant} acct */
-function rouletteAward(acct, stake, delta){ acct.credit(stake+delta,'roulette'); }
+// Settlement Ledger for the settled roulette round — the ONE credit mapping shared by the live settle
+// (_resolveRoulette) and the replay Engine. PURE: returns a single {op,n,reason} entry (applied via
+// applyLedger). The whole stake was debited at placement, so returning stake + delta lands the balance
+// exactly `delta` from break-even in one credit.
+function rouletteAward(stake, delta){ return [{op:'credit', n:stake+delta, reason:'roulette'}]; }
 // Settles all bets: returns stake + profit for winners, with the win multiplier folded into delta.
 function _resolveRoulette(){
   // Idempotency guard: only ever credit a spin once. A duplicate/late rFinish — flaky mobile
@@ -837,7 +836,7 @@ function _resolveRoulette(){
   // score / server replay.
   const {betResults, delta, result} = resolveRoulette(S.rBets, S.rSpin, {...evalBetMods(), wm: winMult()});
   const stake = S.rBets.reduce((s,b) => s + b.bet, 0);
-  rouletteAward(liveAcct(), stake, delta);
+  applyLedger(liveAcct(), rouletteAward(stake, delta));
   S.rResult = mkOutcome('r', delta, result, {bets:betResults});
   S.rPhase='result';navRender();updateChipDisplay(); // crossfade spin → result panel
   if(delta>0)setTimeout(sndBigWin,400);

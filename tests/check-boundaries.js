@@ -28,7 +28,7 @@ const MANIFEST = {
     'GAME2_OPTIONS', 'GAME_META', 'GAME_VERSION', 'GAMES', 'NEXT_SCREEN', 'RED_S', 'S', 'START_CHIPS',
     'START_DATE_UTC', 'SUPABASE_ANON_KEY', 'SUPABASE_HEADERS', 'SUPABASE_URL', '_PHOENIX_OFFSET_MS',
     '_backlogSeed', '_canShowBorrow', '_effectiveBorrowAmount', '_lbTopPct', '_ls', '_nextDailySeed',
-    '_testActive', 'applyPlayersChoice', 'buildDeck', 'card', 'computeStreak', 'credit', 'debit',
+    '_testActive', 'applyLedger', 'applyPlayersChoice', 'buildDeck', 'card', 'computeStreak', 'credit', 'debit',
     'getActiveSeed', 'getDailySeed', 'getDayNum', 'getDeviceId', 'getMod', 'getNetTier',
     'getRngSeed', 'getStateKey', 'getTier', 'hVal', 'hValDisplay', 'isBJ', 'isChipBusted',
     'liveAcct', 'loadState', 'mkRng', 'next', 'normalizeModRef',

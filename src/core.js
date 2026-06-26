@@ -489,9 +489,10 @@ function debit(n, reason){
  */
 
 // Live accountant adapter — an Accountant backed by S.chips through the credit/debit chokepoint. The
-// per-game award helpers (bjAward, uthAward, rouletteAward, ladderAward) take an Accountant so the SAME
-// credit-from-result mapping runs live here and headless in the replay Engine (which passes its own
-// in-memory adapter). Two adapters, one shared mapping.
+// per-game settlement is expressed as a pure LEDGER (built by the *Award helpers) and applied through
+// this adapter by applyLedger — so the SAME credit sequence runs live here and headless in the replay
+// Engine (which passes its own in-memory adapter). Two adapters, one shared mapping; the mapping is now
+// inspectable data rather than a sequence of imperative acct calls.
 /** @returns {Accountant} */
 function liveAcct(){
   return {
@@ -499,6 +500,20 @@ function liveAcct(){
     credit(n, reason){ credit(n, reason); },
     debit(n, reason){ debit(n, reason); },
   };
+}
+
+// Apply a settlement Ledger through an Accountant — the ONE place a settled play-unit's payout touches
+// chips. A Ledger is the pure data form of "what to credit/debit": an ordered list of {op, n, reason}
+// (op 'credit'|'debit'). Each *Award helper RETURNS one instead of calling the accountant itself, so
+// the credit sequence becomes inspectable, unit-testable data. Order and grouping are load-bearing —
+// credit()/debit() round every call independently, so summing or reordering entries would change the
+// result — applyLedger therefore replays them verbatim, in order. Live and replay build the identical
+// Ledger and apply it here, which makes drift between the two paths impossible by construction.
+function applyLedger(acct, ledger){
+  for(const e of ledger){
+    if(e.op==='debit') acct.debit(e.n, e.reason);
+    else acct.credit(e.n, e.reason);
+  }
 }
 
 

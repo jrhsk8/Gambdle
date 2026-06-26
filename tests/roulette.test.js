@@ -890,3 +890,12 @@ describe('resolveRoulette — folds win multiplier into one net delta (pure)', (
     assertEqual(r.delta, 0); assertEqual(r.result, 'push');
   });
 });
+
+// The credit mapping as pure data (Candidate 5): rouletteAward returns the single-entry ledger
+// applyLedger replays — the whole stake was debited at placement, so it credits stake + delta.
+describe('rouletteAward — settlement ledger (pure)', () => {
+  it('credits the whole stake plus the net delta in one entry', () => {
+    assertDeepEqual(rouletteAward(30, 320), [{ op: 'credit', n: 350, reason: 'roulette' }]);
+    assertDeepEqual(rouletteAward(30, -30), [{ op: 'credit', n: 0, reason: 'roulette' }]);
+  });
+});

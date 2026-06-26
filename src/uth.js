@@ -334,19 +334,21 @@ function resolveUTH(pb, db, ante, blind, play, mods){
   return { anteDelta, blindDelta, playDelta, delta, dealerQualifies, result: cmp>0?'win':cmp===0?'push':'lose' };
 }
 
-// Credit-from-result for a settled UTH hand — the ONE mapping shared by the live settle (uthResolve)
-// and the replay Engine. `res` is the resolveUTH outcome. Each leg's stake was debited at deal/raise,
-// so a win returns each stake + its profit (the ante pushes its stake back when the dealer doesn't
-// qualify), a tie returns all three stakes, a loss keeps nothing. `acct` is an Accountant.
-/** @param {Accountant} acct */
-function uthAward(acct, res, ante, blind, play){
-  if(res.result==='win'){
-    acct.credit(play+res.playDelta,'uth-play');
-    if(res.dealerQualifies) acct.credit(ante+res.anteDelta,'uth-ante'); else acct.credit(ante,'uth-ante-push');
-    acct.credit(blind+res.blindDelta,'uth-blind');
-  } else if(res.result==='push'){
-    acct.credit(ante+blind+play,'uth-push');
-  }
+// Settlement Ledger for a settled UTH hand — the ONE credit mapping shared by the live settle
+// (uthResolve) and the replay Engine. PURE: returns the ordered {op,n,reason} list (applied via
+// applyLedger). `res` is the resolveUTH outcome. Each leg's stake was debited at deal/raise, so a win
+// returns each stake + its profit (the ante pushes its stake back when the dealer doesn't qualify), a
+// tie returns all three stakes as one credit, a loss keeps nothing. Order (play, ante, blind) is
+// load-bearing: each entry rounds independently.
+function uthAward(res, ante, blind, play){
+  if(res.result==='win') return [
+    {op:'credit', n:play+res.playDelta, reason:'uth-play'},
+    res.dealerQualifies ? {op:'credit', n:ante+res.anteDelta, reason:'uth-ante'}
+                        : {op:'credit', n:ante, reason:'uth-ante-push'},
+    {op:'credit', n:blind+res.blindDelta, reason:'uth-blind'},
+  ];
+  if(res.result==='push') return [{op:'credit', n:ante+blind+play, reason:'uth-push'}];
+  return [];
 }
 function uthResolve(){
   // Idempotency guard (see _resolveRoulette): settle a hand exactly once. A double-tap on the
@@ -360,8 +362,8 @@ function uthResolve(){
     wm:winMult(), doublePlay:!!getMod('uth_double_play'), hardQualify:!!getMod('uth_hard_qualify'),
     blindExtended:getMod('uth_blind_extended'), blindBoost:getMod('uth_blind_boost')||1,
   });
-  // Apply chips per leg through the shared award mapping (the same one the Engine replays).
-  uthAward(liveAcct(),res,ante,blind,play);
+  // Apply chips per leg through the shared settlement ledger (the same one the Engine replays).
+  applyLedger(liveAcct(),uthAward(res,ante,blind,play));
   const {anteDelta,blindDelta,playDelta,delta,dealerQualifies,result}=res;
   S.uthHistory.push(mkOutcome('uth',delta,result,{ante,blind,play,playMult:S.uthRaiseMult,anteDelta,blindDelta,playDelta,playerBest:pb,dealerBest:db2,dealerQualifies}));
   S.uthHand++;S.uthPhase='reveal';

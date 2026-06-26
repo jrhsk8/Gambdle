@@ -595,6 +595,29 @@ describe('resolveUTH — three-way settlement (pure)', () => {
   });
 });
 
+// The credit mapping as pure data (Candidate 5): uthAward returns the ordered ledger applyLedger
+// replays. Order (play, ante, blind) and the ante-push variant are load-bearing — assert them directly.
+describe('uthAward — settlement ledger, order play→ante→blind (pure)', () => {
+  it('a win emits three credits; the ante pushes when the dealer does not qualify', () => {
+    const res = { result: 'win', playDelta: 100, anteDelta: 0, blindDelta: 0, dealerQualifies: false };
+    assertDeepEqual(uthAward(res, 100, 100, 100), [
+      { op: 'credit', n: 200, reason: 'uth-play' },
+      { op: 'credit', n: 100, reason: 'uth-ante-push' },
+      { op: 'credit', n: 100, reason: 'uth-blind' },
+    ]);
+  });
+  it('a win credits ante + profit when the dealer qualifies', () => {
+    const res = { result: 'win', playDelta: 0, anteDelta: 100, blindDelta: 0, dealerQualifies: true };
+    const led = uthAward(res, 100, 100, 0);
+    assertEqual(led[1].reason, 'uth-ante');
+    assertEqual(led[1].n, 200);
+  });
+  it('a push returns all three stakes as one credit; a loss credits nothing', () => {
+    assertDeepEqual(uthAward({ result: 'push' }, 100, 100, 100), [{ op: 'credit', n: 300, reason: 'uth-push' }]);
+    assertDeepEqual(uthAward({ result: 'lose' }, 100, 100, 100), []);
+  });
+});
+
 // ─── Idempotency: pkDraw settles exactly once ───────────────────────────────
 // pkDraw credits chips + pushes history; a duplicate call (only reachable from the 'hold' phase)
 // must short-circuit. Verified via the phase guard so this needs no poker deck setup.

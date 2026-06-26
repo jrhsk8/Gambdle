@@ -715,6 +715,24 @@ describe('resolveBJSplitHand — no blackjack branch, wild-split mult (pure)', (
     assertDeepEqual(resolveBJSplitHand({ pv: 18, dv: 18, bet: 100, wm: 1, ddm: 1, spm: 1 }), { result: 'push', delta: 0 });
   });
 });
+// The credit mapping as pure data (Candidate 5): each *Award returns the {op,n,reason} ledger that
+// applyLedger replays, live and in replay. Asserting the ledger directly is the seam's test surface.
+describe('bjAward / bjAwardSplit — settlement ledger (pure)', () => {
+  it('win and blackjack credit stake + profit in one entry', () => {
+    assertDeepEqual(bjAward('win', 100, 100), [{ op: 'credit', n: 200, reason: 'bj-win' }]);
+    assertDeepEqual(bjAward('blackjack', 100, 150), [{ op: 'credit', n: 250, reason: 'bj-blackjack' }]);
+  });
+  it('push returns the stake; bust/lose credit nothing', () => {
+    assertDeepEqual(bjAward('push', 100, 0), [{ op: 'credit', n: 100, reason: 'bj-push' }]);
+    assertDeepEqual(bjAward('bust', 100, -100), []);
+    assertDeepEqual(bjAward('lose', 100, -100), []);
+  });
+  it('split has win/push only (no blackjack branch)', () => {
+    assertDeepEqual(bjAwardSplit('win', 50, 50), [{ op: 'credit', n: 100, reason: 'bj-split-win' }]);
+    assertDeepEqual(bjAwardSplit('push', 50, 0), [{ op: 'credit', n: 50, reason: 'bj-split-push' }]);
+    assertDeepEqual(bjAwardSplit('bust', 50, -50), []);
+  });
+});
 
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 _bjSavedSeedFlag === null
