@@ -445,12 +445,7 @@ function updateUthCommunityCards() {
       : gameDots(S.uthHistory, S.uthHand, S.uthPhase);
     if (actionUi && S.uthPhase !== 'reveal' && S.uthPhase !== 'result') {
       actionUi.style.pointerEvents = '';
-      if (S.uthRaised) {
-        actionUi.innerHTML = `<button class="btn-gold" onclick="uthNextStreet()">${S.uthPhase==='flop'?'See Turn & River →':'→ Showdown'}</button>`;
-      } else {
-        if (S.uthPhase === 'flop') { const r2=_uthAntePortion()*2; actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthPlaceRaise(2)" ${S.chips < r2 ? 'disabled' : ''}>Raise 2× (${cfmt(r2)})</button><button class="act-btn" onclick="uthCheck()">Check</button></div>`; }
-        else if (S.uthPhase === 'turn') { const r1=_uthAntePortion(); actionUi.innerHTML = `<div id="uth-action-btns" class="act-btns"><button class="act-btn" onclick="uthPlaceRaise(1)" ${S.chips < r1 ? 'disabled' : ''}>Raise 1× (${cfmt(r1)})</button><button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button></div>`; }
-      }
+      actionUi.innerHTML = _uthActionsHTML(); // ONE source for the street buttons (also used by screenUTH)
       // The dealer row isn't re-rendered on a street change, so the phase-gated Time Travel button
       // must be injected here when the flop/turn lands (it returns '' when used or off, a safe no-op).
       const dRow = document.querySelector('.dealer-hand-row');
@@ -481,6 +476,43 @@ function handDetail(cards, cat) {
 }
 
 // ─── SCREEN RENDERING ────────────────────────────────────────────────────
+
+// The per-street action-button cluster — the inner HTML of #uth-actions-ui — for the current phase.
+// ONE source for these buttons: screenUTH seeds them on a full render, and updateUthCommunityCards
+// repaints the IDENTICAL markup on a street change, so the two can no longer drift. (They did before:
+// the flop "Raise 2×" label read S.uthAnte in the screen but the correct _uthAntePortion()*2 on the
+// street change — they disagree on odd antes. The raise cost mirrors uthPlaceRaise, the source of
+// truth.) Whitespace is preserved verbatim from the original per-phase templates.
+function _uthActionsHTML(){
+  const ph=S.uthPhase;
+  if(ph==='preflop'){
+    const r4Cost=_uthAntePortion()*4, r3Cost=_uthAntePortion()*3;
+    return `<div id="uth-action-btns" class="act-btns">
+          <button class="act-btn" onclick="uthPlaceRaise(4)" ${S.chips>=r4Cost?'':'disabled'}>Raise 4× (${cfmt(r4Cost)})</button>
+          <button class="act-btn" onclick="uthPlaceRaise(3)" ${S.chips>=r3Cost?'':'disabled'}>Raise 3× (${cfmt(r3Cost)})</button>
+          <button class="act-btn" onclick="uthCheck()">Check</button>
+        </div>`;
+  }
+  if(ph==='flop'){
+    if(S.uthRaised) return `<button class="btn-gold" onclick="uthNextStreet()">See Turn &amp; River →</button>`;
+    const r2=_uthAntePortion()*2;
+    return `
+          <div id="uth-action-btns" class="act-btns">
+            <button class="act-btn" onclick="uthPlaceRaise(2)" ${S.chips>=r2?'':'disabled'}>Raise 2× (${cfmt(r2)})</button>
+            <button class="act-btn" onclick="uthCheck()">Check</button>
+          </div>`;
+  }
+  if(ph==='turn'){
+    if(S.uthRaised) return `<button class="btn-gold" onclick="uthNextStreet()">→ Showdown</button>`;
+    const r1=_uthAntePortion();
+    return `
+          <div id="uth-action-btns" class="act-btns">
+            <button class="act-btn" onclick="uthPlaceRaise(1)" ${S.chips>=r1?'':'disabled'}>Raise 1× (${cfmt(r1)})</button>
+            <button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button>
+          </div>`;
+  }
+  return '';
+}
 
 function screenUTH(){
   const ph=S.uthPhase;
@@ -555,9 +587,10 @@ function screenUTH(){
     betInlaySum(uthBetSummary(),DOM.uthBetInlay),
     `<div id="${DOM.uthActionsUi}">${actionsInner}</div>`);
 
-  if(ph==='preflop'){
-    const r4Cost=_uthAntePortion()*4, r3Cost=_uthAntePortion()*3;
-    const canR4=S.chips>=r4Cost, canR3=S.chips>=r3Cost;
+  // preflop / flop / turn share ONE skeleton (dealer · community · your hand · controls); only the
+  // action buttons differ, and those live in _uthActionsHTML() — the same source the street-change
+  // repaint (updateUthCommunityCards) uses. Preflop animates the freshly dealt hole cards.
+  if(ph==='preflop'||ph==='flop'||ph==='turn'){
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
     <div class="panel">
       <div id="${DOM.uthDotsContainer}">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
@@ -566,53 +599,9 @@ function screenUTH(){
       <div class="divider"></div>
       ${commRow(true)}
       <div class="divider"></div>
-      ${playerRow(true)}
+      ${playerRow(ph==='preflop')}
       <div class="divider"></div>
-      ${uthControls(`<div id="uth-action-btns" class="act-btns">
-          <button class="act-btn" onclick="uthPlaceRaise(4)" ${canR4?'':'disabled'}>Raise 4× (${cfmt(r4Cost)})</button>
-          <button class="act-btn" onclick="uthPlaceRaise(3)" ${canR3?'':'disabled'}>Raise 3× (${cfmt(r3Cost)})</button>
-          <button class="act-btn" onclick="uthCheck()">Check</button>
-        </div>`)}
-    </div>`;
-  }
-
-  if(ph==='flop'){
-    const canR2=S.chips>=S.uthAnte;
-    return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
-    <div class="panel">
-      <div id="${DOM.uthDotsContainer}">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
-      <div class="divider"></div>
-      ${dealerRow(false)}
-      <div class="divider"></div>
-      ${commRow(true)}
-      <div class="divider"></div>
-      ${playerRow(false)}
-      <div class="divider"></div>
-      ${uthControls(S.uthRaised ? `<button class="btn-gold" onclick="uthNextStreet()">See Turn &amp; River →</button>` : `
-          <div id="uth-action-btns" class="act-btns">
-            <button class="act-btn" onclick="uthPlaceRaise(2)" ${canR2?'':'disabled'}>Raise 2× (${cfmt(S.uthAnte)})</button>
-            <button class="act-btn" onclick="uthCheck()">Check</button>
-          </div>`)}
-    </div>`;
-  }
-
-  if(ph==='turn'){
-    const canR1=S.chips>=_uthAntePortion();
-    return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}
-    <div class="panel">
-      <div id="${DOM.uthDotsContainer}">${gameDots(S.uthHistory,S.uthHand,S.uthPhase)}</div>
-      <div class="divider"></div>
-      ${dealerRow(false)}
-      <div class="divider"></div>
-      ${commRow(true)}
-      <div class="divider"></div>
-      ${playerRow(false)}
-      <div class="divider"></div>
-      ${uthControls(S.uthRaised ? `<button class="btn-gold" onclick="uthNextStreet()">→ Showdown</button>` : `
-          <div id="uth-action-btns" class="act-btns">
-            <button class="act-btn" onclick="uthPlaceRaise(1)" ${canR1?'':'disabled'}>Raise 1× (${cfmt(_uthAntePortion())})</button>
-            <button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button>
-          </div>`)}
+      ${uthControls(_uthActionsHTML())}
     </div>`;
   }
 
