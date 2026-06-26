@@ -733,6 +733,19 @@ describe('bjAward / bjAwardSplit — settlement ledger (pure)', () => {
     assertDeepEqual(bjAwardSplit('bust', 50, -50), []);
   });
 });
+// Candidate 2: bjRulesFor maps a mod accessor → the day's BJ rule bundle. ONE source for the scalars
+// live (bjRules → getMod) and in replay (engine → _engMod), so the ||1.5/||17 defaults can't drift.
+describe('bjRulesFor — declarative BJ rule bundle (pure)', () => {
+  it('a vanilla day returns the defaults', () => {
+    assertDeepEqual(bjRulesFor(() => null),
+      { payout: 1.5, standAt: 17, doubleBonus: false, wildSplit: false, twoHands: false });
+  });
+  it('preset values override defaults; flags coerce to booleans', () => {
+    const mod = k => ({ bj_payout: 3, bj_dealer_stand: 15, bj_double_bonus: 1, bj_wild_split: 1, bj_two_hands: 1 }[k] ?? null);
+    assertDeepEqual(bjRulesFor(mod),
+      { payout: 3, standAt: 15, doubleBonus: true, wildSplit: true, twoHands: true });
+  });
+});
 
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 _bjSavedSeedFlag === null

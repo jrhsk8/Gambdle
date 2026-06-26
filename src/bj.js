@@ -110,7 +110,7 @@ function bjDeal(){
   // Double Vision: deal the whole hand from a fresh per-hand deck (the shared shoe is left untouched,
   // so the day's other BJ hands are unchanged) and offer two candidate hands; the player keeps one.
   // A natural blackjack among the candidates is kept automatically and plays out (no pick phase).
-  if(getMod('bj_two_hands')){
+  if(bjRules().twoHands){
     S.bjDeck2=shuffle(buildDeck(),mkRng(getRngSeed()+(S.bjHand+1)*97));S.bjDeck2Idx=0;
     const A=[_bjDraw(),_bjDraw()],B=[_bjDraw(),_bjDraw()];
     S.bjDealer=[_bjDraw(),_bjDraw()];
@@ -394,23 +394,40 @@ function bjAwardSplit(result, bet, delta){
   if(result==='push') return [{op:'credit', n:bet,       reason:'bj-split-push'}];
   return [];
 }
+// The day's Blackjack rule bundle — a PURE function of the mod accessor (getMod live, the engine's
+// _engMod in replay), mirroring roulette's spinModsFor. ONE place the BJ payout/rule scalars are
+// derived, so live and replay can't compute them differently (they used to mirror the same ||1.5/||17
+// defaults inline in both bj.js and engine.js). Defaults are lifted verbatim. Card-forcing swaps
+// (first_ace, safe_hit) keep reading the accessor directly in their helpers, by design.
+function bjRulesFor(mod){
+  return {
+    payout:      mod('bj_payout') || 1.5,        // blackjack payout ratio
+    standAt:     mod('bj_dealer_stand') || 17,   // dealer draws below this total
+    doubleBonus: !!mod('bj_double_bonus'),       // a successful double pays 2× profit
+    wildSplit:   !!mod('bj_wild_split'),         // split any two; split wins pay 2×
+    twoHands:    !!mod('bj_two_hands'),           // Double Vision: deal two starting hands, pick one
+  };
+}
+function bjRules(){ return bjRulesFor(getMod); } // live snapshot — the only getMod read for BJ rules
+
 function bjResolve(dealerDrawn=false){
   // Idempotency guard (see _resolveRoulette): settle a hand exactly once. bjResolve is fired
   // from timers (deal celebration, dealer-reveal step) and the refresh-resume path, so a stray
   // or duplicate timer must not credit the payout and push a second history entry twice. It only
   // ever runs from the 'play' phase and flips to 'result' at the end, so bail if we're past that.
   if(S.bjPhase!=='play')return;
+  const R=bjRules(); // the day's BJ rule bundle (same shape the engine builds from _engMod)
   if(!dealerDrawn){S.bjDealerAnimFrom=1;}
-  while(hVal(S.bjDealer)<(getMod('bj_dealer_stand')||17))S.bjDealer.push(_bjDraw());
+  while(hVal(S.bjDealer)<R.standAt)S.bjDealer.push(_bjDraw());
   const dv=hVal(S.bjDealer),dBJ=isBJ(S.bjDealer);
   const wm=winMult();
   const acct=liveAcct();
   if(S.bjSplit){
     let totalDelta=0;
-    const spm=getMod('bj_wild_split')?2:1; // wild split: winning hands pay 2× profit
+    const spm=R.wildSplit?2:1; // wild split: winning hands pay 2× profit
     const handResults=S.bjSplitHands.map((hand,i)=>{
       const bet=S.bjSplitBets[i];
-      const ddm=getMod('bj_double_bonus')&&S.bjSplitDoubled[i]?2:1; // double-down profit multiplier
+      const ddm=R.doubleBonus&&S.bjSplitDoubled[i]?2:1; // double-down profit multiplier
       const {result,delta}=resolveBJSplitHand({pv:hVal(hand),dv,bet,wm,ddm,spm});
       applyLedger(acct,bjAwardSplit(result,bet,delta));
       totalDelta+=delta;return{result,delta,bet};
@@ -419,8 +436,8 @@ function bjResolve(dealerDrawn=false){
     S.bjResult={result:'split',delta:totalDelta};
     S.bjHistory.push(mkOutcome('bj',totalDelta,'split',{bet:S.bjSplitBets.reduce((a,b)=>a+b,0),player:S.bjSplitHands.map(h=>[...h]),dealer:[...S.bjDealer]}));
   }else{
-    const bjMult = getMod('bj_payout') || 1.5;
-    const ddm=getMod('bj_double_bonus')&&S.bjDoubled?2:1; // double-down profit multiplier
+    const bjMult = R.payout;
+    const ddm=R.doubleBonus&&S.bjDoubled?2:1; // double-down profit multiplier
     const {result,delta}=resolveBJHand({pv:hVal(S.bjPlayer),pBJ:isBJ(S.bjPlayer),dv,dBJ,bet:S.bjBet,wm,bjMult,ddm});
     applyLedger(acct,bjAward(result,S.bjBet,delta));
     S.bjResult={result,delta};

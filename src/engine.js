@@ -93,7 +93,8 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   // Card source + cursor: the shared shoe at st.idx by default, or a fresh isolated deck under Double
   // Vision (bj_two_hands) — which never touches deal.bjShoe / st.idx, mirroring bjDeal's per-hand deck.
   // draw() is the single sequential accessor both paths use (twin of bj.js _bjDraw).
-  const twoHands = mod('bj_two_hands');
+  const Rbj = bjRulesFor(mod); // shared BJ rule bundle (same builder the live game calls via bjRules())
+  const twoHands = Rbj.twoHands;
   let shoe = deal.bjShoe;
   if(twoHands){
     shoe = shuffle(buildDeck(), mkRng(seed + (st.hand + 1) * 97));
@@ -139,8 +140,8 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
     actions.push(tx[j]); j++;
   }
 
-  const stand17 = mod('bj_dealer_stand') || 17;
-  const bjMult = mod('bj_payout') || 1.5;
+  const stand17 = Rbj.standAt;
+  const bjMult = Rbj.payout;
   const pBJ = isBJ(player), dBJ0 = isBJ(dealer);
 
   // Naturals end the hand before the player can act.
@@ -178,7 +179,7 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   let dv = hVal(dealer);
   while(dv < stand17){ dealer.push(draw()); dv = hVal(dealer); }
   const wm = winMultFor(mod, acct.chips);
-  const ddm = (mod('bj_double_bonus') && doubled) ? 2 : 1;
+  const ddm = (Rbj.doubleBonus && doubled) ? 2 : 1;
   const res = resolveBJHand({ pv: hVal(player), pBJ: false, dv, dBJ: isBJ(dealer), bet, wm, bjMult, ddm });
   applyLedger(acct, bjAward(res.result, bet, res.delta));
   addNet('bj', res.delta); st.hand++;
@@ -283,6 +284,7 @@ function bjSplitStep({ pair, dealer, bet0, mod, stand17, draw, acct, nextAction,
 // callback (still strict — forged/extra actions abort the Run), then settles each sub-hand.
 function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw){
   const { player, dealer, bet0, actions, stand17 } = init;
+  const Rbj = bjRulesFor(mod); // shared BJ rule bundle (same builder bjResolve's split path uses)
   if(!actions.length || actions[0].a !== 'split') _replayFail('bj_split_order');
   let k = 1;                                         // actions[0] is the initial split (already decided)
   const { hands, bets, doubled, dealer: dlr } = bjSplitStep({
@@ -295,11 +297,11 @@ function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw){
 
   const dvFinal = hVal(dlr);
   const wm = winMultFor(mod, acct.chips);
-  const spm = mod('bj_wild_split') ? 2 : 1;
+  const spm = Rbj.wildSplit ? 2 : 1;
   let total = 0;
   for(let h = 0; h < hands.length; h++){
     const bet = bets[h];
-    const ddm = (mod('bj_double_bonus') && doubled[h]) ? 2 : 1;
+    const ddm = (Rbj.doubleBonus && doubled[h]) ? 2 : 1;
     const res = resolveBJSplitHand({ pv: hVal(hands[h]), dv: dvFinal, bet, wm, ddm, spm });
     applyLedger(acct, bjAwardSplit(res.result, bet, res.delta));
     total += res.delta;
@@ -316,13 +318,14 @@ function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw){
 // Used by the replay path AND the dev-only future-seed checker (seedcheck.js) so neither can deal a
 // UTH hand differently. `comm` is a fresh array the caller may mutate (Time Travel re-deals it).
 function uthHandCards(deal, mod, hand, seed){
-  if(mod('uth_pocket_aces')){
+  const R = uthRulesFor(mod); // shared UTH rule bundle (same builder live uthDeal calls via uthRules())
+  if(R.pocketAces){
     const d = shuffle(buildDeck(), mkRng(seed + (hand + 1) * 97));
     const aces = [], rest = [];
     for(const c of d) (c.r === 'A' && aces.length < 2 ? aces : rest).push(c);
     return { hole: aces, dealer: [rest[0], rest[1]], comm: rest.slice(2, 7), priv: [] };
   }
-  if(mod('uth_suited_conn')){
+  if(R.suitedConn){
     // Suited Up: shared deal twin of uthDeal — same per-hand seed feeds suitedConnectorDeal (core.js).
     const { hole, dealer, comm } = suitedConnectorDeal(mkRng(seed + (hand + 1) * 97));
     return { hole, dealer, comm, priv: [] };
@@ -330,8 +333,8 @@ function uthHandCards(deal, mod, hand, seed){
   const dk = deal.uthDeck, off = hand * 9;
   const hole = [dk[off], dk[off + 1]];
   let priv = [];
-  if(mod('uth_three_hole')) hole.push(dk[27 + hand]); // Triple Threat's 3rd hole card from the tail
-  if(mod('uth_sixth_card')) priv = [dk[27 + hand]];   // Sixth Sense's private community card (player pool only)
+  if(R.threeHole) hole.push(dk[27 + hand]); // Triple Threat's 3rd hole card from the tail
+  if(R.sixthCard) priv = [dk[27 + hand]];   // Sixth Sense's private community card (player pool only)
   return {
     hole,
     dealer: [dk[off + 2], dk[off + 3]],
@@ -391,9 +394,10 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
   const pb = bestOf7([...hole, ...comm, ...priv]);
   const db = bestOf7([...dealer, ...comm]);
   const wm = winMultFor(mod, acct.chips);
+  const Ruth = uthRulesFor(mod); // shared UTH rule bundle (same builder live uthResolve uses)
   const res = resolveUTH(pb, db, antePortion, blindPortion, play, {
-    wm, doublePlay: !!mod('uth_double_play'), hardQualify: !!mod('uth_hard_qualify'),
-    blindExtended: mod('uth_blind_extended'), blindBoost: mod('uth_blind_boost') || 1,
+    wm, doublePlay: Ruth.doublePlay, hardQualify: Ruth.hardQualify,
+    blindExtended: Ruth.blindExtended, blindBoost: Ruth.blindBoost,
   });
   applyLedger(acct, uthAward(res, antePortion, blindPortion, play));
   addNet('uth', res.delta); st.hand++;
@@ -553,18 +557,20 @@ function auditOutcome(record, deal, mods = {}){
   if(record.slot === 'bj'){
     if(record.result === 'split') return record.delta; // per-sub-hand bets not recorded — see note above
     const player = record.player || [], dealer = record.dealer || [];
+    const Rbj = bjRulesFor(mod);
     const res = resolveBJHand({
       pv: hVal(player), pBJ: isBJ(player), dv: hVal(dealer), dBJ: isBJ(dealer),
-      bet: record.bet | 0, wm, bjMult: mod('bj_payout') || 1.5, ddm: 1,
+      bet: record.bet | 0, wm, bjMult: Rbj.payout, ddm: 1,
     });
     return res.delta;
   }
   if(record.slot === 'uth'){
     if(record.result === 'fold') return -((record.ante | 0) + (record.blind | 0));
     if(!record.playerBest || !record.dealerBest) return record.delta;
+    const Ruth = uthRulesFor(mod);
     const res = resolveUTH(record.playerBest, record.dealerBest, record.ante | 0, record.blind | 0, record.play | 0, {
-      wm, doublePlay: !!mod('uth_double_play'), hardQualify: !!mod('uth_hard_qualify'),
-      blindExtended: mod('uth_blind_extended'), blindBoost: mod('uth_blind_boost') || 1,
+      wm, doublePlay: Ruth.doublePlay, hardQualify: Ruth.hardQualify,
+      blindExtended: Ruth.blindExtended, blindBoost: Ruth.blindBoost,
     });
     return res.delta;
   }

@@ -162,12 +162,31 @@ function uthSkip(){ txLog({g:'uth',a:'skip',h:S.uthHand}); _skipHand('uth',{ante
 // ─── ULTIMATE TEXAS HOLD'EM LOGIC ────────────────────────────────────────
 
 /** Initial deal for UTH: Player cards, Dealer cards (hidden), and Community cards (hidden). */
+// The day's Hold'em rule bundle — a PURE function of the mod accessor, mirroring roulette's spinModsFor
+// and the BJ bundle. ONE place the UTH rule scalars + deal-shape flags are derived, shared by live and
+// replay (they used to mirror the same reads inline in uth.js and engine.js). blindExtended stays the
+// raw accessor value and blindBoost keeps its ||1 default, both lifted verbatim from the old sites.
+function uthRulesFor(mod){
+  return {
+    doublePlay:    !!mod('uth_double_play'),
+    hardQualify:   !!mod('uth_hard_qualify'),
+    blindExtended: mod('uth_blind_extended'),
+    blindBoost:    mod('uth_blind_boost') || 1,
+    pocketAces:    !!mod('uth_pocket_aces'),   // Pocket Aces: forced AA from a fresh per-hand deck
+    suitedConn:    !!mod('uth_suited_conn'),   // Suited Up: forced suited connector hole
+    threeHole:     !!mod('uth_three_hole'),    // Triple Threat: a 3rd hole card from the deck tail
+    sixthCard:     !!mod('uth_sixth_card'),    // Sixth Sense: a private 6th community card
+  };
+}
+function uthRules(){ return uthRulesFor(getMod); } // live snapshot — the only getMod read for UTH rules
+
 function uthDeal(){
   if(!S.uthAnte||S.uthPhase!=='bet')return;
   S.uthPhase='dealing'; // lock immediately so bet controls can't mutate S.uthAnte during sndShuffle
   debit(S.uthAnte,'uth-deal');
   txLog({g:'uth',a:'deal',h:S.uthHand,ante:S.uthAnte});
-  if(getMod('uth_pocket_aces')){
+  const R=uthRules(); // the day's UTH rule bundle (same shape the engine builds from _engMod)
+  if(R.pocketAces){
     // +1 so hand 0 doesn't reuse the exact daily seed; *97 (prime) spaces hand seeds apart to avoid collisions.
     const hr=mkRng(getRngSeed()+(S.uthHand+1)*97);
     const d=shuffle(buildDeck(),hr);
@@ -176,7 +195,7 @@ function uthDeal(){
     S.uthHole=aces;
     S.uthDealer=[rest[0],rest[1]];
     S.uthComm=rest.slice(2,7);
-  }else if(getMod('uth_suited_conn')){
+  }else if(R.suitedConn){
     // Suited Up: same fresh-per-hand-deck seeding as Pocket Aces, but the hole is a forced suited
     // connector that varies per hand. suitedConnectorDeal (core.js) is shared with the engine replay.
     const sc=suitedConnectorDeal(mkRng(getRngSeed()+(S.uthHand+1)*97));
@@ -187,10 +206,10 @@ function uthDeal(){
     // Triple Threat's third hole card comes from the deck's unused tail (27+), the same region
     // Time Travel re-deals from. The two mods never run on the same day, so no collision; and
     // the per-hand 9-card layout stays untouched, so test card overrides keep working.
-    if(getMod('uth_three_hole'))S.uthHole.push(dk[27+S.uthHand]);
+    if(R.threeHole)S.uthHole.push(dk[27+S.uthHand]);
     // Sixth Sense's private 6th community card comes from the same unused tail (27+) Triple Threat /
     // Time Travel draw from. The mods never share a day, so the tail card can't collide.
-    if(getMod('uth_sixth_card'))S.uthPrivate=dk[27+S.uthHand];
+    if(R.sixthCard)S.uthPrivate=dk[27+S.uthHand];
     S.uthDealer=[dk[off+2],dk[off+3]];
     S.uthComm=[dk[off+4],dk[off+5],dk[off+6],dk[off+7],dk[off+8]];
   }
@@ -359,9 +378,10 @@ function uthResolve(){
   const ante=_uthAntePortion(),blind=_uthBlindPortion(),play=S.uthRaise;
   const pb=bestOf7(_uthPlayerPool());
   const db2=bestOf7([...S.uthDealer,...S.uthComm]);
+  const R=uthRules();
   const res=resolveUTH(pb,db2,ante,blind,play,{
-    wm:winMult(), doublePlay:!!getMod('uth_double_play'), hardQualify:!!getMod('uth_hard_qualify'),
-    blindExtended:getMod('uth_blind_extended'), blindBoost:getMod('uth_blind_boost')||1,
+    wm:winMult(), doublePlay:R.doublePlay, hardQualify:R.hardQualify,
+    blindExtended:R.blindExtended, blindBoost:R.blindBoost,
   });
   // Apply chips per leg through the shared settlement ledger (the same one the Engine replays).
   applyLedger(liveAcct(),uthAward(res,ante,blind,play));

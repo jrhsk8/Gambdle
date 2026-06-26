@@ -22,7 +22,7 @@ const SRC = path.join(__dirname, '..', 'src');
 const MANIFEST = {
   'audio.js': ['_safePlay', 'playMp3', 'sndBigWin', 'sndCard', 'sndChip', 'sndShuffle'],
   'bet.js': ['addToBet', 'allInAmount', 'clearedBet', 'ladderMaxStake', 'maxFor'],
-  'bj.js': ['_bjResumeAfterRefresh', 'bjAward', 'bjAwardSplit', 'bjSplit', 'peekBtnHTML', 'peekRevealed', 'resetBJHand', 'resolveBJHand', 'resolveBJSplitHand', 'screenBJ'],
+  'bj.js': ['_bjResumeAfterRefresh', 'bjAward', 'bjAwardSplit', 'bjRulesFor', 'bjSplit', 'peekBtnHTML', 'peekRevealed', 'resetBJHand', 'resolveBJHand', 'resolveBJSplitHand', 'screenBJ'],
   'core.js': [
     'ANIM_NONE', 'BORROW_AMOUNT', 'DEV_OVERRIDE', 'GAME1', 'GAME1_OPTIONS', 'GAME2',
     'GAME2_OPTIONS', 'GAME_META', 'GAME_VERSION', 'GAMES', 'NEXT_SCREEN', 'RED_S', 'S', 'START_CHIPS',
@@ -78,7 +78,7 @@ const MANIFEST = {
   ],
   'uth.js': [
     'UTH_CARD_INTERVAL_MS', 'bestOf7', 'rankPoker', 'resetUTHHand', 'resolveUTH', 'screenUTH',
-    'uthAward', 'uthPayTableHTML', 'uthPayTableHead',
+    'uthAward', 'uthPayTableHTML', 'uthPayTableHead', 'uthRulesFor',
   ],
   'windows.js': [
     '_isMobile', '_openInfoModal', '_openWindow', '_reapplyDragPos', '_recenterBtnHTML',

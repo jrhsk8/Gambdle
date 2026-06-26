@@ -618,6 +618,24 @@ describe('uthAward — settlement ledger, order play→ante→blind (pure)', () 
   });
 });
 
+// Candidate 2: uthRulesFor maps a mod accessor → the day's UTH rule bundle. ONE source for the scalars
+// + deal-shape flags, live (uthRules → getMod) and in replay (engine → _engMod).
+describe('uthRulesFor — declarative UTH rule bundle (pure)', () => {
+  it('a vanilla day returns the defaults (blindBoost 1, blindExtended null, flags false)', () => {
+    assertDeepEqual(uthRulesFor(() => null), {
+      doublePlay: false, hardQualify: false, blindExtended: null, blindBoost: 1,
+      pocketAces: false, suitedConn: false, threeHole: false, sixthCard: false,
+    });
+  });
+  it('preset values flow through; blindBoost keeps its override, flags coerce to booleans', () => {
+    const mod = k => ({ uth_double_play: 1, uth_hard_qualify: 1, uth_blind_boost: 2, uth_three_hole: 1, uth_sixth_card: 1 }[k] ?? null);
+    const r = uthRulesFor(mod);
+    assertEqual(r.doublePlay, true); assertEqual(r.hardQualify, true);
+    assertEqual(r.blindBoost, 2); assertEqual(r.threeHole, true); assertEqual(r.sixthCard, true);
+    assertEqual(r.blindExtended, null);
+  });
+});
+
 // ─── Idempotency: pkDraw settles exactly once ───────────────────────────────
 // pkDraw credits chips + pushes history; a duplicate call (only reachable from the 'hold' phase)
 // must short-circuit. Verified via the phase guard so this needs no poker deck setup.
