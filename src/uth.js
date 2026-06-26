@@ -485,7 +485,10 @@ function screenUTH(){
   const CAT_NAMES=['High Card','One Pair','Two Pair','Three of a Kind','Straight','Flush','Full House','Four of a Kind','Straight Flush','Royal Flush'];
 
   if(ph==='bet'){
-    const maxAnte=S.chips;
+    // Cap the ante at the 2/3 stake limit (maxBet → maxFor) so the chip buttons + All In match the
+    // handlers, and the player always keeps enough for the mandatory 1× play raise (else they'd be
+    // stuck folding on the turn). Was S.chips (full stack) — stale, predates the 2/3 cap.
+    const maxAnte=maxBet();
     const aios=getMod('all_in_or_skip');
     // Pay table box with its caption hugging right below it (the .uth-pt-wrap group), inside a flex:1
     // spacer that mirrors the BJ bet table: it eats the panel slack so the chip selector + Deal button
