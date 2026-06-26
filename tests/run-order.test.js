@@ -50,3 +50,23 @@ describe('next — ladder_free detour', () => {
     assertEqual(next(GAME1, { ..._armed, handsLeft: true }), GAME1, 'hands left wins over the detour');
   });
 });
+
+// ─── Game registry — behaviour-hook interface ─────────────────────────────────
+// Every game entry satisfies the SAME behaviour interface: screen/reset/nextHand/resume/patchBet are
+// all callable functions (no-op where the game doesn't implement one). This is what lets the lifecycle
+// call any hook without a per-hook `?.` guard. The interface IS the test surface — assert it directly.
+describe('Game registry — every game has the full behaviour interface', () => {
+  const HOOKS = ['screen', 'reset', 'nextHand', 'resume', 'patchBet'];
+  for (const key of Object.keys(GAMES)) {
+    it(`${key} exposes all ${HOOKS.length} behaviour hooks as functions`, () => {
+      for (const h of HOOKS) {
+        assertEqual(typeof GAMES[key][h], 'function', `${key}.${h} should be a function`);
+      }
+    });
+  }
+  it('single-run games (roulette, ladder) carry a callable no-op reset/nextHand', () => {
+    // No-ops must not throw and must return undefined — the borrow/advance flow calls them blind.
+    assertEqual(GAMES.ladder.reset(), undefined, 'ladder.reset is a no-op');
+    assertEqual(GAMES.roulette.nextHand(), undefined, 'roulette.nextHand is a no-op');
+  });
+});

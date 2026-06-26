@@ -202,7 +202,7 @@ function advanceTo(s){
       const ret=_borrowReturnScreen();
       // Reset the current game to bet phase so returning lands on a fresh hand (no-op for single-run
       // games, which have no reset slot). The borrow flow only returns the three card games here.
-      GAMES[ret]?.reset?.();
+      GAMES[ret]?.reset();   // every game entry has a reset (no-op for single-run games); ret may be a non-game screen (results), hence the entry guard
       S.borrowReturnScreen=ret;
     }
     sndAdvance();goTo('borrow');return;

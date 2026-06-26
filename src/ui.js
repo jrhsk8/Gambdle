@@ -236,7 +236,7 @@ function patchBetUI() {
   if(ai)ai.disabled=max===0 || max < minChipsMod;
   // Game-specific bet-UI patching (roulette selection box · UTH stake summary + pay table) lives with
   // each game and is dispatched through the Game registry; patchBetUI owns only the shared chip UI.
-  GAMES[S.screen]?.patchBet?.(bet);
+  GAMES[S.screen]?.patchBet(bet);   // every game entry has a patchBet (no-op without bet-UI extras); entry guard covers shell screens
 }
 
 // Returns true only when the current screen is in its initial bet phase.

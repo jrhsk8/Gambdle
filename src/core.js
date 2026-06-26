@@ -213,6 +213,26 @@ const GAMES = {
 // txKey: the short tag a game writes into the Transcript (txLog {g}) and the net bucket the replay
 // Engine accumulates into — the one link between a game's registry entry and its replay handler.
 
+// ── The Game behaviour-hook interface ────────────────────────────────────────
+// Every game entry satisfies the SAME behaviour interface, declared (as no-ops) here in one place so
+// the lifecycle can call any hook unconditionally. Each game's own file loads after core.js and
+// OVERRIDES the hooks it implements; a game that doesn't need one keeps the no-op. This is what lets
+// flow.js / game.js / ui.js drop the per-hook `?.` guard — a registry entry ALWAYS has these as
+// functions, so the only thing a caller still guards is whether `S.screen` is a game at all (shell
+// screens like intro/borrow/results aren't in GAMES). The hooks:
+//   screen   — returns the screen's HTML (set by every game; not defaulted, so a missing one is a bug)
+//   reset    — return the game to a fresh bet phase (card games; no-op for single-run games)
+//   nextHand — advance to the next hand (card games; no-op for single-run games)
+//   resume   — restore mid-animation state after a refresh (no-op where the screen restores instantly)
+//   patchBet — surgically sync the game's own bet UI on a bet change (UTH + roulette; no-op otherwise)
+// (replay is attached later by engine.js for all games; it is the replay-side hook, not a live one.)
+for (const _g of Object.values(GAMES)) {
+  _g.reset    = _g.reset    || (() => {});
+  _g.nextHand = _g.nextHand || (() => {});
+  _g.resume   = _g.resume   || (() => {});
+  _g.patchBet = _g.patchBet || (() => {});
+}
+
 // Display metadata for every slot game — the entries of GAMES that carry `meta`. Back-compat view
 // consumed by the dev menu (GAME1_OPTIONS) and the share text (buildShareText).
 const GAME_META = Object.fromEntries(Object.entries(GAMES).filter(([, g]) => g.meta).map(([k, g]) => [k, g.meta]));

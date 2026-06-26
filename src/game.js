@@ -7,7 +7,7 @@
 // Each slot guards its own phase internally, so this is a pure screen lookup with no per-game
 // branches: every game, Blackjack included, resumes through the one registry path.
 function _resumeAfterRefresh() {
-  GAMES[S.screen]?.resume?.();
+  GAMES[S.screen]?.resume();   // every game entry has a resume (no-op where instant); S.screen may be a shell screen, hence the entry guard
 }
 
 // Shows the welcome popup on first ever visit (only when POPUP_ENABLED is true).
