@@ -281,22 +281,30 @@ describe('loadState — applies borrow debt only on the exact target day', () =>
 // ─── _effectiveBorrowAmount — respects min_chips modifier ────────────────────
 
 describe('_effectiveBorrowAmount — min_chips floor', () => {
+  // _activeMod() resolves off getActiveSeed()/getActiveDayNum() — the REAL calendar date, not the
+  // test seed — so these pin _backlogSeed to frozen DAILY_MODIFIERS days (never reassigned by future
+  // CYCLE_ORDER edits, per modifiers.js) instead of relying on whatever mod today's real date happens
+  // to carry. (forcedMod can't express "no modifier": resolveDayMod does `forcedMod || ...`, so a
+  // falsy forcedMod just falls through to the real day's mod.)
   it('returns BORROW_AMOUNT when no min_chips modifier', () => {
-    withBrwState({ forcedMod: null }, () => {
-      assertEqual(_effectiveBorrowAmount(), BORROW_AMOUNT, 'should equal BORROW_AMOUNT with no modifier');
-    });
+    _setBacklogSeedForTest(20260505); // Day 1 — r_hot_numbers, no min_chips
+    try {
+      // forcedMod/pcPick cleared: another file's test may have left one set on the shared S.
+      withBrwState({ forcedMod: null, pcPick: null }, () => {
+        assertEqual(_effectiveBorrowAmount(), BORROW_AMOUNT, 'should equal BORROW_AMOUNT with no modifier');
+      });
+    } finally { _setBacklogSeedForTest(null); }
   });
 
   it('returns min_chips when min_chips > BORROW_AMOUNT', () => {
-    withBrwState({ forcedMod: 'high_roller' }, () => {
-      const minC = getMod('min_chips') || 0;
-      if (minC > BORROW_AMOUNT) {
+    _setBacklogSeedForTest(20260522); // Day 18 — high_stakes, min_chips: 100
+    try {
+      withBrwState({ forcedMod: null, pcPick: null }, () => {
+        const minC = getMod('min_chips') || 0;
+        assert(minC > BORROW_AMOUNT, 'fixture day should carry a min_chips floor above BORROW_AMOUNT');
         assertEqual(_effectiveBorrowAmount(), minC, 'should equal min_chips when modifier is active and higher');
-      } else {
-        // modifier exists but min_chips <= BORROW_AMOUNT — still passes
-        assert(_effectiveBorrowAmount() >= BORROW_AMOUNT, 'should be at least BORROW_AMOUNT');
-      }
-    });
+      });
+    } finally { _setBacklogSeedForTest(null); }
   });
 
   it('never returns less than BORROW_AMOUNT', () => {

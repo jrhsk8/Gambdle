@@ -223,6 +223,7 @@ const DAILY_MODIFIERS = {
   20260622: 'r_group_red',         // Day 48 — Seeing Red (roulette force-group)
   20260623: 'bj_two_hands',        // Day 49 — Double Vision (BJ: pick one of two hands)
   20260624: 'r_group_black',       // Day 50 — In the Black (roulette force-group)
+  20260701: 'r_respin',            // Day 58 — Second Chance (swapped in for the cycled Pocket Change)
 };
 
 /**
@@ -239,6 +240,15 @@ const DAILY_SEED_OVERRIDES = {
   20260615: 20250422,
   20260616: 20250425,
   20260617: 20250426,
+  // 2026-07-01 seed-check sweep: these 7 days scored 4+/6 combined guaranteed losses (UTH showdown +
+  // BJ basic-strategy) under their assigned mod; remapped to 2019 decks that score 0-1/6 instead.
+  20260708: 20190111, // was 6/6 (Dealer Peek)
+  20260709: 20190114, // was 4/6 (Hot Zero)
+  20260714: 20190126, // was 4/6 (Big Spender)
+  20260715: 20190215, // was 4/6 (In the Black)
+  20260718: 20190218, // was 4/6 (Wait, how?)
+  20260721: 20190222, // was 4/6 (River Monster)
+  20260722: 20190224, // was 4/6 (Dozen I)
 };
 
 // Validate CYCLE_ORDER entries at load time
