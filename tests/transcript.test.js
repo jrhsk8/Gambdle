@@ -154,10 +154,10 @@ describe('transcript — roulette actions', () => {
   it('rSpin snapshots the locked bets (and the respin flag) before fetching the words', () => {
     S.forcedMod = {};
     const savedWords = _spinWords;
-    _spinWords = async () => [7, 0, 0, 0];
+    _spinWords = async () => ({ words: [7, 0, 0, 0], fromServer: false });
     Object.assign(S, {
       screen: 'roulette', rPhase: 'bet', chips: 800, tx: [], rReSpun: false,
-      rBets: [{ pick: 17, bet: 100 }, { pick: 45, bet: 50 }], rSpin: null, rSpin2: null, rResult: null,
+      rBets: [{ pick: 17, bet: 100 }, { pick: 45, bet: 50 }], rSpin: null, rSpin2: null, rResult: null, rSpinAcq: null,
     });
     try {
       rSpin(); // async, but the transcript + phase flip happen synchronously before the await

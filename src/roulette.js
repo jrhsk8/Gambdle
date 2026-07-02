@@ -1,6 +1,6 @@
 // ─── CONTENTS (grep the banner/function name; line numbers drift) ──────────
 //   ROULETTE TIMING: animation/settle durations
-//   ROULETTE CONSTANTS: pockets, colors, bet groups, payouts, R_GROUP_INFO
+//   ROULETTE CONSTANTS: pockets, colors, payouts, betCoverage (Tile→numbers), R_GROUP_INFO
 //   ROULETTE BOARD: betting board markup · rAddBet · bet limits (r_max_bets)
 //   ROULETTE WHEEL CANVAS: startWheelAnim drawing
 //   ROULETTE SCREENS: screenRoulette (bet + spin phases)
@@ -39,35 +39,6 @@ const R_BETS=[
   {type:'hl',val:'high',lbl:'19-36',pay:1},  // 48
 ];
 
-// Group definitions: winning number set + which bet idx is locked out
-const R_GROUP_INFO={
-  '1_12':  {nums:new Set([1,2,3,4,5,6,7,8,9,10,11,12]),bannedIdx:40},
-  '13_24': {nums:new Set([13,14,15,16,17,18,19,20,21,22,23,24]),bannedIdx:41},
-  '25_36': {nums:new Set([25,26,27,28,29,30,31,32,33,34,35,36]),bannedIdx:42},
-  '1_18':  {nums:new Set([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]),bannedIdx:43},
-  '19_36': {nums:new Set([19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36]),bannedIdx:48},
-  'even':  {nums:new Set([2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36]),bannedIdx:44},
-  'odd':   {nums:new Set([1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35]),bannedIdx:47},
-  'red':   {nums:new Set([...REDS]),bannedIdx:45},
-  'black': {nums:new Set(Array.from({length:36},(_,n)=>n+1).filter(n=>!REDS.has(n))),bannedIdx:46},
-};
-
-// Lookup table for getRBetNums (indices 37-48).
-const R_BET_NUMS_MAP = {
-  37: [3,6,9,12,15,18,21,24,27,30,33,36],
-  38: [2,5,8,11,14,17,20,23,26,29,32,35],
-  39: [1,4,7,10,13,16,19,22,25,28,31,34],
-  40: [1,2,3,4,5,6,7,8,9,10,11,12],
-  41: [13,14,15,16,17,18,19,20,21,22,23,24],
-  42: [25,26,27,28,29,30,31,32,33,34,35,36],
-  43: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18],
-  44: [2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36],
-  45: [...REDS],
-  46: Array.from({length:36},(_,n)=>n+1).filter(n=>!REDS.has(n)),
-  47: [1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35],
-  48: [19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36],
-};
-
 // The three column bets all read "2:1" on the board (and stay that way); name them by the
 // board row they sit on so the spin/result screens say which one — 37=top, 38=middle, 39=bottom.
 const _R_COL_ROW = { 37: 'Top Row', 38: 'Middle Row', 39: 'Bottom Row' };
@@ -80,14 +51,6 @@ function rBetLabel(pick, long){
   if(d.type==='num') return long?'Number '+d.lbl:'#'+d.lbl;
   if(d.type==='col') return _R_COL_ROW[pick]||d.lbl;
   return d.lbl;
-}
-
-// Returns the winning numbers (1-36) for a given R_BETS index.
-// Index 0 (green zero) returns [] because outside bets all lose on zero.
-function getRBetNums(i){
-  if(i===0)return[];
-  if(i<=36)return[i];
-  return R_BET_NUMS_MAP[i]||[];
 }
 
 // Returns true if R_BETS[idx] wins for the given spin result.
@@ -105,6 +68,43 @@ function evalBet(idx,result){
   return false;
 }
 
+// ONE interface for "which numbers does this Tile cover?" — every other caller (evalBet's own type
+// switch above stays the coverage RULE; this is the derived SET view of it) reads this instead of
+// hand-maintaining a parallel table that can drift from evalBet. Derives the covered-number set by
+// walking 1-36 and asking evalBet, then memoizes per index since R_BETS never changes at runtime.
+// Index 0 (green zero) returns [] by convention: outside bets all lose on zero, and the coverage set
+// exists to answer "which OTHER numbers overlap this Tile", not "does this Tile win on 0".
+const _coverageCache = new Map();
+function betCoverage(i){
+  if(_coverageCache.has(i)) return _coverageCache.get(i);
+  const b=R_BETS[i];
+  let nums;
+  if(!b) nums=[];
+  else if(b.type==='num') nums = b.val===0 ? [] : [b.val];
+  else { nums=[]; for(let n=1;n<=36;n++) if(evalBet(i,n)) nums.push(n); }
+  _coverageCache.set(i, nums);
+  return nums;
+}
+// Back-compat name some callsites/tests read "coverage" as — same function, kept as the one converged
+// entry point (avoid two names for one concept going forward: prefer betCoverage in new code).
+const getRBetNums = betCoverage;
+
+// Group definitions for the force-group Modifiers: each named group IS one of the outside-bet Tiles
+// (the dozens, the halves, even/odd, red/black) — so its winning-number set is exactly that Tile's
+// betCoverage, not a hand-copied list that could drift from it. `bannedIdx` is genuinely extra
+// (non-coverage) metadata: which board Tile to lock out because it's the group itself.
+const R_GROUP_INFO={
+  '1_12':  {nums:new Set(betCoverage(40)),bannedIdx:40},
+  '13_24': {nums:new Set(betCoverage(41)),bannedIdx:41},
+  '25_36': {nums:new Set(betCoverage(42)),bannedIdx:42},
+  '1_18':  {nums:new Set(betCoverage(43)),bannedIdx:43},
+  '19_36': {nums:new Set(betCoverage(48)),bannedIdx:48},
+  'even':  {nums:new Set(betCoverage(44)),bannedIdx:44},
+  'odd':   {nums:new Set(betCoverage(47)),bannedIdx:47},
+  'red':   {nums:new Set(betCoverage(45)),bannedIdx:45},
+  'black': {nums:new Set(betCoverage(46)),bannedIdx:46},
+};
+
 // Formats a chip amount as a short label for the board overlay (e.g. 1200 → "1K").
 // Honors the chip_div display scale so placed-bet chips read in the same units as the badge.
 const chipLbl = amt => { const d=chipDispDiv(); const v=d===1?amt:Math.round(amt/d*100)/100; return v >= 1000 ? Math.floor(v / 1000) + 'K' : String(v); };
@@ -117,7 +117,7 @@ const chipLbl = amt => { const d=chipDispDiv(); const v=d===1?amt:Math.round(amt
 function rBetBlocked(i){
   const fg=getMod('r_force_group'),grp=fg?R_GROUP_INFO[fg]:null;
   if(!grp||i==null)return false;
-  const covered=getRBetNums(i);
+  const covered=betCoverage(i);
   if(!covered.some(n=>grp.nums.has(n)))return true;        // no overlap — can never win
   const cs=new Set(covered);
   for(const n of grp.nums){if(!cs.has(n))return false;}    // missing a group number — uncertain, keep open
@@ -245,13 +245,13 @@ function drawWheel(cnv,wAngle,balls){
   }
 }
 
-// Plays the roulette ball audio and animates the wheel for exactly the same duration.
-function startWheelAnim(){
-  const cnv=document.getElementById(DOM.rouletteWheel);
-  if(!cnv)return;
-  const size=Math.min(320,Math.floor((cnv.parentElement?.clientWidth||360)-24));
-  cnv.width=size;cnv.height=size;
+// Quartic ease-out: fast start, long gentle settle (how a real ball loses momentum).
+function _wheelEase(t){return 1-Math.pow(1-t,4);}
 
+// (a) SPIN SPEC — pure geometry, no canvas/DOM/audio: where the wheel and ball(s) end up, derived
+// from S.rSpin/S.rSpin2 and the canvas size. A resume rebuilds the identical spec from the same
+// S fields, so the animation restarts exactly where a fresh spin would have gone.
+function _wheelSpinSpec(size){
   const N=37,seg=2*Math.PI/N;
   const tidx=WO.indexOf(S.rSpin);
 
@@ -274,61 +274,108 @@ function startWheelAnim(){
     const tidx2=WO.indexOf(S.rSpin2);
     ballSpecs.push({finalA:-Math.PI/2+(tidx2-tidx)*seg, revs:9, rf:bRf, rad:8, tint:null});
   }
+  return {wFinal, bRi, ballSpecs};
+}
 
-  function ease(t){return 1-Math.pow(1-t,4);} // quartic ease-out
-
-  function runAnim(DUR, onDone){
-    const t0=performance.now();
-    function frame(now){
-      const t=Math.min((now-t0)/DUR,1),e=ease(t);
-      const balls=ballSpecs.map(s=>{
-        const startA=s.finalA+s.revs*2*Math.PI;
-        return {a:startA-(startA-s.finalA)*e, r:bRi+(s.rf-bRi)*e, rad:s.rad, tint:s.tint};
-      });
-      drawWheel(cnv,wFinal*e,balls);
-      if(t<1)requestAnimationFrame(frame);
-      else onDone();
-    }
-    requestAnimationFrame(frame);
+// (b) CANVAS + RAF RUNNER — plays `spec` on `cnv` over DUR ms, easing the wheel angle and each
+// ball's angle/radius toward its resting spot, then fires `onDone`. Knows nothing about audio,
+// settle timing, or what happens after — "run this animation" is its whole job.
+function _runWheelAnim(cnv, spec, DUR, onDone){
+  const {wFinal, bRi, ballSpecs}=spec;
+  const t0=performance.now();
+  function frame(now){
+    const t=Math.min((now-t0)/DUR,1),e=_wheelEase(t);
+    const balls=ballSpecs.map(s=>{
+      const startA=s.finalA+s.revs*2*Math.PI;
+      return {a:startA-(startA-s.finalA)*e, r:bRi+(s.rf-bRi)*e, rad:s.rad, tint:s.tint};
+    });
+    drawWheel(cnv,wFinal*e,balls);
+    if(t<1)requestAnimationFrame(frame);
+    else onDone();
   }
+  requestAnimationFrame(frame);
+}
 
+// (c) AUDIO ADAPTER — plays the preloaded ball sound (or runs muted/on error) and reports back
+// through one callback instead of the caller juggling Audio events directly: `ready({durationMs,
+// settleMs, onEnded})` fires once with the timing to animate for. `onEnded`, if given, is the
+// real audio's 'ended' event (another way the spin can finish, on top of the animation completing
+// on its own — see startWheelAnim); it's omitted for the muted/no-audio/error paths, which have no
+// audio to end and so settle on the animation alone. This adapter is the only thing that touches
+// _rouletteAudio, so the mute/duration/error branching lives in exactly one place.
+function _playRouletteAudio({ready}){
   const audio=_rouletteAudio;
-  // One-shot finish: whichever signal lands first — audio 'ended', the animation completing, an
-  // audio 'error', or the absolute ceiling below — resolves the spin exactly once. Without this the
-  // wheel hangs forever (player stranded on "Spinning!") whenever the audio element never emits
-  // 'ended': tab backgrounded mid-spin, a throttled/suspended element, iOS's per-session
-  // HTMLAudioElement limit, or play() blocked without rejecting — the same stall sndShuffle guards
-  // against with its 2000ms ceiling. The guard also collapses any double-fire (e.g. a late 'error'
-  // after 'loadedmetadata' already ran go()) into a single resolve.
-  // Single-fire finish + absolute ceiling backstop via the shared scheduler (runReveal) — this is the
-  // exact pattern runReveal generalizes from. The RAF wheel draw + audio-duration negotiation stay
-  // bespoke here; only the "resolve exactly once, with a stall backstop" wiring is shared. The ceiling
-  // covers the worst case where audio metadata never loads so go()/the animation never run and no other
-  // signal fires; its slack is past the longest real path so a normal spin is never cut short. The
-  // signal (!S.rResult) plus _resolveRoulette's own `if(S.rResult)return` are belt-and-suspenders
-  // against the iOS-audio double-fire / late-error stall class.
-  const _rev=runReveal({steps:[],finishAt:null,ceilingMs:R_SPIN_MS+R_SETTLE_MS+2500,signal:()=>!S.rResult,onFinish:rFinish});
-  const finishOnce=()=>_rev.finish();
-  if(audio){
-    const go=()=>{
-      const DUR=Math.round(audio.duration*1000);
-      _safePlay(audio);
-      audio.onended=()=>setTimeout(finishOnce,R_SETTLE_MS);
-      // Tie a guaranteed finish to the animation's own completion too, so a spin still resolves
-      // when 'ended' never fires (the animation runs for the audio's duration anyway).
-      runAnim(DUR, ()=>setTimeout(finishOnce,R_SETTLE_MS));
-    };
-    if(audio.readyState>=1) go(); // metadata (duration) already available
-    else{
-      audio.addEventListener('loadedmetadata',go,{once:true});
-      audio.addEventListener('error',()=>runAnim(R_SPIN_MS,()=>setTimeout(finishOnce,R_SETTLE_MUTED_MS)),{once:true});
-    }
-  } else {
-    runAnim(R_SPIN_MS,()=>setTimeout(finishOnce,R_SETTLE_MUTED_MS));
+  if(!audio){ ready({durationMs:R_SPIN_MS, settleMs:R_SETTLE_MUTED_MS}); return; }
+  const go=()=>{
+    _safePlay(audio);
+    ready({durationMs:Math.round(audio.duration*1000), settleMs:R_SETTLE_MS, onEnded:cb=>{audio.onended=cb;}});
+  };
+  if(audio.readyState>=1) go(); // metadata (duration) already available
+  else{
+    audio.addEventListener('loadedmetadata',go,{once:true});
+    // Audio never loaded: still run the animation (muted timing) and settle on its completion.
+    audio.addEventListener('error',()=>ready({durationMs:R_SPIN_MS, settleMs:R_SETTLE_MUTED_MS}),{once:true});
   }
 }
 
+// (d) SETTLE — the one decision point for "the spin is over, resolve it": whichever signal lands
+// first among audio 'ended', the animation completing, an audio 'error', or the absolute ceiling
+// below resolves the spin exactly once via runReveal's finish(). Without this the wheel hangs
+// forever (player stranded on "Spinning!") whenever the audio element never emits 'ended': tab
+// backgrounded mid-spin, a throttled/suspended element, iOS's per-session HTMLAudioElement limit,
+// or play() blocked without rejecting — the same stall sndShuffle guards against with its 2000ms
+// ceiling. The ceiling covers the worst case where audio metadata never loads and no other signal
+// fires; its slack is past the longest real path so a normal spin is never cut short. The signal
+// (!S.rResult) plus _resolveRoulette's own `if(S.rResult)return` are belt-and-suspenders against
+// the iOS-audio double-fire / late-error stall class.
+function _wheelSettle(){
+  return runReveal({steps:[],finishAt:null,ceilingMs:R_SPIN_MS+R_SETTLE_MS+2500,signal:()=>!S.rResult,onFinish:rFinish});
+}
+
+// Plays the roulette ball audio and animates the wheel for exactly the same duration. The one
+// entry point tying the four pieces above together: build the spec from S.rSpin(2), run the
+// animation, let the audio adapter report its own completion, and let _wheelSettle decide when
+// the spin is actually over. Resume (GAMES.roulette.resume) calls this same function once the
+// spin numbers are known, rebuilding the identical spec — no separate resume path to keep in sync.
+function startWheelAnim(){
+  const cnv=document.getElementById(DOM.rouletteWheel);
+  if(!cnv)return;
+  const size=Math.min(320,Math.floor((cnv.parentElement?.clientWidth||360)-24));
+  cnv.width=size;cnv.height=size;
+
+  const spec=_wheelSpinSpec(size);
+  const _rev=_wheelSettle();
+  const finishOnce=()=>_rev.finish();
+  _playRouletteAudio({
+    // Once the track length (or the fixed muted timing) is known: run the animation for exactly
+    // that long and settle `settleMs` after IT finishes — a guaranteed finish signal even when
+    // audio 'ended' never fires (the animation runs for the audio's duration regardless). When
+    // real audio is playing, also wire its own 'ended' as a second, usually-earlier-arriving path
+    // to the same settle — "whichever signal lands first" is exactly runReveal's single-fire finish.
+    ready: ({durationMs, settleMs, onEnded})=>{
+      _runWheelAnim(cnv, spec, durationMs, ()=>setTimeout(finishOnce,settleMs));
+      if(onEnded) onEnded(()=>setTimeout(finishOnce,settleMs));
+    },
+  });
+}
+
 // ─── ROULETTE SCREENS ────────────────────────────────────────────────────
+
+// BetOutcome display factory: wraps one evaluated bet (a {pick, won, delta, pay, …} from _evalBets,
+// or the legacy single-bet result shape) with the display props both the respin-preview screen and
+// the final-result screen need — so a formatting tweak (color rule, signed-amount format) changes in
+// one place instead of being re-derived per screen. Screens still own their own row markup/layout
+// (font sizes, separators differ between the two), just not the label/color/amount derivation.
+function _betDisplay(b){
+  return {
+    pick:  b.pick,
+    label: rBetLabel(b.pick),
+    pay:   b.pay,
+    delta: b.delta,
+    color: col(b.delta),
+    signedDelta: csign(b.delta),
+  };
+}
 
 // Winning-number tile(s) + name line for the result/respin screens. Double Ball shows both balls.
 function rResultNumsHTML(){
@@ -347,8 +394,9 @@ GAMES.roulette.patchBet = function(bet){
   if(sb) sb.innerHTML=rSelBox(S.rPick, bet);
 };
 // Refresh landed mid-spin: re-arm the ball audio and restart the wheel. If the spin words hadn't
-// resolved yet (refresh during the fetch), re-acquire them first · the spin Edge Function is
-// idempotent per device-day, so the re-fetch returns the same words.
+// resolved yet (refresh during the fetch), re-enter _resolveSpinNumber · it routes through
+// _acquireSpin, which reuses S.rSpinAcq if the round already has one instead of re-fetching, so
+// this can never re-hit the server or flip S.rUnverified a second time for the same round.
 GAMES.roulette.resume = function(){
   if(S.rPhase!=='spinning') return;
   _initRouletteAudio();
@@ -369,13 +417,14 @@ function screenRoulette(){
 
 function screenRouletteRespin(){
   const n=S.rSpin;
-  const betPreviews=_evalBets(S.rBets,n);
+  const betPreviews=_evalBets(S.rBets,n).map(_betDisplay);
   const totalDelta=betPreviews.reduce((s,b)=>s+b.delta,0);
   const wm=winMult();
   const displayDelta=wm>1&&totalDelta>0?totalDelta*wm:totalDelta;
+  const displayCol=col(displayDelta), displaySigned=csign(displayDelta);
   const betRows=betPreviews.map(b=>`<div class="irow" style="margin-bottom:4px">
-    <span class="ik"><b>${rBetLabel(b.pick)}</b> · Pays ${b.pay}:1</span>
-    <span style="font-family:var(--btn-f);font-size:1.2rem;color:${col(b.delta)}">${csign(b.delta)}</span>
+    <span class="ik"><b>${b.label}</b> · Pays ${b.pay}:1</span>
+    <span style="font-family:var(--btn-f);font-size:1.2rem;color:${b.color}">${b.signedDelta}</span>
   </div>`).join('');
   return `${hdr('Roulette · Second Chance')}
   <div class="panel" style="text-align:center">
@@ -383,7 +432,7 @@ function screenRouletteRespin(){
     <div class="divider"></div>
     <div class="vband">
       ${rResultNumsHTML()}
-      <div style="font-size:1.6rem;font-weight:700;color:${col(displayDelta)};margin-bottom:8px">${csign(displayDelta)} chips</div>
+      <div style="font-size:1.6rem;font-weight:700;color:${displayCol};margin-bottom:8px">${displaySigned} chips</div>
     </div>
     <div class="divider"></div>
     <div class="vband">${betRows}</div>
@@ -473,11 +522,11 @@ function screenRouletteResult(){
       <button class="btn-gold" onclick="advanceTo('results')">${_rNextLabel()}</button>
     </div>`;
   }
-  const bets=res.bets||[{pick:S.rPick,won:res.won,delta:res.delta,pay:R_BETS[S.rPick]?.pay}];
+  const bets=(res.bets||[{pick:S.rPick,won:res.won,delta:res.delta,pay:R_BETS[S.rPick]?.pay}]).map(_betDisplay);
   const betRows=bets.map((b,i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
     <div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
-      <span style="font-size:1rem"><b>${rBetLabel(b.pick)}</b> · Pays ${b.pay}:1</span>
-      <span style="font-family:var(--btn-f);font-size:1.35rem;color:${col(b.delta)}">${csign(b.delta)}</span>
+      <span style="font-size:1rem"><b>${b.label}</b> · Pays ${b.pay}:1</span>
+      <span style="font-family:var(--btn-f);font-size:1.35rem;color:${b.color}">${b.signedDelta}</span>
     </div>`).join('');
   return `${hdr('Roulette · Result')}
   <div class="panel" style="text-align:center">
@@ -632,7 +681,7 @@ function _colorBoostFor(mod, bets){
   if(pct==null) return null;
   const b=bets[0];
   if(!b||R_BETS[b.pick]?.type!=='col2') return null;
-  const nums=getRBetNums(b.pick);            // 18 pockets of the chosen color (red=45, black=46)
+  const nums=betCoverage(b.pick);            // 18 pockets of the chosen color (red=45, black=46)
   const chosen=new Set(nums);
   const others=[];
   for(let p=0;p<=36;p++) if(!chosen.has(p)) others.push(p); // 19 pockets: other color + green 0
@@ -708,13 +757,15 @@ async function _betHash(bets){
 // Returns the 4 random words that decide this spin. Production asks the `spin` Edge Function
 // (idempotent per device-day, so a refresh re-fetch gets the same words and a cheater can't
 // re-roll). Dev/test/backlog runs never submit, so they draw locally; a production fetch
-// failure also falls back locally but marks the run (submission then carries `unverifiedSpin`).
+// failure also falls back locally, tagged as unverified (see _acquireSpin, which records that
+// tag). PURE-ish: doesn't touch S itself (only reads it) so callers can retry it freely — the
+// unverified bookkeeping lives one level up, in _acquireSpin, so it only ever happens once.
 async function _spinWords(bets){
   const local=()=>{
     if(crypto.getRandomValues)return[...crypto.getRandomValues(new Uint32Array(4))];
     return [0,0,0,0].map(()=>Math.floor(Math.random()*4294967296));
   };
-  if(DEV_OVERRIDE||_testActive()||_backlogSeed||!sbConfigured())return local();
+  if(DEV_OVERRIDE||_testActive()||_backlogSeed||!sbConfigured())return {words:local(),fromServer:false};
   try{
     const betHash=await _betHash(bets);
     const data=await sbJson('/functions/v1/spin',{
@@ -723,16 +774,31 @@ async function _spinWords(bets){
       timeout:5000,
     });
     if(!data||!Array.isArray(data.words)||data.words.length<4||!data.words.every(Number.isFinite))throw new Error('bad spin words');
-    return data.words;
+    return {words:data.words,fromServer:true};
   }catch(e){
     if(DEV_OVERRIDE)console.error('Server spin failed, falling back to local draw:',e);
-    S.rUnverified=true;
-    return local();
+    return {words:local(),fromServer:false};
   }
 }
 
-// Fetches the spin words (server or fallback) and maps them to the winning number(s).
-async function _resolveSpinNumber(bets){ return spinFromRandom(await _spinWords(bets), spinMods()); }
+// Acquires this spin's randomness EXACTLY once per round and tags how it was obtained, so a
+// refresh mid-fetch (or the resume path re-entering with S.rSpin still null) can never re-hit the
+// server, and rUnverified can never flip after the fact. `S.rSpinAcq` — {words, fromServer,
+// verified} — is the one persisted record of that decision; verified is true only for a real
+// server draw, so it's the derivation point for S.rUnverified (kept as its own field because
+// submission + tests read `rUnverified` directly — see SUPABASE.md/ARCHITECTURE.md).
+// Idempotent: a second call (same round) reuses the stored tag instead of fetching again.
+async function _acquireSpin(bets){
+  if(S.rSpinAcq)return S.rSpinAcq; // already acquired this round (refresh/resume re-entry) — never re-fetch
+  const {words,fromServer}=await _spinWords(bets);
+  const tagged={words,fromServer,verified:fromServer};
+  mutate(s=>{ s.rSpinAcq=tagged; s.rUnverified=!tagged.verified; }); // one place both fields are set, together
+  return tagged;
+}
+
+// Fetches the spin words (server or fallback, idempotently tagged) and maps them to the winning
+// number(s).
+async function _resolveSpinNumber(bets){ return spinFromRandom((await _acquireSpin(bets)).words, spinMods()); }
 
 // In-flight lock so a double-tap can't start two word fetches.
 let _rSpinPending=false;
@@ -746,7 +812,7 @@ async function rSpin(){
   _rSpinPending=true;
   const bets=S.rBets.map(b=>[b.pick,b.bet]);
   txLog({g:'r',a:'spin',bets,respin:S.rReSpun});
-  S.rSpin=null;S.rSpin2=null;
+  S.rSpin=null;S.rSpin2=null;S.rSpinAcq=null; // fresh round (first spin or the one re-spin) — acquire new randomness, don't reuse last round's tag
   S.rPhase='spinning';
   render();updateChipDisplay();
   drawStaticWheel();   // paint the wheel face now, so it appears WITH its gold ring (not after the resolve round-trip)
@@ -770,23 +836,27 @@ function drawStaticWheel(){
   cnv.width=size;cnv.height=size;
   drawWheel(cnv,0,[]);
 }
-// Pure payout-modifier bundle from an explicit (mod, spin2) — the replay-friendly core of
-// evalBetMods(). `spin2` is the Double Ball second pocket; it only carries through when the mod is
-// active, matching the in-page snapshot. The engine passes the mapped second pocket from replay.
-function evalBetModsFor(mod, spin2){
+// Pure payout-modifier bundle from an explicit (mod, spin2, wm) — the replay-friendly core of
+// evalBetMods(). This is the ONE builder for the bundle _evalBets/resolveRoulette read: every field
+// is always present and explicitly null/false/1 when inactive, so callers never assemble or extend
+// the shape themselves (e.g. by spreading it and tacking on `wm`) — they just call the builder with
+// the extra input it needs. `spin2` (Double Ball's second pocket) only carries through when that mod
+// is active; `wm` is the win-doubling multiplier (winMultFor), folded in here so it travels with the
+// rest of the payout rules instead of being appended by each caller.
+function evalBetModsFor(mod, spin2, wm){
   return {
     payoutMult:  mod('r_payout_mult'),
     numberPay:   mod('r_number_pay'),
     colorDouble: mod('r_color_double'),
     spin2:       mod('r_double_ball') ? spin2 : null,
+    wm:          wm!=null ? wm : 1,
   };
 }
-// Snapshots the day's payout Modifiers + the Double Ball second pocket into the plain bundle the
-// pure evaluators need, so the server can replay a spin from stored bets + words. The global reads
-// live here, not in _evalBets/resolveRoulette (same pattern as spinMods). `spin2` is the second
-// pocket only when Double Ball is active.
+// Snapshots the day's payout Modifiers + the Double Ball second pocket + the live win multiplier into
+// the one plain bundle the pure evaluators need, so the server can replay a spin from stored bets +
+// words. The global reads live here, not in _evalBets/resolveRoulette (same pattern as spinMods).
 function evalBetMods(){
-  return evalBetModsFor(getMod, S.rSpin2);
+  return evalBetModsFor(getMod, S.rSpin2, winMult());
 }
 // Evaluates all placed bets against the spun pocket(s), applying any payout Modifiers, returning
 // enriched bet objects. PURE in its params: `mods` defaults to a snapshot of today's globals so
@@ -808,9 +878,11 @@ function _evalBets(bets, spin, mods = evalBetMods()) {
   });
 }
 // Pure Roulette Resolver: per-bet results plus the win-multiplier folded into one signed net delta.
-// (bets, spin, {…payout mods, spin2, wm}) → {betResults, delta, result}. No S, no DOM, no credit —
-// the caller credits stake+delta and records. This is the settlement the engine replays.
-function resolveRoulette(bets, spin, mods){
+// (bets, spin, mods = the evalBetModsFor/evalBetMods bundle) → {betResults, delta, result}. No S, no
+// DOM, no credit — the caller credits stake+delta and records. This is the settlement the engine
+// replays. `mods` defaults to today's live snapshot (same convention as _evalBets) so in-page callers
+// need not build it by hand.
+function resolveRoulette(bets, spin, mods = evalBetMods()){
   const betResults = _evalBets(bets, spin, mods);
   let delta = betResults.reduce((s,b) => s + b.delta, 0);
   if (mods.wm>1 && delta>0) delta *= mods.wm;
@@ -833,7 +905,7 @@ function _resolveRoulette(){
   // The whole staked amount was debited at placement, so returning stake + delta lands the balance
   // exactly `delta` from break-even in one credit, and `delta` is the one number recorded for the
   // score / server replay.
-  const {betResults, delta, result} = resolveRoulette(S.rBets, S.rSpin, {...evalBetMods(), wm: winMult()});
+  const {betResults, delta, result} = resolveRoulette(S.rBets, S.rSpin); // mods default to today's live snapshot (includes wm)
   const stake = S.rBets.reduce((s,b) => s + b.bet, 0);
   applyLedger(liveAcct(), rouletteAward(stake, delta));
   S.rResult = mkOutcome('r', delta, result, {bets:betResults});

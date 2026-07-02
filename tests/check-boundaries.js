@@ -21,7 +21,7 @@ const SRC = path.join(__dirname, '..', 'src');
 // module split (v1.28) and maintained by hand since.
 const MANIFEST = {
   'audio.js': ['_safePlay', 'playMp3', 'sndBigWin', 'sndCard', 'sndChip', 'sndShuffle'],
-  'bet.js': ['addToBet', 'allInAmount', 'clearedBet', 'ladderMaxStake', 'maxFor'],
+  'bet.js': ['addToBet', 'allInAmount', 'betGuard', 'clearedBet', 'ladderMaxStake', 'maxFor'],
   'bj.js': ['_bjResumeAfterRefresh', 'bjAward', 'bjAwardSplit', 'bjRulesFor', 'bjSplit', 'peekBtnHTML', 'peekRevealed', 'resetBJHand', 'resolveBJHand', 'resolveBJSplitHand', 'screenBJ'],
   'core.js': [
     'ANIM_NONE', 'BORROW_AMOUNT', 'DEV_OVERRIDE', 'GAME1', 'GAME1_OPTIONS', 'GAME2',
@@ -57,8 +57,8 @@ const MANIFEST = {
   ],
   'icons.js': ['icon'],
   'ladder.js': [
-    'LADDER_MULTS', 'ladCall', 'ladCallCorrect', 'ladCashOut', 'ladderAward', 'ladMaxStake', 'ladPotAt',
-    'ladRankVal', 'ladStakeCommit', 'resetLadderRun', 'resolveLadder', 'screenLadder',
+    'LADDER_MULTS', 'ladCall', 'ladCallCorrect', 'ladCashOut', 'ladderAward', 'ladderMode', 'ladMaxStake',
+    'ladPotAt', 'ladRankVal', 'ladStakeCommit', 'resetLadderRun', 'resolveLadder', 'screenLadder',
   ],
   'menus.js': ['applyPrefs', 'closeDropdowns', 'getPref', 'setPref', 'showActiveModInfo', 'toggleMenu', 'togglePref'],
   'net.js': ['sbConfigured', 'sbFetch', 'sbJson'],

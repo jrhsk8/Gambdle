@@ -30,7 +30,7 @@ function _resetRun(){
   S.uthHole=[]; S.uthDealer=[]; S.uthComm=[]; S.uthPrivate=null; S.uthRevealComm=0; S.uthPrevRevealComm=0; S.uthHistory=[];
   S.uthRedealPtr=27; S.timeTravelUsed=false;
   S.ladPhase='bet'; S.ladBet=0; S.ladFree=false; S.ladIdx=0; S.ladRung=0; S.ladResult=null;
-  S.rPhase='bet'; S.rBets=[]; S.rBet=0; S.rPick=null; S.rResult=null; S.rSpin=null; S.rSpin2=null; S.rReSpun=false; S.rUnverified=false;
+  S.rPhase='bet'; S.rBets=[]; S.rBet=0; S.rPick=null; S.rResult=null; S.rSpin=null; S.rSpin2=null; S.rReSpun=false; S.rSpinAcq=null; S.rUnverified=false;
   S.borrowUsed=false; S.borrowAmount=0; S.borrowReturnScreen=null; S.pcPick=null; S.forcedMod=null; S.peeksUsed=0; S.peekAt=null;
   _bjResolving=false;
 }

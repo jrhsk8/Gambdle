@@ -442,9 +442,8 @@ function _replayRoulette(tx, i, deal, mod, acct, addNet, spinWords){
   acct.debit(stake);
 
   const sp = spinFromRandom(words, spinModsFor(mod, bets, deal.rSpinOverride));
-  const em = evalBetModsFor(mod, sp.n2);
-  const wm = winMultFor(mod, acct.chips);
-  const { delta } = resolveRoulette(bets, sp.n, { ...em, wm });
+  const em = evalBetModsFor(mod, sp.n2, winMultFor(mod, acct.chips)); // one builder call, not a spread + append
+  const { delta } = resolveRoulette(bets, sp.n, em);
   applyLedger(acct, rouletteAward(stake, delta));
   addNet('r', delta);
   return j;

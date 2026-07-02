@@ -17,7 +17,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.82';
+const GAME_VERSION = 'v1.84';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -418,7 +418,8 @@ let S={
   rSpin:null,       // the winning number (set at spin time, null until first spin)
   rSpin2:null,      // second winning number for the Double Ball modifier (r_double_ball)
   rReSpun:false,    // true once the player uses their free re-spin (r_respin modifier)
-  rUnverified:false,// spin fell back to a local draw (server unreachable) — submission carries the flag
+  rSpinAcq:null,    // {words, fromServer, verified} tag for the current round's acquired randomness (roulette.js _acquireSpin) — null until fetched, cleared each new spin so a re-spin re-acquires
+  rUnverified:false,// spin fell back to a local draw (server unreachable) — derived from rSpinAcq.verified; submission carries the flag
   tx:[],            // append-only transcript of replay-relevant decisions (see txLog)
   timeTravelUsed:false, // whether the one-time daily UTH re-deal (uth_time_travel) has been used
   uthRedealPtr:27,  // next index into DEAL.uthDeck's unused tail (cards 27+) for Time Travel re-deals

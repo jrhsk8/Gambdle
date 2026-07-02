@@ -297,6 +297,44 @@ describe('_resumeAfterRefresh — mid-animation state restore', () => {
   });
 });
 
+// ─── _acquireSpin — tagged, idempotent spin acquisition (Finding #5) ─────────────
+// _spinWords itself is stubbed here (not _resolveSpinNumber, used above), so these tests exercise
+// the tagging + reuse logic in _acquireSpin directly rather than assuming its caller's behavior.
+// The runner's `it()` doesn't await promises (see runner.js), so these stay synchronous: the
+// reuse guard (`if (S.rSpinAcq) return S.rSpinAcq`) is the first line of _acquireSpin and returns
+// before any `await`, so "did it call _spinWords at all" is observable without waiting on the
+// returned promise. The tagging-after-fetch half (verified by transcript.test.js's rSpin case
+// pre-await, and by the fallback marking S.rUnverified — game-shell's submitAndFetchLeaderboard
+// tests above) is covered indirectly; this suite's job is the idempotency guarantee itself.
+
+describe('_acquireSpin — reuses an existing tag instead of re-fetching', () => {
+  it('never calls _spinWords when S.rSpinAcq is already set (refresh/resume re-entry)', () => {
+    const prev = { rSpinAcq: S.rSpinAcq };
+    const origWords = _spinWords;
+    let calls = 0;
+    _spinWords = async () => { calls++; return { words: [1, 2, 3, 4], fromServer: true }; };
+    const stored = { words: [5, 6, 7, 8], fromServer: true, verified: true };
+    S.rSpinAcq = stored;
+    try {
+      _acquireSpin([[7, 25]]); // returns a promise, but the reuse check runs before any await
+      assertEqual(calls, 0, 'no fetch: the stored tag is reused synchronously');
+      assertEqual(S.rSpinAcq, stored, 'the stored tag is untouched');
+    } finally { _spinWords = origWords; Object.assign(S, prev); }
+  });
+
+  it('a fresh round (S.rSpinAcq cleared by rSpin) does call _spinWords', () => {
+    const prev = { rSpinAcq: S.rSpinAcq };
+    const origWords = _spinWords;
+    let calls = 0;
+    _spinWords = async () => { calls++; return new Promise(() => {}); }; // never resolves; only the call count matters here
+    S.rSpinAcq = null;
+    try {
+      _acquireSpin([[7, 25]]);
+      assertEqual(calls, 1, 'no stored tag: _spinWords is asked for fresh randomness');
+    } finally { _spinWords = origWords; Object.assign(S, prev); }
+  });
+});
+
 // ─── Welcome popup gate ──────────────────────────────────────────────────────
 
 describe('_maybeShowWelcomePopup — disabled gate', () => {

@@ -192,7 +192,7 @@ function advanceTo(s){
   // detour fires when bust and borrow agree (isChipBusted()===S.borrowUsed): a clean finish (neither)
   // or a borrowed-and-still-busted finish. The old `!_canShowBorrow()` gate was too broad and
   // detoured those two excluded states into the ladder, skipping the results recalc.
-  if(s==='results')s=next(s,{ladderFree:getMod('ladder_free'),ladPlayed:!!S.ladResult,rResolved:S.rResult!==null,busted:isChipBusted(),borrowUsed:S.borrowUsed});
+  if(s==='results')s=next(s,{ladderFree:ladderMode().detourToday,ladPlayed:!!S.ladResult,rResolved:S.rResult!==null,busted:isChipBusted(),borrowUsed:S.borrowUsed});
   if(isChipBusted()&&_canShowBorrow()){
     if(s!=='results'){
       // Mid-game transition bust (e.g., would have gone to UTH/Roulette but broke).
@@ -209,7 +209,7 @@ function advanceTo(s){
   }
   // Busted players are normally forced to results, but the free ladder entry is house
   // money — a busted player still gets (and may need) the bonus round.
-  if(s!=='results'&&!(s==='ladder'&&getMod('ladder_free'))&&isChipBusted())s='results';
+  if(s!=='results'&&!(s==='ladder'&&ladderMode().detourToday)&&isChipBusted())s='results';
   if(s==='results'&&!DEV_OVERRIDE){
     const _calc=recalcChips();
     // Fall back to the current saved value if the recalculation is non-finite (corrupted history).

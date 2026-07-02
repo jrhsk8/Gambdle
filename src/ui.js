@@ -165,9 +165,16 @@ function modBannerHTML(slim=false){
 // ─── CHIP & BETTING ───────────────────────────────────────────
 // Returns the state key for the active screen's bet (e.g. 'bjBet', 'uthAnte') from the Game registry.
 function curBetRef(){return GAMES[S.screen]?.betKey??'pkBet';}
-// Adapter over the pure bet-cap math (bet.js): resolve the live chips + active modifier,
-// hand them to maxFor. The per-game cap rules (UTH 2/3, Ladder 25% / free-entry) live there.
-function maxBet(){ return maxFor(S.screen, S.chips, { ladderFree: getMod('ladder_free') }); }
+// The mods bag every bet.js entry point needs for the live screen: the Ladder's free-entry lock
+// (asked through its policy, ladderMode(), rather than re-reading the raw modifier, so this file
+// and ladder.js can't drift on the question) plus the min-chips floor (high_stakes etc.), so
+// betGuard's canBet/label answer accounts for it without each call site re-reading getMod itself.
+function _liveBetMods(){
+  return { ladderFree: ladderMode().detourToday && ladderMode().stake, minChips: getMod('min_chips') || 0 };
+}
+// Adapter over the pure bet-guard (bet.js): resolve the live chips + active modifiers, hand them to
+// betGuard, return just the cap. The per-game cap rules (UTH 2/3, Ladder 25% / free-entry) live there.
+function maxBet(){ return betGuard(S.screen, S.chips, _liveBetMods()).max; }
 
 // ─── SURGICAL PATCH HELPERS ───────────────────────────────────
 // The single home of the "patch in place, else rebuild from S" decision — so the never-render()-
@@ -213,9 +220,12 @@ function patchEl(id, fn){
 function patchBetUI() {
   const k = curBetRef();
   const bet = S[k];
-  const max = maxBet();
-  const minChipsMod = getMod('min_chips') || 0;
-  const isBetValid = bet >= minChipsMod;
+  const guard = betGuard(S.screen, S.chips, _liveBetMods());
+  const max = guard.max;
+  // isBetValid asks a different question than guard.canBet: canBet is "does the cap even allow a
+  // bet" (used for the All In button, which stakes the cap itself); isBetValid is "does THIS placed
+  // bet clear the min-chips floor" (used for the Deal button).
+  const isBetValid = bet >= (getMod('min_chips') || 0);
   const bv=document.getElementById(DOM.betVal);
   // Re-render only if no chip-bet UI is on screen at all. UTH replaces #bv with its Ante+Blind
   // summary (updated below via #uth-summary), so a missing #bv alone is fine — patch surgically.
@@ -233,7 +243,7 @@ function patchBetUI() {
     if(pba){const pickAlreadyBet=S.rPick!==null&&S.rBets.some(b=>b.pick===S.rPick);pba.disabled=!((S.rBets.length<maxBets||pickAlreadyBet)&&S.rPick!==null&&bet>0);}
   }
   const ai=document.getElementById(DOM.allInBtn);
-  if(ai)ai.disabled=max===0 || max < minChipsMod;
+  if(ai)ai.disabled=!guard.canBet;
   // Game-specific bet-UI patching (roulette selection box · UTH stake summary + pay table) lives with
   // each game and is dispatched through the Game registry; patchBetUI owns only the shared chip UI.
   GAMES[S.screen]?.patchBet(bet);   // every game entry has a patchBet (no-op without bet-UI extras); entry guard covers shell screens
@@ -255,7 +265,7 @@ function applyBetAction(action, ctx){
   const k=curBetRef();
   if(action==='add')        S[k]=addToBet(S[k],ctx.delta,maxBet());
   else if(action==='clear') S[k]=clearedBet();
-  else if(action==='allin') S[k]=allInAmount(S.screen,S.chips,{ladderFree:getMod('ladder_free')});
+  else if(action==='allin') S[k]=betGuard(S.screen,S.chips,_liveBetMods()).allIn;
   if(action!=='clear') sndChip();
   patchBetUI();
 }
