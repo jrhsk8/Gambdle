@@ -20,7 +20,7 @@ function _bjRestoreS() {
 // chips should be post-bet-deduction (i.e. original chips minus the bet already taken).
 // dealer cards must total >= 17 so bjResolve doesn't try to draw from the shoe.
 //
-// Built on the shared tests/game-harness.js withGame() for snapshot/restore.
+// Built on the shared tests/harness/game-harness.js withGame() for snapshot/restore.
 // _bjRestoreS/_bjCleanJson above are also used standalone elsewhere in this file
 // (refresh-recovery tests, teardown, and so on), not just here.
 registerGameBuilder('bj', ({ player, dealer, bet, chips, forcedMod = {}, doubled = false }) => {

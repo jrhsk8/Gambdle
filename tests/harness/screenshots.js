@@ -8,12 +8,12 @@ const fs = require('fs');
 const path = require('path');
 const { webkit } = require('playwright');
 const { versionedOutDir } = require('./screenshot-versioning');
-const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
+const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../../index.html';
 // screenshots/<GAME_VERSION>/webkit/ : versioned and auto-pruned (see screenshot-versioning.js).
 const OUT = versionedOutDir('webkit');
 const SA_T = 59, SA_B = 55;
 
-// Shared Fixture registry (tests/screen-fixtures.js), injected wholesale and driven by name.
+// Shared Fixture registry (tests/harness/screen-fixtures.js), injected wholesale and driven by name.
 const FIXTURES_SRC = fs.readFileSync(path.join(__dirname, 'screen-fixtures.js'), 'utf8');
 
 // [outputName, fixtureName] in review order. The numbered output names preserve the original

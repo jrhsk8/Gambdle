@@ -3,7 +3,7 @@
 // order-critical construction the replay engine also calls (engine.js:423); genDeal() layers the
 // test/seed overrides on top, and DEAL is built once at page load. Depends on core.js: mkRng,
 // buildDeck, shuffle, card, getRngSeed, _testActive. Loads right after core.js, and is bundled
-// into the Edge Function replay engine (tests/build-engine-bundle.js). Public: buildDeal, DEAL.
+// into the Edge Function replay engine (tests/harness/build-engine-bundle.js). Public: buildDeal, DEAL.
 // ─────────────────────────────────────────────────────────────────────────────
 // Manual overrides for deck seeding (independent of the ?dev=true flag).
 const ENABLE_CARD_SEEDING = false; // set to true to enable the overrides below

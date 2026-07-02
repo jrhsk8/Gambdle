@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>â™£ Gambdle Layout Tests</title>
   <!-- Real game stylesheet â€” required so CSS media queries fire at the correct breakpoints -->
-  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="../../src/styles.css">
   <style>
     /* Real game font, self-hosted (latin subset, SIL OFL â€” see assets/VT323-OFL.txt) instead of the
        Google Fonts CDN. Text sizing must use VT323's real metrics, and the CDN load is an async race
@@ -17,7 +17,7 @@
       font-style: normal;
       font-weight: 400;
       font-display: block;
-      src: url('../assets/vt323-latin.woff2') format('woff2');
+      src: url('../../assets/vt323-latin.woff2') format('woff2');
     }
     /* Test output overlay â€” position:fixed so it has zero effect on document flow/height */
     #test-overlay {
@@ -59,30 +59,30 @@
     } catch(e) {}
   </script>
 
-  <script src="../src/modifiers.js"></script>
-  <script src="../src/icons.js"></script>
-  <script src="../src/core.js"></script>
-  <script src="../src/net.js"></script>
-  <script src="../src/deal.js"></script>
-  <script src="../src/record.js"></script>
-  <script src="../src/dom-ids.js"></script>
-  <script src="../src/bet.js"></script>
-  <script src="../src/gametext.js"></script>
-  <script src="../src/audio.js"></script>
-  <script src="../src/poker-eval.js"></script>
-  <script src="../src/uth.js"></script>
-  <script src="../src/poker.js"></script>
-  <script src="../src/roulette.js"></script>
-  <script src="../src/ladder.js"></script>
-  <script src="../src/bj.js"></script>
-  <script src="../src/ui.js"></script>
-  <script src="../src/windows.js"></script>
-  <script src="../src/menus.js"></script>
-  <script src="../src/dev.js"></script>
-  <script src="../src/screens.js"></script>
-  <script src="../src/flow.js"></script>
-  <script src="../src/seedcheck.js"></script>
-  <script src="../src/game.js"></script>
+  <script src="../../src/modifiers.js"></script>
+  <script src="../../src/icons.js"></script>
+  <script src="../../src/core.js"></script>
+  <script src="../../src/net.js"></script>
+  <script src="../../src/deal.js"></script>
+  <script src="../../src/record.js"></script>
+  <script src="../../src/dom-ids.js"></script>
+  <script src="../../src/bet.js"></script>
+  <script src="../../src/gametext.js"></script>
+  <script src="../../src/audio.js"></script>
+  <script src="../../src/poker-eval.js"></script>
+  <script src="../../src/uth.js"></script>
+  <script src="../../src/poker.js"></script>
+  <script src="../../src/roulette.js"></script>
+  <script src="../../src/ladder.js"></script>
+  <script src="../../src/bj.js"></script>
+  <script src="../../src/ui.js"></script>
+  <script src="../../src/windows.js"></script>
+  <script src="../../src/menus.js"></script>
+  <script src="../../src/dev.js"></script>
+  <script src="../../src/screens.js"></script>
+  <script src="../../src/flow.js"></script>
+  <script src="../../src/seedcheck.js"></script>
+  <script src="../../src/game.js"></script>
 
   <!-- Shared measurement core + Fixture registry â€” loaded after the game so they can read
        the live DOM and reference S/card()/render(). Both feed the Layout DSL (layout-dsl.js). -->
@@ -119,7 +119,7 @@
       try {
         try { await document.fonts.load('1em "VT323"'); } catch (e) {}
         try { await document.fonts.ready; } catch (e) {}
-        for (const f of ['layout.test.js', 'layout-balloon.test.js', 'layout-dsl.test.js']) {
+        for (const f of ['../layout.test.js', '../layout-balloon.test.js', '../layout-dsl.test.js']) {
           await new Promise((resolve, reject) => {
             const s = document.createElement('script');
             s.src = f; s.onload = resolve; s.onerror = () => reject(new Error('failed to load ' + f));

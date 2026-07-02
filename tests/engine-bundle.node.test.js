@@ -6,7 +6,7 @@
 // RNG-independent goldens and the seed-parameterized modifier resolution the server depends on.
 //
 // Run standalone:  node tests/engine-bundle.node.test.js
-// Also invoked by tests/run.js before the browser suite (so `npm test` covers it).
+// Also invoked by tests/harness/run.js before the browser suite (so `npm test` covers it).
 
 const path = require('path');
 const { pathToFileURL } = require('url');

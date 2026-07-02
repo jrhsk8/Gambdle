@@ -4,13 +4,13 @@
 // Screen's distribution chart, which the frame stubs offline. A smoke check, not a full
 // integration test (per PRD-ui-tweak-pipeline.md Testing Decisions).
 //
-// Run on demand:  npm run lab:smoke   (or: node tests/lab-smoke.js)
+// Run on demand:  npm run lab:smoke   (or: node tests/harness/lab-smoke.js)
 // Deliberately NOT part of `npm test`: the lab + dev server are on-demand dev tools.
 // First time: npx playwright install chromium (npm install pulls it in).
 
 process.env.LAB_PORT = process.env.LAB_PORT || '5188'; // isolated port so a running lab doesn't clash
 const { chromium } = require('playwright');
-const lab = require('../lab/lab-serve.js'); // requiring starts server.listen()
+const lab = require('../../lab/lab-serve.js'); // requiring starts server.listen()
 const BASE = `http://localhost:${lab.PORT}`;
 
 (async () => {

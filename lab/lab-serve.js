@@ -77,10 +77,10 @@ function watch(target) {
   try { fs.watch(target, { recursive: true }, onChange); }
   catch (e) { /* missing path / platform without recursive watch — non-fatal */ }
 }
-try { fs.watch(path.join(ROOT, 'styles.css'), onChange); } catch (e) {}
+try { fs.watch(path.join(ROOT, 'src', 'styles.css'), onChange); } catch (e) {}
 watch(path.join(ROOT, 'src'));
 watch(path.join(ROOT, 'lab'));
-watch(path.join(ROOT, 'tests', 'screen-fixtures.js'));
+watch(path.join(ROOT, 'tests', 'harness', 'screen-fixtures.js'));
 
 server.listen(PORT, () => {
   console.log(`\n  ♣  Gambdle UI Lab  →  http://localhost:${PORT}/\n`);

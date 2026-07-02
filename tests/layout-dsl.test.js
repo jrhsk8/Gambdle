@@ -7,7 +7,7 @@
 //     honours the intent and THROWS on one that violates it. This file's own correctness matters
 //     a lot, since every layout check in the suite depends on it. (makeBareL gives matchers that
 //     throw directly, so a test here can try/catch them; expectLayout wraps the same logic in it()s.)
-// See tests/layout-dsl.js and PRD-ui-tweak-pipeline.md.
+// See tests/harness/layout-dsl.js and PRD-ui-tweak-pipeline.md.
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 const _ldSavedSeed = _ls.getItem('gambdle_use_test_seed');

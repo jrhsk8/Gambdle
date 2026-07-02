@@ -322,7 +322,7 @@ describe('uthBlindDelta', () => {
 // ─── UTH game flow: uthFold / uthRaise / uthResolve ─────────────────────────
 // These exercise the state machine and chip math, not just hand evaluation.
 
-// Built on the shared tests/game-harness.js withGame(): a plain Object.assign onto S, the
+// Built on the shared tests/harness/game-harness.js withGame(): a plain Object.assign onto S, the
 // caller invokes the action inside fn(), and withGame handles the snapshot/restore.
 registerGameBuilder('uth', overrides => {
   Object.assign(S, overrides);

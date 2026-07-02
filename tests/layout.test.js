@@ -27,7 +27,7 @@ const VERT_TOL         = LayoutMeasure.FIT_TOL.vert;        // px, mobile window
 const HORIZ_TOL        = LayoutMeasure.FIT_TOL.horiz;       // px
 const PANEL_SCROLL_TOL = LayoutMeasure.FIT_TOL.panelScroll; // px, desktop panel scroll tolerance
 
-// Viewport + zoom helpers come from the shared measurement core (tests/layout-measure.js),
+// Viewport + zoom helpers come from the shared measurement core (tests/harness/layout-measure.js),
 // so this suite and the Layout DSL read identical geometry. Aliased to the historical names
 // the rest of this file uses. _appZoom: on large displays `.app` carries a CSS `zoom`, so any
 // test comparing getBoundingClientRect (post-zoom) to getComputedStyle (pre-zoom) normalizes
@@ -904,7 +904,7 @@ describe('layout — devstats', () => {
 // ─── iOS safe-area insets ───────────────────────────────────────────────────────
 // Safe-area handling (viewport-fit=cover + env() padding + the dvh/scroll fallback for
 // phones smaller than a screen is designed for) is tested authoritatively in WebKit,
-// Safari's real engine, by `npm run test:webkit` (tests/webkit-layout.js). It simulates
+// Safari's real engine, by `npm run test:webkit` (tests/harness/webkit-layout.js). It simulates
 // realistic iPhone chrome and checks overlap, out-of-bounds, reachability, and that any
 // scrolling is vertical-only. That belongs in WebKit, not headless Chromium, which
 // reports env() as 0 and can't reproduce Safari's scroll/inset behavior.

@@ -1,27 +1,27 @@
 // Generates review screenshots of the game at a range of window sizes, in Chromium.
-// Companion to tests/screenshots.js (which is iPhone/WebKit-only). Use this to eyeball
+// Companion to tests/harness/screenshots.js (which is iPhone/WebKit-only). Use this to eyeball
 // desktop layout and the large-display zoom steps (2560×1440 → 1.25×, 3840×2160 → 1.8×;
 // see the large-display block in styles.css).
 //
 // Run:   npm run screenshots:windows
-//        node tests/window-screenshots.js                 # every screen × every size
-//        node tests/window-screenshots.js 2560            # only sizes whose label matches "2560"
-//        node tests/window-screenshots.js uth             # all sizes, only screens matching "uth"
-//        node tests/window-screenshots.js 3840 uth-flop   # 3840-wide size, only the uth-flop screen
+//        node tests/harness/window-screenshots.js                 # every screen × every size
+//        node tests/harness/window-screenshots.js 2560            # only sizes whose label matches "2560"
+//        node tests/harness/window-screenshots.js uth             # all sizes, only screens matching "uth"
+//        node tests/harness/window-screenshots.js 3840 uth-flop   # 3840-wide size, only the uth-flop screen
 // Args are matched against size labels and screen names automatically, so order
 // doesn't matter and you never need to pass an empty placeholder (PowerShell drops
 // empty-string args, which made positional filters fragile).
 //
 // Writes screenshots/<GAME_VERSION>/windows/<size>__<screen>.png  (screenshots/ is git-ignored).
 // Renders are tagged by game version and version folders >3 versions old are auto-pruned; see
-// tests/screenshot-versioning.js. First time: npx playwright install chromium  (npm install pulls it in).
+// tests/harness/screenshot-versioning.js. First time: npx playwright install chromium  (npm install pulls it in).
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 const { versionedOutDir } = require('./screenshot-versioning');
-const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
+const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../../index.html';
 
-// Shared Fixture registry (tests/screen-fixtures.js), injected wholesale into the page,
+// Shared Fixture registry (tests/harness/screen-fixtures.js), injected wholesale into the page,
 // then driven by name via renderFixture(). This script just chooses which fixtures to
 // capture and in what order.
 const FIXTURES_SRC = fs.readFileSync(path.join(__dirname, 'screen-fixtures.js'), 'utf8');

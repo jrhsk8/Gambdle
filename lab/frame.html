@@ -12,7 +12,7 @@
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=VT323&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap"></noscript>
   <!-- Relative paths (../) so the lab works both served (npm run lab) and opened directly via file://. -->
-  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="../src/styles.css">
 </head>
 <body>
   <div id="app"></div>
@@ -66,7 +66,7 @@
   <script src="../src/game.js"></script>
 
   <!-- Shared Fixture registry — drives the preview by name. -->
-  <script src="../tests/screen-fixtures.js"></script>
+  <script src="../tests/harness/screen-fixtures.js"></script>
 
   <script>
     // Don't let the boot reload the page or animate; we drive the Screen ourselves.

@@ -5,7 +5,7 @@
 //
 // Two consumers share this ONE code path so they can never disagree about what "fits":
 //   • the layout suite's checkScreen()/checkNoPooledSlack()/checkHeadlineTight()
-//   • the Layout DSL's L.fits()/L.gap()/L.el() matchers (tests/layout-dsl.js)
+//   • the Layout DSL's L.fits()/L.gap()/L.el() matchers (tests/harness/layout-dsl.js)
 //
 // Loaded as a browser <script> in the layout-test harness (and the UI Lab) AFTER the game
 // scripts, so it can read the live DOM via getBoundingClientRect()/getComputedStyle().

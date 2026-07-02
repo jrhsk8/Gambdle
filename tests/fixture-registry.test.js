@@ -1,5 +1,5 @@
 // ─── Fixture registry smoke tests ─────────────────────────────────────────────
-// Guards tests/screen-fixtures.js: every entry in SCREEN_FIXTURES, driven through
+// Guards tests/harness/screen-fixtures.js: every entry in SCREEN_FIXTURES, driven through
 // renderFixture(), must render without throwing and land on a valid screen (a .panel).
 // A broken or renamed fixture is caught here immediately, before it breaks the lab,
 // the screenshot scripts, or the layout tests that all read from this same registry.

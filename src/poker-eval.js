@@ -9,7 +9,7 @@
 //
 // Must stay pure: no reads of S, no DOM, no rng()/getMod() calls, no globals beyond the
 // plain function/card-shape inputs below. This file is concatenated verbatim into the
-// server replay bundle (tests/build-engine-bundle.js derives its file list from index.html
+// server replay bundle (tests/harness/build-engine-bundle.js derives its file list from index.html
 // and does not exclude this file, so it ships as part of the Node/Deno replay closure).
 // Anything impure here would desync live scoring from replayed scoring, or crash the
 // headless bundle outright.

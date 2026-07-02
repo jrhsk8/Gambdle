@@ -1,12 +1,12 @@
 {
   "private": true,
   "scripts": {
-    "test": "node tests/run.js",
-    "test:webkit": "node tests/webkit-layout.js",
-    "screenshots": "node tests/screenshots.js",
-    "screenshots:windows": "node tests/window-screenshots.js",
+    "test": "node tests/harness/run.js",
+    "test:webkit": "node tests/harness/webkit-layout.js",
+    "screenshots": "node tests/harness/screenshots.js",
+    "screenshots:windows": "node tests/harness/window-screenshots.js",
     "lab": "node lab/lab-serve.js",
-    "lab:smoke": "node tests/lab-smoke.js"
+    "lab:smoke": "node tests/harness/lab-smoke.js"
   },
   "devDependencies": {
     "playwright": "^1.60.0"

@@ -43,7 +43,7 @@ describe('Ladder — pot math', () => {
 });
 
 // ─── State-machine harness ───────────────────────────────────────────────────
-// Wraps the shared tests/game-harness.js withGame(): applies the Ladder slice plus
+// Wraps the shared tests/harness/game-harness.js withGame(): applies the Ladder slice plus
 // chips/tx/forcedMod/screen overrides to S, runs fn(), then restores S. withGame
 // snapshots the full S before applying overrides, so nothing set here is lost after
 // the test runs. S.tx is always reset to [] first, so each Ladder test starts with

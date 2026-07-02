@@ -18,7 +18,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.86';
+const GAME_VERSION = 'v1.87';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -572,7 +572,7 @@ function applyLedger(acct, ledger){
 // ─── LEDGER ENTRY GRAMMAR (catches typos in the *Award builders) ─────────────
 // Same strict-mode shape as record.js's TX_SHAPE/ROUND_DETAIL_KEYS checks, but reimplemented here (not
 // imported) because record.js is DOM-facing and excluded from the replay engine bundle
-// (tests/build-engine-bundle.js EXCLUDE), while core.js, and therefore this file, IS bundled. The
+// (tests/harness/build-engine-bundle.js EXCLUDE), while core.js, and therefore this file, IS bundled. The
 // detector below deliberately mirrors record.js's `_strictRounds` rather than sharing it.
 // Bundle-safe: the engine bundle's STUB preamble defines a plain `window = { location: {search:''} }`,
 // so `window.__GAMBDLE_TEST__` reads as undefined (never throws) and DEV_OVERRIDE resolves to its

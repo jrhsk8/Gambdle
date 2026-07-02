@@ -1,7 +1,7 @@
 // Freshness GATE for the engine bundle (supabase/functions/_shared/engine-bundle.mjs), the
 // concatenation of src/*.js that submit-score imports to replay runs server-side. Extracted out
 // of build-engine-bundle.js so the same check can run from three places: `npm test`
-// (tests/run.js), a standalone pre-deploy CLI (`node tests/verify-bundle.js`, see below), and
+// (tests/harness/run.js), a standalone pre-deploy CLI (`node tests/harness/verify-bundle.js`, see below), and
 // anywhere else that wants a yes/no without also wanting to rebuild.
 //
 // WHY this exists as its own gate: on 2026-06-22, submit-score was deployed with a bundle that was
@@ -13,7 +13,7 @@
 //
 // Usage:
 //   const { verifyBundleFresh } = require('./verify-bundle');   // from other Node scripts
-//   node tests/verify-bundle.js                                  // standalone: prints + exits 1 if stale
+//   node tests/harness/verify-bundle.js                                  // standalone: prints + exits 1 if stale
 
 const fs = require('fs');
 const path = require('path');
@@ -24,7 +24,7 @@ const { ROOT, OUT, FILES, build, fileSections, extractEmbeddedSource } = require
 //   { fresh: false, staleFiles: [...],   message: '<actionable string>' }
 // MISSING is treated as fresh, not stale: the bundle lives under the git-ignored supabase/ tree,
 // so a fresh clone simply hasn't generated it yet. build-engine-bundle.js's own `write()` (called
-// via `npm test` -> tests/run.js) creates it on first run; this function just writes it too so a
+// via `npm test` -> tests/harness/run.js) creates it on first run; this function just writes it too so a
 // bare call to verifyBundleFresh() is enough to bootstrap a clean checkout.
 function verifyBundleFresh() {
   const outPath = path.join(ROOT, OUT);
@@ -57,7 +57,7 @@ function verifyBundleFresh() {
   return {
     fresh: false,
     staleFiles,
-    message: `Engine bundle stale — regenerate: node tests/build-engine-bundle.js${staleNote}`,
+    message: `Engine bundle stale — regenerate: node tests/harness/build-engine-bundle.js${staleNote}`,
   };
 }
 

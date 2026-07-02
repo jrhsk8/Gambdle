@@ -65,7 +65,7 @@ modifiers.js → core.js → gametext.js → audio.js → ui.js → windows.js �
 | File | Purpose |
 |------|---------|
 | `index.html` | Shell — links CSS, JS, fonts |
-| `styles.css` | All styles |
+| `src/styles.css` | All styles |
 | `src/modifiers.js` | Daily modifier definitions, schedule, and seed overrides |
 | `src/core.js` | State, RNG/seeding, constants, card utilities, save/load |
 | `src/gametext.js` | All editable player-facing copy: tutorial tips, Help/About, What's New, status hints, share text |

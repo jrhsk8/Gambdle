@@ -1,5 +1,5 @@
-// Headless test runner: opens tests/test.html and tests/layout-test.html in Chromium.
-// Usage: npm test  (or:  node tests/run.js)
+// Headless test runner: opens tests/harness/test.html and tests/harness/layout-test.html in Chromium.
+// Usage: npm test  (or:  node tests/harness/run.js)
 // Quiet by default: on all-pass it prints one line per suite; failing pages always
 // print full detail. Pass --verbose (or set GAMBDLE_TEST_VERBOSE=1) for the full
 // per-section + per-screen layout-slack report.
@@ -18,7 +18,7 @@ console.log('MODULE BOUNDARIES: ✅ clean\n');
 
 // Engine bundle (server-replay) must be regenerated whenever a bundled src file changes: the
 // submit-score Edge Function imports it, so a stale bundle means client and server disagree.
-// tests/verify-bundle.js exposes the same check as a standalone pre-deploy CLI (run that before any
+// tests/harness/verify-bundle.js exposes the same check as a standalone pre-deploy CLI (run that before any
 // `supabase functions deploy submit-score`, since a deploy can happen without `npm test` running).
 const bundleCheck = require('./verify-bundle').verifyBundleFresh();
 if (!bundleCheck.fresh) {
@@ -95,7 +95,7 @@ function summaryCounts(summary) {
 (async () => {
   // Server-replay engine bundle: load it in Node and check it has everything it needs, plus the
   // RNG-independent goldens and seed-parameterized modifier resolution (tests/engine-bundle.node.test.js).
-  const bundle = await require('./engine-bundle.node.test').run();
+  const bundle = await require('../engine-bundle.node.test').run();
   console.log(bundle.fail
     ? `❌ ENGINE BUNDLE: ${bundle.fail}/${bundle.total} failed`
     : `ENGINE BUNDLE: ✅ all ${bundle.total} checks passed\n`);

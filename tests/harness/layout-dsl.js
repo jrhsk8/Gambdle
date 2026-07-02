@@ -8,7 +8,7 @@
 //     L.centeredOverhang('#db', '.bet-amt');      // named intent: centers over + overhangs the bet box
 //   });
 //
-// Built on the shared measurement code (tests/layout-measure.js) so a check measures the SAME
+// Built on the shared measurement code (tests/harness/layout-measure.js) so a check measures the SAME
 // geometry the suite's own fit checks do, and on the runner's describe/it/assert. Every check is
 // zoom-normalized and tolerance-aware; failures name the screen, size, selectors, and
 // expected-vs-actual px. State is set via the shared fixture registry (renderFixture), so a check
@@ -32,7 +32,7 @@
   };
 
   // ONE viewport gate for the whole file. The layout suite re-renders the same page once per
-  // binding size (see tests/run.js), so any check written for a specific size (e.g. "1280x800")
+  // binding size (see tests/harness/run.js), so any check written for a specific size (e.g. "1280x800")
   // must do nothing, not fail, at every OTHER size the page happens to load at. Keeping this in
   // one place means there is exactly one spot that decides "is this my viewport?"; anything else
   // that needs the same skip behavior reuses this instead of writing its own

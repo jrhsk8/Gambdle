@@ -12,7 +12,7 @@
 const { webkit } = require('playwright');
 const fs = require('fs');
 const path = require('path');
-const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
+const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../../index.html';
 
 // VT323 (the game's pixel font) self-hosted as a data: URL so the harness never races the Google Fonts
 // CDN. Headless WebKit would sometimes report the CDN font as loaded yet never apply it to LAYOUT for a
@@ -22,9 +22,9 @@ const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
 // chars outside it (e.g. →) fall back identically on a real device, so the metrics match. Font: VT323
 // (Google Fonts, SIL OFL 1.1, see assets/VT323-OFL.txt), the exact woff2 the live CDN serves WebKit.
 const VT323_DATA_URL = 'data:font/woff2;base64,' +
-  fs.readFileSync(path.join(__dirname, '..', 'assets', 'vt323-latin.woff2')).toString('base64');
+  fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'vt323-latin.woff2')).toString('base64');
 
-// Shared Fixture registry (tests/screen-fixtures.js): same source screenshots.js and
+// Shared Fixture registry (tests/harness/screen-fixtures.js): same source screenshots.js and
 // window-screenshots.js inject. Fixture state lives there once; this file only picks which
 // named states to geometry-check and drives them via renderFixture(). A new Screen state
 // only has to be defined once to be covered by screenshots, the lab, and this suite.

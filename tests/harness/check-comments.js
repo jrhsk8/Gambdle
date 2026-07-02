@@ -7,12 +7,12 @@
 //   • every src/*.js file opens with a // header comment
 // Content rules (tone, banned refactor history, etc.) are judgment calls the
 // checker can't see; those live in COMMENTS.md only.
-// Runs in `npm test` (tests/run.js); standalone: node tests/check-comments.js
+// Runs in `npm test` (tests/harness/run.js); standalone: node tests/harness/check-comments.js
 
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.join(__dirname, '..');
+const ROOT = path.join(__dirname, '..', '..');
 
 const EM_DASH = '—';
 const MARKER_RE = /\b(TODO|FIXME|XXX|HACK)\b/;
@@ -84,7 +84,7 @@ function check() {
   // engine-bundle.mjs is generated (build-engine-bundle.js) and inherits src comments; skip it.
   for (const rel of listFiles(path.join('supabase', 'functions'), '.ts'))
     checkJs(rel, read(rel), false, problems);
-  checkCss('styles.css', read('styles.css'), problems);
+  checkCss('src/styles.css', read(path.join('src', 'styles.css')), problems);
   return problems;
 }
 

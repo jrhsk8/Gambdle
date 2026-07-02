@@ -222,7 +222,7 @@ describe("Player's Choice variants", () => {
 // ─── Modifier behavior: gameplay effects of active modifiers ────────────────
 
 // Runs fn with S.forcedMod set, then restores the full state. Thin wrapper over
-// tests/game-harness.js withGame(), which snapshots and restores all of S.
+// tests/harness/game-harness.js withGame(), which snapshots and restores all of S.
 registerGameBuilder('mod', ({ mod, chipOverride }) => {
   S.forcedMod = mod;
   if (chipOverride !== undefined) S.chips = chipOverride;
@@ -357,7 +357,7 @@ describe('uthBlindDelta — boost + extended combined', () => {
 
 // ─── bj_wild_split ───────────────────────────────────────────────────────────
 
-// Built on the shared tests/game-harness.js withGame(): a full-S snapshot/restore per call.
+// Built on the shared tests/harness/game-harness.js withGame(): a full-S snapshot/restore per call.
 registerGameBuilder('splitMod', ({ mod, overrides }) => {
   S.forcedMod = mod;
   Object.assign(S, overrides);

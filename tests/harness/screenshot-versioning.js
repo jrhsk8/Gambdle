@@ -1,5 +1,5 @@
-// Shared screenshot versioning + retention, used by tests/screenshots.js (WebKit/iOS) and
-// tests/window-screenshots.js (Chromium windows). Review screenshots are written under
+// Shared screenshot versioning + retention, used by tests/harness/screenshots.js (WebKit/iOS) and
+// tests/harness/window-screenshots.js (Chromium windows). Review screenshots are written under
 //   screenshots/<GAME_VERSION>/<engine>/...
 // so every render is tagged with the game version it captured. Re-running an engine for the
 // current version refreshes ONLY that engine's folder (stale/renamed shots don't pile up),
@@ -13,12 +13,12 @@ const path = require('path');
 // current GAME_VERSION. e.g. at v1.38 with 3: v1.35–v1.38 are kept, v1.34 and older are pruned.
 const KEEP_VERSIONS_BACK = 3;
 
-const ROOT = path.join(__dirname, '..', 'screenshots');
+const ROOT = path.join(__dirname, '..', '..', 'screenshots');
 
 // Single source of truth for the version (src/core.js), read without importing the browser
 // bundle so these Node scripts stay decoupled from the page globals.
 function gameVersion() {
-  const core = fs.readFileSync(path.join(__dirname, '..', 'src', 'core.js'), 'utf8');
+  const core = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'core.js'), 'utf8');
   const m = core.match(/GAME_VERSION\s*=\s*['"]([^'"]+)['"]/);
   if (!m) throw new Error('Could not find GAME_VERSION in src/core.js');
   return m[1];
