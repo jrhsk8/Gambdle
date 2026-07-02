@@ -266,18 +266,19 @@ function doTimeTravel(){
   if(!getMod('uth_time_travel')||S.timeTravelUsed) return;
   if(S.uthPhase!=='flop'&&S.uthPhase!=='turn') return;
   txLog({g:'uth',a:'timetravel',h:S.uthHand,st:S.uthPhase}); // re-deals cards, so replay needs it
-  S.timeTravelUsed=true;
-  let ptr=S.uthRedealPtr;
-  if(S.uthPhase==='flop'){
-    for(let i=0;i<3;i++) S.uthComm[i]=DEAL.uthDeck[ptr++];
-    S.uthPrevRevealComm=0;S.uthRevealComm=3;
-  }else{ // turn — re-deal the turn + river cards (indices 3 and 4)
-    S.uthComm[3]=DEAL.uthDeck[ptr++];S.uthComm[4]=DEAL.uthDeck[ptr++];
-    S.uthPrevRevealComm=3;S.uthRevealComm=5;
-  }
-  S.uthRedealPtr=ptr;
+  mutate(s=>{
+    s.timeTravelUsed=true;
+    let ptr=s.uthRedealPtr;
+    if(s.uthPhase==='flop'){
+      for(let i=0;i<3;i++) s.uthComm[i]=DEAL.uthDeck[ptr++];
+      s.uthPrevRevealComm=0;s.uthRevealComm=3;
+    }else{ // turn — re-deal the turn + river cards (indices 3 and 4)
+      s.uthComm[3]=DEAL.uthDeck[ptr++];s.uthComm[4]=DEAL.uthDeck[ptr++];
+      s.uthPrevRevealComm=3;s.uthRevealComm=5;
+    }
+    s.uthRedealPtr=ptr;
+  });
   const btn=document.getElementById(DOM.ttBtnWrap);if(btn)btn.style.display='none';
-  saveState();
   updateUthCommunityCards();
 }
 // Split uthAnte into whole-chip portions. Ante gets the extra chip on odd totals
@@ -459,7 +460,8 @@ function updateUthCommunityCards() {
   }
 
   const finishDelay = startDelay + (revealedCount * interval);
-  S.uthPrevRevealComm = S.uthRevealComm;
+  // Persist the reveal progress before the timers fire (street changes don't get interrupted mid-animate).
+  mutate(s=>{ s.uthPrevRevealComm = s.uthRevealComm; });
 
   const dotsContainer = document.getElementById(DOM.uthDotsContainer);
   setTimeout(() => {
@@ -475,8 +477,6 @@ function updateUthCommunityCards() {
       if (dRow && !document.getElementById(DOM.ttBtnWrap)) dRow.insertAdjacentHTML('beforeend', timeTravelBtnHTML());
     }
   }, finishDelay);
-
-  saveState();
 }
 
 // Returns a parenthetical like "(Aces and Fives)" or "(Kings-high)" for same-category disambiguation.

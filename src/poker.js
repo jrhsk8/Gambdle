@@ -25,7 +25,8 @@ function pkDeal(){
   });
 }
 function toggleHold(i){
-  S.pkHeld.has(i)?S.pkHeld.delete(i):S.pkHeld.add(i);
+  // Persist the hold decision before the DOM patch.
+  mutate(s=>{ s.pkHeld.has(i)?s.pkHeld.delete(i):s.pkHeld.add(i); });
   const h=S.pkHeld.has(i);
   // Surgically toggle this card's lift/tag in place; a missing wrap (post-refresh) falls back to a
   // no-anim render via the shared patch seam.
@@ -36,7 +37,6 @@ function toggleHold(i){
     if(tag){tag.style.color=h?'':'var(--red)';tag.textContent=h?'HOLD':'REPLACE';}
     const status=document.querySelector('.pk-hold-status');
     if(status)status.textContent=`Tap cards to hold · ${S.pkHeld.size} held · ${5-S.pkHeld.size} replaced`;
-    saveState();
   }, {noAnim:true});
 }
 // Pure resolver — rank result + bet + win-multiplier in, {result, delta} out; no S, no DOM, no

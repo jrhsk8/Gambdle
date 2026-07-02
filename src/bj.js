@@ -121,7 +121,7 @@ function bjDeal(){
       S.bjPlayer=S.bjCandidates[nat];S.bjCandidates=null;S.bjPhase='play';
       sndShuffle(_bjAfterDeal); // celebrate / settle the natural through the shared post-deal path
     }else{
-      S.bjPhase='pick';saveState();
+      mutate(() => { S.bjPhase='pick'; }); // mutate-then-save seam
       sndShuffle(()=>{ render(); updateChipDisplay(); sndCard(100);sndCard(500);sndCard(900); });
     }
     return;
@@ -172,10 +172,11 @@ function _bjAfterDeal(){
 function bjPickHand(idx){
   if(S.bjPhase!=='pick'||!S.bjCandidates||(idx!==0&&idx!==1))return;
   txLog({g:'bj',a:'pick',h:S.bjHand,s:idx});
-  S.bjPlayer=S.bjCandidates[idx];
-  S.bjCandidates=null;
-  S.bjAnimFrom=0;
-  saveState();
+  mutate(() => { // mutate-then-save seam: commit the chosen candidate before the post-deal DOM work runs
+    S.bjPlayer=S.bjCandidates[idx];
+    S.bjCandidates=null;
+    S.bjAnimFrom=0;
+  });
   _bjAfterDeal();
 }
 
@@ -211,10 +212,13 @@ function bjHit(){
   else{
     // Surgically append the card + update the total; patchOrRender falls back to a full render (which
     // rebuilds from S and saves) if the target is missing, so the pushed card is never lost.
+    // Not wrapped in mutate(): the S writes (hand.push, animFrom) already happened above the patch,
+    // and this saveState deliberately fires AFTER the DOM patch (not before) — wrapping would pull the
+    // save earlier than it runs today, so it stays a bare call to preserve that ordering.
     patchOrRender([isSplit?DOM.bjActiveHand:DOM.bjPlayerHand, isSplit?DOM.bjActiveVal:DOM.bjPlayerVal], (handEl, valEl) => {
       handEl.insertAdjacentHTML('beforeend', cardHTML(hand[hand.length-1], 'lg', '', 0.1, true));
       valEl.textContent = hValDisplay(hand);
-      saveState();
+      saveState(); // boundary-ok: save must follow the DOM patch (see comment above)
     });
   }
 }
@@ -228,7 +232,7 @@ function bjStand(){
   // dealer's turn instead of stranding the hand in 'play' with the action buttons live again
   // (a stand leaves the cards unchanged, so without this flag the saved state is indistinguishable
   // from "still deciding"). See _bjResumeAfterRefresh.
-  S.bjActed=true;saveState();
+  mutate(() => { S.bjActed=true; }); // mutate-then-save seam
   _bjDefer(S.bjSplit?bjAdvanceSplit:bjRevealDealer, BJ_RESUME_MS);
 }
 
@@ -505,9 +509,10 @@ function peekRevealed(){
 function doPeek(){
   const limit=getMod('peek');
   if(!limit||S.peeksUsed>=limit) return;
-  S.peeksUsed++;
-  S.peekAt={game:S.screen,hand:_peekHand()};
-  saveState();
+  mutate(() => { // mutate-then-save seam: persist the peek usage before touching the DOM below
+    S.peeksUsed++;
+    S.peekAt={game:S.screen,hand:_peekHand()};
+  });
   const btn=document.getElementById(DOM.peekBtnWrap);
   if(btn) btn.style.display='none';
   const glow='box-shadow:0 0 18px 5px rgba(196,147,58,.65);border-radius:8px';

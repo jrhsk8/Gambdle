@@ -93,6 +93,10 @@ const MANIFEST = {
 // Format: 'using-file.js -> name'
 const ALLOW = new Set([]);
 
+// Files allowed to call saveState() directly. Everywhere else, mutation must go
+// through mutate(fn) (core.js) so the save can never be forgotten.
+const SAVESTATE_ALLOW = new Set(['core.js', 'flow.js']);
+
 function stripComments(s) {
   return s
     .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -119,9 +123,10 @@ function check() {
   for (const f of files) if (!(f in MANIFEST)) problems.push(`${f}: new src file — add it to MANIFEST in tests/check-boundaries.js`);
   for (const f of Object.keys(MANIFEST)) if (!files.includes(f)) problems.push(`MANIFEST lists ${f} but src/${f} does not exist`);
 
-  const decls = {}, stripped = {};
+  const decls = {}, stripped = {}, raw = {};
   for (const f of files) {
     const src = fs.readFileSync(path.join(SRC, f), 'utf8');
+    raw[f] = src;
     decls[f] = topLevelDecls(src);
     stripped[f] = stripComments(src);
   }
@@ -168,6 +173,43 @@ function check() {
         if (g === f || ALLOW.has(`${g} -> ${n}`)) continue;
         if (re.test(stripped[g])) problems.push(`${g} uses "${n}", which is private to ${f} (export it in the MANIFEST or keep it internal)`);
       }
+    }
+  }
+
+  // Mutation must flow through mutate(fn) (core.js), which saves exactly once on
+  // exit. Bare saveState() calls outside the allowlist can be forgotten or fire
+  // mid-mutation, so they're banned everywhere else.
+  //
+  // Scanned over the RAW source (not stripComments output — block-comment removal
+  // collapses newlines and skews the reported line numbers), with a per-line
+  // comment tracker instead. An audited exception is suppressed by ending the
+  // line with `// boundary-ok: <reason>` — the reason is mandatory.
+  const SAVESTATE_RE = /\bsaveState\s*\(/;
+  const BOUNDARY_OK_RE = /\/\/\s*boundary-ok:\s*\S/;
+  for (const f of files) {
+    if (SAVESTATE_ALLOW.has(f)) continue;
+    const lines = raw[f].split(/\r?\n/);
+    let inBlock = false; // tracks /* ... */ spans across lines
+    for (let i = 0; i < lines.length; i++) {
+      let code = lines[i];
+      if (inBlock) {
+        const end = code.indexOf('*/');
+        if (end === -1) continue;
+        code = code.slice(end + 2);
+        inBlock = false;
+      }
+      // Drop any /* ... */ spans that open on this line (possibly staying open).
+      let open;
+      while ((open = code.indexOf('/*')) !== -1) {
+        const close = code.indexOf('*/', open + 2);
+        if (close === -1) { code = code.slice(0, open); inBlock = true; break; }
+        code = code.slice(0, open) + code.slice(close + 2);
+      }
+      const slash = code.indexOf('//');
+      const codePart = slash === -1 ? code : code.slice(0, slash);
+      if (!SAVESTATE_RE.test(codePart)) continue;
+      if (BOUNDARY_OK_RE.test(lines[i])) continue; // audited exception, reason given
+      problems.push(`${f}:${i + 1}: bare saveState() call — mutate through mutate(fn) instead (core.js:528), or suppress with \`// boundary-ok: <reason>\``);
     }
   }
 

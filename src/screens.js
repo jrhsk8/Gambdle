@@ -117,15 +117,15 @@ function screenChoice(){
 }
 
 // Commits the player's pick and starts the run. Instant-commit: one tap locks it for the day.
-// Sets screen=GAME1 before saveState so a refresh right after picking resumes into Blackjack
-// (not back onto the picker) with the chosen modifier applied.
+// Persists the pick and navigation state, then plays the "allin" sound and redraws.
 function pickModifier(key){
   const choices = pendingPlayersChoice();
   if(!choices || !choices.some(c=>c.key===key)) return; // only a currently-offered choice is valid
   txLog({g:'sys',a:'pick',mod:key}); // changes the day's active modifier — replay needs it
-  S.pcPick=key;
-  _enterFirstSlot();
-  saveState();
+  mutate(s => {
+    s.pcPick=key;
+    _enterFirstSlot();
+  });
   sndChip('allin');
   render();
 }

@@ -23,14 +23,15 @@ function devApplyMod(k) {
   render();
 }
 function devSpin(){
-  S.screen='roulette';S.rPhase='bet';
   // Place a fresh, varied 5-bet set so the multi-bet spin + result flow gets exercised across
   // bet types: a straight number, a color, a 2:1 row (column), a dozen, and an even-money bet.
-  if(S.rBets.length===0){
-    for(const pick of [17,45,37,40,44]){ if(S.chips>=10){debit(10,'dev-spin');S.rBets.push({pick,bet:10});} }
-  }
+  mutate(s => {
+    s.screen='roulette';s.rPhase='bet';
+    if(s.rBets.length===0){
+      for(const pick of [17,45,37,40,44]){ if(s.chips>=10){debit(10,'dev-spin');s.rBets.push({pick,bet:10});} }
+    }
+  });
   closeDropdowns();
-  saveState();
   if(S.rBets.length>0)rSpin();else render();
 }
 // Jump straight to the free-entry Ladder bonus round: forces the ladder_day mod so the

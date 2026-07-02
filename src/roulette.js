@@ -355,8 +355,7 @@ GAMES.roulette.resume = function(){
   if (S.rSpin == null) {
     const bets = S.rBets.map(b => [b.pick, b.bet]);
     _resolveSpinNumber(bets).then(sp => {
-      S.rSpin = sp.n; S.rSpin2 = sp.n2;
-      saveState();
+      mutate(() => { S.rSpin = sp.n; S.rSpin2 = sp.n2; }); // mutate-then-save seam (C6): persist before the animation timer fires
       setTimeout(startWheelAnim, 60);
     });
   } else setTimeout(startWheelAnim, 60);
@@ -511,18 +510,17 @@ function pickBet(i){
   // The bets box doesn't depend on the selected tile (its title is keyed on bet count only), so tile
   // selection only updates the board highlight + chip UI — never re-renders the box. No flicker.
   if(S.rPick===i){
-    S.rPick=null;
+    mutate(() => { S.rPick=null; }); // mutate-then-save seam (C6): persist the deselect before patching the board
     // Deselect: same guarded patch as the select branch below — fall back to a full render if the
     // board isn't on screen, instead of silently no-op'ing a bare querySelectorAll.
     patchOrRender(document.querySelector('[data-idx]'), () => {
       document.querySelectorAll('[data-idx]').forEach(b=>b.classList.remove('r-sel'));
       document.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
       patchBetUI();
-      saveState();
     });
     return;
   }
-  S.rPick=i;
+  mutate(() => { S.rPick=i; }); // mutate-then-save seam (C6): persist the new pick before patching the board
   // Move the board highlight + chip UI to the new tile; patchOrRender falls back to a full render if
   // the board isn't on screen (its presence stands in for "the bet screen is rendered").
   patchOrRender(document.querySelector('[data-idx]'), () => {
@@ -531,7 +529,6 @@ function pickBet(i){
     if(btn) btn.classList.add('r-sel');
     document.querySelectorAll('.r-chip-sel').forEach(c => c.remove());
     patchBetUI();
-    saveState();
   });
 }
 // Wheel-color text class for a placed bet's tile label: number bets follow the pocket color
@@ -571,14 +568,15 @@ function rAddBet(){
   if(S.rPick===null||!S.rBet||(isNew&&S.rBets.length>=maxBets))return;
 
   const prevPick=S.rPick, betAmt=S.rBet;
-  debit(betAmt,'roulette-bet');
-  const placedBet=S.rBets.find(b=>b.pick===prevPick);
-  if(placedBet){placedBet.bet+=betAmt;}else{S.rBets.push({pick:prevPick,bet:betAmt});}
+  mutate(() => { // mutate-then-save seam (C6): stake debit + placed-bet bookkeeping persist as one unit
+    debit(betAmt,'roulette-bet');
+    const placedBet=S.rBets.find(b=>b.pick===prevPick);
+    if(placedBet){placedBet.bet+=betAmt;}else{S.rBets.push({pick:prevPick,bet:betAmt});}
+    // Keep the bet amount selected for quick repeat bets on other tiles; only the tile pick clears.
+    // Cap it to the chips left after this stake so the kept amount can never exceed the balance.
+    S.rPick=null; S.rBet=Math.min(betAmt,S.chips);
+  });
   sndChip(betAmt);
-  // Keep the bet amount selected for quick repeat bets on other tiles; only the tile pick clears.
-  // Cap it to the chips left after this stake so the kept amount can never exceed the balance.
-  S.rPick=null; S.rBet=Math.min(betAmt,S.chips);
-  saveState();
 
   const _bt = patchOrRender(document.querySelector(`[data-idx="${prevPick}"]`), null);
   if(!_bt) return; // patchOrRender already fell back to a full render
@@ -604,9 +602,8 @@ function rAddBet(){
 /** Removes a placed bet and refunds chips. */
 function rRemoveBet(i){
   if(i<0||i>=S.rBets.length)return;
-  credit(S.rBets[i].bet,'roulette-refund');
-  S.rBets.splice(i,1);
-  saveState();render();
+  mutate(() => { credit(S.rBets[i].bet,'roulette-refund'); S.rBets.splice(i,1); }); // mutate-then-save seam (C6)
+  render();
 }
 /** All In on the current pick (all_in_or_skip modifier). */
 function rAllIn(){
@@ -757,9 +754,8 @@ async function rSpin(){
   _initRouletteAudio();
   try{
     const sp=await _resolveSpinNumber(bets);
-    S.rSpin=sp.n;S.rSpin2=sp.n2;
+    mutate(() => { S.rSpin=sp.n;S.rSpin2=sp.n2; }); // mutate-then-save seam (C6): persist the drawn numbers post-await
   }finally{_rSpinPending=false;}
-  saveState();
   // Real pre-spin hold: the static wheel (drawn at render) covers the wait, so the wheel sits with
   // its ring for a beat before the ball drops in. Animation starts from wAngle=0/e=0, matching the
   // static frame, so there's no jump.
