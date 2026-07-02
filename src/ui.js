@@ -16,26 +16,30 @@ function fmtK(n){
 const sign=n=>n>=0?'+'+fmt(n):fmt(n);
 const col=n=>n>0?'#1fa845':n<0?'#e03535':'#000';
 
-// ─── CHIP DISPLAY SCALING (chip_div modifier) ─────────────────────────────────
+// ─── CHIP DISPLAY (chip_div modifier) ─────────────────────────────────
 // Some days the player runs a tiny stack shown at 1/Nth its internal value (a "10 chip"
 // stack that scores ×100, say). The internal chip balance, every payout, the submitted
 // score, the leaderboard, tier badges and the integrity replay all stay FULL-scale —
 // only these player-facing readouts divide. So the "×100" is purely the gap between what
 // you see while playing and the score that's recorded; nothing downstream changes.
-// chipScale() is the raw configured divisor (mod active?); chipDispDiv() gates it to the
-// in-run screens, so the final Daily Results screen (and any cross-day total) reveals the
-// true full-scale score. Off those screens, or with no chip_div mod, both are 1 and the
-// c* helpers behave exactly like fmt/fmtK/sign.
+//
+// chipDisp() is the ONE place that owns every chip-display rule: which screens scale
+// (CHIP_SCALE_SCREENS — the in-run ones; the final Daily Results screen and any cross-day
+// total are deliberately excluded so they reveal the true full-scale score), how the
+// chip_div modifier scales (divide, round to 2dp to kill FP fuzz), and signed vs
+// K-formatted output. cfmt/cfmtK/csign are the thin public entry points other files call;
+// chipScale/chipDispDiv are exposed too because other files (roulette.js's chip-relabel,
+// screens.js's intro/results captions) need the raw divisor for non-formatting decisions,
+// not just formatted text. With no chip_div mod (or off an in-run screen), the divisor is
+// 1 and every c* helper behaves exactly like fmt/fmtK/sign.
 const CHIP_SCALE_SCREENS = new Set(['intro','bj','uth','poker','roulette','ladder','borrow']);
 function chipScale(){ return getMod('chip_div') || 1; }
 function chipDispDiv(){ return CHIP_SCALE_SCREENS.has(S.screen) ? chipScale() : 1; }
-// Scale an internal chip amount to its displayed value (rounded to 2dp to kill FP fuzz).
-function _chipScaled(n){ const d=chipDispDiv(); return d===1 ? n : Math.round(n/d*100)/100; }
-// The one display formatter for a chip amount: scales it (chipDispDiv), then formats. `short` uses
-// the compact k/m form; `sign` prepends '+' for non-negatives. cfmt/cfmtK/csign are sugar over it
-// so the scale-then-format rule lives in exactly one place.
+// The one display formatter for a chip amount: scale by chipDispDiv (2dp round), then
+// format. `short` uses the compact k/m form; `sign` prepends '+' for non-negatives.
 function chipDisp(n, { short=false, sign=false } = {}){
-  const v=_chipScaled(n);
+  const d=chipDispDiv();
+  const v = d===1 ? n : Math.round(n/d*100)/100;
   if(short) return fmtK(v);
   const s=v.toLocaleString(undefined,{maximumFractionDigits:2});
   return sign && v>=0 ? '+'+s : s;

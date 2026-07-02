@@ -84,8 +84,8 @@ const MANIFEST = {
   'windows.js': [
     '_isMobile', '_openInfoModal', '_openWindow', '_reapplyDragPos', '_recenterBtnHTML',
     '_runTutorial', '_testTutorial', '_updateBalloonPosition', 'devToggleTestTutorial',
-    'initWindowDrag', 'showAbout', 'showDonate', 'showInfo', 'showPopup', 'showProfile', 'snapWindowToOrigin',
-    'toggleTutorial',
+    'initWindowDrag', 'openModal', 'showAbout', 'showDonate', 'showInfo', 'showPopup', 'showProfile',
+    'snapWindowToOrigin', 'toggleTutorial',
   ],
 };
 

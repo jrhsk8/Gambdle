@@ -30,6 +30,27 @@ function screenIntro(){
   </div>`;
 }
 
+// One line in a "game manifest" list: an icon + label, and (when `net` is passed) a delta-colored
+// chip value flush right. Intro's upcoming-games list uses the icon-only form; the results screen's
+// per-game breakdown passes `net` for the colored value. Markup kept byte-identical to the
+// pre-extraction originals (layout tests measure both screens at 8 sizes) — the two forms render
+// structurally different rows (icon+name vs label+net), so `net`'s presence switches the template
+// rather than the two converging on one shared tag shape.
+function gameManifestRow(iconHtml, label, net) {
+  if (net === undefined) {
+    return `
+    <div class="gm-row">
+      <span class="rnd-ic">${iconHtml}</span>
+      <div class="rnd-nm">${label}</div>
+    </div>`;
+  }
+  return `
+      <div class="res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
+        <span style="font-size:1rem">${label}</span>
+        <span class="res-net" style="font-family:var(--btn-f);font-size:1.35rem;color:${col(net)}">${sign(net)}</span>
+      </div>`;
+}
+
 function renderIntroGameRows() {
   const g1 = GAME_META[GAME1], g2 = GAME_META[GAME2];
   const games = [
@@ -38,11 +59,8 @@ function renderIntroGameRows() {
     [icon('target'), 'Roulette', 'One spin · Anything is possible'],
   ];
   // One line per game: "1. Blackjack · 3 hands" (desc trimmed to the hand/spin count).
-  const rows = games.map((g, i) => `
-    <div class="gm-row">
-      <span class="rnd-ic">${g[0]}</span>
-      <div class="rnd-nm">${i+1}. ${g[1]} <span class="rnd-dc">${g[2].split(' · ')[0]}</span></div>
-    </div>`).join('<div class="gm-sep"></div>');
+  const rows = games.map((g, i) => gameManifestRow(g[0], `${i+1}. ${g[1]} <span class="rnd-dc">${g[2].split(' · ')[0]}</span>`))
+    .join('<div class="gm-sep"></div>');
   return `<div class="game-manifest">${rows}</div>`;
 }
 
@@ -157,11 +175,7 @@ function screenResults(){
       ${streakHtml}
     </div>
     <div class="game-manifest" style="text-align:left;margin-bottom:6px">
-      ${[[g1Label,g1Net],[g2Label,g2Net],[`${icon('target')} Roulette`,rNet],...(S.ladResult?[[`${icon('ladder')} The Ladder`,S.ladResult.delta]]:[])].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}
-      <div class="res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
-        <span style="font-size:1rem">${lbl}</span>
-        <span class="res-net" style="font-family:var(--btn-f);font-size:1.35rem;color:${col(net)}">${sign(net)}</span>
-      </div>`).join('')}
+      ${[[g1Label,g1Net],[g2Label,g2Net],[`${icon('target')} Roulette`,rNet],...(S.ladResult?[[`${icon('ladder')} The Ladder`,S.ladResult.delta]]:[])].map(([lbl,net],i)=>`${i>0?'<div class="gm-sep" style="opacity:0.35"></div>':''}${gameManifestRow(null,lbl,net)}`).join('')}
       <div class="gm-sep" style="opacity:0.35"></div>
       <div class="res-row" style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 12px">
         <span class="ik">Your all-time high</span><span class="iv">${fmt(Math.max(S.chips, high))}</span>
@@ -182,16 +196,39 @@ function screenResults(){
 }
 
 /**
- * ─── LEADERBOARD ─────────────────────────────────────────────────────────
- * Submits the score to Supabase once per day per device, then RESOLVES the player's percentile rank
- * for the day. Resolve and render are split: submitAndFetchLeaderboard does the I/O (through the
- * net.js adapter) and caches the row per seed; paintLeaderboard renders it into the DOM. render()
- * calls this on every results draw, but the fetch runs once — a re-render is a cache hit that just
- * repaints (so a redraw keeps the rank instead of dropping back to "Loading…").
+ * ─── RESULTS METRICS (fetch → cache → paint) ─────────────────────────────
+ * The results screen carries two async metrics (leaderboard ranking, score distribution): each
+ * resolves once per seed and re-paints on every results draw thereafter. resultsMetric() is the
+ * shared lifecycle: fetch(seed) does the I/O and returns the cache payload (or null/undefined on
+ * failure, leaving the cache empty so a later re-render retries); paint(cache) is pure DOM, called
+ * only when elId is present on screen (so navigating away mid-fetch can't paint into a stale node).
+ * ensure() is the render()-facing entry (fetch-if-stale-then-paint); repaint() is the cache-hit-only
+ * path, exposed for symmetry but currently unused outside ensure().
  */
-let _lbRowCache = null; // { seed, status:'row'|'norow', row } — only success is cached, so a failed
-                        // fetch leaves "Loading…" and the next re-render retries.
+function resultsMetric({ fetch, paint, elId }) {
+  let cache = null;
+  function repaint() {
+    if (!cache) return;
+    if (elId && !document.getElementById(elId)) return;
+    paint(cache);
+  }
+  async function ensure() {
+    const seed = getActiveSeed();
+    if (!cache || cache.seed !== seed) {
+      cache = null;
+      const data = await fetch(seed);
+      if (data != null) cache = { seed, ...data };
+    }
+    repaint();
+  }
+  return { ensure, repaint };
+}
 
+// Submits the score to Supabase once per day per device (side-effecting; not itself a metric),
+// then resolves the leaderboard metric for the day. render() calls submitAndFetchLeaderboard() on
+// every results draw: the submit is guarded to run at most once, and the ranking fetch runs once
+// per seed via _lbMetric — a re-render is a cache hit that just repaints (so a redraw keeps the
+// rank instead of dropping back to "Loading…").
 async function submitAndFetchLeaderboard() {
   if (!sbConfigured()) return;
   const seed = getActiveSeed();
@@ -214,42 +251,39 @@ async function submitAndFetchLeaderboard() {
     if (res && (res.ok || res.status === 409)) _ls.setItem(subKey, '1');
   }
 
-  // Resolve the ranking row once per seed. On failure leave the cache empty (paint is a no-op, so
-  // the "Loading…" row stays and a later re-render retries); on success cache the row.
-  if (!_lbRowCache || _lbRowCache.seed !== seed) {
-    _lbRowCache = null;
-    _lbTopPct = null;
-    const data = await sbJson('/rest/v1/rpc/get_percentile', { method: 'POST', body: { p_seed: seed, p_chips: S.chips } });
-    if (data != null) {
-      const row = Array.isArray(data) ? data[0] : data;
-      _lbRowCache = { seed, status: row ? 'row' : 'norow', row };
-    }
-  }
-  paintLeaderboard();
+  await _lbMetric.ensure();
 }
 
-// Renders the resolved ranking row into #lb-stat from _lbRowCache — pure DOM, no I/O. A no-op until
-// the row resolves (leaving the "Loading…" placeholder); 'norow' hides the row; a real row paints it.
-function paintLeaderboard() {
-  if (!_lbRowCache) return;
-  const el = document.getElementById('lb-stat');
-  if (!el) return;
-  const row = _lbRowCache.row;
-  if (_lbRowCache.status === 'norow' || !row) { el.style.display = 'none'; return; }
-  const lbl = _backlogSeed ? `Day #${S.day} Ranking` : "Today's Ranking";
-  const lr = el.querySelector('.lb-row');
-  if (row.total < 10) {
-    const rank = Math.ceil(row.top_pct / 100 * row.total);
-    if (lr) lr.innerHTML = `<span class="ik">${lbl}</span><span class="iv" style="color:var(--ink)">Rank ${rank} of ${row.total}</span>`;
-    return;
-  }
-  _lbTopPct = row.top_pct;
-  _refreshShareBox(); // now that the percentile is known, fold "Finished Top X%" into the share text
-  const iv = row.top_pct > 50
-    ? `Bottom ${100 - row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`
-    : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
-  if (lr) lr.innerHTML = `<span class="ik">${lbl}</span><span class="iv" style="color:var(--ink)">${iv}</span>`;
-}
+// { status:'row'|'norow', row } — only a resolved response is cached (null/undefined on fetch
+// failure), so a failed fetch leaves "Loading…" and the next re-render retries.
+const _lbMetric = resultsMetric({
+  elId: 'lb-stat',
+  async fetch(seed) {
+    _lbTopPct = null;
+    const data = await sbJson('/rest/v1/rpc/get_percentile', { method: 'POST', body: { p_seed: seed, p_chips: S.chips } });
+    if (data == null) return null;
+    const row = Array.isArray(data) ? data[0] : data;
+    return { status: row ? 'row' : 'norow', row };
+  },
+  paint(cache) {
+    const el = document.getElementById('lb-stat');
+    const row = cache.row;
+    if (cache.status === 'norow' || !row) { el.style.display = 'none'; return; }
+    const lbl = _backlogSeed ? `Day #${S.day} Ranking` : "Today's Ranking";
+    const lr = el.querySelector('.lb-row');
+    if (row.total < 10) {
+      const rank = Math.ceil(row.top_pct / 100 * row.total);
+      if (lr) lr.innerHTML = `<span class="ik">${lbl}</span><span class="iv" style="color:var(--ink)">Rank ${rank} of ${row.total}</span>`;
+      return;
+    }
+    _lbTopPct = row.top_pct;
+    _refreshShareBox(); // now that the percentile is known, fold "Finished Top X%" into the share text
+    const iv = row.top_pct > 50
+      ? `Bottom ${100 - row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`
+      : `Top ${row.top_pct}% &nbsp;·&nbsp; ${row.total.toLocaleString()} players`;
+    if (lr) lr.innerHTML = `<span class="ik">${lbl}</span><span class="iv" style="color:var(--ink)">${iv}</span>`;
+  },
+});
 
 function _showHistoryChart(el) {
   const titleEl = document.getElementById('dist-title');
@@ -287,45 +321,37 @@ function _showHistoryChart(el) {
   el.innerHTML = `<div class="dist-bars">${bars}</div>`;
 }
 
-// Resolves the score-distribution chart data once per seed (cached so a re-render repaints without
-// re-fetching), then paints it. Outcomes preserved exactly: a network error / timeout falls back to
-// the local history chart; a server error or empty set hides the chart; a thin field (< 10 plays)
-// also shows history; a full field renders the live distribution.
-let _distCache = null; // { seed, mode:'dist'|'history'|'hide', counts? }
-
-async function fetchScoreDistribution() {
-  const seed = getActiveSeed();
-  if (!_distCache || _distCache.seed !== seed) {
-    _distCache = null;
+// Resolves the score-distribution chart data once per seed via the shared resultsMetric lifecycle
+// (cached so a re-render repaints without re-fetching). Outcomes preserved exactly: a network error
+// / timeout falls back to the local history chart; a server error or empty set hides the chart; a
+// thin field (< 10 plays) also shows history; a full field renders the live distribution. Every
+// outcome caches a mode (never null), so this metric's fetch always resolves on the first try.
+// Function declaration on purpose: a top-level const never becomes a window global, and the
+// boot-surface check (game-shell test) + flow.js reach this by its global name.
+function fetchScoreDistribution(){ return _distMetric.ensure(); } // { mode:'dist'|'history'|'hide', counts? }
+const _distMetric = resultsMetric({
+  elId: 'dist-chart',
+  async fetch(seed) {
     const res = await sbFetch('/rest/v1/rpc/get_score_distribution', { method: 'POST', body: { p_seed: seed }, timeout: 5000 });
-    if (res === null) { _distCache = { seed, mode: 'history' }; }      // network error / timeout
-    else if (!res.ok) { _distCache = { seed, mode: 'hide' }; }         // server error
-    else {
-      // undefined = a 2xx body that failed to parse → history (matches the original outer-catch);
-      // a body that legitimately parses to null/[]/non-array → hide.
-      let data; try { data = await res.json(); } catch(e) { data = undefined; }
-      if (data === undefined) { _distCache = { seed, mode: 'history' }; }
-      else if (!Array.isArray(data) || data.length === 0) { _distCache = { seed, mode: 'hide' }; }
-      else {
-        const counts = data.map(b => parseInt(b.count));
-        const total = counts.reduce((a, c) => a + c, 0);
-        _distCache = total < 10 ? { seed, mode: 'history' } : { seed, mode: 'dist', counts };
-      }
-    }
-  }
-  paintDistribution();
-}
-
-// Paints the resolved distribution from _distCache — pure DOM, no I/O.
-function paintDistribution() {
-  if (!_distCache) return;
-  const el = document.getElementById('dist-chart');
-  if (!el) return;
-  if (_distCache.mode === 'dist') { _renderScoreDist(el, _distCache.counts); return; }
-  if (_distCache.mode === 'history') { _showHistoryChart(el); return; }
-  el.style.display = 'none';
-  document.getElementById('dist-title')?.style.setProperty('display', 'none');
-}
+    if (res === null) return { mode: 'history' };      // network error / timeout
+    if (!res.ok) return { mode: 'hide' };               // server error
+    // undefined = a 2xx body that failed to parse → history (matches the original outer-catch);
+    // a body that legitimately parses to null/[]/non-array → hide.
+    let data; try { data = await res.json(); } catch(e) { data = undefined; }
+    if (data === undefined) return { mode: 'history' };
+    if (!Array.isArray(data) || data.length === 0) return { mode: 'hide' };
+    const counts = data.map(b => parseInt(b.count));
+    const total = counts.reduce((a, c) => a + c, 0);
+    return total < 10 ? { mode: 'history' } : { mode: 'dist', counts };
+  },
+  paint(cache) {
+    const el = document.getElementById('dist-chart');
+    if (cache.mode === 'dist') { _renderScoreDist(el, cache.counts); return; }
+    if (cache.mode === 'history') { _showHistoryChart(el); return; }
+    el.style.display = 'none';
+    document.getElementById('dist-title')?.style.setProperty('display', 'none');
+  },
+});
 
 // Builds the 7-bucket score-distribution chart (bars + counts + bucket labels + the You line/label)
 // into `el` for the given per-bucket `counts`. Split out from fetchScoreDistribution so it can be

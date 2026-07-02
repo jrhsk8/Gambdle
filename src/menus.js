@@ -88,6 +88,88 @@ function _openSub2(key, html, trigger) {
   _positionSubmenu(sub, trigger);
 }
 
+// ─── Declarative menu builder ────────────────────────────────────────────
+// Every submenu below used to hand-concatenate `.dd-item` HTML and re-invoke _openSub1/_openSub2
+// itself; adding one item meant copy-pasting markup + re-wiring stopPropagation by hand. Instead each
+// submenu function now just BUILDS A DESCRIPTOR (data: what rows exist and what they do) and hands it
+// to `_renderDDItems` (turn descriptor → HTML, one place that knows the `.dd-item` markup) plus
+// `_openSub1`/`_openSub2` (unchanged — nesting choreography stays exactly as it was).
+//
+// Descriptor = an array of row objects. Every row is one of:
+//   { label, action }                    plain item — click runs `action` (a JS expression string,
+//                                         same as today's onclick bodies) then closes all dropdowns.
+//   { label, action, keepOpen:true }      like above but runs bare (no closeDropdowns() appended) —
+//                                         for rows whose action already manages the dropdown itself
+//                                         (navigates away, or is itself a dev toggle that re-renders).
+//   { label, action, stopProp:true }      like above but appends `event.stopPropagation()` instead —
+//                                         for rows that intentionally leave the dropdown open in place
+//                                         (e.g. a label that re-renders itself on click).
+//   { label, opens }                     a ► row: click opens a nested submenu. `opens` is the literal
+//                                         call string that opens it — e.g.
+//                                         `showModTypeSubmenu('bj', this, 'devApplyMod')` — i.e. the
+//                                         SAME "call the next submenu function with `this`" pattern
+//                                         every submenu already used; the builder only adds the
+//                                         trailing `►` glyph + `event.stopPropagation()`. Kept as a
+//                                         call string rather than a function reference because these
+//                                         run from an inline `onclick="…"` attribute string, not an
+//                                         event listener — a real closure can't cross that boundary.
+//   { label, checked, toggle, id? }       a checkbox row (prefs/dev toggles): `toggle` is the JS
+//                                         expression the row's onclick AND the checkbox's onclick both
+//                                         run (matches today's dual-onclick pattern so clicking the
+//                                         label or the box behaves identically).
+//   { label, active, action }             a highlighted list row (archive/future day) — `active` adds
+//                                         `dd-active`, same click contract as a plain item.
+//   { label, disabled:true, hint? }       inert row (locked option / disabled action), optional trailing hint.
+//   { label, picked, pick }               a radio-style single-select row (cardback/deck/felt/theme
+//                                         pickers): `pick` is the click action; the checkbox itself is
+//                                         `pointer-events:none` display-only (unlike a `toggle` row's
+//                                         checkbox, which is independently clickable) since picking is
+//                                         "select this one," not "flip this one."
+//   { sep:true }                          a `.dd-sep` divider.
+//   { html }                              escape hatch for markup that isn't an item row at all (the
+//                                         Game Setup button grid) — emitted verbatim.
+// Any row (except `sep`/`html`) may also carry `attrs` (extra raw HTML attributes, e.g.
+// `data-picker="deck"` so setPick can re-find a trigger after a re-render) and `style` (inline CSS,
+// e.g. the red "Reset All" row) — both passed through verbatim onto the `.dd-item` div.
+function _ddRow(row) {
+  if (row.sep) return '<div class="dd-sep"></div>';
+  if (row.html !== undefined) return row.html;
+  const attrs = row.attrs ? ` ${row.attrs}` : '';
+  const style = row.style ? ` style="${row.style}${row.toggle !== undefined ? ';gap:12px' : ''}"` : (row.toggle !== undefined ? ' style="gap:12px"' : '');
+  if (row.disabled) {
+    const hint = row.hint ? `<span style="font-size:.8rem;opacity:.55">${row.hint}</span>` : '';
+    const wrap = row.hint ? `<span>${row.label}</span>${hint}` : row.label;
+    const gapStyle = row.hint ? ' style="gap:12px"' : '';
+    return `<div class="dd-item dd-disabled"${attrs}${gapStyle}>${wrap}</div>`;
+  }
+  if (row.toggle !== undefined) {
+    return `<div class="dd-item"${attrs} onclick="${row.toggle};event.stopPropagation()"${style}>
+      <span>${row.label}</span>
+      <input type="checkbox" ${row.id ? `id="${row.id}" ` : ''}${row.checked ? 'checked' : ''} onclick="${row.toggle};event.stopPropagation()" style="${_DD_CB}">
+    </div>`;
+  }
+  if (row.pick !== undefined) {
+    const cbStyle = 'width:14px;height:14px;accent-color:var(--gold);flex-shrink:0;pointer-events:none';
+    return `<div class="dd-item"${attrs} onclick="${row.pick};event.stopPropagation()" style="gap:12px">
+      <span>${row.label}</span>
+      <input type="checkbox" ${row.picked ? 'checked' : ''} style="${cbStyle}">
+    </div>`;
+  }
+  if (row.opens) {
+    return `<div class="dd-item"${attrs} onclick="${row.opens};event.stopPropagation()"${style}>${row.label} <span class="dd-key">►</span></div>`;
+  }
+  const cls = `dd-item${row.active ? ' dd-active' : ''}${row.action === undefined ? ' dd-disabled' : ''}`;
+  const click = row.action === undefined ? '' :
+    row.stopProp ? `${row.action};event.stopPropagation()` :
+    row.keepOpen  ? row.action :
+    `${row.action};closeDropdowns()`;
+  return `<div class="${cls}"${attrs} onclick="${click}"${style}>${row.label}</div>`;
+}
+// Renders a descriptor (array of rows, see _ddRow) into the `.dd-item` HTML block a submenu function
+// hands to _openSub1/_openSub2. One render path so every submenu's markup/behavior stays identical no
+// matter which function built the descriptor.
+function _renderDDItems(rows) { return rows.map(_ddRow).join(''); }
+
 // ─── Dev menu submenus (hybrid layout) ───────────────────────────────────
 // Jump targets, game setup, and chip grants each live behind a ► trigger to keep
 // the top-level Developer menu short. Mirror the showModSubmenu/showFutureSubmenu pattern.
@@ -95,40 +177,46 @@ const _DD_CB = 'width:14px;height:14px;cursor:pointer;accent-color:var(--gold);f
 
 function showJumpSubmenu(trigger){
   const nm = g => (typeof GAME_META !== 'undefined' && GAME_META[g] && GAME_META[g].name) || g;
-  const html =
-    `<div class="dd-item" onclick="goTo(GAME1);closeDropdowns()">→ ${nm(GAME1)}</div>` +
-    `<div class="dd-item" onclick="goTo(GAME2);closeDropdowns()">→ ${nm(GAME2)}</div>` +
-    `<div class="dd-item" onclick="goTo('roulette');closeDropdowns()">→ Roulette</div>` +
-    `<div class="dd-item" onclick="devSpin()">${icon('target')} Spin Wheel (5 bets)</div>` +
-    `<div class="dd-item" onclick="resetLadderRun();goTo('ladder');closeDropdowns()">→ The Ladder</div>` +
-    `<div class="dd-item" onclick="devLadder()">${icon('ladder')} The Ladder (free entry)</div>` +
-    `<div class="dd-item" onclick="goTo('results');closeDropdowns()">→ Results</div>`;
-  _openSub1(html, trigger);
+  const rows = [
+    { label: `→ ${nm(GAME1)}`, action: `goTo(GAME1)` },
+    { label: `→ ${nm(GAME2)}`, action: `goTo(GAME2)` },
+    { label: `→ Roulette`, action: `goTo('roulette')` },
+    { label: `${icon('target')} Spin Wheel (5 bets)`, action: `devSpin()`, keepOpen: true },
+    { label: `→ The Ladder`, action: `resetLadderRun();goTo('ladder')` },
+    { label: `${icon('ladder')} The Ladder (free entry)`, action: `devLadder()`, keepOpen: true },
+    { label: `→ Results`, action: `goTo('results')` },
+  ];
+  _openSub1(_renderDDItems(rows), trigger);
 }
 
 function showGameSetupSubmenu(trigger){
-  const _gName = (opts, val) => opts.find(o=>o.value===val)?.label || val;
   const slots = [
     { slot:1, current:GAME1, opts:GAME1_OPTIONS.filter(o=>o.value!==GAME2), label:'Game 1' },
     { slot:2, current:GAME2, opts:GAME2_OPTIONS.filter(o=>o.value!==GAME1), label:'Game 2' },
   ];
+  // The game-picker rows are a button grid, not `.dd-item`s — kept as a raw `html` row (the
+  // descriptor's escape hatch) since forcing them into the item/checkbox/opens shapes would just
+  // reintroduce the special-casing this builder exists to remove.
   const cfg = slots.map(({slot,current,opts,label}) =>
     `<div class="dd-game-lbl">${label}</div><div class="dd-game-row">${opts.map(({value,label:l}) =>
       `<button class="dd-game-btn${current===value?' active':''}" onclick="devSetGame(${slot},'${value}')">${l}</button>`
     ).join('')}</div>`
   ).join('');
-  const html = cfg +
-    `<div class="dd-sep"></div>` +
-    `<div class="dd-item" onclick="toggleTestSeed();event.stopPropagation()" style="gap:12px"><span>Test Seed (reset to apply)</span><input type="checkbox" id="dev-test-seed-cb" ${_testActive()?'checked':''} onclick="event.stopPropagation()" style="${_DD_CB}"></div>` +
-    `<div class="dd-item" onclick="devToggleUnlocks();event.stopPropagation()" style="gap:12px"><span>All Unlocks</span><input type="checkbox" id="dev-unlocks-cb" ${getPref('golden_back_unlocked')?'checked':''} onclick="event.stopPropagation()" style="${_DD_CB}"></div>`;
-  _openSub1(html, trigger);
+  const rows = [
+    { html: cfg },
+    { sep: true },
+    { label: 'Test Seed (reset to apply)', toggle: 'toggleTestSeed()', checked: _testActive(), id: 'dev-test-seed-cb' },
+    { label: 'All Unlocks', toggle: 'devToggleUnlocks()', checked: getPref('golden_back_unlocked'), id: 'dev-unlocks-cb' },
+  ];
+  _openSub1(_renderDDItems(rows), trigger);
 }
 
 function showChipsSubmenu(trigger){
-  const html =
-    `<div class="dd-item" onclick="credit(500,'dev');render();updateChipDisplay();closeDropdowns()">+ 500 chips</div>` +
-    `<div class="dd-item" onclick="credit(10000,'dev');render();updateChipDisplay();closeDropdowns()">+ 10,000 chips</div>`;
-  _openSub1(html, trigger);
+  const rows = [
+    { label: '+ 500 chips', action: `credit(500,'dev');render();updateChipDisplay()` },
+    { label: '+ 10,000 chips', action: `credit(10000,'dev');render();updateChipDisplay()` },
+  ];
+  _openSub1(_renderDDItems(rows), trigger);
 }
 
 function showModSubmenu(trigger, action) {
@@ -140,19 +228,18 @@ function showModSubmenu(trigger, action) {
     {key:'roulette', label:`${icon('target')} Roulette`},
     {key:'choice',   label:`${icon('dice-five')} Player's Choice`},
   ];
-  const html = cats.map(c =>
-    `<div class="dd-item" onclick="showModTypeSubmenu('${c.key}',this,'${action}');event.stopPropagation()">${c.label} <span class="dd-key">►</span></div>`
-  ).join('');
-  _openSub1(html, trigger);
+  const rows = cats.map(c => ({
+    label: c.label,
+    opens: `showModTypeSubmenu('${c.key}', this, '${action}')`,
+  }));
+  _openSub1(_renderDDItems(rows), trigger);
 }
 
 function showModTypeSubmenu(type, trigger, action) {
   action = action || 'devApplyMod';
   const mods = Object.entries(PRESET_MODIFIERS).filter(([, m]) => m.type === type);
-  const html = mods.map(([k, m]) =>
-    `<div class="dd-item" onclick="${action}('${k}')">${m.title}</div>`
-  ).join('');
-  _openSub2(type, html, trigger);
+  const rows = mods.map(([k, m]) => ({ label: m.title, action: `${action}('${k}')`, keepOpen: true }));
+  _openSub2(type, _renderDDItems(rows), trigger);
 }
 
 function showModifierPopup(key) {
@@ -190,61 +277,59 @@ function toggleMenu(which, trigger) {
   el.className = 'dropdown'; el.dataset.menu = which;
 
   if (which === 'dev') {
-    el.innerHTML = `
-      <div class="dd-item" onclick="devReset();closeDropdowns()">↺ Reset Run</div>
-      <div class="dd-item" onclick="goTo('devstats');closeDropdowns()">${icon('chart-bar')} Player Stats</div>
-      <div class="dd-item" onclick="goTo('retention');closeDropdowns()">${icon('target')} Retention</div>
-      <div class="dd-item" onclick="goTo('devices');closeDropdowns()">${icon('ruler')} Devices</div>
-      <div class="dd-item" onclick="goTo('seedcheck');closeDropdowns()">${icon('chart-bar')} Seed Checker</div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showJumpSubmenu(this);event.stopPropagation()">Jump to <span class="dd-key">►</span></div>
-      <div class="dd-item" onclick="showGameSetupSubmenu(this);event.stopPropagation()">Game Setup <span class="dd-key">►</span></div>
-      <div class="dd-item" onclick="showChipsSubmenu(this);event.stopPropagation()">Give Chips <span class="dd-key">►</span></div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" id="dd-future-trigger" onclick="showFutureSubmenu(this);event.stopPropagation()">Preview Future Day <span class="dd-key">►</span></div>
-      <div class="dd-item" id="dd-mod-trigger" onclick="showModSubmenu(this);event.stopPropagation()">Force Modifier <span class="dd-key">►</span></div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="devToggleTestTutorial();event.stopPropagation()" style="gap:12px">
-        <span>${icon('lightbulb')} Test Tutorial</span>
-        <input type="checkbox" id="dev-test-tutorial-cb" ${_testTutorial()?'checked':''} onclick="event.stopPropagation()" style="${_DD_CB}">
-      </div>
-      <div class="dd-item" onclick="devToggleLayoutDebug();event.stopPropagation()" style="gap:12px">
-        <span>${icon('ruler')} Layout Debug</span>
-        <input type="checkbox" id="dev-layout-debug-cb" ${document.body.classList.contains('layout-debug')?'checked':''} onclick="event.stopPropagation()" style="${_DD_CB}">
-      </div>`;
+    const rows = [
+      { label: '↺ Reset Run', action: 'devReset()' },
+      { label: `${icon('chart-bar')} Player Stats`, action: `goTo('devstats')` },
+      { label: `${icon('target')} Retention`, action: `goTo('retention')` },
+      { label: `${icon('ruler')} Devices`, action: `goTo('devices')` },
+      { label: `${icon('chart-bar')} Seed Checker`, action: `goTo('seedcheck')` },
+      { sep: true },
+      { label: 'Jump to', opens: 'showJumpSubmenu(this)' },
+      { label: 'Game Setup', opens: 'showGameSetupSubmenu(this)' },
+      { label: 'Give Chips', opens: 'showChipsSubmenu(this)' },
+      { sep: true },
+      // ids kept on these two ► triggers (pre-existing, no known re-query site today) in case a future
+      // dev flow wants to open one programmatically by id, same as before this refactor.
+      { label: 'Preview Future Day', opens: 'showFutureSubmenu(this)', attrs: 'id="dd-future-trigger"' },
+      { label: 'Force Modifier', opens: 'showModSubmenu(this)', attrs: 'id="dd-mod-trigger"' },
+      { sep: true },
+      { label: `${icon('lightbulb')} Test Tutorial`, toggle: 'devToggleTestTutorial()', checked: _testTutorial(), id: 'dev-test-tutorial-cb' },
+      { label: `${icon('ruler')} Layout Debug`, toggle: 'devToggleLayoutDebug()', checked: document.body.classList.contains('layout-debug'), id: 'dev-layout-debug-cb' },
+    ];
+    el.innerHTML = _renderDDItems(rows);
   } else if (which === 'file') {
     const canShare = S.screen === 'results';
-    const cbStyle='width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0';
-    el.innerHTML = `
-      ${_backlogSeed ? `<div class="dd-item" onclick="exitBacklog()">${icon('target')} Return to Today (#${getDayNum()})</div><div class="dd-sep"></div>` : ''}
-      <div class="dd-item" onclick="showBacklogSubmenu(this);event.stopPropagation()">${icon('eye')} Gambdle #${S.day}${_backlogSeed?(_backlogSeed>getDailySeed()?' · Preview':' · Archive'):''} <span class="dd-key">►</span></div>
-      <div class="dd-sep"></div>
-      <div class="dd-item ${canShare?'':'dd-disabled'}" onclick="${canShare?'doShare();closeDropdowns()':''}">${icon('clipboard-text')} Copy &amp; Share</div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="togglePref('mute');event.stopPropagation()" style="gap:12px">
-        <span>${icon('speaker-simple-x')} Mute Audio</span>
-        <input type="checkbox" id="file-mute-cb" ${getPref('mute')?'checked':''} onclick="togglePref('mute');event.stopPropagation()" style="${cbStyle}">
-      </div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showFeedbackDialog();closeDropdowns()">${icon('envelope')} Send Feedback</div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showPrefsSubmenu(this);event.stopPropagation()">${icon('ruler')} Preferences <span class="dd-key">►</span></div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showProfile()">${icon('user')} Player Profile</div>
-      <div class="dd-item" onclick="showAbout()">${icon('sparkle')} About Gambdle</div>`;
+    const rows = [
+      ..._backlogSeed ? [{ label: `${icon('target')} Return to Today (#${getDayNum()})`, action: 'exitBacklog()', keepOpen: true }, { sep: true }] : [],
+      { label: `${icon('eye')} Gambdle #${S.day}${_backlogSeed?(_backlogSeed>getDailySeed()?' · Preview':' · Archive'):''}`, opens: 'showBacklogSubmenu(this)' },
+      { sep: true },
+      canShare ? { label: `${icon('clipboard-text')} Copy &amp; Share`, action: 'doShare()' } : { label: `${icon('clipboard-text')} Copy &amp; Share`, disabled: true },
+      { sep: true },
+      { label: `${icon('speaker-simple-x')} Mute Audio`, toggle: "togglePref('mute')", checked: getPref('mute'), id: 'file-mute-cb' },
+      { sep: true },
+      { label: `${icon('envelope')} Send Feedback`, action: 'showFeedbackDialog()' },
+      { sep: true },
+      { label: `${icon('ruler')} Preferences`, opens: 'showPrefsSubmenu(this)' },
+      { sep: true },
+      { label: `${icon('user')} Player Profile`, action: 'showProfile()', keepOpen: true },
+      { label: `${icon('sparkle')} About Gambdle`, action: 'showAbout()', keepOpen: true },
+    ];
+    el.innerHTML = _renderDDItems(rows);
   } else {
-    el.innerHTML = `
-      <div class="dd-item" onclick="showInfo('overview');closeDropdowns()">${icon('magnifying-glass')} How to Play</div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showInfo('bj');closeDropdowns()">${icon('cards')} Blackjack</div>
-      <div class="dd-item" onclick="showInfo('uth');closeDropdowns()">${icon('cowboy-hat')} Ultimate Hold'em</div>
-      <div class="dd-item" onclick="showInfo('roulette');closeDropdowns()">${icon('target')} Roulette</div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showInfo('hands');closeDropdowns()">${icon('cards')} Poker Hands</div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="showModSubmenu(this,'showModifierPopup');event.stopPropagation()">${icon('sparkle')} Daily Modifiers <span class="dd-key">►</span></div>
-      <div class="dd-sep"></div>
-      <div class="dd-item" onclick="toggleTutorial();event.stopPropagation()">${icon('lightbulb')} Tips: ${getPref('tutorial_off') ? 'Off' : 'On'}</div>`;
+    const rows = [
+      { label: `${icon('magnifying-glass')} How to Play`, action: "showInfo('overview')" },
+      { sep: true },
+      { label: `${icon('cards')} Blackjack`, action: "showInfo('bj')" },
+      { label: `${icon('cowboy-hat')} Ultimate Hold'em`, action: "showInfo('uth')" },
+      { label: `${icon('target')} Roulette`, action: "showInfo('roulette')" },
+      { sep: true },
+      { label: `${icon('cards')} Poker Hands`, action: "showInfo('hands')" },
+      { sep: true },
+      { label: `${icon('sparkle')} Daily Modifiers`, opens: "showModSubmenu(this,'showModifierPopup')" },
+      { sep: true },
+      { label: `${icon('lightbulb')} Tips: ${getPref('tutorial_off') ? 'Off' : 'On'}`, action: 'toggleTutorial()', stopProp: true },
+    ];
+    el.innerHTML = _renderDDItems(rows);
   }
 
   const left = Math.min(rect.left, window.innerWidth - 200);
@@ -276,32 +361,30 @@ function _seedForDayNum(n) {
 function showBacklogSubmenu(trigger) {
   const todayNum = getDayNum();
   const history = JSON.parse(_ls.getItem('gambdle_history') || '{}');
-  let rows = '';
+  const rows = [];
   for (let n = todayNum - 1; n >= 1; n--) {
     const seed = _seedForDayNum(n);
     const score = history[seed];
-    const active = _backlogSeed === seed;
     const scoreStr = score !== undefined ? `<span class="dd-key">${fmt(score)}</span>` : '';
-    rows += `<div class="dd-item${active ? ' dd-active' : ''}" onclick="enterBacklog(${seed});event.stopPropagation()">Day #${n} ${scoreStr}</div>`;
+    rows.push({ label: `Day #${n} ${scoreStr}`, active: _backlogSeed === seed, action: `enterBacklog(${seed})`, stopProp: true });
   }
-  if (!rows) rows = '<div class="dd-item dd-disabled">No past days yet</div>';
-  _openSub1(`<div class="dd-archive-list">${rows}</div>`, trigger);
+  if (!rows.length) rows.push({ label: 'No past days yet', disabled: true });
+  _openSub1(`<div class="dd-archive-list">${_renderDDItems(rows)}</div>`, trigger);
 }
 
 function showFutureSubmenu(trigger) {
   const todayNum = getDayNum();
-  let rows = '';
+  const rows = [];
   for (let n = todayNum + 1; n <= todayNum + 7; n++) {
     const seed = _seedForDayNum(n);
-    const active = _backlogSeed === seed;
     const cycled = CYCLE_ORDER[(n - 1) % CYCLE_ORDER.length];
     const modRef = DAILY_MODIFIERS[seed] || cycled;
     const mod = typeof modRef === 'string' ? PRESET_MODIFIERS[modRef] : modRef;
     const modLabel = mod ? `<span class="dd-key">${mod.title}</span>` : '';
     const seedNote = DAILY_SEED_OVERRIDES[seed] ? ' 🔀' : '';
-    rows += `<div class="dd-item${active ? ' dd-active' : ''}" onclick="enterBacklog(${seed});event.stopPropagation()">Day #${n}${seedNote} ${modLabel}</div>`;
+    rows.push({ label: `Day #${n}${seedNote} ${modLabel}`, active: _backlogSeed === seed, action: `enterBacklog(${seed})`, stopProp: true });
   }
-  _openSub1(`<div class="dd-archive-list">${rows}</div>`, trigger);
+  _openSub1(`<div class="dd-archive-list">${_renderDDItems(rows)}</div>`, trigger);
 }
 
 // ─── PREFERENCES ─────────────────────────────────────────────
@@ -324,22 +407,27 @@ function applyPrefs(){
   document.body.classList.toggle('theme-green',  theme==='green' && !!p.green_theme_unlocked);
 }
 
+// _prefItem predates the descriptor builder and is kept as its own function (rather than inlined into
+// showPrefsSubmenu's row list) because it's the one row shape simple enough to want a direct call
+// (key/id/label, no picker/hint variants) — a thin wrapper over the same `_ddRow` a descriptor uses,
+// so its rendered markup/behavior is identical to any other toggle row.
 function _prefItem(key,id,label){
-  const checked=!!getPref(key);
-  return `<div class="dd-item" onclick="togglePref('${key}');event.stopPropagation()" style="gap:12px">
-    <span>${label}</span>
-    <input type="checkbox" id="${id}" ${checked?'checked':''} onclick="togglePref('${key}');event.stopPropagation()" style="width:14px;height:14px;cursor:pointer;accent-color:var(--gold);flex-shrink:0">
-  </div>`;
+  return _ddRow({ label, toggle: `togglePref('${key}')`, checked: !!getPref(key), id });
 }
 function showPrefsSubmenu(trigger){
-  const html=_prefItem('four_color','pref-4color','Four Color Deck')+
-             `<div class="dd-item" data-picker="deck"     onclick="_showPickerSub('deck',this);event.stopPropagation()">Deck <span class="dd-key">►</span></div>`+
-             `<div class="dd-item" data-picker="cardback" onclick="_showPickerSub('cardback',this);event.stopPropagation()">Card Back <span class="dd-key">►</span></div>`+
-             `<div class="dd-item" data-picker="felt"     onclick="_showPickerSub('felt',this);event.stopPropagation()">Felt <span class="dd-key">►</span></div>`+
-             `<div class="dd-item" data-picker="theme"    onclick="_showPickerSub('theme',this);event.stopPropagation()">Theme <span class="dd-key">►</span></div>`+
-             `<div class="dd-sep"></div>`+
-             `<div class="dd-item" onclick="resetAllPrefs();event.stopPropagation()" style="color:var(--red)">↺ Reset All</div>`;
-  _openSub1(html, trigger);
+  const pickers = [
+    { key:'deck',     label:'Deck' },
+    { key:'cardback', label:'Card Back' },
+    { key:'felt',     label:'Felt' },
+    { key:'theme',    label:'Theme' },
+  ];
+  const rows = [
+    { html: _prefItem('four_color','pref-4color','Four Color Deck') },
+    ...pickers.map(p => ({ label: p.label, opens: `_showPickerSub('${p.key}',this)`, attrs: `data-picker="${p.key}"` })),
+    { sep: true },
+    { label: '↺ Reset All', action: 'resetAllPrefs()', stopProp: true, style: 'color:var(--red)' },
+  ];
+  _openSub1(_renderDDItems(rows), trigger);
 }
 function resetAllPrefs(){
   const p=getPrefs();
@@ -357,12 +445,11 @@ const PICKER_ITEMS = {
 function _showPickerSub(pickerKey,trigger){
   const {pref,options}=PICKER_ITEMS[pickerKey];
   const cur=getPref(pref)||'default';
-  const cbStyle='width:14px;height:14px;accent-color:var(--gold);flex-shrink:0;pointer-events:none';
-  const html=options.map(o=>o.lock&&!getPref(o.lock)
-    ?`<div class="dd-item dd-disabled" style="gap:12px"><span>${o.label}</span><span style="font-size:.8rem;opacity:.55">${o.hint}</span></div>`
-    :`<div class="dd-item" onclick="setPick('${pickerKey}','${o.val}');event.stopPropagation()" style="gap:12px"><span>${o.label}</span><input type="checkbox" ${cur===o.val?'checked':''} style="${cbStyle}"></div>`
-  ).join('');
-  _openSub2(pickerKey, html, trigger);
+  const rows = options.map(o => (o.lock && !getPref(o.lock))
+    ? { label: o.label, disabled: true, hint: o.hint }
+    : { label: o.label, pick: `setPick('${pickerKey}','${o.val}')`, picked: cur === o.val }
+  );
+  _openSub2(pickerKey, _renderDDItems(rows), trigger);
 }
 function setPick(pickerKey,val){
   setPref(PICKER_ITEMS[pickerKey].pref,val);
@@ -392,18 +479,15 @@ function togglePref(k){
 
 // ── Feedback dialog ───────────────────────────────────────
 function showFeedbackDialog() {
-  // Re-uses the window manager: a non-blocking float on desktop, a blocking modal on mobile. The
+  // Re-uses the modal builder (windows.js): a non-blocking float on desktop, a blocking modal on
+  // mobile. `bare: true` because this dialog owns its own content div (padding:14px, not the
+  // standard .info-content 18px). The title-bar × still calls the shared closeWindow(this); Cancel
+  // uses the dedicated closeFeedbackDialog() (same effect, kept for that button's own name). The
   // char counter updates inline (no addEventListener) so re-opening an existing window never stacks
   // duplicate listeners. The ids stay stable since only one feedback window can exist.
-  _openWindow('feedback', `
-    <div class="info-box" style="padding:0;max-width:420px">
-      <div class="title-bar" style="border-radius:7px 7px 0 0;flex-shrink:0">
-        <span class="tb-title"><span class="tb-icon">✉</span>Send Feedback</span>
-        <span class="tb-btns">
-          ${_recenterBtnHTML()}
-          <span class="tb-btn close" title="Close" onclick="closeFeedbackDialog()">×</span>
-        </span>
-      </div>
+  openModal({
+    key: 'feedback', title: 'Send Feedback', icon: '✉', bare: true, boxStyle: 'max-width:420px',
+    content: `
       <div style="padding:14px">
         <div style="font-size:1rem;margin-bottom:8px;color:var(--shadow)">Send feedback to the developer</div>
         <textarea id="feedback-txt" class="feedback-textarea" maxlength="500" placeholder="Type here…"
@@ -413,8 +497,8 @@ function showFeedbackDialog() {
           <button class="act-btn" onclick="closeFeedbackDialog()">Cancel</button>
           <button class="act-btn primary" id="feedback-send-btn" onclick="submitFeedback()">Send</button>
         </div>
-      </div>
-    </div>`);
+      </div>`,
+  });
   setTimeout(() => document.getElementById('feedback-txt')?.focus(), 50);
 }
 

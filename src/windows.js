@@ -179,18 +179,36 @@ function _openWindow(key, boxHTML) {
 // they show just ×, matching the pre-floating-windows look.
 const _recenterBtnHTML = () => _isMobile() ? '' : `<span class="tb-btn" title="Center" onclick="recenterWindow(this)">□</span>`;
 
-// Shared blue-bar window for Help sections, the modifier popup, and About. `key` namespaces the id.
-function _openInfoModal(title, content, key) {
-  _openWindow(key, `<div class="info-box info-box-titled">
+// ─── MODAL BUILDER ────────────────────────────────────────────────────────
+// One chrome assembler for every blue-bar dialog (Help sections, About, Donate, Profile, the
+// modifier popup, Send Feedback): the title bar (icon + title + □/× buttons) and the .info-box
+// wrapper, wired through _openWindow so desktop/mobile + one-per-key behavior stays uniform. Always
+// uses `.info-box-titled` (CSS: styles.css ~1307) so the blue bar stays pinned to the rounded top
+// corners and the body beneath it owns the scrolling. Callers hand in only what varies: `key`
+// (window id + dedup), `title`, `content` (inner HTML — wrapped in the standard `.info-content`
+// padded/scrollable div, or pass raw HTML plus `bare: true` to own that div yourself with different
+// padding, as Send Feedback does), `icon` (title-bar glyph, defaults to ♠), and `boxStyle` (inline
+// style on .info-box, e.g. Send Feedback's max-width). Close always calls closeWindow(this) — the
+// same × handler every dialog already shared.
+function openModal({ key, title, icon = '♠', content, bare = false, boxStyle = '' }) {
+  const styleAttr = boxStyle ? ` style="${boxStyle}"` : '';
+  const body = bare ? content : `<div class="info-content">${content}</div>`;
+  return _openWindow(key, `<div class="info-box info-box-titled"${styleAttr}>
     <div class="title-bar">
-      <span class="tb-title"><span class="tb-icon">♠</span>${title}</span>
+      <span class="tb-title"><span class="tb-icon">${icon}</span>${title}</span>
       <span class="tb-btns">
         ${_recenterBtnHTML()}
         <span class="tb-btn close" title="Close" onclick="closeWindow(this)">×</span>
       </span>
     </div>
-    <div class="info-content">${content}</div>
+    ${body}
   </div>`);
+}
+
+// Shared blue-bar window for Help sections, the modifier popup, and About. `key` namespaces the id.
+// Thin wrapper kept for the existing call sites/MANIFEST export; openModal owns the actual chrome.
+function _openInfoModal(title, content, key) {
+  openModal({ key, title, content });
 }
 
 function showInfo(section) {
@@ -341,19 +359,40 @@ function _maybeTip(id){
   return true;
 }
 
+// ─── TIP ELIGIBILITY REGISTRY ─────────────────────────────────────────────
+// Declarative eligibility for each tutorial tip, in priority order (first match wins — see
+// _eligibleTips below). Each entry:
+//   screen  — required; matches S.screen.
+//   phase   — optional; matches S[GAMES[screen].phaseKey] against this string, or against any of
+//             an array of strings (OR). Omitted = any phase (the 'intro' entries don't have a
+//             phase concept at all).
+//   gate    — optional predicate for a condition beyond screen/phase, e.g. uth_turn's "only if the
+//             player hasn't already raised" (the river decision is raise-or-fold with no check).
+//   tip     — the TUTORIAL_TIPS id to show when this entry matches.
+// Text lives in gametext.js (TUTORIAL_TIPS); this registry only decides WHEN each id is eligible.
+const TIP_ELIGIBILITY = [
+  { screen: 'intro',                                            tip: 'modifier' },
+  { screen: 'bj',     phase: 'bet',                             tip: 'bj_hands' },
+  { screen: 'uth',    phase: 'bet',                             tip: 'uth_bet' },
+  { screen: 'uth',    phase: 'preflop',                         tip: 'uth_raise' },
+  { screen: 'uth',    phase: 'turn', gate: () => !S.uthRaised,  tip: 'uth_turn' },    // river: raise 1x or fold, no check
+  { screen: 'uth',    phase: ['reveal', 'result'],               tip: 'uth_qualify' },
+  { screen: 'ladder', phase: 'bet',                              tip: 'ladder' },
+];
+
 // Pure mapping of the current screen/phase to the tip ids eligible right now, in
-// priority order. Kept separate from _runTutorial so it can be unit-tested without
-// the automation/balloon side effects. Returns [] on any non-trigger state.
+// priority order (TIP_ELIGIBILITY's declaration order). Kept separate from _runTutorial so it can
+// be unit-tested without the automation/balloon side effects. Returns [] on any non-trigger state.
 function _eligibleTips(){
-  const s = S.screen, out = [];
-  if (s === 'intro') out.push('modifier');
-  if (s === 'bj'  && S.bjPhase  === 'bet')     out.push('bj_hands');
-  if (s === 'uth' && S.uthPhase === 'bet')     out.push('uth_bet');
-  if (s === 'uth' && S.uthPhase === 'preflop') out.push('uth_raise');
-  if (s === 'uth' && S.uthPhase === 'turn' && !S.uthRaised) out.push('uth_turn'); // river: raise 1x or fold, no check
-  if (s === 'uth' && (S.uthPhase === 'reveal' || S.uthPhase === 'result')) out.push('uth_qualify');
-  if (s === 'ladder' && S.ladPhase === 'bet') out.push('ladder');
-  return out;
+  const s = S.screen;
+  const phaseKey = GAMES[s]?.phaseKey;
+  const curPhase = phaseKey ? S[phaseKey] : undefined;
+  return TIP_ELIGIBILITY
+    .filter(e => e.screen === s)
+    .filter(e => e.phase === undefined ||
+      (Array.isArray(e.phase) ? e.phase.includes(curPhase) : e.phase === curPhase))
+    .filter(e => !e.gate || e.gate())
+    .map(e => e.tip);
 }
 
 // localStorage key the current "what's new" note dedupes on (one per WHATS_NEW.id).
