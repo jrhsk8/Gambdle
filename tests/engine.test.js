@@ -167,6 +167,16 @@ describe('engine — BJ equivalence', () => {
     assertEqual(out.chips, expected, 'split replay chips');
   });
 
+  it('a split hand WITH a hit replays identically (regression: seed plumbing in _replayBJSplit)', () => {
+    // 2026-07-01 prod: every split+hit transcript threw ReferenceError in replay because
+    // _replayBJSplit's beforeHit read `seed` without it being passed in — and no equivalence
+    // test hit a split sub-hand, so the suite stayed green. This is that missing shape.
+    _resetRun(); const mods=_modsFor({});
+    _driveBJSplit(100, [['hit','stand'],['stand']]);
+    const {expected,out}=_replayOf(mods);
+    assertEqual(out.chips, expected, 'split+hit replay chips');
+  });
+
   it('bj_two_hands (Double Vision) fresh-deck deal + pick replays identically', () => {
     _resetRun(); const mods=_modsFor('bj_two_hands');
     // Each hand deals two candidate hands from a fresh per-hand deck (the shared shoe is untouched);

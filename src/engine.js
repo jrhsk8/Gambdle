@@ -165,7 +165,7 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   }
 
   if(actions.some(ev => ev.a === 'split')){
-    return _replayBJSplit(tx, j, deal, mod, acct, addNet, st, { player, dealer, bet0, actions, stand17 }, shoe, draw);
+    return _replayBJSplit(tx, j, deal, mod, acct, addNet, st, { player, dealer, bet0, actions, stand17 }, shoe, draw, seed);
   }
 
   // Straight (no-split) play. Once the hand has definitively ended (a stand, a double, or a hit that
@@ -277,7 +277,11 @@ function bjSplitStep({ pair, dealer, bet0, mod, stand17, draw, acct, nextAction,
 // Replays a split hand from the transcript. `init.actions` is the pre-collected consecutive bj action
 // list, beginning with the initial 'split'. Drives the shared bjSplitStep with a transcript-reading
 // callback (still strict — forged/extra actions abort the Run), then settles each sub-hand.
-function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw){
+// `seed` is needed by beforeHit's segment bound (bjSegStart) — a split hit's Soft Landing swap must
+// stay inside this hand's shoe segment. It reached here as a free variable before the v1.83 split-
+// machine extraction; forgetting to thread it made every split+hit replay throw (2026-07-01 prod
+// replay_err:error spike). The regression test drives exactly that shape.
+function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw, seed){
   const { player, dealer, bet0, actions, stand17 } = init;
   const Rbj = bjRulesFor(mod); // shared BJ rule bundle (same builder bjResolve's split path uses)
   if(!actions.length || actions[0].a !== 'split') _replayFail('bj_split_order');
