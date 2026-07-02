@@ -30,7 +30,7 @@ const MANIFEST = {
     '_backlogSeed', '_canShowBorrow', '_effectiveBorrowAmount', '_lbTopPct', '_ls', '_nextDailySeed',
     '_testActive', 'applyLedger', 'applyPlayersChoice', 'buildDeck', 'card', 'computeStreak', 'credit', 'debit',
     'getActiveSeed', 'getDailySeed', 'getDayNum', 'getDeviceId', 'getMod', 'getNetTier',
-    'getRngSeed', 'getStateKey', 'getTier', 'hVal', 'hValDisplay', 'isBJ', 'isChipBusted',
+    'getRngSeed', 'getStateKey', 'getTier', 'cVal', 'hVal', 'hValSoft', 'hValDisplay', 'isBJ', 'isChipBusted',
     'liveAcct', 'loadState', 'mkRng', 'mutate', 'next', 'normalizeModRef',
     'pendingPlayersChoice', 'profileStats', 'resolveDayMod', 'saveState', 'shuffle', 'suitedConnectorDeal',
     'UNLOCKS', 'winMult', 'winMultFor',
@@ -79,7 +79,7 @@ const MANIFEST = {
   ],
   'uth.js': [
     'UTH_CARD_INTERVAL_MS', 'resetUTHHand', 'resolveUTH', 'screenUTH',
-    'uthAward', 'uthPayTableHTML', 'uthPayTableHead', 'uthRulesFor',
+    'uthAward', 'uthPayTableHTML', 'uthPayTableHead', 'uthRaiseMultsFor', 'uthRulesFor',
   ],
   'windows.js': [
     '_isMobile', '_openInfoModal', '_openWindow', '_reapplyDragPos', '_recenterBtnHTML',

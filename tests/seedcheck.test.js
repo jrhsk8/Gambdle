@@ -25,11 +25,13 @@ describe('Seed Checker — basic strategy table (_scStratAction)', () => {
   it('soft 13 vs 4 → hit',               () => assertEqual(_scStratAction(13, true,  4),  'H'));
 });
 
-describe('Seed Checker — hand total (_scHandTotal)', () => {
-  it('A,6 = soft 17',   () => { const t = _scHandTotal([_scC('A','♠'), _scC('6','♦')]); assertEqual(t.total, 17); assertEqual(t.soft, true); });
-  it('A,6,10 = hard 17',() => { const t = _scHandTotal([_scC('A','♠'), _scC('6','♦'), _scC('10','♣')]); assertEqual(t.total, 17); assertEqual(t.soft, false); });
-  it('A,A = soft 12',   () => { const t = _scHandTotal([_scC('A','♠'), _scC('A','♦')]); assertEqual(t.total, 12); assertEqual(t.soft, true); });
-  it('10,6 = hard 16',  () => { const t = _scHandTotal([_scC('10','♠'), _scC('6','♦')]); assertEqual(t.total, 16); assertEqual(t.soft, false); });
+// _scHandTotal was deleted in favor of the shared hValSoft (core.js) — hVal's total math plus the
+// softness bit the strategy table reads. Same pinned cases, now proving the shared implementation.
+describe('Seed Checker — hand total (shared hValSoft)', () => {
+  it('A,6 = soft 17',   () => { const t = hValSoft([_scC('A','♠'), _scC('6','♦')]); assertEqual(t.total, 17); assertEqual(t.soft, true); });
+  it('A,6,10 = hard 17',() => { const t = hValSoft([_scC('A','♠'), _scC('6','♦'), _scC('10','♣')]); assertEqual(t.total, 17); assertEqual(t.soft, false); });
+  it('A,A = soft 12',   () => { const t = hValSoft([_scC('A','♠'), _scC('A','♦')]); assertEqual(t.total, 12); assertEqual(t.soft, true); });
+  it('10,6 = hard 16',  () => { const t = hValSoft([_scC('10','♠'), _scC('6','♦')]); assertEqual(t.total, 16); assertEqual(t.soft, false); });
 });
 
 describe('Seed Checker — decision-affected detection (_scDecisionAffected)', () => {

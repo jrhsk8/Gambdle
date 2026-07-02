@@ -248,6 +248,17 @@ const UTH_STREET_GRAPH = {
   flop:    { raiseMult:[2],   checkable:true,  showsFold:false, advance:_uthDealTurn },
   turn:    { raiseMult:[1],   checkable:false, showsFold:true,  advance:uthResolve  },
 };
+// The legal raise multiplier(s) for a street, straight off UTH_STREET_GRAPH — the ONE source the
+// live handler (uthPlaceRaise, above) and the replay Engine both gate a raise's mult on, so a
+// hand-crafted transcript can't claim a mult the street's UI could never have offered (e.g. a 1×
+// flop raise — flop only ever offers 2×). Returns [] for an unknown street rather than throwing:
+// engine.js's replay wants a plain "is this mult in the legal set", not a crash on a forged street
+// name (that's a separate, already-rejected failure mode there). uth.js is in the engine bundle
+// (see MANIFEST/ARCHITECTURE.md), so this export is bundle-safe — no new file needs loading server-side.
+function uthRaiseMultsFor(street){
+  const node = UTH_STREET_GRAPH[street];
+  return node ? node.raiseMult : [];
+}
 // Fold is legal from any street with an active decision (every key above); reveal/result/bet/dealing
 // are not — Fold doesn't appear in the graph itself since it doesn't "advance" a street, it ends the hand.
 // (Broader than showsFold above: this is uthFold's own defensive guard, not what the UI offers.)

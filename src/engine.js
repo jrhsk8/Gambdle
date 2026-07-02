@@ -348,6 +348,11 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
   const antePortion = Math.ceil(ante / 2), blindPortion = Math.floor(ante / 2);
 
   let play = 0, raised = false;
+  // The engine's OWN street cursor: 'preflop' until the first check, 'flop' after one, 'turn' after
+  // two. Derived from the event walk (not read off the transcript) so the per-street raise-mult
+  // check below can't be gamed by a forged `st` field — and so older transcripts whose raise events
+  // carry no `st` still replay.
+  let street = 'preflop';
   let j = i + 1;
   while(j < tx.length && tx[j].g === 'uth' && tx[j].a !== 'deal' && tx[j].a !== 'skip'){
     const ev = tx[j];
@@ -368,12 +373,21 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
     } else if(ev.a === 'raise'){
       if(raised) _replayFail('uth_double_raise');
       const mult = ev.mult | 0;
+      // Enforce the SAME per-street legal multipliers the live buttons offer (preflop 4x/3x, flop 2x,
+      // turn 1x — UTH_STREET_GRAPH in uth.js, shared here via uthRaiseMultsFor so the check can't
+      // drift from the live gate uthPlaceRaise already applies). Validated against the engine's own
+      // derived `street`, never the transcript's `st` claim: without this check a forged transcript
+      // could claim a mult the UI can never produce for that street (e.g. a 1x flop raise) — a
+      // variance-reducing cheat vector once replay enforcement is live.
+      if(!uthRaiseMultsFor(street).includes(mult)) _replayFail('uth_bad_mult');
       const bet = antePortion * mult;
       if(acct.chips < bet) _replayFail('uth_raise_nofund');
       acct.debit(bet); play = bet; raised = true;
       // A raise commits to showdown; the street advances are auto (uthNextStreet, unlogged).
     } else if(ev.a === 'check'){
-      // No chip or deck effect — the community reveal is the only consequence.
+      // No chip or deck effect — the community reveal is the only consequence. It does advance the
+      // street cursor: live play only logs 'check' where checking was legal, so preflop→flop→turn.
+      street = street === 'preflop' ? 'flop' : 'turn';
     } else _replayFail('uth_bad_action');
     j++;
   }
@@ -478,12 +492,49 @@ function _replayLadder(tx, i, deal, mod, acct, addNet){
 // is then one registry entry instead of an extra branch in the loop below, so live and replay can't
 // drift on which handler a game maps to. `_byTxKey` reverses txKey (the Transcript tag) back to the
 // registry key — the Transcript stores 'pk'/'r'/'lad' but the registry keys are 'poker'/'roulette'/
-// 'ladder'. Handler arg-lists differ, so each adapter picks what it needs from the per-Run context.
-GAMES.bj.replay       = (i, c) => _replayBJHand(c.tx, i, c.deal, c.mod, c.acct, c.addNet, c.bjSt, c.seed);
-GAMES.uth.replay      = (i, c) => _replayUTHHand(c.tx, i, c.deal, c.mod, c.acct, c.addNet, c.uthSt, c.seed);
-GAMES.poker.replay    = (i, c) => _replayPokerHand(c.tx, i, c.addNet, c.pkSt);
-GAMES.roulette.replay = (i, c) => _replayRoulette(c.tx, i, c.deal, c.mod, c.acct, c.addNet, c.spinWords);
-GAMES.ladder.replay   = (i, c) => _replayLadder(c.tx, i, c.deal, c.mod, c.acct, c.addNet);
+// 'ladder'.
+//
+// FINDING #31: each handler used to hand-pick its own fields off the per-Run context inline
+// (`(i,c) => _replayBJHand(c.tx, i, c.deal, c.mod, ...)`), so adding a context field meant editing
+// every one of these lines, and a typo/missing field only surfaced as an undefined mid-replay. Now
+// each game DECLARES its deps as data (`replayDeps`, ordered the same as its handler's params) and
+// the wiring loop below builds the adapter from that declaration via `_pickFields`. An unknown dep
+// name (typo, or a field that was renamed) throws at WIRING time — module load — not mid-replay.
+// `replayDeps` lives on the registry entry (not a separate map) so a game's replay contract sits
+// next to its other behaviour hooks, same place a reader would look for `.replay` itself.
+GAMES.bj.replayDeps       = ['tx', 'deal', 'mod', 'acct', 'addNet', 'bjSt', 'seed'];
+GAMES.uth.replayDeps      = ['tx', 'deal', 'mod', 'acct', 'addNet', 'uthSt', 'seed'];
+GAMES.poker.replayDeps    = ['tx', 'addNet', 'pkSt'];
+GAMES.roulette.replayDeps = ['tx', 'deal', 'mod', 'acct', 'addNet', 'spinWords'];
+GAMES.ladder.replayDeps   = ['tx', 'deal', 'mod', 'acct', 'addNet'];
+
+const _REPLAY_HANDLER = {
+  bj: _replayBJHand, uth: _replayUTHHand, poker: _replayPokerHand,
+  roulette: _replayRoulette, ladder: _replayLadder,
+};
+
+// Builds `(i, ctx) => handler(...deps.map(k => ctx[k]), i, ...)` — every handler's signature is
+// `(tx, i, ...therest)`, so `i` (the transcript cursor, not part of the per-Run context) is spliced
+// in as the 2nd argument once `tx` is picked off `deps[0]`. Throws immediately if `deps` names a key
+// `ctx` won't have — a load-time guard against exactly the "missing field, fails mid-replay" bug
+// FINDING #31 flagged, since `ctx`'s shape (built once in `replayRun`) is fixed and known here.
+function _pickFields(handler, deps, ctxShape){
+  for(const k of deps) if(!(k in ctxShape)) throw new Error('replay dep unknown: ' + k);
+  return (i, ctx) => {
+    const args = deps.map(k => ctx[k]);
+    args.splice(1, 0, i); // tx is deps[0]; i (cursor) always follows it
+    return handler(...args);
+  };
+}
+
+// The per-Run context SHAPE (keys only, values irrelevant) `_pickFields` validates `replayDeps`
+// against at wiring time — same keys `replayRun` populates on the real `_ctx` below.
+const _CTX_SHAPE = { tx: 1, deal: 1, mod: 1, acct: 1, addNet: 1, seed: 1, spinWords: 1, bjSt: 1, uthSt: 1, pkSt: 1 };
+
+for(const _gk in GAMES){
+  const _entry = GAMES[_gk];
+  if(_entry.replayDeps) _entry.replay = _pickFields(_REPLAY_HANDLER[_gk], _entry.replayDeps, _CTX_SHAPE);
+}
 const _byTxKey = {};
 for(const _gk in GAMES){ if(GAMES[_gk].txKey) _byTxKey[GAMES[_gk].txKey] = _gk; }
 
@@ -572,19 +623,17 @@ function auditOutcome(record, deal, mods = {}){
 }
 
 // ─── DAY RESOLUTION (server replay) ───────────────────────────────────────────────
-// The browser resolves "today's modifier preset" via _activeMod()/getMod (core.js), which read
-// S and today's date. The server replays an explicit past seed, so it needs that resolution
-// parameterized by the submitted seed + the recorded Player's Choice pick. Mirrors _activeMod +
-// getMod exactly: S.forcedMod is dev-only (never set server-side); a DAILY_MODIFIERS[seed] entry
-// wins over the CYCLE_ORDER day rotation; a Player's Choice preset is replaced by the committed
-// pick. Returns the resolved preset object (the shape replayRun's `modifiers` expects), or null
-// on a vanilla day.
+// The third consumer of the resolveDayMod/applyPlayersChoice chain — see the "MODIFIER RESOLUTION"
+// banner above core.js's normalizeModRef for the full precedence chain and why it's split in two.
+// Live play resolves "today's modifier" from S + today's date (_activeMod/getMod); the server
+// replays an explicit PAST seed with no live S, so this is just an adapter that supplies the same
+// two calls with the submitted seed + the recorded Player's Choice pick instead: forcedMod is
+// always null here (dev-only, never set server-side). Returns the resolved preset object (the
+// shape replayRun's `modifiers` expects), or null on a vanilla day. Kept as its own named export
+// (rather than inlining the two calls at each call site) since the server bundle imports it directly.
 function replayDayMods(calSeed, pcPick){
   const y = Math.floor(calSeed / 10000), m = Math.floor((calSeed % 10000) / 100) - 1, d = calSeed % 100;
   const dayNum = Math.floor((Date.UTC(y, m, d) - START_DATE_UTC) / 86400000) + 1;
-  // The precedence + cycle composition lives in resolveDayMod (core.js), shared with the live
-  // _activeMod so the two paths can't drift; replay never has a forced mod. Player's Choice is applied
-  // here, exactly as getMod does live.
   return applyPlayersChoice(resolveDayMod(calSeed, dayNum, null), pcPick);
 }
 

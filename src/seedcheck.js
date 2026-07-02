@@ -19,8 +19,12 @@
 // future day's wheel is not predictable. Magnitudes/EV are out of scope — this is a loss TALLY.
 //
 // CORRECTNESS: the deal MUST match live/replay exactly or the verdicts silently rot. We reuse the
-// engine's shared deal twins (uthHandCards, bjFirstAceSwap, _replaySafeHitSwap) and the same pure
-// resolvers (bestOf7, resolveBJHand) the game and server use — one source of truth, no duplication.
+// engine's shared deal twins (uthHandCards, bjFirstAceSwap, _replaySafeHitSwap), the shared rule
+// bundles (bjRulesFor/uthRulesFor — so a modifier's scalar/flag reads can't drift from bj.js/uth.js),
+// and the same pure resolvers (bestOf7, resolveUTH, resolveBJHand/resolveBJSplitHand) the game and
+// server use — one source of truth, no duplication. The only genuinely checker-private logic is the
+// basic-strategy DECISION TABLE below (_scStratAction/_scPairAction/_scAction): the game has no bot,
+// so there is no shared "what would the player do" policy to route through.
 // Three modifiers undermine the "forced" claim because the player can change the outcome by a choice
 // (uth_time_travel re-deals, bj_two_hands picks one of two hands, all_in_or_skip can skip a hand) —
 // those days, plus Player's Choice days, are computed at their no-action baseline and FLAGGED.
@@ -51,19 +55,6 @@ const _SC_WD  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function _scFmtDate(seed){
   const dt = _scSeedToDate(seed);
   return `${_SC_MON[dt.getUTCMonth()]} ${String(dt.getUTCDate()).padStart(2, '0')} · ${_SC_WD[dt.getUTCDay()]}`;
-}
-
-// ─── Card helpers (cVal is private to core.js — inline the upcard value) ──────
-function _scUpVal(c){
-  return c.r === 'A' ? 11 : (c.r === '10' || c.r === 'J' || c.r === 'Q' || c.r === 'K') ? 10 : +c.r;
-}
-// Hand total + softness for the strategy lookup. Matches hVal: aces start at 11, drop to 1 while
-// busting; `soft` ⇔ at least one ace still counts as 11.
-function _scHandTotal(cards){
-  let total = 0, aces = 0;
-  for(const c of cards){ total += _scUpVal(c); if(c.r === 'A') aces++; }
-  while(total > 21 && aces > 0){ total -= 10; aces--; }
-  return { total, soft: aces > 0 };
 }
 
 // ─── Standard basic strategy (S17, no split, no surrender) ──────────────────────
@@ -104,7 +95,7 @@ function _scPairAction(rank, up){
 // Resolve a non-pair hand's basic-strategy call into a concrete move ('hit'|'stand'|'double'), applying
 // the double-else-hit / double-else-stand fallback when doubling isn't available.
 function _scAction(hand, up, canDouble){
-  const { total, soft } = _scHandTotal(hand);
+  const { total, soft } = hValSoft(hand);      // shared with core.js's hVal (no private re-derivation)
   let a = _scStratAction(total, soft, up);
   if(a === 'Dh') a = canDouble ? 'D' : 'H';
   else if(a === 'Ds') a = canDouble ? 'D' : 'S';
@@ -119,12 +110,17 @@ function _scModAccessor(modObj){
 // Count of the 3 UTH hands the player LOSES at showdown (truly unwinnable). Pure; no betting walk
 // needed — the verdict is just the best-5 comparison, exactly what resolveUTH keys off (cmp < 0).
 function _scUthLosses(deal, mod, seed){
+  const R = uthRulesFor(mod);   // shared UTH rule bundle; resolveUTH only reads the qualify/boost keys
   let n = 0;
   for(let hand = 0; hand < 3; hand++){
     const { hole, dealer, comm, priv } = uthHandCards(deal, mod, hand, seed);
     const pb = bestOf7([...hole, ...comm, ...priv]);
     const db = bestOf7([...dealer, ...comm]);
-    if(pb.score < db.score) n++;
+    // Nominal 1-chip stakes: resolveUTH's result category ('win'/'push'/'lose') is decided purely by
+    // the pb/db score comparison, independent of stake size — routing through it (instead of a private
+    // `pb.score < db.score`) means the live win/lose rule can't drift from what the checker counts.
+    const res = resolveUTH(pb, db, 1, 1, 1, { wm: 1, ...R });
+    if(res.result === 'lose') n++;
   }
   return n;
 }
@@ -136,10 +132,11 @@ function _scUthLosses(deal, mod, seed){
 // chips (nominal — no balance tracking, consistent with a count). A split hand is one loss if its
 // sub-hands net < 0.
 function _scBjLosses(deal, mod, seed){
-  const twoHands = !!mod('bj_two_hands');
-  const stand17 = mod('bj_dealer_stand') || 17;
-  const bjMult = mod('bj_payout') || 1.5;
-  const spm = mod('bj_wild_split') ? 2 : 1;
+  const Rbj = bjRulesFor(mod);         // shared BJ rule bundle (same builder bjRules()/_replayBJHand use)
+  const twoHands = Rbj.twoHands;
+  const stand17 = Rbj.standAt;
+  const bjMult = Rbj.payout;
+  const spm = Rbj.wildSplit ? 2 : 1;
   const contCursor = { idx: 0 };       // continuous cursor — used pre-cutover, when segments are gated off
   let losses = 0;
 
@@ -167,7 +164,7 @@ function _scBjLosses(deal, mod, seed){
       player = [draw(), draw()];
       dealer = [draw(), draw()];
     }
-    const up = _scUpVal(dealer[0]);
+    const up = cVal(dealer[0].r);   // shared card-value primitive (core.js) — same upcard value hVal uses
 
     const pBJ = isBJ(player), dBJ = isBJ(dealer);
     if(pBJ || dBJ){
@@ -193,7 +190,7 @@ function _scBjLosses(deal, mod, seed){
       const dvFinal = hVal(dlr);
       let net = 0;
       for(let h = 0; h < hands.length; h++){
-        const ddm = (mod('bj_double_bonus') && doubled[h]) ? 2 : 1;
+        const ddm = (Rbj.doubleBonus && doubled[h]) ? 2 : 1;
         net += resolveBJSplitHand({ pv: hVal(hands[h]), dv: dvFinal, bet: bets[h], wm: 1, ddm, spm }).delta;
       }
       if(net < 0) losses++;
@@ -214,7 +211,7 @@ function _scBjLosses(deal, mod, seed){
       break; // stand
     }
     while(hVal(dealer) < stand17) dealer.push(draw());
-    const ddm = (mod('bj_double_bonus') && doubled) ? 2 : 1;
+    const ddm = (Rbj.doubleBonus && doubled) ? 2 : 1;
     const res = resolveBJHand({ pv: hVal(player), pBJ: false, dv: hVal(dealer), dBJ: isBJ(dealer), bet, wm: 1, bjMult, ddm });
     if(res.delta < 0) losses++;
   }

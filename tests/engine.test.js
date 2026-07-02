@@ -355,6 +355,32 @@ describe('engine — legality rejection', () => {
     // the live bet UI enforces, so the Engine must reject it (it would otherwise replay as legal).
     rejects('uth_overbet', () => replayRun(1, {}, [{g:'uth',a:'deal',h:0,ante:700}], { deal: emptyDeal() }));
   });
+  it('rejects a UTH raise whose mult is illegal for the street the engine derives', () => {
+    // UTH_STREET_GRAPH (uth.js) only ever offers 2x on the flop (preflop is 4x/3x, turn is 1x) — a
+    // 1x flop raise is a mult the live buttons could never produce, a variance-reducing cheat vector
+    // once replay enforcement is live. The engine derives the street from its own event walk (one
+    // check → flop), never from the transcript's `st` claim — a forged `st` can't whitelist a mult.
+    rejects('uth_bad_mult', () => replayRun(1, {}, [
+      {g:'uth',a:'deal',h:0,ante:100}, {g:'uth',a:'check',h:0,st:'preflop'},
+      {g:'uth',a:'raise',h:0,mult:1,st:'flop'},
+    ], { deal: emptyDeal() }));
+    // And the forged-st variant: claiming st:'turn' (where 1x IS legal) must not launder a 1x raise
+    // that actually happened on the flop (only one check consumed → engine says flop).
+    rejects('uth_bad_mult', () => replayRun(1, {}, [
+      {g:'uth',a:'deal',h:0,ante:100}, {g:'uth',a:'check',h:0,st:'preflop'},
+      {g:'uth',a:'raise',h:0,mult:1,st:'turn'},
+    ], { deal: emptyDeal() }));
+  });
+  it('accepts the legal mult for the same street', () => {
+    // Sanity check that uth_bad_mult isn't over-firing: 2x on the flop is legal and must replay
+    // through to showdown (a real 52-card deck, so bestOf7 has real hands to evaluate).
+    const deal = { bjShoe:[], pokerDecks:[], uthDeck: shuffle(buildDeck(), mkRng(1)), ladderCards:[], rSpinOverride:null };
+    const out = replayRun(1, {}, [
+      {g:'uth',a:'deal',h:0,ante:100}, {g:'uth',a:'check',h:0,st:'preflop'},
+      {g:'uth',a:'raise',h:0,mult:2,st:'flop'},
+    ], { deal });
+    assert(Number.isFinite(out.chips), 'a legal flop raise mult replays without rejection');
+  });
 });
 
 // ─── auditOutcome ───────────────────────────────────────────────────────────────

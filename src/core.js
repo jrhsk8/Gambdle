@@ -277,6 +277,22 @@ const urlParams = new URLSearchParams(window.location.search);
 let DEV_OVERRIDE = urlParams.get('dev') === 'true' ? {} : null;
 if(DEV_OVERRIDE) document.body.classList.add('dev-mode');
 
+// ─── MODIFIER RESOLUTION — one precedence chain, three consumers ───────────────
+// The full chain is: forcedMod (dev-only) > DAILY_MODIFIERS/DAILY_SEED_OVERRIDES date override >
+// CYCLE_ORDER cycle slot > Player's Choice indirection. It used to be re-derived separately by live
+// play and by the server replay engine, which drifted once already (the 2026-06-16 config-horizon
+// incident: a cycle-index mismatch made the server replay the wrong day's mod). Now it's split into
+// two pure functions, `resolveDayMod` (everything through the cycle slot) and `applyPlayersChoice`
+// (the last step), because the three real consumers need different intermediate points, not one
+// bundled result:
+//   - `pendingPlayersChoice` (below) needs the PRE-choice base preset, to read its `.choices` list
+//     while the day is still uncommitted — it must NOT apply the indirection.
+//   - `getMod` (below) needs the FINAL value: `resolveDayMod` then `applyPlayersChoice(mod, S.pcPick)`.
+//   - `replayDayMods` (engine.js) needs the FINAL value too, but for an explicit past seed + the
+//     recorded pick instead of live state: `resolveDayMod` then `applyPlayersChoice(mod, pcPick)`.
+// All three call through these same two functions, so the chain and the cycle index can't drift
+// between live and replay again — see also ARCHITECTURE.md "Modifiers" / "Scoring parity".
+
 // A modifier reference is either a PRESET_MODIFIERS key (string) or an inline preset object. This
 // turns either into the preset object (or null). One place, so live play and the server replay
 // normalize a day's modifier ref identically.
@@ -285,18 +301,19 @@ function normalizeModRef(ref) {
   return typeof ref === 'string' ? PRESET_MODIFIERS[ref] : ref;
 }
 
-// The Player's Choice indirection — the ONE place the rule lives, shared by live play (getMod) and
-// the server replay (replayDayMods). Once a pick is committed on a choices-day, the chosen preset IS
-// the active modifier; any other day (or no pick) the preset is unchanged.
+// Step 2 of the chain (see banner above): the Player's Choice indirection, shared by live play
+// (getMod) and the server replay (replayDayMods). Once a pick is committed on a choices-day, the
+// chosen preset IS the active modifier; any other day (or no pick yet) the preset is unchanged.
 function applyPlayersChoice(mod, pick) {
   return (mod && mod.choices && pick) ? (PRESET_MODIFIERS[pick] || mod) : mod;
 }
 
-// The ONE place a day's active modifier preset is composed from its inputs — shared by live play
-// (_activeMod → getMod) and the server replay (replayDayMods, engine.js) so the precedence chain and
-// the cycle index can't drift between them (see the 2026-06-16 config-horizon incident). Does NOT apply
-// the Player's Choice indirection — that's the caller's job (getMod live, replayDayMods on the server),
-// so pendingPlayersChoice can still read the unresolved .choices list. Returns the preset object or null.
+// Step 1 of the chain (see banner above): forced > date override > cycle slot, composed from
+// explicit inputs so live (`_activeMod` → `getMod`) and the server replay (`replayDayMods`,
+// engine.js) can't compute the cycle index differently. Deliberately stops BEFORE the Player's
+// Choice indirection (that's `applyPlayersChoice`'s job, called separately by each consumer) so
+// `pendingPlayersChoice` can still read the unresolved `.choices` list off the same call. Returns
+// the preset object or null.
 //   seed      — calendar seed (YYYYMMDD) selecting a DAILY_MODIFIERS override
 //   dayNum    — run day number, indexing the CYCLE_ORDER rotation (modulo kept safe for any integer)
 //   forcedMod — dev-only forced ref (live only; never set server-side)
@@ -306,9 +323,8 @@ function resolveDayMod(seed, dayNum, forcedMod) {
   return normalizeModRef(forcedMod || DAILY_MODIFIERS[seed] || cycled);
 }
 
-// Resolves today's active modifier preset object (forced > date override > cycle), or null. Does NOT
-// apply the Player's Choice indirection — that's getMod's job (so pendingPlayersChoice can still read
-// the unresolved .choices list).
+// Resolves today's active modifier preset object (forced > date override > cycle), pre-choice —
+// see `resolveDayMod` above for why this stops short of the Player's Choice indirection.
 function _activeMod() {
   return resolveDayMod(getActiveSeed(), getActiveDayNum(), S.forcedMod);
 }
@@ -351,6 +367,10 @@ function suitedConnectorDeal(hr){
 function cVal(r){return 'JQK'.includes(r)?10:r==='A'?11:+r;}
 // Totals a hand; aces start as 11 and are downgraded to 1 one-at-a-time to avoid bust.
 function hVal(cs){let v=0,a=0;for(const c of cs){v+=cVal(c.r);if(c.r==='A')a++;}while(v>21&&a-- >0)v-=10;return v;}
+// hVal + softness (true ⇔ at least one ace still counts as 11) in one pass — the pair a basic-strategy
+// table keys off. Shared so seedcheck.js's strategy layer reads the same total math hVal embodies
+// instead of re-deriving it (they used to be two independent hand-total implementations).
+function hValSoft(cs){let v=0,a=0;for(const c of cs){v+=cVal(c.r);if(c.r==='A')a++;}while(v>21&&a>0){v-=10;a--;}return{total:v,soft:a>0};}
 // Returns "8 / 18" for soft hands (ace still counted as 11), or a plain number string.
 function hValDisplay(cs){
   let v=0,aces=0;

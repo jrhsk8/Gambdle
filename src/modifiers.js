@@ -39,6 +39,8 @@
  * - r_color_double: true    Red and Black bets pay 2:1
  * - r_color_boost: 66       Player's single Red/Black bet wins this % of the time (dynamic to whichever
  *                           color they pick); a non-color bet spins fair. Pair with r_max_bets: 1.
+ * - r_force_group: '1_12'   Winning pocket is guaranteed to fall in this R_GROUP_INFO group (one of
+ *                           '1_12'/'13_24'/'25_36'/'1_18'/'19_36'/'even'/'odd'/'red'/'black')
  * - r_max_bets: 3           Max roulette bets per spin (default 6)
  * - r_respin: true          After spin, choose to keep the result or re-spin once
  * - ladder_free: 250        The Ladder bonus round after roulette; free house-money entry of
@@ -268,3 +270,102 @@ Object.entries(PRESET_MODIFIERS).forEach(([name, mod]) => {
     if (c.choices) throw new Error(`modifiers.js: "${name}" choice "${k}" cannot itself be a Player's Choice`);
   });
 });
+
+// ─── DECLARED SCHEMA (typo/shape guard) ───────────────────────────────────────
+// The two guards above only catch a BAD REFERENCE (a CYCLE_ORDER/choices entry pointing at a
+// preset that doesn't exist). They can't catch a bad KEY inside a preset itself — `{ br_payout:
+// 3.0 }` (typo'd `bj_payout`) is a perfectly valid-looking object, so `getMod('bj_payout')`
+// silently returns null forever and the day quietly plays default rules. MODIFIER_SCHEMA below is
+// the declared list of every real modifier key: `type` for a shape check, `game` for the dead-key
+// sweep. Derived by grepping every `getMod('...')`/`mod('...')` call site across src/ (see
+// bjRulesFor/uthRulesFor/spinModsFor for the per-game rule bundles) — if you add a new modifier
+// key, add its row here (NEW-MODIFIER.md step 1 already has you touching this doc comment).
+// `type` values: 'number' | 'bool' | a fixed array of allowed values (enum, e.g. r_force_group).
+const MODIFIER_SCHEMA = {
+  // Blackjack (src/bj.js bjRulesFor + card-forcing reads)
+  bj_payout:        { type: 'number', game: 'bj' },
+  bj_dealer_stand:  { type: 'number', game: 'bj' },
+  bj_double_bonus:  { type: 'bool',   game: 'bj' },
+  bj_first_ace:     { type: 'bool',   game: 'bj' },
+  bj_wild_split:    { type: 'bool',   game: 'bj' },
+  bj_two_hands:     { type: 'bool',   game: 'bj' },
+  bj_safe_hit:      { type: 'bool',   game: 'bj' },
+  // UTH (src/uth.js uthRulesFor + card-forcing reads)
+  uth_blind_boost:    { type: 'number', game: 'uth' },
+  uth_blind_extended: { type: 'bool',   game: 'uth' },
+  uth_double_play:    { type: 'bool',   game: 'uth' },
+  uth_hard_qualify:   { type: 'bool',   game: 'uth' },
+  uth_pocket_aces:    { type: 'bool',   game: 'uth' },
+  uth_river_monster:  { type: 'bool',   game: 'uth' },
+  uth_time_travel:    { type: 'bool',   game: 'uth' },
+  uth_three_hole:     { type: 'bool',   game: 'uth' },
+  uth_sixth_card:     { type: 'bool',   game: 'uth' },
+  uth_suited_conn:    { type: 'bool',   game: 'uth' },
+  // Roulette (src/roulette.js spinModsFor / _evalBets / rAddBet)
+  r_double_ball:  { type: 'bool',   game: 'roulette' },
+  r_payout_mult:  { type: 'number', game: 'roulette' },
+  r_number_pay:   { type: 'number', game: 'roulette' },
+  r_hot_number:   { type: 'number', game: 'roulette' }, // 0 is a valid value (Hot Zero) — not falsy-skippable
+  r_hot_boost:    { type: 'number', game: 'roulette' },
+  r_color_double: { type: 'bool',   game: 'roulette' },
+  r_color_boost:  { type: 'number', game: 'roulette' },
+  r_force_group:  { type: ['1_12', '13_24', '25_36', '1_18', '19_36', 'even', 'odd', 'red', 'black'], game: 'roulette' },
+  r_max_bets:     { type: 'number', game: 'roulette' },
+  r_respin:       { type: 'bool',   game: 'roulette' },
+  // Cross-game (src/core.js winMult/_effectiveBorrowAmount/isChipBusted, src/bj.js + src/uth.js peek, src/ladder.js)
+  min_chips:     { type: 'number', game: 'cross' },
+  chip_div:      { type: 'number', game: 'cross' },
+  peek:          { type: 'number', game: 'cross' },
+  comeback:      { type: 'bool',   game: 'cross' },
+  all_in_or_skip:{ type: 'bool',   game: 'cross' },
+  ladder_free:   { type: 'number', game: 'cross' },
+};
+// Preset meta fields that aren't gameplay keys — every preset carries some subset of these plus
+// its MODIFIER_SCHEMA keys. Anything outside both sets is an unrecognized key (typo).
+const _MODIFIER_META_KEYS = ['type', 'title', 'desc', 'devNote', 'choices'];
+
+// Strict-mode gate — mirrors core.js's _testActive/DEV_OVERRIDE check, but self-contained: this
+// file loads BEFORE core.js (see index.html), so DEV_OVERRIDE doesn't exist yet at this point, and
+// under the server engine bundle `window` is a stub ({location:{search:''}}) so this reads false
+// there too. Keeps the deep walk below at zero cost in production and in the replay engine.
+const _modifiersStrict = () =>
+  (typeof window !== 'undefined') &&
+  (new URLSearchParams(window.location.search).get('dev') === 'true' || !!window.__GAMBDLE_TEST__);
+
+// Validates one preset object's keys/value-shapes against MODIFIER_SCHEMA + _MODIFIER_META_KEYS.
+// `label` is just for the error message (a PRESET_MODIFIERS key, or "<parent> choice <key>").
+function _validateModifierShape(mod, label) {
+  for (const k of Object.keys(mod)) {
+    if (_MODIFIER_META_KEYS.includes(k)) continue;
+    const schema = MODIFIER_SCHEMA[k];
+    if (!schema) throw new Error(`modifiers.js: "${label}" has unrecognized key "${k}". Typo? Check MODIFIER_SCHEMA.`);
+    const v = mod[k];
+    if (schema.type === 'number') {
+      if (typeof v !== 'number' || !Number.isFinite(v))
+        throw new Error(`modifiers.js: "${label}.${k}" should be a finite number, got ${JSON.stringify(v)}`);
+    } else if (schema.type === 'bool') {
+      if (typeof v !== 'boolean')
+        throw new Error(`modifiers.js: "${label}.${k}" should be a boolean, got ${JSON.stringify(v)}`);
+    } else if (Array.isArray(schema.type)) {
+      if (!schema.type.includes(v))
+        throw new Error(`modifiers.js: "${label}.${k}" should be one of [${schema.type.join(', ')}], got ${JSON.stringify(v)}`);
+    }
+  }
+}
+
+// The deep schema walk — dev/test only (see _modifiersStrict), so prod load cost is one boolean
+// check. Validates every PRESET_MODIFIERS entry (including a choice preset's nested `choices`
+// options — a trio can reference a retired preset, and retired presets are never deleted per
+// NEW-MODIFIER.md, so they must keep validating forever too) plus the CYCLE_ORDER/DAILY_MODIFIERS
+// reference checks the two guards above already do. A key in MODIFIER_SCHEMA that no preset ever
+// sets is left as a comment-level "dead key" note below rather than a thrown error — retired-but-
+// unused schema rows aren't a load-time bug the way a typo is.
+if (_modifiersStrict()) {
+  Object.entries(PRESET_MODIFIERS).forEach(([name, mod]) => {
+    _validateModifierShape(mod, name);
+    if (mod.choices) mod.choices.forEach(k => _validateModifierShape(PRESET_MODIFIERS[k], `${name} choice "${k}"`));
+  });
+  // Every schema key should be read somewhere in src/ — this is intentionally NOT enforced (a
+  // dead key is a cleanup nit, not a correctness bug), just documented: grep
+  // `getMod\('KEY'\)|mod\('KEY'\)` per MODIFIER_SCHEMA key if you ever suspect one rotted.
+}
