@@ -226,16 +226,16 @@ describe("Player's Choice variants", () => {
 
 // ─── Modifier behavior: gameplay effects of active modifiers ────────────────
 
-// Helper: run fn with S.forcedMod set, then restore original values
-function withMod(mod, chipOverride, fn) {
-  const savedMod = S.forcedMod;
-  const savedChips = S.chips;
+// Helper: run fn with S.forcedMod set, then restore original values.
+// Thin adapter over the shared tests/game-harness.js withGame(): the old version only saved
+// forcedMod/chips, but withGame's full-S snapshot is a strict superset (see game-harness.js
+// for the contract), so nothing that used to be restored here is lost.
+registerGameBuilder('mod', ({ mod, chipOverride }) => {
   S.forcedMod = mod;
   if (chipOverride !== undefined) S.chips = chipOverride;
-  try { fn(); } finally {
-    S.forcedMod = savedMod;
-    S.chips = savedChips;
-  }
+});
+function withMod(mod, chipOverride, fn) {
+  withGame('mod', { mod, chipOverride }, fn);
 }
 
 // ─── getMod() priority and lookup ────────────────────────────────────────────
@@ -364,15 +364,15 @@ describe('uthBlindDelta — boost + extended combined', () => {
 
 // ─── bj_wild_split ───────────────────────────────────────────────────────────
 
-// Full state snapshot at describe-load time; restored after every bjResolve test.
-const _wsSnap = JSON.stringify({...S, pkHeld:[...S.pkHeld]});
-const _wsRestore = () => { const r=JSON.parse(_wsSnap); r.pkHeld=new Set(r.pkHeld); Object.assign(S,r); };
-
-function withSplitMod(mod, overrides, fn) {
-  const savedMod = S.forcedMod;
+// Thin adapter over the shared tests/game-harness.js withGame(): full-S snapshot/restore
+// per call (see game-harness.js for the contract) replaces the old describe-load-time
+// _wsSnap/_wsRestore pair, which is now unused elsewhere in this file.
+registerGameBuilder('splitMod', ({ mod, overrides }) => {
   S.forcedMod = mod;
   Object.assign(S, overrides);
-  try { fn(); } finally { _wsRestore(); S.forcedMod = savedMod; }
+});
+function withSplitMod(mod, overrides, fn) {
+  withGame('splitMod', { mod, overrides }, fn);
 }
 
 // A two-card hand pair + dealer bust setup used in multiple tests.

@@ -12,21 +12,63 @@
 // globals the files touch at load time (document.title, the _ls storage probe, window.location),
 // all of which resolve to the correct PRODUCTION defaults under the stubs.
 //
-// The output is committed AND guarded: tests/run.js calls checkFresh() before launching the
-// browser, so a stale bundle (someone edited a src file without regenerating) fails `npm test`.
+// The output is committed AND guarded: tests/run.js calls verifyBundleFresh() (tests/verify-bundle.js)
+// before launching the browser, so a stale bundle (someone edited a src file without regenerating)
+// fails `npm test`. The same check also runs standalone before a Supabase deploy — see verify-bundle.js.
 // Regenerate with:  node tests/build-engine-bundle.js
 
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-// Load order MUST match index.html's <script> order for the subset the engine needs: modifier
-// tables first, then core (constants/card helpers/buildDeal), then the four game resolvers, then
-// engine.js (which references all of the above). Any other order risks a temporal-dead-zone or a
-// "not defined" at load.
-const FILES = ['modifiers', 'core', 'deal', 'bet', 'bj', 'uth', 'roulette', 'ladder', 'engine']
-  .map(n => path.join('src', n + '.js'));
+const INDEX_HTML = path.join(ROOT, 'index.html');
 const OUT = path.join('supabase', 'functions', '_shared', 'engine-bundle.mjs');
+
+// Every src/*.js file that is NOT part of the replay closure, with the reason it's safe to drop.
+// This list used to live only implicitly (as the gap between index.html's full script order and a
+// hand-picked FILES array) — that drift is exactly what let the bundle silently diverge before.
+// Now FILES is DERIVED from index.html (see fileList() below): whatever index.html loads that
+// isn't in this exclude set is assumed to belong in the bundle, in index.html's order. Adding a new
+// src file therefore requires an explicit decision here (include by default, or list why not) rather
+// than a silent omission.
+const EXCLUDE = {
+  'icons.js': 'DOM-only icon() glyphs; stubbed to a no-op in STUB below, never read by replay',
+  'net.js': 'Supabase fetch adapter; server replay never calls out to the network',
+  'record.js': 'DOM-facing history/transcript bookkeeping (mkOutcome, txLog); replay reads raw tx events, not this layer',
+  'dom-ids.js': 'DOM element id lookup table; no DOM exists server-side',
+  'gametext.js': 'player-facing copy strings; irrelevant to outcome math',
+  'audio.js': 'sound playback; no-op server-side',
+  'reveal.js': 'client-side reveal/animation scheduler; server replay has no UI to animate',
+  'ui.js': 'DOM render + widget glue',
+  'windows.js': 'DOM window-chrome glue',
+  'menus.js': 'DOM menu glue',
+  'dev.js': 'dev-only tools (?dev=true pages); never shipped to the replay path',
+  'screens.js': 'per-screen DOM render functions',
+  'flow.js': 'render()/goTo() navigation + DOM-driven game loop; replay drives outcomes directly, not through screens',
+  'poker.js': '5-Card Poker is not on the leaderboard and not replayed server-side (engine.js stubs its events to a 0 net)',
+  'seedcheck.js': 'dev-only future-seed scanner tool, not part of any player run',
+  'game.js': 'app bootstrap (DOMContentLoaded, initial render); nothing here runs headless',
+};
+
+// Reads index.html's own <script src="src/X.js"> tags so the bundle's file list can never drift
+// from what actually ships to players — the 2026-06-22 incident (submit-score deployed against a
+// 5-day-stale bundle) was a freshness gap, but a hand-maintained FILES list is a second, quieter
+// drift vector: a file could be renamed/added/reordered in index.html and the bundle would keep
+// building from the old list without any error. Order is preserved as-is; EXCLUDE above trims it
+// down to the pure replay closure (modifier tables, core helpers, deal, the four game resolvers,
+// then engine.js itself, which references all of the above — that dependency order is why order
+// matters at all: anything out of place risks a temporal-dead-zone or a "not defined" at load).
+function fileList() {
+  const html = fs.readFileSync(INDEX_HTML, 'utf8');
+  const re = /<script\s+src="src\/([^"]+\.js)"><\/script>/g;
+  const all = [];
+  let m;
+  while ((m = re.exec(html))) all.push(m[1]);
+  if (!all.length) throw new Error('build-engine-bundle: found no <script src="src/*.js"> tags in index.html');
+  return all.filter(f => !EXCLUDE[f]);
+}
+
+const FILES = fileList().map(f => path.join('src', f));
 
 // Browser globals the bundled files read at LOAD time (every one verified — see the PRD progress
 // notes). Stubbed so top-level statements run to their production defaults: no ?dev, no test seed,
@@ -48,15 +90,43 @@ const CAPTURE =
   "replayDayMods: replayDayMods, replayRngSeed: replayRngSeed, buildDeal: buildDeal, " +
   "replayConfigHorizon: replayConfigHorizon };";
 
+// One marker per bundled file so a stale-check can blame the SPECIFIC file that changed, not just
+// report "the bundle differs somehow." Matched back out by fileSections() below.
+const MARKER = rel => '// ===== ' + rel.replace(/\\/g, '/') + ' =====';
+
 function buildSource() {
   const parts = [STUB, ''];
   for (const rel of FILES) {
-    parts.push('// ===== ' + rel.replace(/\\/g, '/') + ' =====');
+    parts.push(MARKER(rel));
     parts.push(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
     parts.push('');
   }
   parts.push(CAPTURE);
   return parts.join('\n');
+}
+
+// Splits a previously-built concatenation back into { relPath: srcText } by its MARKER comments,
+// so a stale-file diff can name the offending file instead of just failing the whole bundle.
+// Used by verify-bundle.js; kept here because it must stay in lockstep with MARKER/buildSource.
+// buildSource() joins [MARKER, fileContent, ''] with '\n', which leaves a "\n\n" separator (one
+// blank line) between a file's content and the next MARKER (or CAPTURE, for the last file) that
+// is NOT part of the original file on disk — strip exactly that separator, no more, so a file
+// whose own content happens to end in blank lines still compares correctly.
+function fileSections(concatenated) {
+  const SEP = '\n\n';
+  const out = {};
+  for (let i = 0; i < FILES.length; i++) {
+    const rel = FILES[i];
+    const start = concatenated.indexOf(MARKER(rel));
+    if (start === -1) { out[rel] = null; continue; }
+    const bodyStart = start + MARKER(rel).length + 1; // +1 for the newline after the marker
+    const nextRel = FILES[i + 1];
+    const end = nextRel ? concatenated.indexOf(MARKER(nextRel), bodyStart) : concatenated.indexOf(CAPTURE, bodyStart);
+    let body = concatenated.slice(bodyStart, end === -1 ? undefined : end);
+    if (body.endsWith(SEP)) body = body.slice(0, -SEP.length);
+    out[rel] = body;
+  }
+  return out;
 }
 
 function build() {
@@ -66,10 +136,11 @@ function build() {
   // identically in Node (ESM) and Deno; `new Function` + eval are permitted in both runtimes.
   return [
     '// AUTO-GENERATED by tests/build-engine-bundle.js — DO NOT EDIT BY HAND.',
-    '// Dual-mode replay engine for the submit-score Edge Function: a sloppy-mode concatenation of',
-    '// src/{modifiers,core,bet,bj,uth,roulette,ladder}.js + engine.js with browser globals stubbed,',
-    '// re-exported as ESM. Loads in both Node (local test) and Deno (Supabase). Regenerate after',
-    '// editing any of those src files: `node tests/build-engine-bundle.js` (npm test fails if stale).',
+    '// Dual-mode replay engine for the submit-score Edge Function: a sloppy-mode concatenation of the',
+    '// pure-logic src/*.js files (see EXCLUDE in build-engine-bundle.js for what is left out and why),',
+    '// with browser globals stubbed, re-exported as ESM. Loads in both Node (local test) and Deno',
+    '// (Supabase). Regenerate after editing any bundled src file: `node tests/build-engine-bundle.js`',
+    '// (npm test fails if stale).',
     'const __ENGINE_SRC = ' + JSON.stringify(src) + ';',
     '// Compile LAZILY on first call (not at import): the sloppy-mode Function wrapper is the only',
     '// exotic step, so deferring it means even a hostile runtime that rejected `new Function` would',
@@ -87,19 +158,17 @@ function build() {
   ].join('\n');
 }
 
-// Guards the on-disk bundle against the src it's built from. STALE (present but differs from a
-// fresh build) is a real problem — someone edited a bundled src file and could deploy a bundle that
-// disagrees with the client; return a message so `npm test` fails. MISSING is not a problem: the
-// bundle lives under the git-ignored supabase/ tree, so a fresh clone simply hasn't generated it
-// yet — write it and pass. Returns a problem string only on staleness, else null.
-function checkFresh() {
-  const outPath = path.join(ROOT, OUT);
-  const fresh = build();
-  let current = null;
-  try { current = fs.readFileSync(outPath, 'utf8'); } catch { /* missing */ }
-  if (current === fresh) return null;
-  if (current === null) { fs.writeFileSync(outPath, fresh, 'utf8'); return null; }
-  return `${OUT.replace(/\\/g, '/')} is stale (a bundled src file changed) — run: node tests/build-engine-bundle.js`;
+// Reverses build()'s wrapping to recover the plain concatenation (pre-JSON.stringify) from a
+// previously-written .mjs file, so a stale-check can hand it to fileSections() and blame the
+// specific bundled file that changed. build() always emits __ENGINE_SRC as the sole statement on
+// its own line, so a line-based split is exact (no regex over the giant escaped literal needed).
+function extractEmbeddedSource(wrapped) {
+  const marker = 'const __ENGINE_SRC = ';
+  const lines = wrapped.split('\n');
+  const line = lines.find(l => l.startsWith(marker));
+  if (!line) return null;
+  const literal = line.slice(marker.length, line.length - 1); // strip trailing ';'
+  try { return JSON.parse(literal); } catch { return null; }
 }
 
 function write() {
@@ -109,6 +178,11 @@ function write() {
   console.log(`engine bundle written: ${OUT.replace(/\\/g, '/')} (${(bytes / 1024).toFixed(0)} KB)`);
 }
 
-module.exports = { checkFresh };
+// The freshness GATE (does the on-disk bundle still match a fresh build?) lives in
+// tests/verify-bundle.js — it's used from three places (npm test, a standalone pre-deploy CLI
+// check, and here) and needs to be reusable without pulling in the whole build step. This module
+// only exports what verify-bundle.js needs to do that comparison: the builder, the per-file section
+// splitter, the output path, and the resolved file list (for naming which file went stale).
+module.exports = { ROOT, OUT, FILES, build, fileSections, extractEmbeddedSource };
 
 if (require.main === module) write();

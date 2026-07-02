@@ -19,7 +19,12 @@ function _bjRestoreS() {
 // Configures S for a no-split hand, calls bjResolve(true), runs fn(), then restores.
 // chips should be post-bet-deduction (i.e. original chips minus the bet already taken).
 // dealer cards must total >= 17 so bjResolve doesn't try to draw from the shoe.
-function withBJ({ player, dealer, bet, chips, forcedMod = {}, doubled = false }, fn) {
+//
+// Thin adapter over the shared tests/game-harness.js withGame(): same call signature as
+// before, but the snapshot/restore underneath is the one shared implementation (see
+// game-harness.js for the contract). _bjRestoreS/_bjCleanJson stay as-is above — they're
+// used standalone all over this file (refresh-recovery tests, teardown, ...), not just here.
+registerGameBuilder('bj', ({ player, dealer, bet, chips, forcedMod = {}, doubled = false }) => {
   S.forcedMod    = forcedMod;
   S.bjPlayer     = player.map(([r, s]) => card(r, s));
   S.bjDealer     = dealer.map(([r, s]) => card(r, s));
@@ -31,12 +36,10 @@ function withBJ({ player, dealer, bet, chips, forcedMod = {}, doubled = false },
   S.bjHistory    = [];
   S.bjPhase      = 'play';
   S.bjHand       = 0;
-  try {
-    bjResolve(true); // dealerDrawn=true: skip animation path, dealer already at 17+
-    fn();
-  } finally {
-    _bjRestoreS();
-  }
+  bjResolve(true); // dealerDrawn=true: skip animation path, dealer already at 17+
+});
+function withBJ(overrides, fn) {
+  withGame('bj', overrides, fn);
 }
 
 // ─── Normal outcomes ──────────────────────────────────────────────────────────
@@ -170,6 +173,31 @@ describe('bjResolve — history record', () => {
   });
 });
 
+// Split-hand harness. Registered here, above every withSplit call site, because
+// the runner executes tests inline as the file parses — a builder registered
+// below its first use throws "no builder registered".
+// Thin adapter over withGame() — see withBJ above for the shared snapshot/restore note.
+registerGameBuilder('bjSplit', ({ hands, bets, dealer, doubled, chips, forcedMod = {} }) => {
+  S.forcedMod        = forcedMod;
+  S.bjSplit          = true;
+  S.bjSplitHands     = hands.map(h => h.map(([r,s]) => card(r,s)));
+  S.bjSplitBets      = bets.slice();
+  S.bjSplitResults   = [];
+  S.bjSplitDone      = hands.map(() => true);
+  S.bjSplitDoubled   = doubled || hands.map(() => false);
+  S.bjSplitAnimFrom  = hands.map(() => 0);
+  S.bjDealer         = dealer.map(([r,s]) => card(r,s));
+  S.bjBet            = 0;
+  S.chips            = chips;
+  S.bjHistory        = [];
+  S.bjPhase          = 'play';
+  S.bjHand           = 0;
+  bjResolve(true);
+});
+function withSplit(overrides, fn) {
+  withGame('bjSplit', overrides, fn);
+}
+
 // ─── bjResolve — idempotency (a hand settles exactly once) ───────────────────
 // Regression for the "win counted twice" class of bug: bjResolve is fired from timers and the
 // refresh-resume path, so a stray/duplicate call must not re-credit or push a second history entry.
@@ -211,27 +239,6 @@ describe('bjResolve — settles a hand exactly once', () => {
 //   push: delta =  0;               chips += bet  (stake returned)
 //   bust: delta = -bet              (stake lost)
 //   lose: delta = -bet              (stake lost)
-function withSplit({ hands, bets, dealer, doubled, chips, forcedMod = {} }, fn) {
-  S.forcedMod        = forcedMod;
-  S.bjSplit          = true;
-  S.bjSplitHands     = hands.map(h => h.map(([r,s]) => card(r,s)));
-  S.bjSplitBets      = bets.slice();
-  S.bjSplitResults   = [];
-  S.bjSplitDone      = hands.map(() => true);
-  S.bjSplitDoubled   = doubled || hands.map(() => false);
-  S.bjSplitAnimFrom  = hands.map(() => 0);
-  S.bjDealer         = dealer.map(([r,s]) => card(r,s));
-  S.bjBet            = 0;
-  S.chips            = chips;
-  S.bjHistory        = [];
-  S.bjPhase          = 'play';
-  S.bjHand           = 0;
-  try {
-    bjResolve(true);
-    fn();
-  } finally { _bjRestoreS(); }
-}
-
 describe('bjResolve — split: both hands win', () => {
   it('two winning hands return both stakes + profit', () => {
     withSplit({

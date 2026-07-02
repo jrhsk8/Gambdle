@@ -24,6 +24,12 @@ const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
 const VT323_DATA_URL = 'data:font/woff2;base64,' +
   fs.readFileSync(path.join(__dirname, '..', 'assets', 'vt323-latin.woff2')).toString('base64');
 
+// Shared Fixture registry (tests/screen-fixtures.js) — same source screenshots.js and
+// window-screenshots.js inject. Fixture STATE lives there once; this file only picks which
+// named states to geometry-check and drives them via renderFixture(). Used to hand-reconstruct
+// every fixture inline (buildFixture) — that copy has been deleted in favor of the registry so
+// a new Screen state only has to be defined once to be covered by screenshots, the lab, AND this.
+
 // Supported floor is iPhone 12/13-mini (360×780) and up — the user's reports are iPhone 15
 // (393×852). iPhone SE (375×667) is intentionally NOT tested yet.
 // FUTURE IDEA: support iPhone SE (375×667). Several screens don't fit that short a window
@@ -44,64 +50,27 @@ const INSETS = [
   { name: 'ios-chrome', t: 59, b: 55 },
 ];
 
+// Which SCREEN_FIXTURES entries this pass geometry-checks, in review order. This is the union
+// of what screenshots.js and window-screenshots.js already treat as review-worthy states, so a
+// Screen doesn't need to be re-listed per script to get WebKit tap-target coverage. Two registry
+// entries are deliberately left out — see the comment below the list.
 const FIXTURES = [
-  'intro', 'bj-bet', 'bj-play', 'bj-result', 'bj-result-split',
-  'uth-bet', 'uth-preflop', 'uth-flop', 'uth-turn', 'uth-result',
-  'roulette-bet', 'roulette-bet-max', 'roulette-spinning-max', 'results', 'borrow',
-  'ladder-bet-free', 'ladder-climb', 'ladder-crash',
+  'intro', 'choice', 'borrow',
+  'bj-bet', 'bj-play', 'bj-pick', 'bj-split-2', 'bj-split-3', 'bj-split-4', 'bj-result', 'bj-result-last', 'bj-split-result',
+  'uth-bet', 'uth-preflop', 'uth-flop', 'uth-turn', 'uth-sixth', 'uth-showdown', 'uth-fold',
+  'roulette-bet', 'roulette-bet-max', 'roulette-spinning', 'roulette-respin', 'roulette-result',
+  'results',
+  'ladder-bet-free', 'ladder-climb', 'ladder-crash', 'ladder-cash',
 ];
-
-// ── In-page: build a screen's state (uses the page's own card()/bestOf7()/render()) ──
-function buildFixture(label) {
-  Object.assign(S, JSON.parse(window.__SNAP));
-  S.pkHeld = new Set();
-  S.forcedMod = 'easy_dealer'; // a banner is always present on real days; doesn't change buttons
-  const c = (r, s) => card(r, s);
-  const hole = [c('7', 'h'), c('3', 'c')], dlr = [c('2', 'c'), c('A', 'c')];
-  const comm = [c('8', 'h'), c('6', 's'), c('Q', 'h'), c('6', 'h'), c('A', 'd')];
-  const F = {
-    'intro':       () => { S.screen = 'intro'; S.chips = 1000; },
-    'bj-bet':      () => { S.screen = 'bj'; S.bjPhase = 'bet'; S.chips = 1000; S.bjBet = 50; S.bjHand = 0; S.bjHistory = []; },
-    'bj-play':     () => { S.screen = 'bj'; S.bjPhase = 'play'; S.chips = 950; S.bjBet = 50; S.bjHand = 0; S.bjHistory = []; S.bjPlayer = [c('K', 's'), c('7', 'h')]; S.bjDealer = [c('9', 'd'), c('5', 'c')]; S.bjDealerReveal = false; S.bjSplit = false; },
-    'bj-result':   () => {
-      S.screen = 'bj'; S.bjPhase = 'result'; S.chips = 950; S.bjBet = 50; S.bjHand = 1; S.bjSplit = false; S.bjDealerReveal = true;
-      S.bjPlayer = [c('K', 's'), c('9', 'h')]; S.bjDealer = [c('10', 'd'), c('9', 'c')];
-      S.bjResult = { result: 'lose', delta: -50 };
-      S.bjHistory = [{ bet: 50, result: 'lose', delta: -50, player: [...S.bjPlayer], dealer: [...S.bjDealer] }];
-    },
-    'bj-result-split': () => {
-      S.screen = 'bj'; S.bjPhase = 'result'; S.chips = 1000; S.bjBet = 50; S.bjHand = 1; S.bjSplit = true; S.bjDealerReveal = true;
-      S.bjSplitHands = [[c('8', 's'), c('K', 'h')], [c('8', 'h'), c('9', 'd')], [c('8', 'd'), c('Q', 'c')], [c('8', 'c'), c('J', 's')]];
-      S.bjSplitResults = [{ result: 'win', delta: 50, bet: 50 }, { result: 'lose', delta: -50, bet: 50 }, { result: 'push', delta: 0, bet: 50 }, { result: 'win', delta: 50, bet: 50 }];
-      S.bjSplitBets = [50, 50, 50, 50];
-      S.bjDealer = [c('10', 'd'), c('9', 'c')];
-      S.bjResult = { result: 'split', delta: 50 };
-      S.bjHistory = [{ bet: 200, result: 'split', delta: 50, player: S.bjSplitHands.map(h => [...h]), dealer: [...S.bjDealer] }];
-    },
-    'uth-bet':     () => { S.screen = 'uth'; S.uthPhase = 'bet'; S.chips = 1000; S.uthAnte = 50; S.uthHand = 0; S.uthHistory = []; },
-    'uth-preflop': () => { S.screen = 'uth'; S.uthPhase = 'preflop'; S.chips = 1200; S.uthAnte = 100; S.uthHand = 0; S.uthHistory = []; S.uthHole = hole; S.uthDealer = dlr; S.uthComm = comm; S.uthRevealComm = 0; S.uthRaised = false; },
-    'uth-flop':    () => { S.screen = 'uth'; S.uthPhase = 'flop'; S.chips = 1100; S.uthAnte = 100; S.uthHand = 0; S.uthHistory = []; S.uthHole = hole; S.uthDealer = dlr; S.uthComm = comm; S.uthRevealComm = 3; S.uthRaised = false; },
-    'uth-turn':    () => { S.screen = 'uth'; S.uthPhase = 'turn'; S.chips = 1100; S.uthAnte = 100; S.uthHand = 0; S.uthHistory = []; S.uthHole = hole; S.uthDealer = dlr; S.uthComm = comm; S.uthRevealComm = 5; S.uthRaised = false; },
-    'uth-result':  () => {
-      S.screen = 'uth'; S.uthPhase = 'result'; S.chips = 1050; S.uthHand = 1;
-      S.uthHole = hole; S.uthDealer = dlr; S.uthComm = comm;
-      const pb = bestOf7([...hole, ...comm]), db = bestOf7([...dlr, ...comm]);
-      S.uthHistory = [{ ante: 25, blind: 25, play: 50, playMult: 1, result: 'lose', delta: -100, anteDelta: -25, blindDelta: -25, playDelta: -50, playerBest: pb, dealerBest: db, dealerQualifies: true }];
-    },
-    'ladder-bet-free':  () => { S.screen = 'ladder'; S.ladPhase = 'bet'; S.ladBet = 0; S.ladFree = false; S.ladIdx = 0; S.ladRung = 0; S.ladResult = null; S.chips = 1000; S.forcedMod = 'ladder_day'; },
-    'ladder-climb':     () => { S.screen = 'ladder'; S.ladPhase = 'climb'; S.ladBet = 250; S.ladFree = true; S.ladIdx = 3; S.ladRung = 3; S.ladResult = null; S.chips = 1000; S.forcedMod = 'ladder_day'; },
-    'ladder-crash':     () => { S.screen = 'ladder'; S.ladPhase = 'done'; S.ladBet = 250; S.ladFree = true; S.ladIdx = 4; S.ladRung = 3; S.ladResult = { delta: 0, rung: 3, result: 'crash', free: true }; S.chips = 1000; S.forcedMod = 'ladder_day'; },
-    'roulette-bet':     () => { S.screen = 'roulette'; S.rPhase = 'bet'; S.chips = 500; S.rBet = 50; S.rPick = 17; S.rBets = []; },
-    'roulette-bet-max': () => { S.screen = 'roulette'; S.rPhase = 'bet'; S.chips = 1000; S.rBet = 0; S.rPick = null; S.rBets = [{ pick: 45, bet: 50 }, { pick: 17, bet: 50 }, { pick: 40, bet: 50 }, { pick: 2, bet: 50 }, { pick: 31, bet: 50 }]; },
-    'roulette-spinning-max': () => { S.screen = 'roulette'; S.rPhase = 'spinning'; S.chips = 0; S.rSpin = 17; S.rBets = [{ pick: 45, bet: 50 }, { pick: 17, bet: 50 }, { pick: 40, bet: 50 }, { pick: 37, bet: 50 }, { pick: 44, bet: 50 }]; },
-    'results':          () => { S.screen = 'results'; S.chips = 1200; S.bjHand = 3; S.uthHand = 3; S.bjHistory = [{ delta: 200 }]; S.uthHistory = [{ delta: -50 }]; S.rResult = { delta: 0, skipped: true }; },
-    'borrow':           () => { S.screen = 'borrow'; S.chips = 0; S.borrowReturnScreen = 'uth'; },
-  };
-  if (!F[label]) return false;
-  F[label]();
-  render();
-  return true;
-}
+// Intentionally excluded (present in SCREEN_FIXTURES, not here):
+//   - 'uth-reveal' — the transient "Dealer Reveals" auto-advance frame (~2.3s, then moves itself
+//     to the result). Neither screenshot script captures it either; it exists in the registry so
+//     the lab can pin and eyeball it, not so an automated pass measures a frame that never holds still.
+//   - 'bj-result-split-2' / '-3' / '-4' — worst-case split-result states, but the registry's own
+//     comment marks them "not in the screenshot sets, but available to the Layout DSL": they pin
+//     bjDealerAnimFrom to force the mid-reveal dealer-card-slide animation frame, which the Chromium
+//     Layout DSL is built to reason about (see layout-dsl.js) but this pass isn't. 'bj-split-result'
+//     below already covers the settled 4-way split result geometry.
 
 // ── In-page: geometric checks; returns an array of human-readable violations ──
 // Rules (per design): horizontal scroll is NEVER allowed; every tap target must be
@@ -177,6 +146,10 @@ async function runOnce(verbose) {
   let totalChecks = 0;
   const failLines = [];
 
+  // Read once per run, not per-page: page.addScriptTag({content}) below re-injects this same
+  // text into each fresh WebKit page (Playwright pages don't share JS state across navigations).
+  const fixturesSrc = fs.readFileSync(path.join(__dirname, 'screen-fixtures.js'), 'utf8');
+
   for (const vp of VIEWPORTS) {
     const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
     const page = await ctx.newPage();
@@ -192,6 +165,7 @@ async function runOnce(verbose) {
     await page.route('**/fonts.googleapis.com/**', r => r.abort());
     await page.route('**/fonts.gstatic.com/**', r => r.abort());
     await page.goto(BASE);
+    await page.addScriptTag({ content: fixturesSrc }); // defines SCREEN_FIXTURES + renderFixture as page globals
     // Register VT323 as a fully-loaded FontFace before snapshotting, so every fixture lays out with the
     // real pixel-font metrics on the FIRST pass. Replaces the old "poll document.fonts.check() and hope
     // it applied" wait, which non-deterministically left the whole session in the Courier-New fallback.
@@ -201,7 +175,6 @@ async function runOnce(verbose) {
       document.fonts.add(ff);
       await document.fonts.ready;
     }, VT323_DATA_URL);
-    await page.evaluate(() => { window.__SNAP = JSON.stringify({ ...S, pkHeld: [...S.pkHeld] }); });
 
     for (const inset of INSETS) {
       await page.evaluate(({ t, b }) => {
@@ -216,9 +189,14 @@ async function runOnce(verbose) {
         // results screen under chrome (it's chart-tall and only has Copy/Share — the toolbar
         // collapses on scroll). Gameplay screens on iPhone 15 must still FIT with no scroll.
         const allowVScroll = inset.b > 0 && (vp.height < 800 || fx === 'results');
-        const built = await page.evaluate(buildFixture, fx);
-        if (!built) continue;
-        if (fx === 'results') await page.waitForTimeout(350); // let the async distribution chart render
+        // renderFixture owns reset → setup → apply Modifier → render() → afterRender(); pin
+        // 'easy_dealer' as the fallback banner (a banner is always present on a real day — this
+        // doesn't change any button — for fixtures that don't pin their own via `mod`).
+        const settle = await page.evaluate((n) => {
+          renderFixture(n, { defaultMod: 'easy_dealer' });
+          return SCREEN_FIXTURES[n].settle || 0;
+        }, fx);
+        if (settle) await page.waitForTimeout(settle); // e.g. 'results': let the async distribution chart render
         const violations = await page.evaluate(runChecks, { allowVScroll });
         // Results: the chart's bucket labels sit ~22px below the bars (out of flow); ensure they
         // clear the share box rather than overlapping it (the bug measured down to -9px on desktop;

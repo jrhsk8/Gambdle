@@ -43,14 +43,18 @@ describe('Ladder — pot math', () => {
 });
 
 // ─── State-machine harness ───────────────────────────────────────────────────
-// Snapshots and restores the Ladder slice of S (plus chips/tx/forcedMod/screen),
-// and lets a test pin a known card sequence onto DEAL (restored in finally).
-function withLad(overrides, fn){
-  const KEYS=['ladPhase','ladBet','ladFree','ladIdx','ladRung','ladResult','chips','tx','forcedMod','screen','rResult','borrowUsed'];
-  const snap={};KEYS.forEach(k=>snap[k]=S[k]);
-  const prevTx=S.tx; S.tx=[];
+// Thin adapter over the shared tests/game-harness.js withGame(): same call signature as
+// before (Object.assign the Ladder slice + chips/tx/forcedMod/screen, run fn(), restore).
+// The old hand-rolled version snapshotted only a fixed KEYS list; withGame snapshots the
+// FULL S instead, which is a strict superset (see game-harness.js for the contract), so
+// nothing that used to be restored here is lost. It also always resets S.tx to [] before
+// applying overrides, matching the old behavior (each Ladder test starts with a clean tx).
+registerGameBuilder('ladder', overrides => {
+  S.tx = [];
   Object.assign(S, overrides);
-  try{fn();}finally{KEYS.forEach(k=>S[k]=snap[k]);S.tx=prevTx;}
+});
+function withLad(overrides, fn){
+  withGame('ladder', overrides, fn);
 }
 function withLadCards(cards, fn){
   const p=DEAL.ladderCards; DEAL.ladderCards=cards;

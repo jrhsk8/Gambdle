@@ -322,12 +322,14 @@ describe('uthBlindDelta', () => {
 // ─── UTH game flow: uthFold / uthRaise / uthResolve ─────────────────────────
 // These exercise the state machine and chip math, not just hand evaluation.
 
-const _uthSnap = JSON.stringify({...S, pkHeld:[...S.pkHeld]});
-const _uthRestore = () => { const r=JSON.parse(_uthSnap); r.pkHeld=new Set(r.pkHeld); Object.assign(S,r); };
-
-function withUth(overrides, fn) {
+// Thin adapter over the shared tests/game-harness.js withGame(): same call signature as
+// before (plain Object.assign, caller invokes the action inside fn()), but the snapshot/
+// restore underneath is the one shared implementation (see game-harness.js for the contract).
+registerGameBuilder('uth', overrides => {
   Object.assign(S, overrides);
-  try { fn(); } finally { _uthRestore(); }
+});
+function withUth(overrides, fn) {
+  withGame('uth', overrides, fn);
 }
 
 describe('uthFold — records loss and advances state', () => {

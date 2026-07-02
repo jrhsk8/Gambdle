@@ -18,9 +18,11 @@ console.log('MODULE BOUNDARIES: ✅ clean\n');
 
 // Engine bundle (server-replay) must be regenerated whenever a bundled src file changes — the
 // submit-score Edge Function imports it, so a stale bundle means client and server disagree.
-const bundleStale = require('./build-engine-bundle').checkFresh();
-if (bundleStale) {
-  console.error(`❌ ENGINE BUNDLE: ${bundleStale}`);
+// Same check tests/verify-bundle.js exposes as a standalone pre-deploy CLI (run that before any
+// `supabase functions deploy submit-score`, since a deploy can happen without `npm test` running).
+const bundleCheck = require('./verify-bundle').verifyBundleFresh();
+if (!bundleCheck.fresh) {
+  console.error(`❌ ENGINE BUNDLE: ${bundleCheck.message}`);
   process.exit(1);
 }
 

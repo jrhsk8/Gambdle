@@ -123,6 +123,11 @@
   <!-- Test runner must load before test files -->
   <script src="runner.js"></script>
 
+  <!-- Shared game-state test harness (withGame + registerGameBuilder) — loaded after the game
+       and runner so its snapshot/restore can reference S/card()/_setBacklogSeedForTest, and
+       before any test file that registers a builder or calls withBJ/withUth/withLad/withMod. -->
+  <script src="game-harness.js"></script>
+
   <script>section('Icons');</script>
   <script src="icons.test.js"></script>
 
