@@ -1,13 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>♣ Gambdle Layout Tests</title>
-  <!-- Real game stylesheet — required so CSS media queries fire at the correct breakpoints -->
+  <title>â™£ Gambdle Layout Tests</title>
+  <!-- Real game stylesheet â€” required so CSS media queries fire at the correct breakpoints -->
   <link rel="stylesheet" href="../styles.css">
   <style>
-    /* Real game font, self-hosted (latin subset, SIL OFL — see assets/VT323-OFL.txt) instead of the
+    /* Real game font, self-hosted (latin subset, SIL OFL â€” see assets/VT323-OFL.txt) instead of the
        Google Fonts CDN. Text sizing must use VT323's real metrics, and the CDN load is an async race
        that intermittently left a measurement on the wider Courier-New fallback (the bj-result-split-3-gap
        flake). Local + the deferred run below (waits for fonts.ready) make every measurement deterministic
@@ -19,7 +19,7 @@
       font-display: block;
       src: url('../assets/vt323-latin.woff2') format('woff2');
     }
-    /* Test output overlay — position:fixed so it has zero effect on document flow/height */
+    /* Test output overlay â€” position:fixed so it has zero effect on document flow/height */
     #test-overlay {
       position: fixed; bottom: 8px; right: 8px; z-index: 9999;
       background: rgba(0,0,0,.82); color: #ccc;
@@ -38,14 +38,14 @@
   </style>
 </head>
 <body>
-  <!-- Game renders here — must be visible for real layout measurements -->
+  <!-- Game renders here â€” must be visible for real layout measurements -->
   <div id="app"></div>
   <div id="toast"></div>
   <div id="xp-balloon"></div>
 
-  <!-- Fixed test output overlay — does not affect document flow -->
+  <!-- Fixed test output overlay â€” does not affect document flow -->
   <div id="test-overlay">
-    <div id="summary">Running…</div>
+    <div id="summary">Runningâ€¦</div>
     <div id="groups-grid"></div>
   </div>
 
@@ -69,6 +69,7 @@
   <script src="../src/bet.js"></script>
   <script src="../src/gametext.js"></script>
   <script src="../src/audio.js"></script>
+  <script src="../src/poker-eval.js"></script>
   <script src="../src/uth.js"></script>
   <script src="../src/poker.js"></script>
   <script src="../src/roulette.js"></script>
@@ -83,7 +84,7 @@
   <script src="../src/seedcheck.js"></script>
   <script src="../src/game.js"></script>
 
-  <!-- Shared measurement core + Fixture registry — loaded after the game so they can read
+  <!-- Shared measurement core + Fixture registry â€” loaded after the game so they can read
        the live DOM and reference S/card()/render(). Both feed the Layout DSL (layout-dsl.js). -->
   <script src="layout-measure.js"></script>
   <script src="screen-fixtures.js"></script>
@@ -92,7 +93,7 @@
     window._testReloadCount = 0;
     _doReload = function() { window._testReloadCount++; };
 
-    // Tests must NEVER hit the network — see the matching note in test.html. render() of the
+    // Tests must NEVER hit the network â€” see the matching note in test.html. render() of the
     // results screen fires live Supabase reads; stub fetch so the layout run stays fully offline.
     // The chart fixtures draw synchronously via _showHistoryChart/_renderScoreDist regardless.
     window.fetch = () => Promise.resolve({
@@ -108,9 +109,9 @@
 
   <!-- Defer the layout test BODIES until VT323 has loaded AND applied, so every fixture is measured with
        the real pixel-font metrics rather than the wider Courier-New fallback. The test files call
-       describe()/expectLayout() at parse time (render → measure, interleaved per fixture), so the only
+       describe()/expectLayout() at parse time (render â†’ measure, interleaved per fixture), so the only
        place to gate is before they run. The font is self-hosted (no network) so fonts.ready resolves
-       immediately — this adds no meaningful time. runner.js skips its own on-load render (__DEFER_RENDER__)
+       immediately â€” this adds no meaningful time. runner.js skips its own on-load render (__DEFER_RENDER__)
        and we call _renderResults() once the deferred tests have populated the results. -->
   <script>
     window.__DEFER_RENDER__ = true;

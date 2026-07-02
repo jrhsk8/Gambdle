@@ -209,7 +209,8 @@ describe('engine — UTH equivalence', () => {
   it('uth_sixth_card (Sixth Sense) private tail card replays identically', () => {
     _resetRun(); const mods=_modsFor('uth_sixth_card');
     // The private 6th community card (deck tail 27+) joins the PLAYER pool only; the dealer is unchanged.
-    _driveUTH(100,[{a:'raise',mult:3}]); _driveUTH(100,[{a:'check'},{a:'raise',mult:1}]); _driveUTH(100,[{a:'fold'}]);
+    // (Flop raise is 2x; the street graph now rejects the impossible 1x this test used to sneak past the UI.)
+    _driveUTH(100,[{a:'raise',mult:3}]); _driveUTH(100,[{a:'check'},{a:'raise',mult:2}]); _driveUTH(100,[{a:'fold'}]);
     const {expected,out}=_replayOf(mods);
     assertEqual(out.chips, expected, 'Sixth Sense replay chips == recalcChips');
   });

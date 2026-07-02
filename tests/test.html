@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>♣ Gambdle Test Suite</title>
+  <title>â™£ Gambdle Test Suite</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { font-family: monospace; background: #161616; color: #ccc; padding: 20px; margin: 0; }
@@ -50,8 +50,8 @@
   </style>
 </head>
 <body>
-  <h1>♠ Gambdle Test Suite</h1>
-  <div id="summary">Running…</div>
+  <h1>â™  Gambdle Test Suite</h1>
+  <div id="summary">Runningâ€¦</div>
   <div id="groups-grid"></div>
 
   <!-- Hidden DOM anchor required by render() in game.js -->
@@ -69,7 +69,7 @@
     } catch(e) {}
   </script>
 
-  <!-- Source files — full load order including ui.js and game.js -->
+  <!-- Source files â€” full load order including ui.js and game.js -->
   <script src="../src/modifiers.js"></script>
   <script src="../src/icons.js"></script>
   <script src="../src/core.js"></script>
@@ -81,6 +81,7 @@
   <script src="../src/gametext.js"></script>
   <script src="../src/audio.js"></script>
   <script src="../src/reveal.js"></script>
+  <script src="../src/poker-eval.js"></script>
   <script src="../src/uth.js"></script>
   <script src="../src/poker.js"></script>
   <script src="../src/roulette.js"></script>
@@ -96,7 +97,7 @@
   <script src="../src/flow.js"></script>
   <script src="../src/game.js"></script>
 
-  <!-- Shared Fixture registry (SCREEN_FIXTURES + renderFixture) — loaded after the game so its
+  <!-- Shared Fixture registry (SCREEN_FIXTURES + renderFixture) â€” loaded after the game so its
        setup()/afterRender() closures can reference S, card(), render(), etc. -->
   <script src="screen-fixtures.js"></script>
 
@@ -123,7 +124,7 @@
   <!-- Test runner must load before test files -->
   <script src="runner.js"></script>
 
-  <!-- Shared game-state test harness (withGame + registerGameBuilder) — loaded after the game
+  <!-- Shared game-state test harness (withGame + registerGameBuilder) â€” loaded after the game
        and runner so its snapshot/restore can reference S/card()/_setBacklogSeedForTest, and
        before any test file that registers a builder or calls withBJ/withUth/withLad/withMod. -->
   <script src="game-harness.js"></script>

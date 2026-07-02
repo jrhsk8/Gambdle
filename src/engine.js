@@ -192,11 +192,12 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
 // `shoe` + `draw` are threaded from _replayBJHand so a Double Vision split draws from the same fresh
 // per-hand deck (twoHands ⇒ draw() advances a local cursor, not st.idx). _replaySafeHitSwap still reads
 // st.idx, which is correct: safe_hit and two_hands never co-occur, so under two_hands it's a no-op.
-// Shared headless split stepper — the ONE place the split deck-consumption state machine lives, used by
-// BOTH the replay engine (decisions read from the transcript) and the dev-only future-seed checker
-// (decisions from a basic-strategy table), so their split draw order can never diverge. Mirrors the live
-// bjSplit / bjAdvanceSplit / bjCheckSplitHand sequence: stake a 2nd hand, deal sub-hand 0 its card,
-// sub-hand 1 waits, auto-resolve 21s, resplit up to 4, double-after-split, then draw the dealer.
+// Shared headless split stepper — an adapter over bj.js's split state machine (splitInit/splitResplit/
+// splitAdvance/splitCanAct/splitIsActionable), used by BOTH the replay engine (decisions read from the
+// transcript) and the dev-only future-seed checker (decisions from a basic-strategy table), so their
+// split draw order can never diverge FROM EACH OTHER OR FROM LIVE PLAY — bj.js's bjSplit/bjAdvanceSplit/
+// bjCheckSplitHand call the exact same machine functions. This function only adds: the deck draw/acct
+// plumbing the machine doesn't own, and turning "what should happen" into "ask nextAction, then do it".
 //   pair       — the opening matched pair [c0, c1]
 //   dealer     — the dealer's 2 up-cards (mutated: drawn to stand17)
 //   draw       — sequential card accessor (advances the caller's shoe/segment cursor)
@@ -211,41 +212,32 @@ function bjSplitStep({ pair, dealer, bet0, mod, stand17, draw, acct, nextAction,
   const _beforeHit = beforeHit || (() => {});
   if(acct.chips < bet0) _fail('bj_split_nofund');
   acct.debit(bet0);
-  const hands = [[pair[0], draw()], [pair[1]]];
-  const bets = [bet0, bet0];
-  const doubled = [false, false];
-  const done = [false, false];
+  let { hands, bets, doubled, done } = splitInit(pair, bet0, draw);
   let active = 0;
 
   // Advance to the next sub-hand that needs a player action, dealing a waiting sub-hand its 2nd card
-  // and auto-resolving any sub-hand already at 21+ (bjCheckSplitHand auto-advances those).
+  // (splitAdvance doesn't draw — that's this caller's job, same division as bjAdvanceSplit) and
+  // auto-resolving any sub-hand already at 21+ (splitIsActionable — mirrors bjCheckSplitHand).
   const settleToActionable = () => {
     while(true){
       if(hands[active].length === 1) hands[active].push(draw());
-      if(hVal(hands[active]) < 21) return false;   // player must act
-      done[active] = true;
-      const next = done.indexOf(false);
-      if(next === -1) return true;                  // all sub-hands done → resolve
-      active = next;
+      if(splitIsActionable(hands[active])) return false;   // player must act
+      const adv = splitAdvance(done, active);
+      done = adv.done; active = adv.active;
+      if(adv.allDone) return true;                          // all sub-hands done → resolve
     }
   };
   const advance = () => {
-    done[active] = true;
-    const next = done.indexOf(false);
-    if(next === -1) return true;
-    active = next;
+    const adv = splitAdvance(done, active);
+    done = adv.done; active = adv.active;
+    if(adv.allDone) return true;
     return settleToActionable();
   };
 
   let allDone = settleToActionable();
   while(!allDone){
     const hand = hands[active];
-    const isPair = hand.length === 2 && (hand[0].r === hand[1].r || !!mod('bj_wild_split'));
-    const ctx = {
-      canResplit: isPair && hands.length < 4 && acct.chips >= bets[active],
-      canDouble: hand.length === 2 && acct.chips >= bets[active],
-      active,
-    };
+    const ctx = { ...splitCanAct(hands, bets, active, acct.chips, mod('bj_wild_split')), active };
     const a = nextAction(hand, ctx);
     if(a == null) break;                            // transcript exhausted — resolve the hands as they stand
     if(a === 'split'){
@@ -253,16 +245,12 @@ function bjSplitStep({ pair, dealer, bet0, mod, stand17, draw, acct, nextAction,
       const bet = bets[active];
       if(acct.chips < bet) _fail('bj_resplit_nofund');
       acct.debit(bet);
-      const [c0, c1] = hands[active];
-      hands.splice(active, 1, [c0, draw()], [c1]);
-      bets.splice(active, 1, bet, bet);
-      doubled.splice(active, 1, false, false);
-      done.splice(active, 1, false, false);
+      ({ hands, bets, doubled, done } = splitResplit(hands, bets, doubled, done, active, draw));
       allDone = settleToActionable();
     } else if(a === 'hit'){
       _beforeHit(hands[active]);
       hands[active].push(draw());
-      if(hVal(hands[active]) >= 21) allDone = advance();
+      if(!splitIsActionable(hands[active])) allDone = advance();
     } else if(a === 'double'){
       if(acct.chips < bets[active]) _fail('bj_split_double_nofund');
       acct.debit(bets[active]); bets[active] *= 2; doubled[active] = true;

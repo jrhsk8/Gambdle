@@ -22,7 +22,7 @@ const SRC = path.join(__dirname, '..', 'src');
 const MANIFEST = {
   'audio.js': ['_safePlay', 'playMp3', 'sndBigWin', 'sndCard', 'sndChip', 'sndShuffle'],
   'bet.js': ['addToBet', 'allInAmount', 'betGuard', 'clearedBet', 'ladderMaxStake', 'maxFor'],
-  'bj.js': ['_bjResumeAfterRefresh', 'bjAward', 'bjAwardSplit', 'bjRulesFor', 'bjSplit', 'peekBtnHTML', 'peekRevealed', 'resetBJHand', 'resolveBJHand', 'resolveBJSplitHand', 'screenBJ'],
+  'bj.js': ['_bjResumeAfterRefresh', 'bjAward', 'bjAwardSplit', 'bjRulesFor', 'bjSplit', 'peekBtnHTML', 'peekRevealed', 'resetBJHand', 'resolveBJHand', 'resolveBJSplitHand', 'screenBJ', 'splitAdvance', 'splitCanAct', 'splitInit', 'splitIsActionable', 'splitResplit'],
   'core.js': [
     'ANIM_NONE', 'BORROW_AMOUNT', 'DEV_OVERRIDE', 'GAME1', 'GAME1_OPTIONS', 'GAME2',
     'GAME2_OPTIONS', 'GAME_META', 'GAME_VERSION', 'GAMES', 'NEXT_SCREEN', 'RED_S', 'S', 'START_CHIPS',
@@ -63,6 +63,7 @@ const MANIFEST = {
   'menus.js': ['applyPrefs', 'closeDropdowns', 'getPref', 'setPref', 'showActiveModInfo', 'toggleMenu', 'togglePref'],
   'net.js': ['sbConfigured', 'sbFetch', 'sbJson'],
   'modifiers.js': ['CYCLE_ORDER', 'DAILY_MODIFIERS', 'DAILY_SEED_OVERRIDES', 'PRESET_MODIFIERS'],
+  'poker-eval.js': ['bestOf7', 'cardNum', 'handScore', 'rankPoker'],
   'poker.js': ['pkDeal', 'pkDraw', 'pkSkip', 'screenPoker', 'toggleHold'],
   'reveal.js': ['runReveal'],
   'roulette.js': ['_resolveSpinNumber', '_rouletteAudio', 'evalBetModsFor', 'rBetsZone', 'rSelBox', 'rSpin', 'resolveRoulette', 'rouletteAward', 'screenRoulette', 'spinFromRandom', 'spinModsFor', 'startWheelAnim'],
@@ -77,7 +78,7 @@ const MANIFEST = {
     'patchZones', 'renderCards', 'sign', 'toast',
   ],
   'uth.js': [
-    'UTH_CARD_INTERVAL_MS', 'bestOf7', 'rankPoker', 'resetUTHHand', 'resolveUTH', 'screenUTH',
+    'UTH_CARD_INTERVAL_MS', 'resetUTHHand', 'resolveUTH', 'screenUTH',
     'uthAward', 'uthPayTableHTML', 'uthPayTableHead', 'uthRulesFor',
   ],
   'windows.js': [

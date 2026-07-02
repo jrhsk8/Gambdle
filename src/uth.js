@@ -1,86 +1,11 @@
 // ─── CONTENTS (grep the banner/function name; line numbers drift) ──────────
-//   POKER HAND EVALUATION: rankPoker (5-card evaluator; exported — UTH's bestOf7 + poker.js use it)
 //   UTH STATE: resetUTHHand · per-hand deck slices
 //   ULTIMATE TEXAS HOLD'EM LOGIC: deal · raise/check/fold · blind + ante
 //     pay tables · dealer qualify · showdown settlement
 //   SCREEN RENDERING: screenUTH · uthPayTableHTML
-//   (5 Card Poker lives in its own file, poker.js — it shares only rankPoker, below.)
+//   (The poker hand evaluator — rankPoker/cardNum/handScore/bestOf7 — lives in its own file,
+//    poker-eval.js, loaded just before this one; both this file and poker.js share it.)
 // ───────────────────────────────────────────────────────────────────────────
-
-// ─── POKER HAND EVALUATION ────────────────────────────────────────────────
-
-// Standard video poker hand evaluator (Jacks or Better threshold). Used by UTH's bestOf7 here AND
-// by 5 Card Poker in poker.js, so it is exported from this file.
-function rankPoker(cs){
-  const rs=cs.map(c=>c.r),ss=cs.map(c=>c.s),vs=cs.map(c=>cardNum(c.r));
-  const rc={};for(const r of rs)rc[r]=(rc[r]||0)+1;
-  const cts=Object.values(rc).sort((a,b)=>b-a);
-  const flush=new Set(ss).size===1;
-  const sv=[...vs].sort((a,b)=>a-b);
-  const str8=(sv[4]-sv[0]===4&&new Set(sv).size===5)||sv.join(',')===`2,3,4,5,14`;
-  if(flush&&str8)return sv[0]>=10?{n:'Royal Flush',p:800}:{n:'Straight Flush',p:50};
-  if(cts[0]===4)return{n:'Four of a Kind',p:25};
-  if(cts[0]===3&&cts[1]===2)return{n:'Full House',p:9};
-  if(flush)return{n:'Flush',p:6};
-  if(str8)return{n:'Straight',p:4};
-  if(cts[0]===3)return{n:'Three of a Kind',p:3};
-  if(cts[0]===2&&cts[1]===2)return{n:'Two Pair',p:2};
-  if(cts[0]===2){const pr=Object.entries(rc).find(([,c])=>c===2)?.[0];if(['A','K','Q','J'].includes(pr))return{n:'Jacks or Better',p:1};}
-  return{n:'High Card',p:0};
-}
-
-// Numeric rank value for UTH hand comparison (Ace is always 14 here, unlike BJ where it flexes).
-function cardNum(r){return({'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14})[r];}
-
-// Scores a 5-card hand as (category * 1e12 + rank tiebreakers), so category always beats kickers.
-function handScore(cs){
-  const ns=cs.map(c=>cardNum(c.r)),ss=cs.map(c=>c.s);
-  const rc={};for(const n of ns)rc[n]=(rc[n]||0)+1;
-  const grp=Object.entries(rc).map(([n,c])=>[+n,c]).sort((a,b)=>b[1]-a[1]||b[0]-a[0]);
-  const cts=grp.map(g=>g[1]);
-  const flush=new Set(ss).size===1;
-  const sv=[...ns].sort((a,b)=>a-b);
-  const wheel=sv.join(',')===`2,3,4,5,14`;
-  const str8=(sv[4]-sv[0]===4&&new Set(sv).size===5)||wheel;
-  const sh=wheel?5:sv[4];
-  let cat;
-  if(flush&&str8&&sh===14)cat=9;
-  else if(flush&&str8)cat=8;
-  else if(cts[0]===4)cat=7;
-  else if(cts[0]===3&&cts[1]===2)cat=6;
-  else if(flush)cat=5;
-  else if(str8)cat=4;
-  else if(cts[0]===3)cat=3;
-  else if(cts[0]===2&&cts[1]===2)cat=2;
-  else if(cts[0]===2)cat=1;
-  else cat=0;
-
-  let ranks;
-  if(cat>=8)ranks=[sh];
-  else if(cat===7||cat===6)ranks=[grp[0][0],grp[1][0]];
-  else if(cat===5)ranks=[...sv].reverse();
-  else if(cat===4)ranks=[sh];
-  else if(cat===3)ranks=[grp[0][0],...grp.slice(1).map(g=>g[0])];
-  else if(cat===2)ranks=[grp[0][0],grp[1][0],grp[2]?.[0]||0];
-  else ranks=[grp[0][0],...grp.slice(1).map(g=>g[0])];
-
-  let score=cat*1e12;
-  ranks.forEach((r,i)=>{score+=r*Math.pow(100,4-Math.min(i,4));});
-  return{cat,score};
-}
-
-// Checks every five-card combination and returns the best. Despite the name it takes any
-// hand size ≥ 5: 7 cards normally (21 combos), 8 under Triple Threat's third hole card (56).
-function bestOf7(cards){
-  let best=null,bs=-1,bc=0;
-  const n=cards.length;
-  for(let a=0;a<n-4;a++)for(let b=a+1;b<n-3;b++)for(let c=b+1;c<n-2;c++)for(let d=c+1;d<n-1;d++)for(let e=d+1;e<n;e++){
-    const five=[cards[a],cards[b],cards[c],cards[d],cards[e]];
-    const{cat,score}=handScore(five);
-    if(score>bs){bs=score;bc=cat;best=five;}
-  }
-  return{cards:best,score:bs,cat:bc,rank:rankPoker(best)};
-}
 
 // Blind bonus payout: cat is the hand category (9=Royal Flush … 0=High Card).
 // Base amounts match the standard UTH blind paytable; boost/extended come from modifiers.
@@ -147,6 +72,9 @@ GAMES.uth.patchBet = function(bet){
   if(pth) pth.innerHTML = uthPayTableHead(blind);
 };
 // Refresh landed mid-reveal: settle to the result panel after a beat, mirroring the live reveal timer.
+// Doesn't consult UTH_STREET_GRAPH (below): a refresh during an active street (preflop/flop/turn) just
+// re-renders that street's screen as-is via the normal render path — there's no "what's next" to derive,
+// only 'reveal' needs special resume handling (settling the in-flight animation to 'result').
 GAMES.uth.resume = function(){
   if(S.uthPhase!=='reveal') return;
   runReveal({steps:[],finishAt:300,signal:()=>S.uthPhase==='reveal',onFinish:()=>{
@@ -297,30 +225,64 @@ function uthBetSummary(){
   return s;
 }
 
+// ─── STREET-PHASE GRAPH ──────────────────────────────────────────────────
+// UTH's phase machine ('preflop' → 'flop' → 'turn' → resolve/fold → 'reveal') used to be re-derived
+// inline in each handler (uthCheck deciding its own next deal, uthPlaceRaise branching on phase,
+// uthFold hardcoding its own path) — three places that had to agree on the same three streets.
+// This table is the ONE place that maps a phase to what's legal there and what "continue" does;
+// the handlers below become thin (legality + txLog + ask the graph). Shape:
+//   raiseMult:  the multiplier(s) offered as a fresh Raise at this phase (null once already raised —
+//               real UTH allows exactly one Raise per hand, so a later street just continues).
+//   checkable:  whether Check is a legal action at this phase (turn has no Check, only Raise/Fold).
+//   showsFold:  whether the Fold button is offered at this phase (real UTH: turn only — you must
+//               Raise or Check pre-turn, Raise or Fold on the turn). Distinct from _uthFoldable
+//               below, which is a broader defensive guard for uthFold's own early-return.
+//   advance():  what "this street's decision is resolved" does — deal the next street, or settle.
+//               Called by uthCheck, by uthPlaceRaise after staking, and by uthNextStreet (the
+//               continue button shown once uthRaised is already true from an earlier street).
+// FINDING #17: _uthActionsHTML (below) reads raiseMult/checkable/showsFold straight off this table
+// instead of re-deriving its own per-phase button literals, so the buttons shown can never drift
+// from the legality the handlers (uthPlaceRaise/uthCheck/uthFold) already enforce off this same table.
+const UTH_STREET_GRAPH = {
+  preflop: { raiseMult:[4,3], checkable:true,  showsFold:false, advance:_uthDealFlop },
+  flop:    { raiseMult:[2],   checkable:true,  showsFold:false, advance:_uthDealTurn },
+  turn:    { raiseMult:[1],   checkable:false, showsFold:true,  advance:uthResolve  },
+};
+// Fold is legal from any street with an active decision (every key above); reveal/result/bet/dealing
+// are not — Fold doesn't appear in the graph itself since it doesn't "advance" a street, it ends the hand.
+// (Broader than showsFold above: this is uthFold's own defensive guard, not what the UI offers.)
+function _uthFoldable(phase){ return phase in UTH_STREET_GRAPH; }
+
 function uthPlaceRaise(mult){
+  const node=UTH_STREET_GRAPH[S.uthPhase];
+  if(!node||!node.raiseMult.includes(mult))return; // illegal mult/phase for this street — no-op
   const bet=_uthAntePortion()*mult;
   if(S.chips<bet)return;
   txLog({g:'uth',a:'raise',h:S.uthHand,mult,st:S.uthPhase});
   debit(bet,'uth-raise');S.uthRaise=bet;S.uthRaiseMult=mult;S.uthRaised=true;
   sndChip();
-  if(S.uthPhase==='preflop'){_uthDealFlop();updateChipDisplay();}
-  else if(S.uthPhase==='flop'){_uthDealTurn();updateChipDisplay();}
-  else if(S.uthPhase==='turn'){uthResolve();}
+  const advanced=node.advance();
+  if(S.uthPhase!=='reveal') updateChipDisplay(); // uthResolve (turn's advance) already renders past 'reveal'; the deal-fns don't
+  return advanced;
 }
 function uthCheck(){
-  if(S.uthPhase!=='preflop'&&S.uthPhase!=='flop')return;
+  const node=UTH_STREET_GRAPH[S.uthPhase];
+  if(!node||!node.checkable)return;
   txLog({g:'uth',a:'check',h:S.uthHand,st:S.uthPhase});
-  if(S.uthPhase==='preflop') _uthDealFlop();
-  else _uthDealTurn();
+  node.advance();
 }
+// The "continue" button shown once uthRaised is already true from an earlier street (real UTH allows
+// only one Raise per hand, so later streets have no fresh decision — just click through). Reads the
+// same graph node's advance() as uthCheck/uthPlaceRaise so all three paths agree on what's next.
 function uthNextStreet(){
-  if(S.uthPhase==='flop') _uthDealTurn();
-  else if(S.uthPhase==='turn') uthResolve();
+  const node=UTH_STREET_GRAPH[S.uthPhase];
+  if(node) node.advance();
 }
 function uthFold(){
   // Idempotency guard (see _resolveRoulette): a double-tap on Fold must not push the loss twice
   // or advance the hand counter twice. uthFolded is reset per hand by resetUTHHand/uthDeal.
   if(S.uthFolded)return;
+  if(!_uthFoldable(S.uthPhase))return; // not on an active street (e.g. already revealing/settled)
   txLog({g:'uth',a:'fold',h:S.uthHand,st:S.uthPhase});
   S.uthFolded=true;
   const ante=_uthAntePortion(),blind=_uthBlindPortion();
@@ -500,41 +462,37 @@ function handDetail(cards, cat) {
 
 // ─── SCREEN RENDERING ────────────────────────────────────────────────────
 
+// Continue-button label shown once uthRaised is already true from an earlier street (real UTH:
+// one Raise per hand, so a later street has no fresh decision). Mirrors the phase-specific copy the
+// old per-phase branches hardcoded (flop → "See Turn & River", turn → "Showdown").
+const _UTH_CONTINUE_LABEL = { flop:'See Turn &amp; River →', turn:'→ Showdown' };
+
 // The per-street action-button cluster — the inner HTML of #uth-actions-ui — for the current phase.
 // ONE source for these buttons: screenUTH seeds them on a full render, and updateUthCommunityCards
 // repaints the IDENTICAL markup on a street change, so the two can no longer drift. (They did before:
 // the flop "Raise 2×" label read S.uthAnte in the screen but the correct _uthAntePortion()*2 on the
 // street change — they disagree on odd antes. The raise cost mirrors uthPlaceRaise, the source of
-// truth.) Whitespace is preserved verbatim from the original per-phase templates.
+// truth.) FINDING #17: the button SET (which raises, Check vs Fold) is asked off UTH_STREET_GRAPH —
+// the same table uthPlaceRaise/uthCheck/uthFold already gate on — instead of separate per-phase
+// literals, so render and handler legality can't drift apart. Whitespace preserved from the originals.
 function _uthActionsHTML(){
   const ph=S.uthPhase;
-  if(ph==='preflop'){
-    const r4Cost=_uthAntePortion()*4, r3Cost=_uthAntePortion()*3;
-    return `<div id="uth-action-btns" class="act-btns">
-          <button class="act-btn" onclick="uthPlaceRaise(4)" ${S.chips>=r4Cost?'':'disabled'}>Raise 4× (${cfmt(r4Cost)})</button>
-          <button class="act-btn" onclick="uthPlaceRaise(3)" ${S.chips>=r3Cost?'':'disabled'}>Raise 3× (${cfmt(r3Cost)})</button>
-          <button class="act-btn" onclick="uthCheck()">Check</button>
+  const node=UTH_STREET_GRAPH[ph];
+  if(!node) return '';
+  if(S.uthRaised) return `<button class="btn-gold" onclick="uthNextStreet()">${_UTH_CONTINUE_LABEL[ph]}</button>`;
+  const raiseBtns=node.raiseMult.map(mult=>{
+    const cost=_uthAntePortion()*mult;
+    return `<button class="act-btn" onclick="uthPlaceRaise(${mult})" ${S.chips>=cost?'':'disabled'}>Raise ${mult}× (${cfmt(cost)})</button>`;
+  }).join('\n          ');
+  const tailBtn=node.checkable
+    ?`<button class="act-btn" onclick="uthCheck()">Check</button>`
+    :node.showsFold
+      ?`<button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button>`
+      :'';
+  return `<div id="uth-action-btns" class="act-btns">
+          ${raiseBtns}
+          ${tailBtn}
         </div>`;
-  }
-  if(ph==='flop'){
-    if(S.uthRaised) return `<button class="btn-gold" onclick="uthNextStreet()">See Turn &amp; River →</button>`;
-    const r2=_uthAntePortion()*2;
-    return `
-          <div id="uth-action-btns" class="act-btns">
-            <button class="act-btn" onclick="uthPlaceRaise(2)" ${S.chips>=r2?'':'disabled'}>Raise 2× (${cfmt(r2)})</button>
-            <button class="act-btn" onclick="uthCheck()">Check</button>
-          </div>`;
-  }
-  if(ph==='turn'){
-    if(S.uthRaised) return `<button class="btn-gold" onclick="uthNextStreet()">→ Showdown</button>`;
-    const r1=_uthAntePortion();
-    return `
-          <div id="uth-action-btns" class="act-btns">
-            <button class="act-btn" onclick="uthPlaceRaise(1)" ${S.chips>=r1?'':'disabled'}>Raise 1× (${cfmt(r1)})</button>
-            <button class="act-btn" style="color:var(--lose);border-color:rgba(196,48,48,.4)" onclick="uthFold()">Fold</button>
-          </div>`;
-  }
-  return '';
 }
 
 function screenUTH(){

@@ -95,7 +95,7 @@ function screenPoker(){
         ?`<div class="sec" style="text-align:center"><span class="sec-game-prefix">5 Card Poker · </span>All In or Skip · Wins Pay 2×</div>
           ${aiosRow('allIn();pkDeal()', 'pkSkip()')}`
         :`<div class="sec" style="text-align:center"><span class="sec-game-prefix">5 Card Poker · </span>Place Your Bet</div>
-          ${chipSel(S.chips,S.pkBet)}
+          ${chipSel(maxBet(),S.pkBet)}
           <button id="${DOM.dealBtn}" class="btn-gold" style="margin-top:12px" onclick="pkDeal()" ${S.pkBet===0?'disabled':''}>Deal ${icon('shuffle',{cls:'btn-icon-gap'})}</button>
           <div class="divider"></div>
           <div class="sec">Paytable</div>

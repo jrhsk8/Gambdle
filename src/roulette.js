@@ -499,7 +499,7 @@ function screenRouletteBet(){
       <div id="${DOM.rouletteSelBox}" class="r-sel-box">${rSelBox(S.rPick,S.rBet)}</div>
       <div id="${DOM.rouletteBetsZone}" class="r-bets-zone">${rBetsZone(S.rBets,maxBets)}</div>
     </div>
-    ${chipSel(S.chips,S.rBet,null,`<button id="${DOM.placeBetBtn}" class="btn-gold" onclick="rAddBet()" ${!canAdd?'disabled':''}>Place Bet (${S.rBets.length}/${maxBets})</button>`)}
+    ${chipSel(maxBet(),S.rBet,null,`<button id="${DOM.placeBetBtn}" class="btn-gold" onclick="rAddBet()" ${!canAdd?'disabled':''}>Place Bet (${S.rBets.length}/${maxBets})</button>`)}
     <button id="${DOM.dealBtn}" class="btn-gold" style="margin-top:6px" onclick="rSpin()" ${!canSpin?'disabled':''}>Final Spin ${icon('target',{cls:'btn-icon-gap'})}</button>
   </div>`;
 }
