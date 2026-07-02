@@ -122,11 +122,12 @@ function buildDeal(seed){
   const rng=mkRng(seed);
   const shoe=[];for(let i=0;i<2;i++)shoe.push(...buildDeck());
   const bjShoe=shuffle(shoe,rng).concat(_extendBjShoe(seed)); // base 104 + no-run-dry tail
-  // One fresh 52-card deck per poker hand; each shuffle advances the shared RNG sequence.
+  // One fresh 52-card deck per Poker hand (so each hand's drawn 5 cards come from a pristine shoe);
+  // each shuffle advances the shared RNG sequence, keeping byte-alignment with server replay.
   const pokerDecks=Array.from({length:3},()=>shuffle(buildDeck(),rng));
   const uthDeck=shuffle(buildDeck(),rng);
-  // The Ladder: one shared 8-card hi-lo sequence (1 first card + up to 7 calls).
-  // MUST stay the last consumer of the shared rng — appending here shifts nothing above.
+  // The Ladder: one shared 8-card hi-lo sequence (1 first reveal + up to 7 called cards).
+  // MUST be the last rng consumer (no call after this) — order is load-bearing for replay alignment.
   const ladderCards=shuffle(buildDeck(),rng).slice(0,8);
   return{bjShoe,pokerDecks,uthDeck,ladderCards,rSpinOverride:null};
 }

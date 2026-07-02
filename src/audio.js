@@ -26,6 +26,7 @@ function playMp3(src,ms=0){
 }
 function sndCard(ms=0){playMp3(`assets/sounds/card${Math.ceil(Math.random()*3)}.mp3`,ms);}
 // d = chip denomination (or 'allin'); selects the appropriate sound effect.
+// Plays a chip-bet sound: 'allin' gets its own dramatic effect; smaller bets use a distinct sound from medium+ bets.
 function sndChip(d){playMp3(d==='allin'?'assets/sounds/allin.mp3':d<=25?'assets/sounds/smallbet.mp3':'assets/sounds/mediumbet.mp3');}
 function sndShuffle(cb){
   if(getPref('mute')){if(cb)setTimeout(cb,0);return;}
@@ -53,6 +54,7 @@ function sndShuffle(cb){
 function sndBigWin(){playMp3('assets/sounds/bigwin.mp3');}
 
 let _ac=null;
-// Returns the shared AudioContext, creating or resuming it on first use.
+// Lazy-init the shared AudioContext (one per page life). iOS and some browsers require a user
+// gesture before creating or resuming AudioContext; resume() here is safe to call repeatedly.
 function getAC(){if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();return _ac;}
 
