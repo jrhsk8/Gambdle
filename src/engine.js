@@ -45,6 +45,13 @@ function _engMod(modifiers){
 // live in the game files, return a pure settlement Ledger, and are applied here over the headless
 // accountant via applyLedger (core.js). Pinning them in one place is the whole point: live and replay
 // build the identical ledger, so they can no longer drift.
+//
+// bjRulesFor/uthRulesFor below are ALSO registered as GAMES.bj.rulesFor / GAMES.uth.rulesFor (see the
+// contract comment on GAMES in core.js) — every call site here calls the named function directly
+// rather than through the registry, because each is already inside a function that statically knows
+// its own game (a replay handler, or an audit branch keyed on `record.slot`); there's no generic
+// per-game loop here for the indirection to simplify. The registration exists so the registry is a
+// complete, checkable map of "which games have a rules bundle", not to change these call sites.
 
 // Headless Accountant adapter mirroring credit()/debit(): Math.round on every delta, debit floors at
 // 0. Tracks the LIVE balance (used only for winMult + legality); the returned score is recomputed

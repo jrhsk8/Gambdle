@@ -25,12 +25,11 @@ function devApplyMod(k) {
 function devSpin(){
   // Place a fresh, varied 5-bet set so the multi-bet spin + result flow gets exercised across
   // bet types: a straight number, a color, a 2:1 row (column), a dozen, and an even-money bet.
-  mutate(s => {
-    s.screen='roulette';s.rPhase='bet';
-    if(s.rBets.length===0){
-      for(const pick of [17,45,37,40,44]){ if(s.chips>=10){debit(10,'dev-spin');s.rBets.push({pick,bet:10});} }
-    }
-  });
+  // Routed through roulette.js's own preset-bets entry point (roulettePresetBets) instead of
+  // reaching into S.rBets/debit() here, so this stays in lockstep with rAddBet's real commit
+  // sequence — roulette.js owns how a bet gets onto the board, dev.js just asks for one.
+  mutate(s => { s.screen='roulette'; s.rPhase='bet'; });
+  if(S.rBets.length===0) roulettePresetBets([17,45,37,40,44],10);
   closeDropdowns();
   if(S.rBets.length>0)rSpin();else render();
 }
@@ -38,7 +37,7 @@ function devSpin(){
 // bet screen shows the free entry (as on a real Ladder day) and lands on a fresh run.
 function devLadder(){
   S.forcedMod = 'ladder_day';
-  resetLadderRun();
+  resetLadderRun('dev-jump');
   closeDropdowns();
   goTo('ladder');
 }

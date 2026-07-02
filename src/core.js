@@ -10,7 +10,8 @@
 //   → THE DEAL lifted to deal.js (genDeal → DEAL, card/seed overrides)
 //   chips: START_CHIPS, BORROW_AMOUNT, CHIP_TIERS/getTier, NET_TIERS/getNetTier
 //   GLOBAL STATE (the S object) · borrow/bust helpers · winMult
-//   CHIP ACCOUNTING (credit, debit)
+//   CHIP ACCOUNTING (credit, debit) · Accountant/liveAcct · applyLedger
+//   LEDGER ENTRY GRAMMAR (ledgerEntry, mkCredit/mkDebit, LEDGER_REASONS) — validated *Award builder seam
 //   saveState / loadState   ·   → THE RECORD lifted to record.js (mkOutcome, recalcChips, gameNet/gameHistory, txLog + shape guards)
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -213,6 +214,36 @@ const GAMES = {
 // txKey: the short tag a game writes into the Transcript (txLog {g}) and the net bucket the replay
 // Engine accumulates into — the one link between a game's registry entry and its replay handler.
 
+// ── reset(reason) bet-phase contract (finding #15) ───────────────────────────
+// Every call to a game's reset — whether through the registry (GAMES[g].reset()) or a direct call to
+// the underlying reset fn (resetBJHand/resetUTHHand/resetLadderRun/the poker inline) — passes a
+// `reason` string naming why the caller wants a fresh bet phase. Today every reason produces IDENTICAL
+// behavior (the reset fns accept and ignore it); it exists to make the call sites self-documenting and
+// give a future branch a named seam instead of another ad-hoc field-clearing tweak. The taxonomy,
+// derived from the actual call sites (flow.js, menus.js, dev.js) rather than assumed up front:
+//   'hand-advance' — moving to the next of this slot's 3 hands within the SAME Round: the normal
+//                    "Next Hand →" path (_nextHand, flow.js) and its all-in-or-skip sibling
+//                    (_skipHand, flow.js). Counters/history (S.<g>Hand, S.<g>History) are NOT reset's
+//                    job in this case — they're advanced by the hand's own resolve/skip path before
+//                    reset runs, and reset only clears the per-hand scratch fields (cards, bet, phase,
+//                    split state, animation cursors).
+//   'borrow-prep'  — preparing the slot the player will return to if they accept the borrow loan,
+//                    called from advanceTo() the moment a "Game Over" bust is detected at a result
+//                    phase (before the borrow screen is even shown) so a later return lands on a clean
+//                    bet phase. Same field-clearing as hand-advance; the counter/history are likewise
+//                    untouched (a borrowed return continues the same Round, it doesn't restart it).
+//   'dev-jump'     — dev-only direct entry into a fresh Ladder run, bypassing the normal Round flow
+//                    (the dev Jump submenu's "→ The Ladder" and devLadder(), which also forces the
+//                    ladder_day mod). Ladder has no handKey/historyKey (it's a single run, not a
+//                    3-hand slot) so there's no counter to preserve; reset just re-arms S.ladPhase/
+//                    ladBet/ladFree/ladIdx/ladRung/ladResult to their fresh-run values.
+// A slot's FIRST entry each day (GAME1 at run start, GAME2 arriving via NEXT_SCREEN) never calls
+// reset at all — S starts each day already clean, so there's nothing to clear. Roulette and the
+// Ladder's real (non-dev) free-bonus entry are likewise reset-free for the same reason: both are
+// played at most once per day, so the "borrow-prep"/"hand-advance" paths above never reach them with
+// stale state to clear (GAMES.roulette.reset and GAMES.ladder.reset stay the core.js no-op default).
+
+
 // ── The Game behaviour-hook interface ────────────────────────────────────────
 // Every game entry satisfies the SAME behaviour interface, declared (as no-ops) here in one place so
 // the lifecycle can call any hook unconditionally. Each game's own file loads after core.js and
@@ -221,11 +252,25 @@ const GAMES = {
 // functions, so the only thing a caller still guards is whether `S.screen` is a game at all (shell
 // screens like intro/borrow/results aren't in GAMES). The hooks:
 //   screen   — returns the screen's HTML (set by every game; not defaulted, so a missing one is a bug)
-//   reset    — return the game to a fresh bet phase (card games; no-op for single-run games)
+//   reset    — return the game to a fresh bet phase (card games; no-op for single-run games).
+//              Called as reset(reason) — see the bet-phase contract below.
 //   nextHand — advance to the next hand (card games; no-op for single-run games)
 //   resume   — restore mid-animation state after a refresh (no-op where the screen restores instantly)
 //   patchBet — surgically sync the game's own bet UI on a bet change (UTH + roulette; no-op otherwise)
 // (replay is attached later by engine.js for all games; it is the replay-side hook, not a live one.)
+// rulesFor — OPTIONAL, not defaulted (unlike the hooks above): a pure `(mod) => {…scalars/flags}`
+// builder for the day's per-game rule bundle, given a mod accessor (getMod live, _engMod in replay).
+// Only bj and uth register one (bjRulesFor/uthRulesFor, in their own files) — the pattern that
+// replaced the old "mirror the same ||default inline in the live game AND engine.js" duplication.
+// Roulette's spinModsFor/evalBetModsFor are the same idea but a different shape (they also fold in
+// non-modifier inputs like the locked bets / win multiplier / spin override), so they are NOT wired
+// here — forcing them onto `.rulesFor` would buy uniformity, not clarity. Ladder has no builder at
+// all: it reads getMod('ladder_free') straight (a `cross`-attributed key in MODIFIER_SCHEMA, not a
+// ladder-owned one). Consistency with MODIFIER_SCHEMA's `game` attribution is asserted in
+// tests/modifiers.test.js, not enforced at runtime (a schema key legitimately read outside its
+// game's rulesFor — e.g. uth_river_monster/uth_time_travel, read straight off getMod in uth.js's
+// display/redeal logic rather than through uthRulesFor — is fine; the test documents which keys
+// those are so a real drift doesn't hide).
 for (const _g of Object.values(GAMES)) {
   _g.reset    = _g.reset    || (() => {});
   _g.nextHand = _g.nextHand || (() => {});
@@ -536,6 +581,45 @@ function applyLedger(acct, ledger){
     else acct.credit(e.n, e.reason);
   }
 }
+
+// ─── LEDGER ENTRY GRAMMAR (typo guard for the *Award builders) ─────────────
+// Same strict-mode shape as record.js's TX_SHAPE/ROUND_DETAIL_KEYS guards, but reimplemented here (not
+// imported) because record.js is DOM-facing and excluded from the replay engine bundle
+// (tests/build-engine-bundle.js EXCLUDE), while core.js — and therefore this file — IS bundled. The
+// detector below deliberately mirrors record.js's `_strictRounds` rather than sharing it.
+// Bundle-safe: the engine bundle's STUB preamble defines a plain `window = { location: {search:''} }`,
+// so `window.__GAMBDLE_TEST__` reads as undefined (never throws) and DEV_OVERRIDE resolves to its
+// normal `null` production default under `new Function` — no ReferenceError in Deno, no behavior
+// change live.
+const _ledgerStrict = () => !!DEV_OVERRIDE || !!(typeof window !== 'undefined' && window.__GAMBDLE_TEST__);
+// The full reason vocabulary every *Award builder is allowed to emit (grepped from bjAward/
+// bjAwardSplit in bj.js, uthAward in uth.js, rouletteAward in roulette.js, ladderAward in ladder.js —
+// the only applyLedger feeders). Adding a new award reason means adding it here first, or ledgerEntry
+// throws in strict mode the moment the typo'd/new string is built.
+const LEDGER_REASONS = new Set([
+  'bj-blackjack', 'bj-win', 'bj-push', 'bj-split-win', 'bj-split-push',
+  'uth-play', 'uth-ante', 'uth-ante-push', 'uth-blind', 'uth-push',
+  'roulette', 'ladder',
+]);
+// Validating factory for one Ledger entry — the *Award builders call this instead of hand-writing
+// {op,n,reason} literals, so a typo'd op, a non-finite/negative n, or an undeclared reason blows up
+// loudly at build time (strict mode only: dev/test — see _ledgerStrict). Prod builds skip the checks
+// entirely (perf + no throw risk for players); the RETURNED shape is byte-identical either way, so
+// live/replay parity (ledger outputs feed straight into applyLedger) is untouched.
+function ledgerEntry(op, n, reason){
+  if(_ledgerStrict()){
+    if(op!=='credit' && op!=='debit') throw new Error(`ledgerEntry: op must be 'credit'|'debit', got '${op}'`);
+    if(!Number.isFinite(n) || n<0) throw new Error(`ledgerEntry: n must be a finite number >= 0, got ${n}`);
+    if(!LEDGER_REASONS.has(reason)) throw new Error(`ledgerEntry: unknown reason '${reason}'. Add it to LEDGER_REASONS (core.js) if new.`);
+  }
+  return {op, n, reason};
+}
+// Thin credit/debit wrappers over ledgerEntry — read at each *Award call site as "credit this much,
+// for this reason" rather than a bare op string. Named `mkCredit`/`mkDebit` (not `credit`/`debit`) to
+// stay distinct from the chip-accounting chokepoint above, which these do NOT call — they only build
+// the data an Accountant later applies via applyLedger.
+const mkCredit = (n, reason) => ledgerEntry('credit', n, reason);
+const mkDebit  = (n, reason) => ledgerEntry('debit', n, reason);
 
 // Mutate-then-persist seam (Candidate 6). Apply `fn` to S, then saveState() EXACTLY once on exit — even
 // if `fn` returns early or throws (the save still fires, matching today's "save what we have"). Returns

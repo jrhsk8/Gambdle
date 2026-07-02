@@ -50,14 +50,16 @@ const UTH_CARD_INTERVAL_MS = 400;  // stagger between each community card
 const UTH_REVEAL_TOTAL_MS  = UTH_CARD_START_MS + 5 * UTH_CARD_INTERVAL_MS;
 
 
-function resetUTHHand(){
+// `reason` — see the reset(reason) contract in core.js ('hand-advance' | 'borrow-prep' today; both
+// clear the same fields, so it's accepted but unbranched).
+function resetUTHHand(reason){
   S.uthAnte=0; S.uthPhase='bet'; S.uthRaise=0; S.uthRaiseMult=0;
   S.uthRaised=false; S.uthFolded=false;
   S.uthHole=[]; S.uthDealer=[]; S.uthComm=[];
   S.uthPrivate=null;
   S.uthRevealComm=0; S.uthPrevRevealComm=0;
 }
-GAMES.uth.reset = resetUTHHand; GAMES.uth.screen = screenUTH; GAMES.uth.nextHand = () => _nextHand(resetUTHHand); // register this game's fns into the Game registry (defined in this file; core.js loads first)
+GAMES.uth.reset = resetUTHHand; GAMES.uth.screen = screenUTH; GAMES.uth.nextHand = () => _nextHand(resetUTHHand); GAMES.uth.rulesFor = uthRulesFor; // register this game's fns into the Game registry (defined in this file; core.js loads first)
 // Game-specific bet-UI patch (dispatched by patchBetUI): keep the stake summary + blind pay table in
 // step with the staked Ante · Blind split as the bet changes.
 GAMES.uth.patchBet = function(bet){
@@ -85,7 +87,7 @@ GAMES.uth.resume = function(){
 };
 
 /** Skip the current UTH hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function uthSkip(){ txLog({g:'uth',a:'skip',h:S.uthHand}); _skipHand('uth',{ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0}); }
+function uthSkip(){ tx('uth','skip'); _skipHand('uth',{ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0}); }
 
 // ─── ULTIMATE TEXAS HOLD'EM LOGIC ────────────────────────────────────────
 
@@ -112,7 +114,7 @@ function uthDeal(){
   if(!S.uthAnte||S.uthPhase!=='bet')return;
   S.uthPhase='dealing'; // lock immediately so bet controls can't mutate S.uthAnte during sndShuffle
   debit(S.uthAnte,'uth-deal');
-  txLog({g:'uth',a:'deal',h:S.uthHand,ante:S.uthAnte});
+  tx('uth','deal',{ante:S.uthAnte});
   const R=uthRules(); // the day's UTH rule bundle (same shape the engine builds from _engMod)
   if(R.pocketAces){
     // +1 so hand 0 doesn't reuse the exact daily seed; *97 (prime) spaces hand seeds apart to avoid collisions.
@@ -193,7 +195,7 @@ function timeTravelBtnHTML(){
 function doTimeTravel(){
   if(!getMod('uth_time_travel')||S.timeTravelUsed) return;
   if(S.uthPhase!=='flop'&&S.uthPhase!=='turn') return;
-  txLog({g:'uth',a:'timetravel',h:S.uthHand,st:S.uthPhase}); // re-deals cards, so replay needs it
+  tx('uth','timetravel',{st:S.uthPhase}); // re-deals cards, so replay needs it
   mutate(s=>{
     s.timeTravelUsed=true;
     let ptr=s.uthRedealPtr;
@@ -269,7 +271,7 @@ function uthPlaceRaise(mult){
   if(!node||!node.raiseMult.includes(mult))return; // illegal mult/phase for this street — no-op
   const bet=_uthAntePortion()*mult;
   if(S.chips<bet)return;
-  txLog({g:'uth',a:'raise',h:S.uthHand,mult,st:S.uthPhase});
+  tx('uth','raise',{mult,st:S.uthPhase});
   debit(bet,'uth-raise');S.uthRaise=bet;S.uthRaiseMult=mult;S.uthRaised=true;
   sndChip();
   const advanced=node.advance();
@@ -279,7 +281,7 @@ function uthPlaceRaise(mult){
 function uthCheck(){
   const node=UTH_STREET_GRAPH[S.uthPhase];
   if(!node||!node.checkable)return;
-  txLog({g:'uth',a:'check',h:S.uthHand,st:S.uthPhase});
+  tx('uth','check',{st:S.uthPhase});
   node.advance();
 }
 // The "continue" button shown once uthRaised is already true from an earlier street (real UTH allows
@@ -294,7 +296,7 @@ function uthFold(){
   // or advance the hand counter twice. uthFolded is reset per hand by resetUTHHand/uthDeal.
   if(S.uthFolded)return;
   if(!_uthFoldable(S.uthPhase))return; // not on an active street (e.g. already revealing/settled)
-  txLog({g:'uth',a:'fold',h:S.uthHand,st:S.uthPhase});
+  tx('uth','fold',{st:S.uthPhase});
   S.uthFolded=true;
   const ante=_uthAntePortion(),blind=_uthBlindPortion();
   S.uthHistory.push(mkOutcome('uth',-(ante+blind),'fold',{ante,blind,play:0,playMult:0,anteDelta:-ante,blindDelta:-blind,playDelta:0,playerBest:null,dealerBest:null,dealerQualifies:false}));
@@ -333,15 +335,16 @@ function resolveUTH(pb, db, ante, blind, play, mods){
 // applyLedger). `res` is the resolveUTH outcome. Each leg's stake was debited at deal/raise, so a win
 // returns each stake + its profit (the ante pushes its stake back when the dealer doesn't qualify), a
 // tie returns all three stakes as one credit, a loss keeps nothing. Order (play, ante, blind) is
-// load-bearing: each entry rounds independently.
+// load-bearing: each entry rounds independently. Entries are built via mkCredit (core.js) — a
+// validated {op,n,reason} factory — so a typo'd reason throws in strict mode.
 function uthAward(res, ante, blind, play){
   if(res.result==='win') return [
-    {op:'credit', n:play+res.playDelta, reason:'uth-play'},
-    res.dealerQualifies ? {op:'credit', n:ante+res.anteDelta, reason:'uth-ante'}
-                        : {op:'credit', n:ante, reason:'uth-ante-push'},
-    {op:'credit', n:blind+res.blindDelta, reason:'uth-blind'},
+    mkCredit(play+res.playDelta, 'uth-play'),
+    res.dealerQualifies ? mkCredit(ante+res.anteDelta, 'uth-ante')
+                        : mkCredit(ante, 'uth-ante-push'),
+    mkCredit(blind+res.blindDelta, 'uth-blind'),
   ];
-  if(res.result==='push') return [{op:'credit', n:ante+blind+play, reason:'uth-push'}];
+  if(res.result==='push') return [mkCredit(ante+blind+play, 'uth-push')];
   return [];
 }
 function uthResolve(){

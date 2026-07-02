@@ -387,6 +387,11 @@ function rResultNumsHTML(){
 }
 
 GAMES.roulette.screen = screenRoulette; // register into the Game registry (defined just below; core.js loads first)
+// No GAMES.roulette.rulesFor: spinModsFor/evalBetModsFor are this game's rule bundles, but a
+// different SHAPE than bjRulesFor/uthRulesFor — they also take non-modifier inputs (locked bets,
+// the win multiplier, the day's spin override) and roulette needs two of them (spin distribution vs.
+// bet payout), not one. Forcing either onto `.rulesFor` would buy uniformity, not clarity (see the
+// contract comment on GAMES in core.js). They stay named exports called directly at their sites.
 // Game-specific bet-UI patch (dispatched by patchBetUI): the selection box shows the picked tile's
 // payout for the current stake · keep it in step as the player changes the chip amount or picks a tile.
 GAMES.roulette.patchBet = function(bet){
@@ -550,7 +555,7 @@ function screenRouletteResult(){
 
 /** Skip the roulette spin (all_in_or_skip modifier). Records delta 0 and goes to result. */
 function rSkip(){
-  txLog({g:'r',a:'skip'});
+  tx('r','skip');
   S.rResult=mkOutcome('r',0,'skipped',{skipped:true});S.rPhase='result';navRender();
 }
 
@@ -627,26 +632,51 @@ function rAddBet(){
   });
   sndChip(betAmt);
 
-  const _bt = patchOrRender(document.querySelector(`[data-idx="${prevPick}"]`), null);
-  if(!_bt) return; // patchOrRender already fell back to a full render
-  const boardBtn = _bt[0];
+  // One atomic group (C-finding #14): the board tile, bet readout, chip buttons, bets tracker, sel
+  // box, Place Bet and Deal buttons all update together as one logical "bet placed" repaint. Before
+  // this each was patched independently (several bare patchEl calls), so a missing id silently
+  // skipped JUST that piece — e.g. the bets tracker could go stale while the board tile updated fine.
+  // Now either the whole group is live and every piece updates, or none of it runs and the
+  // patchOrRender-style fallback (full render()) repairs the screen instead of a partial patch.
+  patchGroup({
+    boardBtn: document.querySelector(`[data-idx="${prevPick}"]`),
+    betVal: DOM.betVal, betsZone: DOM.rouletteBetsZone, selBox: DOM.rouletteSelBox,
+    placeBetBtn: DOM.placeBetBtn, dealBtn: DOM.dealBtn,
+  }, ({boardBtn, betVal, betsZone, selBox, placeBetBtn, dealBtn}) => {
+    boardBtn.classList.remove('r-sel');
+    boardBtn.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
+    const total=S.rBets.filter(b=>b.pick===prevPick).reduce((s,b)=>s+b.bet,0);
+    const existingChip=boardBtn.querySelector('.r-chip-placed');
+    if(existingChip)existingChip.textContent=chipLbl(total);
+    else boardBtn.insertAdjacentHTML('beforeend',`<span class="r-chip r-chip-placed">${chipLbl(total)}</span>`);
 
-  boardBtn.classList.remove('r-sel');
-  boardBtn.querySelectorAll('.r-chip-sel').forEach(c=>c.remove());
-  const total=S.rBets.filter(b=>b.pick===prevPick).reduce((s,b)=>s+b.bet,0);
-  const existingChip=boardBtn.querySelector('.r-chip-placed');
-  if(existingChip)existingChip.textContent=chipLbl(total);
-  else boardBtn.insertAdjacentHTML('beforeend',`<span class="r-chip r-chip-placed">${chipLbl(total)}</span>`);
+    betVal.textContent=cfmt(S.rBet); // keep showing the retained amount, not 0
+    document.querySelectorAll('.chbtn').forEach(b=>{b.disabled=S.rBet+(+b.dataset.v)>S.chips;});
 
-  patchEl(DOM.betVal, bv=>bv.textContent=cfmt(S.rBet)); // keep showing the retained amount, not 0
-  document.querySelectorAll('.chbtn').forEach(b=>{b.disabled=S.rBet+(+b.dataset.v)>S.chips;});
-
-  patchEl(DOM.rouletteBetsZone, z=>z.innerHTML=rBetsZone(S.rBets,maxBets));
-  patchEl(DOM.rouletteSelBox, sb=>sb.innerHTML=rSelBox(S.rPick,S.rBet));
-  patchEl(DOM.placeBetBtn, pba=>{pba.textContent=`Place Bet (${S.rBets.length}/${maxBets})`;pba.disabled=true;});
-  patchEl(DOM.dealBtn, db=>db.disabled=false);
+    betsZone.innerHTML=rBetsZone(S.rBets,maxBets);
+    selBox.innerHTML=rSelBox(S.rPick,S.rBet);
+    placeBetBtn.textContent=`Place Bet (${S.rBets.length}/${maxBets})`;placeBetBtn.disabled=true;
+    dealBtn.disabled=false;
+  });
 
   updateChipDisplay();
+}
+// Seeds S.rBets with a fixed list of (pick, bet) pairs, routed through the SAME debit +
+// rBets bookkeeping rAddBet uses per tile (just without rAddBet's live-DOM patch, since this
+// is meant to run headless before the first render — e.g. dev's jump-to-spin shortcut). Stops
+// early on rMaxBets() or insufficient chips, same guards rAddBet enforces one tile at a time.
+// No txLog: these are dev-seeded bets, not a player decision (see ARCHITECTURE.md transcript rule).
+function roulettePresetBets(picks, betAmt){
+  const maxBets=rMaxBets();
+  mutate(() => {
+    for(const pick of picks){
+      const isNew=!S.rBets.find(b=>b.pick===pick);
+      if(S.chips<betAmt||(isNew&&S.rBets.length>=maxBets))continue;
+      debit(betAmt,'roulette-bet');
+      const placedBet=S.rBets.find(b=>b.pick===pick);
+      if(placedBet){placedBet.bet+=betAmt;}else{S.rBets.push({pick,bet:betAmt});}
+    }
+  });
 }
 /** Removes a placed bet and refunds chips. */
 function rRemoveBet(i){
@@ -811,7 +841,7 @@ async function rSpin(){
   if(_rSpinPending||S.rPhase==='spinning')return;
   _rSpinPending=true;
   const bets=S.rBets.map(b=>[b.pick,b.bet]);
-  txLog({g:'r',a:'spin',bets,respin:S.rReSpun});
+  tx('r','spin',{bets,respin:S.rReSpun});
   S.rSpin=null;S.rSpin2=null;S.rSpinAcq=null; // fresh round (first spin or the one re-spin) — acquire new randomness, don't reuse last round's tag
   S.rPhase='spinning';
   render();updateChipDisplay();
@@ -891,8 +921,9 @@ function resolveRoulette(bets, spin, mods = evalBetMods()){
 // Settlement Ledger for the settled roulette round — the ONE credit mapping shared by the live settle
 // (_resolveRoulette) and the replay Engine. PURE: returns a single {op,n,reason} entry (applied via
 // applyLedger). The whole stake was debited at placement, so returning stake + delta lands the balance
-// exactly `delta` from break-even in one credit.
-function rouletteAward(stake, delta){ return [{op:'credit', n:stake+delta, reason:'roulette'}]; }
+// exactly `delta` from break-even in one credit. Built via mkCredit (core.js) — a validated
+// {op,n,reason} factory — so a typo'd reason throws in strict mode.
+function rouletteAward(stake, delta){ return [mkCredit(stake+delta, 'roulette')]; }
 // Settles all bets: returns stake + profit for winners, with the win multiplier folded into delta.
 function _resolveRoulette(){
   // Idempotency guard: only ever credit a spin once. A duplicate/late rFinish — flaky mobile
@@ -917,5 +948,5 @@ function rFinish(){
   if(getMod('r_respin')&&!S.rReSpun){S.rPhase='respin';navRender();return;}
   _resolveRoulette();
 }
-function rKeepSpin(){txLog({g:'r',a:'keep'});_resolveRoulette();} // player chose to keep the respin result
+function rKeepSpin(){tx('r','keep');_resolveRoulette();} // player chose to keep the respin result
 function rDoRespin(){S.rReSpun=true;rSpin();} // the re-spin is logged by rSpin (respin:true)

@@ -83,7 +83,9 @@ function _bjResumeAfterRefresh(){
   }
 }
 
-function resetBJHand(){
+// `reason` — see the reset(reason) contract in core.js ('hand-advance' | 'borrow-prep' today; both
+// clear the same fields, so it's accepted but unbranched).
+function resetBJHand(reason){
   S.bjBet=0; S.bjPhase='bet'; S.bjPlayer=[]; S.bjDealer=[];
   S.bjSplit=false; S.bjSplitHands=[]; S.bjSplitActive=0;
   S.bjSplitBets=[]; S.bjSplitResults=[]; S.bjSplitDone=[];
@@ -93,17 +95,17 @@ function resetBJHand(){
   S.bjDeck2=null; S.bjDeck2Idx=0; S.bjCandidates=null; // Double Vision
   _bjResolving=false;
 }
-GAMES.bj.reset = resetBJHand; GAMES.bj.screen = screenBJ; GAMES.bj.resume = _bjResumeAfterRefresh; GAMES.bj.nextHand = () => _nextHand(resetBJHand); // register this game's fns into the Game registry (defined in this file; core.js loads first)
+GAMES.bj.reset = resetBJHand; GAMES.bj.screen = screenBJ; GAMES.bj.resume = _bjResumeAfterRefresh; GAMES.bj.nextHand = () => _nextHand(resetBJHand); GAMES.bj.rulesFor = bjRulesFor; // register this game's fns into the Game registry (defined in this file; core.js loads first)
 
 /** Skip the current BJ hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function bjSkip(){ txLog({g:'bj',a:'skip',h:S.bjHand}); _skipHand('bj',{bet:0,result:'skip',delta:0,player:[],dealer:[]}); }
+function bjSkip(){ tx('bj','skip'); _skipHand('bj',{bet:0,result:'skip',delta:0,player:[],dealer:[]}); }
 
 /** Handles the initial deal for a Blackjack hand. */
 function bjDeal(){
   if(!S.bjBet||S.bjPhase!=='bet')return;
   S.bjPhase='dealing'; // lock immediately so bet controls can't mutate S.bjBet during sndShuffle
   debit(S.bjBet,'bj-deal');
-  txLog({g:'bj',a:'deal',h:S.bjHand,bet:S.bjBet});
+  tx('bj','deal',{bet:S.bjBet});
   S.bjAnimFrom=0;S.bjDealerAnimFrom=0;
   // Double Vision: deal the whole hand from a fresh per-hand deck (the shared shoe is left untouched,
   // so the day's other BJ hands are unchanged) and offer two candidate hands; the player keeps one.
@@ -171,7 +173,7 @@ function _bjAfterDeal(){
 // out through the shared post-deal path. Wired to the candidate Buttons in the 'pick' render.
 function bjPickHand(idx){
   if(S.bjPhase!=='pick'||!S.bjCandidates||(idx!==0&&idx!==1))return;
-  txLog({g:'bj',a:'pick',h:S.bjHand,s:idx});
+  tx('bj','pick',{s:idx});
   mutate(() => { // mutate-then-save seam: commit the chosen candidate before the post-deal DOM work runs
     S.bjPlayer=S.bjCandidates[idx];
     S.bjCandidates=null;
@@ -197,7 +199,7 @@ function bjHit(){
   const isSplit=S.bjSplit;
   const ai=isSplit?S.bjSplitActive:null;
   const hand=isSplit?S.bjSplitHands[ai]:S.bjPlayer;
-  txLog({g:'bj',a:'hit',h:S.bjHand,s:isSplit?ai:0});
+  tx('bj','hit',{s:isSplit?ai:0});
   if(isSplit)S.bjSplitAnimFrom[ai]=hand.length;
   else S.bjAnimFrom=hand.length;
   S.bjDealerAnimFrom=ANIM_NONE;
@@ -226,7 +228,7 @@ function bjHit(){
 /** Player finishes their turn. */
 function bjStand(){
   if(!bjCanAct().stand)return; // ONE eligibility check, same one the Stand button's disabled attr reads
-  txLog({g:'bj',a:'stand',h:S.bjHand,s:S.bjSplit?S.bjSplitActive:0});
+  tx('bj','stand',{s:S.bjSplit?S.bjSplitActive:0});
   _bjResolving=true;
   // Persist that the player finished acting, so a refresh during the brief reveal delay resumes the
   // dealer's turn instead of stranding the hand in 'play' with the action buttons live again
@@ -244,7 +246,7 @@ function bjDouble(){
   if(!bjCanAct().double)return;
   if(S.bjSplit){
     const i=S.bjSplitActive;
-    txLog({g:'bj',a:'double',h:S.bjHand,s:i});
+    tx('bj','double',{s:i});
     S.bjSplitAnimFrom[i]=S.bjSplitHands[i].length;
     S.bjDealerAnimFrom=ANIM_NONE; // don't re-deal the dealer upcard on the post-double render (matches bjHit/bjSplit)
     debit(S.bjSplitBets[i],'bj-split-double');S.bjSplitBets[i]*=2;
@@ -255,7 +257,7 @@ function bjDouble(){
     S.bjActed=true; // hand is done after the one card; a refresh in the deal-out delay resumes (render() persists it)
     _bjAfterCard(bjAdvanceSplit);
   }else{
-    txLog({g:'bj',a:'double',h:S.bjHand,s:0});
+    tx('bj','double',{s:0});
     S.bjAnimFrom=S.bjPlayer.length;
     S.bjDealerAnimFrom=ANIM_NONE; // don't re-deal the dealer upcard on the post-double render (matches bjHit/bjSplit)
     debit(S.bjBet,'bj-double');S.bjBet*=2;
@@ -275,7 +277,7 @@ function bjSplit(){
   if(!bjCanAct().split)return;
   if(S.bjSplit){
     const ai=S.bjSplitActive,bet=S.bjSplitBets[ai];
-    txLog({g:'bj',a:'split',h:S.bjHand,s:ai});
+    tx('bj','split',{s:ai});
     debit(bet,'bj-resplit');
     // splitResplit (the shared state machine) owns the array-shape transition; live keeps its own
     // AnimFrom (display-only) in step, splicing the same slot the same way.
@@ -287,7 +289,7 @@ function bjSplit(){
     // Splitting stakes a second hand at the full original bet, so it requires full coverage —
     // same rule as double-down (bjCanAct().double). Coverage + pair/wild-split legality both
     // already checked above via bjCanAct().split.
-    txLog({g:'bj',a:'split',h:S.bjHand,s:0});
+    tx('bj','split',{s:0});
     debit(S.bjBet,'bj-split');
     // splitInit (the shared state machine) owns the initial-split array shape.
     const{hands,bets,doubled,done}=splitInit(S.bjPlayer,S.bjBet,_bjDraw);
@@ -482,17 +484,19 @@ function splitIsActionable(hand){ return hVal(hand)<21; }
 // Settlement Ledger for a settled Blackjack hand — the ONE credit mapping shared by the live settle
 // (bjResolve) and the replay Engine. PURE: returns the list of {op,n,reason} entries (applied via
 // applyLedger), no acct, no S. The stake was debited at deal, so a win/blackjack returns stake +
-// profit, a push the stake, a loss/bust nothing.
+// profit, a push the stake, a loss/bust nothing. Entries are built via mkCredit/mkDebit (core.js) —
+// a validated {op,n,reason} factory, not a hand-written literal — so a typo'd reason throws in strict
+// mode; the returned shape is byte-identical to the old literals either way.
 function bjAward(result, bet, delta){
-  if(result==='blackjack') return [{op:'credit', n:bet+delta, reason:'bj-blackjack'}];
-  if(result==='win')       return [{op:'credit', n:bet+delta, reason:'bj-win'}];
-  if(result==='push')      return [{op:'credit', n:bet,       reason:'bj-push'}];
+  if(result==='blackjack') return [mkCredit(bet+delta, 'bj-blackjack')];
+  if(result==='win')       return [mkCredit(bet+delta, 'bj-win')];
+  if(result==='push')      return [mkCredit(bet,       'bj-push')];
   return [];
 }
 // Per sub-hand Ledger for a split — no blackjack branch (a split hand can't be a natural).
 function bjAwardSplit(result, bet, delta){
-  if(result==='win')  return [{op:'credit', n:bet+delta, reason:'bj-split-win'}];
-  if(result==='push') return [{op:'credit', n:bet,       reason:'bj-split-push'}];
+  if(result==='win')  return [mkCredit(bet+delta, 'bj-split-win')];
+  if(result==='push') return [mkCredit(bet,       'bj-split-push')];
   return [];
 }
 // The day's Blackjack rule bundle — a PURE function of the mod accessor (getMod live, the engine's

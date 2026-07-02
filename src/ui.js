@@ -219,6 +219,35 @@ function patchEl(id, fn){
   if(el){ fn(el); return true; }
   return false;
 }
+// Dev/test-only warning gate: mirrors core.js's _ledgerStrict (same DEV_OVERRIDE/__GAMBDLE_TEST__
+// check, reimplemented rather than shared since that one lives in the engine-bundled half of core.js
+// and this is DOM-only). Kept local to ui.js so patchGroup's warning never fires for real players.
+const _patchGroupStrict = () => !!DEV_OVERRIDE || !!(typeof window !== 'undefined' && window.__GAMBDLE_TEST__);
+// Atomic multi-element patch group: the answer to sites like rAddBet that touch several named
+// elements (a mix of textContent/class/innerHTML tweaks, not just "replace this zone's HTML" like
+// patchZones) as one logical update. `refs` maps a caller-chosen name to a target (element-id string,
+// an Element, or a possibly-null querySelector result) — same target vocabulary as patchOrRender.
+// EITHER every name resolves and fn(byName) runs with the whole group live, OR nothing runs and the
+// existing patchOrRender fallback (a full render(), which rebuilds every zone from S) repairs the
+// screen instead of leaving a partial update on screen. Returns whether fn ran.
+// In dev/test (_patchGroupStrict), a missing name is named in a console.warn so the gap is visible
+// during development instead of only showing up as "screen looks stale" — never logs for real players.
+// opts.noAnim suppresses the fallback render's card animation, same as patchOrRender/patchZones.
+function patchGroup(refs, fn, opts){
+  const names = Object.keys(refs);
+  const els = {};
+  const missing = [];
+  for(const name of names){
+    const target = refs[name];
+    const el = typeof target === 'string' ? document.getElementById(target) : target;
+    if(el) els[name] = el; else missing.push(name);
+  }
+  if(missing.length === 0){ fn(els); return true; }
+  if(_patchGroupStrict()) console.warn(`patchGroup: missing element(s) [${missing.join(', ')}]; falling back to render()`);
+  if(opts && opts.noAnim) _noAnim = true;
+  render();
+  return false;
+}
 
 // Updates chip buttons, bet display, and action button states without a full re-render.
 function patchBetUI() {

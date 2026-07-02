@@ -31,13 +31,13 @@ const MANIFEST = {
     '_testActive', 'applyLedger', 'applyPlayersChoice', 'buildDeck', 'card', 'computeStreak', 'credit', 'debit',
     'getActiveSeed', 'getDailySeed', 'getDayNum', 'getDeviceId', 'getMod', 'getNetTier',
     'getRngSeed', 'getStateKey', 'getTier', 'cVal', 'hVal', 'hValSoft', 'hValDisplay', 'isBJ', 'isChipBusted',
-    'liveAcct', 'loadState', 'mkRng', 'mutate', 'next', 'normalizeModRef',
+    'LEDGER_REASONS', 'ledgerEntry', 'liveAcct', 'loadState', 'mkCredit', 'mkDebit', 'mkRng', 'mutate', 'next', 'normalizeModRef',
     'pendingPlayersChoice', 'profileStats', 'resolveDayMod', 'saveState', 'shuffle', 'suitedConnectorDeal',
     'UNLOCKS', 'winMult', 'winMultFor',
   ],
   'deal.js': ['DEAL', 'bjSegStart', 'buildDeal'],
   'dom-ids.js': ['DOM'],
-  'record.js': ['_normalizeRounds', 'gameHistory', 'gameNet', 'mkOutcome', 'recalcChips', 'txLog'],
+  'record.js': ['_normalizeRounds', 'gameHistory', 'gameNet', 'mkOutcome', 'recalcChips', 'tx', 'txLog'],
   'engine.js': ['_replaySafeHitSwap', 'auditOutcome', 'bjFirstAceSwap', 'bjSplitStep', 'replayConfigHorizon', 'replayDayMods', 'replayRngSeed', 'replayRun', 'uthHandCards'],
   'seedcheck.js': ['screenSeedCheck'],
   'dev.js': [
@@ -66,7 +66,7 @@ const MANIFEST = {
   'poker-eval.js': ['bestOf7', 'cardNum', 'handScore', 'rankPoker'],
   'poker.js': ['pkDeal', 'pkDraw', 'pkSkip', 'screenPoker', 'toggleHold'],
   'reveal.js': ['runReveal'],
-  'roulette.js': ['_resolveSpinNumber', '_rouletteAudio', 'evalBetModsFor', 'rBetsZone', 'rSelBox', 'rSpin', 'resolveRoulette', 'rouletteAward', 'screenRoulette', 'spinFromRandom', 'spinModsFor', 'startWheelAnim'],
+  'roulette.js': ['_resolveSpinNumber', '_rouletteAudio', 'evalBetModsFor', 'rBetsZone', 'roulettePresetBets', 'rSelBox', 'rSpin', 'resolveRoulette', 'rouletteAward', 'screenRoulette', 'spinFromRandom', 'spinModsFor', 'startWheelAnim'],
   'screens.js': [
     'fetchScoreDistribution', 'screenBorrow', 'screenChoice', 'screenIntro', 'screenResults',
     'submitAndFetchLeaderboard',
@@ -74,8 +74,8 @@ const MANIFEST = {
   'ui.js': [
     '_refreshShareBox', 'aiosRow', 'allIn', 'betInlay', 'betInlaySum', 'cardHTML', 'cfmt', 'cfmtK',
     'chipDispDiv', 'chipScale', 'chipSel', 'col', 'csign', 'doShare', 'fmt', 'fmtK', 'gameControls',
-    'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn', 'patchBetUI', 'patchEl', 'patchOrRender',
-    'patchZones', 'renderCards', 'sign', 'toast',
+    'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn', 'patchBetUI', 'patchEl', 'patchGroup',
+    'patchOrRender', 'patchZones', 'renderCards', 'sign', 'toast',
   ],
   'uth.js': [
     'UTH_CARD_INTERVAL_MS', 'resetUTHHand', 'resolveUTH', 'screenUTH',

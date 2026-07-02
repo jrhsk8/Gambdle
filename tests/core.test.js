@@ -413,6 +413,28 @@ describe('applyLedger — replays a settlement ledger through an accountant in o
   });
 });
 
+// ledgerEntry/mkCredit/mkDebit: the validating factory the *Award builders use instead of hand-writing
+// {op,n,reason} literals. Strict mode is on for the whole suite (test.html sets window.__GAMBDLE_TEST__),
+// so a typo'd op or an undeclared reason should throw the moment the entry is built. Mirrors the
+// round-record.test.js _throws pattern used for mkOutcome's own strict-mode typo guard.
+describe('ledgerEntry — validates op/n/reason in strict mode (typo guard)', () => {
+  const _throws = fn => { try { fn(); return false; } catch { return true; } };
+  it('builds the same {op,n,reason} shape as the old hand-written literals', () => {
+    assertDeepEqual(mkCredit(100, 'bj-win'), { op: 'credit', n: 100, reason: 'bj-win' });
+    assertDeepEqual(mkDebit(50, 'ladder'), { op: 'debit', n: 50, reason: 'ladder' });
+  });
+  it("throws on a typo'd op", () => {
+    assert(_throws(() => ledgerEntry('cerdit', 100, 'bj-win')), 'expected a throw on the cerdit typo');
+  });
+  it('throws on an undeclared reason', () => {
+    assert(_throws(() => ledgerEntry('credit', 100, 'bj-wni')), 'expected a throw on the bj-wni typo');
+  });
+  it('throws on a non-finite or negative n', () => {
+    assert(_throws(() => ledgerEntry('credit', NaN, 'bj-win')), 'expected a throw on NaN n');
+    assert(_throws(() => ledgerEntry('credit', -5, 'bj-win')), 'expected a throw on negative n');
+  });
+});
+
 describe('fmtK — compact k/m abbreviation', () => {
   const cases = [
     [0, '0'], [50, '50'], [999, '999'],

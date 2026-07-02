@@ -1,10 +1,10 @@
 // ─── THE RECORD ──────────────────────────────────────────────────────────────
 // The canonical settled-round record + the Run Transcript: the one shape integrity Phase-2 replay
-// reads. Write via mkOutcome / txLog, read via settledOutcomes / recalcChips, validate via the shape
-// tables (ROUND_DETAIL_KEYS, TX_SHAPE) — the strict-mode typo guards. Lifted out of core.js so the
-// whole record/transcript contract is one seam (its own test surface). Depends on core.js: S,
-// START_CHIPS, GAME1/GAME2, DEV_OVERRIDE. Loads right after core.js. PUBLIC: mkOutcome, gameHistory,
-// gameNet, recalcChips, txLog, _normalizeRounds (called by core.loadState).
+// reads. Write via mkOutcome / tx (thin wrapper over txLog), read via settledOutcomes / recalcChips,
+// validate via the shape tables (ROUND_DETAIL_KEYS, TX_SHAPE) — the strict-mode typo guards. Lifted
+// out of core.js so the whole record/transcript contract is one seam (its own test surface). Depends
+// on core.js: S, START_CHIPS, GAME1/GAME2, DEV_OVERRIDE. Loads right after core.js. PUBLIC: mkOutcome,
+// gameHistory, gameNet, recalcChips, tx, txLog, _normalizeRounds (called by core.loadState).
 // ─────────────────────────────────────────────────────────────────────────────
 // ─── CANONICAL SETTLED-ROUND RECORD ─────────────────────────────────────────
 // Every game records the outcome of a settled round in ONE shape via mkOutcome, so the score basis
@@ -86,6 +86,8 @@ function _normalizeRounds(){
 // for auditing — and, in integrity Phase 2, replayed server-side to recompute the score
 // (see .claude/LEADERBOARD-INTEGRITY.md). Dealer peeks are NOT logged (no chip/card effect).
 // Persistence rides the caller's existing saveState()/render() flow.
+// Call sites use tx(g, a, extra) (below TX_SHAPE), not txLog directly — tx fills g/a/h so the game
+// files just pass the fields that vary per action.
 //
 // Allowed transcript events per game (and 'sys'), each mapped to the fields its server replay reads
 // — the typo guard for the Transcript, mirroring ROUND_DETAIL_KEYS for settled rounds. A decision
@@ -113,4 +115,22 @@ function _validateTx(e){
 function txLog(e){
   if(_strictRounds()) _validateTx(e);
   if(Array.isArray(S.tx)) S.tx.push(e);
+}
+
+// The S field each per-hand game reads its current hand index from — tx()'s only piece of per-game
+// knowledge beyond TX_SHAPE itself. Ladder/roulette/sys have no hand counter (a run/spin/system event
+// isn't "hand N"), so they're absent and tx() omits `h` for them, matching what every hand-written
+// call site already did (see TX_SHAPE's comment: "`h` is implied").
+const _TX_HAND_KEY = { bj:'bjHand', uth:'uthHand', pk:'pkHand' };
+// ONE construction path for every transcript write: fills `g`/`a` (+ `h` when this game tracks a hand),
+// merges the action's own fields, and hands the assembled event to txLog for the existing strict-mode
+// validation — this is ergonomics, not a second validator. Call sites shrink to the fields that vary
+// (e.g. tx('bj','deal',{bet:S.bjBet})) instead of hand-writing {g,a,h,...} every time, and the mapping
+// from an action to its fields still lives in exactly one place: TX_SHAPE.
+function tx(g, a, extra){
+  const e = { g, a };
+  const hk = _TX_HAND_KEY[g];
+  if(hk) e.h = S[hk];
+  if(extra) Object.assign(e, extra);
+  txLog(e);
 }

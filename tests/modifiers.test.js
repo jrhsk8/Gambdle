@@ -948,3 +948,48 @@ describe('Pocket Change — chip scaling behavior', () => {
     withMod('pocket_change', undefined, () => assertEqual(recalcChips(), base, 'recalcChips unchanged by the mod'));
   });
 });
+
+// ─── GAMES[g].rulesFor ↔ MODIFIER_SCHEMA attribution ──────────────────────────
+// FINDING #16: bjRulesFor/uthRulesFor are registered on the Game registry (GAMES.bj.rulesFor,
+// GAMES.uth.rulesFor — see the contract comment on GAMES in core.js). This guards the other half of
+// that contract: every MODIFIER_SCHEMA key attributed to 'bj' or 'uth' should actually be read
+// somewhere in that game's rules path, so a key can't get mis-attributed (or a rulesFor bundle drift
+// away from what MODIFIER_SCHEMA claims it owns) without a test catching it. A handful of keys are
+// legitimately read straight off getMod elsewhere in the game's file instead of through the rulesFor
+// bundle (card-forcing swaps, display-only gates) — those are the allowlist below, each with why.
+describe('GAMES[g].rulesFor ↔ MODIFIER_SCHEMA game attribution', () => {
+  // Keys attributed to 'bj'/'uth' in MODIFIER_SCHEMA that rulesFor deliberately does NOT read.
+  const ALLOW = {
+    bj_first_ace: 'card-forcing swap read directly by bjFirstAceSwap (engine.js) / _bjDraw (bj.js)',
+    bj_safe_hit:  'card-forcing swap read directly by _bjSafeHitSwap / _replaySafeHitSwap',
+    uth_river_monster: 'display-only gate (_uthCommShown/render) read directly via getMod in uth.js',
+    uth_time_travel:   'once-daily-eligibility gate read directly via getMod in uth.js (uthTTButtonHTML + the raise handler)',
+  };
+
+  // Calls rulesFor with a mod() that records every key it was asked for, so the test discovers the
+  // REAL read set instead of re-encoding bjRulesFor/uthRulesFor's field list by hand (which would
+  // just be a second copy that could itself drift).
+  function keysReadBy(rulesFor) {
+    const seen = new Set();
+    const spy = k => { seen.add(k); return null; };
+    rulesFor(spy);
+    return seen;
+  }
+
+  for (const gk of ['bj', 'uth']) {
+    it(`every MODIFIER_SCHEMA key attributed to '${gk}' is read by GAMES.${gk}.rulesFor or allowlisted`, () => {
+      assert(typeof GAMES[gk].rulesFor === 'function', `GAMES.${gk}.rulesFor should be registered`);
+      const read = keysReadBy(GAMES[gk].rulesFor);
+      const owned = Object.entries(MODIFIER_SCHEMA).filter(([, def]) => def.game === gk).map(([k]) => k);
+      const missing = owned.filter(k => !read.has(k) && !(k in ALLOW));
+      assert(missing.length === 0,
+        `${gk}: MODIFIER_SCHEMA keys not read by rulesFor and not allowlisted: ${missing.join(', ')}`);
+    });
+  }
+
+  it('the allowlist itself only names real MODIFIER_SCHEMA keys (catches stale entries)', () => {
+    for (const k of Object.keys(ALLOW)) {
+      assert(k in MODIFIER_SCHEMA, `ALLOW references "${k}" which is no longer in MODIFIER_SCHEMA`);
+    }
+  });
+});

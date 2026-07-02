@@ -91,7 +91,7 @@ function ladStakeCommit(){
   const mode = ladderMode();
   if (mode.free) { S.ladBet = mode.stake; S.ladFree = true; }
   if (!S.ladFree && (S.ladBet < 25 || S.ladBet > ladMaxStake())) return;
-  txLog({g:'lad', a:'stake', v:S.ladBet});
+  tx('lad', 'stake', {v:S.ladBet});
   mutate(s => { s.ladPhase = 'climb'; s.ladIdx = 0; s.ladRung = 0; }); // mutate-then-save seam (C6)
   _ladAfterAction('chips');
 }
@@ -101,7 +101,7 @@ function ladCall(dir){
   if (S.ladPhase !== 'climb') return;
   const cards = _ladCards();
   const cur = cards[S.ladIdx], next = cards[S.ladIdx + 1];
-  txLog({g:'lad', a:dir});
+  tx('lad', dir);
   if (ladCallCorrect(cur, next, dir)) {
     mutate(s => { s.ladRung++; s.ladIdx++; }); // mutate-then-save seam (C6)
     if (S.ladRung >= LADDER_MULTS.length) { _ladSettle('top'); return; } // _ladSettle saves again (last write wins)
@@ -114,7 +114,7 @@ function ladCall(dir){
 
 function ladCashOut(){
   if (S.ladPhase !== 'climb' || S.ladRung < 1) return;
-  txLog({g:'lad', a:'cash'});
+  tx('lad', 'cash');
   _ladSettle('cash');
 }
 
@@ -131,7 +131,9 @@ function resolveLadder(outcome, bet, rung, free){
 // Settlement Ledger for the settled Ladder run — the ONE credit mapping shared by the live settle
 // (_ladSettle) and the replay Engine. PURE: a positive delta credits the net, a negative delta debits
 // it, zero is a no-op (applied via applyLedger). This is the only game whose ledger can carry a debit.
-function ladderAward(delta){ return delta>0 ? [{op:'credit', n:delta, reason:'ladder'}] : delta<0 ? [{op:'debit', n:-delta, reason:'ladder'}] : []; }
+// Built via mkCredit/mkDebit (core.js) — a validated {op,n,reason} factory — so a typo'd reason throws
+// in strict mode; -delta is always >=0 here since it's only taken on the delta<0 branch.
+function ladderAward(delta){ return delta>0 ? [mkCredit(delta, 'ladder')] : delta<0 ? [mkDebit(-delta, 'ladder')] : []; }
 
 // Ends the run: applies the chip delta and records ladResult for recalcChips,
 // the results screen, and the share text. Free entry: crash costs nothing,
@@ -163,7 +165,11 @@ function _ladAfterAction(snd){
   if (patchZones(zones, { noAnim: true })) updateChipDisplay();
 }
 
-function resetLadderRun(){
+// `reason` — see the reset(reason) contract in core.js. Only ever called with 'dev-jump' today (the
+// dev Jump submenu and devLadder()): Ladder is a single run per day, so the normal Round flow never
+// needs to reset it (its one real entry point, the ladder_day free-bonus detour, always finds S
+// already at its fresh-day defaults — see the contract comment). Accepted but unbranched.
+function resetLadderRun(reason){
   S.ladPhase = 'bet'; S.ladBet = 0; S.ladFree = false;
   S.ladIdx = 0; S.ladRung = 0; S.ladResult = null;
 }
@@ -173,6 +179,9 @@ function resetLadderRun(){
 // moves between phases — only zone contents swap (see styles.css .lad-*).
 
 GAMES.ladder.screen = screenLadder; // register into the Game registry (defined just below; core.js loads first)
+// No GAMES.ladder.rulesFor: the Ladder has no per-game rule bundle to register — it reads
+// getMod('ladder_free') straight (ladderMode(), above) and that key is `cross`-attributed in
+// MODIFIER_SCHEMA (a cross-game key, not ladder-owned), not a scalar/flag set worth a builder.
 function screenLadder(){
   const mode = ladderMode();
   // Free-entry days lock the displayed stake to the house's entry.

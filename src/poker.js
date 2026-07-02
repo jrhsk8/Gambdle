@@ -7,14 +7,14 @@
 //   pkSkip · pkDeal · toggleHold · pkDraw · screenPoker · GAMES.poker.{reset,screen,resume,nextHand}
 
 /** Skip the current poker hand (all_in_or_skip modifier). Records delta 0 and advances. */
-function pkSkip(){ txLog({g:'pk',a:'skip',h:S.pkHand}); _skipHand('poker',{bet:0,result:'skip',pts:0,delta:0}); }
+function pkSkip(){ tx('pk','skip'); _skipHand('poker',{bet:0,result:'skip',pts:0,delta:0}); }
 
 /** Initial deal for 5-Card Draw Poker. */
 function pkDeal(){
   if(!S.pkBet||S.pkPhase!=='bet')return;
   S.pkPhase='dealing'; // lock immediately
   debit(S.pkBet,'pk-deal');
-  txLog({g:'pk',a:'deal',h:S.pkHand,bet:S.pkBet});
+  tx('pk','deal',{bet:S.pkBet});
   S.pkCards=DEAL.pokerDecks[S.pkHand].slice(0,5);
   S.pkHeld=new Set();
   patchEl(DOM.dealBtn, db=>db.disabled=true);
@@ -57,7 +57,7 @@ function pkDraw(){
   // Cards" must not credit the payout and push a second history entry twice. Only runs from the
   // 'hold' phase and flips to 'draw' below, so a duplicate call bails.
   if(S.pkPhase!=='hold')return;
-  txLog({g:'pk',a:'draw',h:S.pkHand,held:[...S.pkHeld].sort((a,b)=>a-b)});
+  tx('pk','draw',{held:[...S.pkHeld].sort((a,b)=>a-b)});
   const draw=DEAL.pokerDecks[S.pkHand].slice(5);let di=0;
   S.pkFinal=S.pkCards.map((c,i)=>S.pkHeld.has(i)?c:draw[di++]);
   const res=rankPoker(S.pkFinal);
@@ -75,7 +75,9 @@ function pkDraw(){
   runReveal({steps,finishAt:base+900,signal:()=>S.pkPhase==='draw',
     onFinish:()=>{S.pkHand++;S.pkPhase='result';navRender();}}); // crossfade draw → result panel
 }
-GAMES.poker.reset = () => { S.pkBet=0; S.pkPhase='bet'; }; GAMES.poker.screen = screenPoker; GAMES.poker.nextHand = () => _nextHand(GAMES.poker.reset); // register this game's fns into the Game registry (defined in this file; core.js loads first)
+// reset(reason) — see the contract in core.js ('hand-advance' | 'borrow-prep' today; both clear the
+// same fields, so it's accepted but unbranched).
+GAMES.poker.reset = (reason) => { S.pkBet=0; S.pkPhase='bet'; }; GAMES.poker.screen = screenPoker; GAMES.poker.nextHand = () => _nextHand(GAMES.poker.reset); // register this game's fns into the Game registry (defined in this file; core.js loads first)
 // Refresh landed mid-draw: bump the hand counter and show the result panel.
 GAMES.poker.resume = function(){
   if(S.pkPhase!=='draw') return;

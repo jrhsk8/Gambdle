@@ -1,7 +1,7 @@
 // ─── DOM IDS ──────────────────────────────────────────────────────────────────
 // The render→surgical-update contract, in one place. These are the element IDs that one function
 // EMITS in its HTML and ANOTHER (a mid-hand patch via getElementById / patchEl / patchOrRender /
-// patchZones) later mutates in place. Centralised so the two ends can't silently drift — rename an
+// patchZones / patchGroup) later mutates in place. Centralised so the two ends can't silently drift — rename an
 // ID here and both the render site and every patch site follow. Scope is exactly the game-screen
 // mid-hand contract (bj/uth/poker/roulette/ladder) plus the shared bet/header controls (ui.js) and
 // the chip badge (flow.js); IDs that are only ever a CSS/structure hook (never patched by ID) stay

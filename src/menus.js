@@ -182,7 +182,7 @@ function showJumpSubmenu(trigger){
     { label: `→ ${nm(GAME2)}`, action: `goTo(GAME2)` },
     { label: `→ Roulette`, action: `goTo('roulette')` },
     { label: `${icon('target')} Spin Wheel (5 bets)`, action: `devSpin()`, keepOpen: true },
-    { label: `→ The Ladder`, action: `resetLadderRun();goTo('ladder')` },
+    { label: `→ The Ladder`, action: `resetLadderRun('dev-jump');goTo('ladder')` },
     { label: `${icon('ladder')} The Ladder (free entry)`, action: `devLadder()`, keepOpen: true },
     { label: `→ Results`, action: `goTo('results')` },
   ];

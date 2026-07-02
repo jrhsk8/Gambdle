@@ -93,7 +93,7 @@ function screenBorrow(){
 function borrowChips(){
   sndChip(5);
   const amt=_effectiveBorrowAmount();
-  txLog({g:'sys',a:'borrow',amt});
+  tx('sys','borrow',{amt});
   S.chips=amt;
   S.borrowUsed=true;
   S.borrowAmount=amt;
@@ -139,7 +139,7 @@ function screenChoice(){
 function pickModifier(key){
   const choices = pendingPlayersChoice();
   if(!choices || !choices.some(c=>c.key===key)) return; // only a currently-offered choice is valid
-  txLog({g:'sys',a:'pick',mod:key}); // changes the day's active modifier — replay needs it
+  tx('sys','pick',{mod:key}); // changes the day's active modifier — replay needs it
   mutate(s => {
     s.pcPick=key;
     _enterFirstSlot();

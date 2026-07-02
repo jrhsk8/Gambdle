@@ -122,14 +122,14 @@ function _skipHand(screen, entry) {
   gameHistory(screen).push(entry);
   S[g.handKey]++;
   if (S[g.handKey] >= 3) { advanceTo(NEXT_SCREEN[screen]); return; }
-  g.reset();
+  g.reset('hand-advance'); // still within the same Round — see the reset(reason) contract, core.js
   navRender();
 }
 
 // Shared "next hand" flow: sound → reset → re-render (or go to results/borrow if busted).
 function _nextHand(resetFn) {
   sndAdvance();
-  resetFn();
+  resetFn('hand-advance'); // see the reset(reason) contract, core.js
   if (isChipBusted()) {
     if (_canShowBorrow()) {
       S.borrowReturnScreen = _borrowReturnScreen();
@@ -202,7 +202,7 @@ function advanceTo(s){
       const ret=_borrowReturnScreen();
       // Reset the current game to bet phase so returning lands on a fresh hand (no-op for single-run
       // games, which have no reset slot). The borrow flow only returns the three card games here.
-      GAMES[ret]?.reset();   // every game entry has a reset (no-op for single-run games); ret may be a non-game screen (results), hence the entry guard
+      GAMES[ret]?.reset('borrow-prep');   // see the reset(reason) contract, core.js; ret may be a non-game screen (results), hence the entry guard
       S.borrowReturnScreen=ret;
     }
     sndAdvance();goTo('borrow');return;
