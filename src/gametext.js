@@ -4,7 +4,7 @@
  * All the editable player-facing copy lives in this one file:
  *   TUTORIAL_TIPS     one-time XP-balloon tips (first bet, first showdown, …)
  *   WHATS_NEW         the one-off announcement balloon for returning players
- *   ABOUT_GAMBLE      File → About Gambdle subtitle/body
+ *   ABOUT_GAMBDLE     File → About Gambdle subtitle/body
  *   INFO_SECTIONS     Help-menu windows (How to Play / Blackjack / Hold'em / …)
  *   POPUP_MESSAGES    the (currently disabled) first-visit welcome popup
  *   STATUS_HINT       the status-bar hint line shown per screen
@@ -23,10 +23,10 @@
  *
  * EDITING: change any title or body string below. To drop a tip, delete its
  * entry here and remove its id from TUTORIAL_ORDER. To add one, add an entry,
- * add its id to TUTORIAL_ORDER, and wire a trigger for that id in _runTutorial()
- * (src/windows.js).
+ * add its id to TUTORIAL_ORDER, and declare its trigger as a row in the
+ * TIP_ELIGIBILITY registry (src/windows.js) — {screen, phase?, gate?, tip}.
  *
- * WHEN EACH TIP FIRES (triggers live in _runTutorial(), keyed by these ids):
+ * WHEN EACH TIP FIRES (declared in TIP_ELIGIBILITY, keyed by these ids):
  *   modifier     the intro screen (points at the daily rule banner)
  *   bj_hands     first Blackjack bet screen
  *   uth_bet      first Hold'em bet screen
