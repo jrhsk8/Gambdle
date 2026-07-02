@@ -40,7 +40,7 @@ const R_BETS=[
 ];
 
 // The three column bets all read "2:1" on the board (and stay that way); name them by the
-// board row they sit on so the spin/result screens say which one — 37=top, 38=middle, 39=bottom.
+// board row they sit on so the spin/result screens say which one: 37=top, 38=middle, 39=bottom.
 const _R_COL_ROW = { 37: 'Top Row', 38: 'Middle Row', 39: 'Bottom Row' };
 
 // Self-describing label for a bet slot. Columns become their row name; numbers, dozens and
@@ -63,17 +63,17 @@ function evalBet(idx,result){
   if(b.type==='oe') return b.val==='even'?result%2===0:result%2===1;
   if(b.type==='hl') return b.val==='low'?result<=18:result>=19;
   if(b.type==='doz') return result>=b.val*12+1&&result<=b.val*12+12;
-  // Columns: val 0/1/2 = bottom/middle/top row; (val+1)%3 maps to the n%3 remainder for each row (1/2/0).
+  // Columns: val 0/1/2 = bottom/middle/top row. (val+1)%3 maps to the n%3 remainder for each row (1/2/0).
   if(b.type==='col') return result%3===(b.val+1)%3;
   return false;
 }
 
-// ONE interface for "which numbers does this Tile cover?" — every other caller (evalBet's own type
-// switch above stays the coverage RULE; this is the derived SET view of it) reads this instead of
-// hand-maintaining a parallel table that can drift from evalBet. Derives the covered-number set by
-// walking 1-36 and asking evalBet, then memoizes per index since R_BETS never changes at runtime.
-// Index 0 (green zero) returns [] by convention: outside bets all lose on zero, and the coverage set
-// exists to answer "which OTHER numbers overlap this Tile", not "does this Tile win on 0".
+// The one place that answers "which numbers does this Tile cover?" so no other code has to
+// hand-maintain a parallel table that could drift from evalBet's own win rule. Derives the
+// covered-number set by walking 1-36 and asking evalBet, then memoizes per index since R_BETS
+// never changes at runtime. Index 0 (green zero) returns [] by convention: outside bets all lose
+// on zero, and the coverage set exists to answer "which other numbers overlap this Tile", not
+// "does this Tile win on 0".
 const _coverageCache = new Map();
 function betCoverage(i){
   if(_coverageCache.has(i)) return _coverageCache.get(i);
@@ -85,12 +85,11 @@ function betCoverage(i){
   _coverageCache.set(i, nums);
   return nums;
 }
-// Back-compat name some callsites/tests read "coverage" as — same function, kept as the one converged
-// entry point (avoid two names for one concept going forward: prefer betCoverage in new code).
+// Alternate name some callsites/tests use for the same function; prefer betCoverage in new code.
 const getRBetNums = betCoverage;
 
 // Group definitions for the force-group Modifiers: each named group IS one of the outside-bet Tiles
-// (the dozens, the halves, even/odd, red/black) — so its winning-number set is exactly that Tile's
+// (the dozens, the halves, even/odd, red/black), so its winning-number set is exactly that Tile's
 // betCoverage, not a hand-copied list that could drift from it. `bannedIdx` is genuinely extra
 // (non-coverage) metadata: which board Tile to lock out because it's the group itself.
 const R_GROUP_INFO={
@@ -111,17 +110,17 @@ const chipLbl = amt => { const d=chipDispDiv(); const v=d===1?amt:Math.round(amt
 
 // ─── ROULETTE BOARD ──────────────────────────────────────────────────────
 
-// Under a force-group mod the winner is guaranteed to fall in a number group. A bet is BLOCKED if it can
-// never win (no overlap with the group) or always wins (it covers every number in the group — the exact
-// group tile, or any superset like 19-36 over 25-36). Only genuinely-uncertain bets stay open. No mod → open.
+// Under a force-group mod the winner is guaranteed to fall in a number group. A bet is blocked if it can
+// never win (no overlap with the group) or always wins (it covers every number in the group: the exact
+// group tile, or any superset like 19-36 over 25-36). Only genuinely uncertain bets stay open. No mod means open.
 function rBetBlocked(i){
   const fg=getMod('r_force_group'),grp=fg?R_GROUP_INFO[fg]:null;
   if(!grp||i==null)return false;
   const covered=betCoverage(i);
-  if(!covered.some(n=>grp.nums.has(n)))return true;        // no overlap — can never win
+  if(!covered.some(n=>grp.nums.has(n)))return true;        // no overlap: can never win
   const cs=new Set(covered);
-  for(const n of grp.nums){if(!cs.has(n))return false;}    // missing a group number — uncertain, keep open
-  return true;                                             // covers the whole group — guaranteed win
+  for(const n of grp.nums){if(!cs.has(n))return false;}    // missing a group number: uncertain, keep open
+  return true;                                             // covers the whole group: guaranteed win
 }
 function rBoard(){
   const sel=i=>S.rPick===i&&!rBetBlocked(i)?'r-sel':'';
@@ -147,7 +146,7 @@ function rBoard(){
     return'';
   };
   const lbl=i=>{
-    // A boosted mid-grid pocket (Sweet Sixteen's 16 — any non-zero hot number) gets an in-tile corner
+    // A boosted mid-grid pocket (Sweet Sixteen's 16, or any non-zero hot number) gets an in-tile corner
     // flame; the below-tile r-pay-lbl is reserved for the zero cell and the color tiles, which have
     // clear space beneath them (a below-tile flame on 16 would collide with the dozens row).
     if(rMod==='hotnum'&&i===hot.num&&hot.num!==0) return `<span class="r-fire-badge">${icon('flame')}</span>`;
@@ -191,7 +190,7 @@ function _initRouletteAudio(){
 // Standard European single-zero wheel pocket sequence (clockwise from 0).
 const WO=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
 
-// `balls` is an array of {a, r, rad, tint} — one entry per ball on the wheel (Double Ball has two).
+// `balls` is an array of {a, r, rad, tint}, one entry per ball on the wheel (Double Ball has two).
 function drawWheel(cnv,wAngle,balls){
   const ctx=cnv.getContext('2d');
   const W=cnv.width,H=cnv.height,cx=W/2,cy=H/2;
@@ -248,14 +247,14 @@ function drawWheel(cnv,wAngle,balls){
 // Quartic ease-out: fast start, long gentle settle (how a real ball loses momentum).
 function _wheelEase(t){return 1-Math.pow(1-t,4);}
 
-// (a) SPIN SPEC — pure geometry, no canvas/DOM/audio: where the wheel and ball(s) end up, derived
-// from S.rSpin/S.rSpin2 and the canvas size. A resume rebuilds the identical spec from the same
-// S fields, so the animation restarts exactly where a fresh spin would have gone.
+// Builds the pure geometry for a spin: where the wheel and ball(s) end up, derived from
+// S.rSpin/S.rSpin2 and the canvas size. No canvas/DOM/audio here. A resume rebuilds the identical
+// spec from the same S fields, so the animation restarts exactly where a fresh spin would have gone.
 function _wheelSpinSpec(size){
   const N=37,seg=2*Math.PI/N;
   const tidx=WO.indexOf(S.rSpin);
 
-  // rawFinal aligns the target pocket to the top pointer (-π/2); wFinal adds full rotations.
+  // rawFinal aligns the target pocket to the top pointer (-pi/2); wFinal adds full rotations.
   const rawFinal=-Math.PI/2-(tidx+0.5)*seg;
   const numSpins=7;
   // The middle term adds the minimum whole rotations to make wFinal positive, so the ease always animates forward.
@@ -264,7 +263,7 @@ function _wheelSpinSpec(size){
   const R=size/2-6;
   const bRi=R*0.91,bRf=R*0.68;
 
-  // Ball specs. Ball 1 lands at the top pointer (-π/2), where the wheel has been rotated to seat
+  // Ball specs. Ball 1 lands at the top pointer (-pi/2), where the wheel has been rotated to seat
   // S.rSpin. For Double Ball, ball 2 lands on S.rSpin2's pocket: its final angle is offset from the
   // top by the pocket distance between the two numbers on the wheel, so both balls sit in real
   // pockets. Both balls are drawn identically (same size, radius and tint as the single-ball wheel);
@@ -277,9 +276,9 @@ function _wheelSpinSpec(size){
   return {wFinal, bRi, ballSpecs};
 }
 
-// (b) CANVAS + RAF RUNNER — plays `spec` on `cnv` over DUR ms, easing the wheel angle and each
-// ball's angle/radius toward its resting spot, then fires `onDone`. Knows nothing about audio,
-// settle timing, or what happens after — "run this animation" is its whole job.
+// Plays `spec` on `cnv` over DUR ms, easing the wheel angle and each ball's angle/radius toward its
+// resting spot, then fires `onDone`. Knows nothing about audio, settle timing, or what happens
+// after: running the animation is its whole job.
 function _runWheelAnim(cnv, spec, DUR, onDone){
   const {wFinal, bRi, ballSpecs}=spec;
   const t0=performance.now();
@@ -296,13 +295,13 @@ function _runWheelAnim(cnv, spec, DUR, onDone){
   requestAnimationFrame(frame);
 }
 
-// (c) AUDIO ADAPTER — plays the preloaded ball sound (or runs muted/on error) and reports back
-// through one callback instead of the caller juggling Audio events directly: `ready({durationMs,
-// settleMs, onEnded})` fires once with the timing to animate for. `onEnded`, if given, is the
-// real audio's 'ended' event (another way the spin can finish, on top of the animation completing
-// on its own — see startWheelAnim); it's omitted for the muted/no-audio/error paths, which have no
-// audio to end and so settle on the animation alone. This adapter is the only thing that touches
-// _rouletteAudio, so the mute/duration/error branching lives in exactly one place.
+// Plays the preloaded ball sound (or runs muted/on error) and reports back through one callback
+// instead of the caller juggling Audio events directly: `ready({durationMs, settleMs, onEnded})`
+// fires once with the timing to animate for. `onEnded`, if given, is the real audio's 'ended' event
+// (another way the spin can finish, on top of the animation completing on its own; see
+// startWheelAnim); it's omitted for the muted/no-audio/error paths, which have no audio to end and
+// so settle on the animation alone. This is the only function that touches _rouletteAudio, so the
+// mute/duration/error branching lives in exactly one place.
 function _playRouletteAudio({ready}){
   const audio=_rouletteAudio;
   if(!audio){ ready({durationMs:R_SPIN_MS, settleMs:R_SETTLE_MUTED_MS}); return; }
@@ -318,16 +317,16 @@ function _playRouletteAudio({ready}){
   }
 }
 
-// (d) SETTLE — the one decision point for "the spin is over, resolve it": whichever signal lands
-// first among audio 'ended', the animation completing, an audio 'error', or the absolute ceiling
-// below resolves the spin exactly once via runReveal's finish(). Without this the wheel hangs
-// forever (player stranded on "Spinning!") whenever the audio element never emits 'ended': tab
-// backgrounded mid-spin, a throttled/suspended element, iOS's per-session HTMLAudioElement limit,
-// or play() blocked without rejecting — the same stall sndShuffle guards against with its 2000ms
-// ceiling. The ceiling covers the worst case where audio metadata never loads and no other signal
-// fires; its slack is past the longest real path so a normal spin is never cut short. The signal
-// (!S.rResult) plus _resolveRoulette's own `if(S.rResult)return` are belt-and-suspenders against
-// the iOS-audio double-fire / late-error stall class.
+// The one decision point for "the spin is over, resolve it": whichever signal lands first among
+// audio 'ended', the animation completing, an audio 'error', or the absolute ceiling below resolves
+// the spin exactly once via runReveal's finish(). Without this the wheel hangs forever (player
+// stranded on "Spinning!") whenever the audio element never emits 'ended': tab backgrounded
+// mid-spin, a throttled/suspended element, iOS's per-session HTMLAudioElement limit, or play()
+// blocked without rejecting (the same stall sndShuffle guards against with its 2000ms ceiling). The
+// ceiling covers the worst case where audio metadata never loads and no other signal fires; its
+// slack is past the longest real path so a normal spin is never cut short. The signal (!S.rResult)
+// plus _resolveRoulette's own `if(S.rResult)return` are a second layer of protection against the
+// iOS-audio double-fire / late-error stall class.
 function _wheelSettle(){
   return runReveal({steps:[],finishAt:null,ceilingMs:R_SPIN_MS+R_SETTLE_MS+2500,signal:()=>!S.rResult,onFinish:rFinish});
 }
@@ -336,7 +335,8 @@ function _wheelSettle(){
 // entry point tying the four pieces above together: build the spec from S.rSpin(2), run the
 // animation, let the audio adapter report its own completion, and let _wheelSettle decide when
 // the spin is actually over. Resume (GAMES.roulette.resume) calls this same function once the
-// spin numbers are known, rebuilding the identical spec — no separate resume path to keep in sync.
+// spin numbers are known, rebuilding the identical spec, so there's no separate resume path to
+// keep in sync.
 function startWheelAnim(){
   const cnv=document.getElementById(DOM.rouletteWheel);
   if(!cnv)return;
@@ -348,10 +348,10 @@ function startWheelAnim(){
   const finishOnce=()=>_rev.finish();
   _playRouletteAudio({
     // Once the track length (or the fixed muted timing) is known: run the animation for exactly
-    // that long and settle `settleMs` after IT finishes — a guaranteed finish signal even when
+    // that long and settle `settleMs` after it finishes, a guaranteed finish signal even when
     // audio 'ended' never fires (the animation runs for the audio's duration regardless). When
     // real audio is playing, also wire its own 'ended' as a second, usually-earlier-arriving path
-    // to the same settle — "whichever signal lands first" is exactly runReveal's single-fire finish.
+    // to the same settle: whichever signal lands first wins, matching runReveal's single-fire finish.
     ready: ({durationMs, settleMs, onEnded})=>{
       _runWheelAnim(cnv, spec, durationMs, ()=>setTimeout(finishOnce,settleMs));
       if(onEnded) onEnded(()=>setTimeout(finishOnce,settleMs));
@@ -361,11 +361,11 @@ function startWheelAnim(){
 
 // ─── ROULETTE SCREENS ────────────────────────────────────────────────────
 
-// BetOutcome display factory: wraps one evaluated bet (a {pick, won, delta, pay, …} from _evalBets,
-// or the legacy single-bet result shape) with the display props both the respin-preview screen and
-// the final-result screen need — so a formatting tweak (color rule, signed-amount format) changes in
-// one place instead of being re-derived per screen. Screens still own their own row markup/layout
-// (font sizes, separators differ between the two), just not the label/color/amount derivation.
+// Wraps one evaluated bet (a {pick, won, delta, pay, …} from _evalBets, or the legacy single-bet
+// result shape) with the display props both the respin-preview screen and the final-result screen
+// need, so a formatting tweak (color rule, signed-amount format) changes in one place instead of
+// being re-derived per screen. Screens still own their own row markup/layout (font sizes, separators
+// differ between the two), just not the label/color/amount derivation.
 function _betDisplay(b){
   return {
     pick:  b.pick,
@@ -387,19 +387,19 @@ function rResultNumsHTML(){
 }
 
 GAMES.roulette.screen = screenRoulette; // register into the Game registry (defined just below; core.js loads first)
-// No GAMES.roulette.rulesFor: spinModsFor/evalBetModsFor are this game's rule bundles, but a
-// different SHAPE than bjRulesFor/uthRulesFor — they also take non-modifier inputs (locked bets,
-// the win multiplier, the day's spin override) and roulette needs two of them (spin distribution vs.
-// bet payout), not one. Forcing either onto `.rulesFor` would buy uniformity, not clarity (see the
-// contract comment on GAMES in core.js). They stay named exports called directly at their sites.
+// No GAMES.roulette.rulesFor: spinModsFor/evalBetModsFor are this game's rule bundles, but they take
+// a different shape than bjRulesFor/uthRulesFor. They also take non-modifier inputs (locked bets,
+// the win multiplier, the day's spin override), and roulette needs two of them (spin distribution vs.
+// bet payout), not one. Forcing either onto `.rulesFor` would buy uniformity, not clarity. They stay
+// named exports called directly at their sites.
 // Game-specific bet-UI patch (dispatched by patchBetUI): the selection box shows the picked tile's
-// payout for the current stake · keep it in step as the player changes the chip amount or picks a tile.
+// payout for the current stake. Keeps it in step as the player changes the chip amount or picks a tile.
 GAMES.roulette.patchBet = function(bet){
   const sb=document.getElementById(DOM.rouletteSelBox);
   if(sb) sb.innerHTML=rSelBox(S.rPick, bet);
 };
 // Refresh landed mid-spin: re-arm the ball audio and restart the wheel. If the spin words hadn't
-// resolved yet (refresh during the fetch), re-enter _resolveSpinNumber · it routes through
+// resolved yet (refresh during the fetch), re-enter _resolveSpinNumber. It routes through
 // _acquireSpin, which reuses S.rSpinAcq if the round already has one instead of re-fetching, so
 // this can never re-hit the server or flip S.rUnverified a second time for the same round.
 GAMES.roulette.resume = function(){
@@ -408,7 +408,7 @@ GAMES.roulette.resume = function(){
   if (S.rSpin == null) {
     const bets = S.rBets.map(b => [b.pick, b.bet]);
     _resolveSpinNumber(bets).then(sp => {
-      mutate(() => { S.rSpin = sp.n; S.rSpin2 = sp.n2; }); // mutate-then-save seam (C6): persist before the animation timer fires
+      mutate(() => { S.rSpin = sp.n; S.rSpin2 = sp.n2; }); // persist before the animation timer fires
       setTimeout(startWheelAnim, 60);
     });
   } else setTimeout(startWheelAnim, 60);
@@ -553,7 +553,7 @@ function screenRouletteResult(){
 
 // ─── ROULETTE ACTIONS ────────────────────────────────────────────────────
 
-/** Skip the roulette spin (all_in_or_skip modifier). Records delta 0 and goes to result. */
+// Skip the roulette spin (all_in_or_skip modifier). Records delta 0 and goes to result.
 function rSkip(){
   tx('r','skip');
   S.rResult=mkOutcome('r',0,'skipped',{skipped:true});S.rPhase='result';navRender();
@@ -562,10 +562,10 @@ function rSkip(){
 function pickBet(i){
   if(rBetBlocked(i))return;
   // The bets box doesn't depend on the selected tile (its title is keyed on bet count only), so tile
-  // selection only updates the board highlight + chip UI — never re-renders the box. No flicker.
+  // selection only updates the board highlight + chip UI, never re-renders the box. No flicker.
   if(S.rPick===i){
-    mutate(() => { S.rPick=null; }); // mutate-then-save seam (C6): persist the deselect before patching the board
-    // Deselect: same guarded patch as the select branch below — fall back to a full render if the
+    mutate(() => { S.rPick=null; }); // persist the deselect before patching the board
+    // Deselect: same guarded patch as the select branch below. Falls back to a full render if the
     // board isn't on screen, instead of silently no-op'ing a bare querySelectorAll.
     patchOrRender(document.querySelector('[data-idx]'), () => {
       document.querySelectorAll('[data-idx]').forEach(b=>b.classList.remove('r-sel'));
@@ -574,7 +574,7 @@ function pickBet(i){
     });
     return;
   }
-  mutate(() => { S.rPick=i; }); // mutate-then-save seam (C6): persist the new pick before patching the board
+  mutate(() => { S.rPick=i; }); // persist the new pick before patching the board
   // Move the board highlight + chip UI to the new tile; patchOrRender falls back to a full render if
   // the board isn't on screen (its presence stands in for "the bet screen is rendered").
   patchOrRender(document.querySelector('[data-idx]'), () => {
@@ -615,14 +615,14 @@ function rBetsZone(bets,maxBets,readOnly){
 }
 // Board bet-count cap; a mod can raise it, default 6.
 function rMaxBets(){ return getMod('r_max_bets')||6; }
-/** Adds current rPick+rBet to the placed bets list (multi-bet mode). */
+// Adds current rPick+rBet to the placed bets list (multi-bet mode).
 function rAddBet(){
   const maxBets=rMaxBets();
   const isNew=!S.rBets.find(b=>b.pick===S.rPick);
   if(S.rPick===null||!S.rBet||(isNew&&S.rBets.length>=maxBets))return;
 
   const prevPick=S.rPick, betAmt=S.rBet;
-  mutate(() => { // mutate-then-save seam (C6): stake debit + placed-bet bookkeeping persist as one unit
+  mutate(() => { // stake debit + placed-bet bookkeeping persist as one unit
     debit(betAmt,'roulette-bet');
     const placedBet=S.rBets.find(b=>b.pick===prevPick);
     if(placedBet){placedBet.bet+=betAmt;}else{S.rBets.push({pick:prevPick,bet:betAmt});}
@@ -632,12 +632,10 @@ function rAddBet(){
   });
   sndChip(betAmt);
 
-  // One atomic group (C-finding #14): the board tile, bet readout, chip buttons, bets tracker, sel
-  // box, Place Bet and Deal buttons all update together as one logical "bet placed" repaint. Before
-  // this each was patched independently (several bare patchEl calls), so a missing id silently
-  // skipped JUST that piece — e.g. the bets tracker could go stale while the board tile updated fine.
-  // Now either the whole group is live and every piece updates, or none of it runs and the
-  // patchOrRender-style fallback (full render()) repairs the screen instead of a partial patch.
+  // The board tile, bet readout, chip buttons, bets tracker, sel box, Place Bet and Deal buttons all
+  // update together as one logical "bet placed" repaint: either the whole group is live and every
+  // piece updates, or none of it runs and the patchOrRender-style fallback (full render()) repairs
+  // the screen instead of leaving one piece (e.g. the bets tracker) stale while another updates fine.
   patchGroup({
     boardBtn: document.querySelector(`[data-idx="${prevPick}"]`),
     betVal: DOM.betVal, betsZone: DOM.rouletteBetsZone, selBox: DOM.rouletteSelBox,
@@ -661,9 +659,9 @@ function rAddBet(){
 
   updateChipDisplay();
 }
-// Seeds S.rBets with a fixed list of (pick, bet) pairs, routed through the SAME debit +
+// Seeds S.rBets with a fixed list of (pick, bet) pairs, routed through the same debit +
 // rBets bookkeeping rAddBet uses per tile (just without rAddBet's live-DOM patch, since this
-// is meant to run headless before the first render — e.g. dev's jump-to-spin shortcut). Stops
+// is meant to run headless before the first render, e.g. dev's jump-to-spin shortcut). Stops
 // early on rMaxBets() or insufficient chips, same guards rAddBet enforces one tile at a time.
 // No txLog: these are dev-seeded bets, not a player decision (see ARCHITECTURE.md transcript rule).
 function roulettePresetBets(picks, betAmt){
@@ -678,13 +676,13 @@ function roulettePresetBets(picks, betAmt){
     }
   });
 }
-/** Removes a placed bet and refunds chips. */
+// Removes a placed bet and refunds chips.
 function rRemoveBet(i){
   if(i<0||i>=S.rBets.length)return;
-  mutate(() => { credit(S.rBets[i].bet,'roulette-refund'); S.rBets.splice(i,1); }); // mutate-then-save seam (C6)
+  mutate(() => { credit(S.rBets[i].bet,'roulette-refund'); S.rBets.splice(i,1); });
   render();
 }
-/** All In on the current pick (all_in_or_skip modifier). */
+// All In on the current pick (all_in_or_skip modifier).
 function rAllIn(){
   if(S.rPick===null||S.chips===0)return;
   S.rBets=[{pick:S.rPick,bet:S.chips}];
@@ -692,10 +690,10 @@ function rAllIn(){
   rSpin();
 }
 // The active "hot number" pocket boost as {num, boost}, or null, from an explicit modifier
-// accessor. Drives both Hot Zero (pocket 0) and Sweet Sixteen (pocket 16) — same shape, one path.
-// `boost` is the likelihood multiplier vs a fair wheel: 10 means the pocket lands 10× as often as
-// its normal 1/37 (see _pickSpin). `mod` is a key→value reader (getMod in-page; a preset reader
-// server-side), so the replay engine builds the same bundle without globals.
+// accessor. Drives both Hot Zero (pocket 0) and Sweet Sixteen (pocket 16): same shape, one path.
+// `boost` is the likelihood multiplier vs a fair wheel: 10 means the pocket lands 10x as often as
+// its normal 1/37 (see _pickSpin). `mod` is a key-to-value reader (getMod in-page; a preset reader
+// server-side), so the replay engine can build the same bundle without reading page globals.
 function _hotFor(mod){
   const n=mod('r_hot_number');
   return n!=null ? {num:n, boost:mod('r_hot_boost')||0} : null;
@@ -704,7 +702,7 @@ function _hotFor(mod){
 // explicit (mod, bets). The mod caps the board at one bet, so the boosted color is whichever the
 // player picked. Returns the chosen color's 18 pockets plus the other 19 (the other color + green 0).
 // A non-color single bet (or no bet) returns null, so the wheel spins fair. `pct` is the win
-// likelihood of the chosen color, e.g. 66 ⇒ it lands 66% of the time instead of the usual ≈48.6%.
+// likelihood of the chosen color, e.g. 66 means it lands 66% of the time instead of the usual ~48.6%.
 // `bets` are {pick,bet} objects (the locked set); the engine converts its [[pick,amt]] pairs first.
 function _colorBoostFor(mod, bets){
   const pct=mod('r_color_boost');
@@ -720,9 +718,9 @@ function _colorBoostFor(mod, bets){
 // In-page adapter: reads today's globals through getMod.
 function rHotNumber(){ return _hotFor(getMod); }
 
-// Pure spin-distribution bundle from an explicit (mod, bets, override) — the replay-friendly core
-// of spinMods(). Same shape spinFromRandom needs, built without globals so the Phase-2 engine can
-// replay a stored Spin from the day's modifier config + the transcript's locked bets.
+// Builds the spin-distribution bundle from an explicit (mod, bets, override): the replay-friendly
+// core of spinMods(). Same shape spinFromRandom needs, built without page globals so the Phase-2
+// engine can replay a stored Spin from the day's modifier config plus the transcript's locked bets.
 function spinModsFor(mod, bets, override){
   return {
     override:   override!=null ? override : null,
@@ -734,17 +732,17 @@ function spinModsFor(mod, bets, override){
 }
 
 // Snapshots the day's spin-distribution Modifiers into the plain bundle spinFromRandom needs. The
-// global reads (getMod / DEAL / the locked bet) live HERE, not in spinFromRandom, so the server can
+// global reads (getMod / DEAL / the locked bet) live here, not in spinFromRandom, so the server can
 // replay a stored Spin by rebuilding the same bundle from the day's config. See LEADERBOARD-INTEGRITY.md.
 function spinMods(){
   return spinModsFor(getMod, S.rBets, DEAL.rSpinOverride);
 }
 
 // Maps random words (4 uint32s) to the winning pocket(s), honoring the day's modifier distribution.
-// PURE: a function of (words, mods) only — the same inputs always give the same numbers, so the
+// PURE: a function of (words, mods) only. The same inputs always give the same numbers, so the
 // server recomputes the outcome from its stored `spins` row plus the day's rebuilt `mods` bundle.
 // `mods` defaults to a snapshot of today's globals (spinMods) so in-page callers and tests may omit
-// it; the server passes its own. (The 2^32 % 37 modulo bias is ~1e-8 relative — irrelevant.)
+// it; the server passes its own. (The 2^32 % 37 modulo bias is ~1e-8 relative: irrelevant.)
 function spinFromRandom(words, mods = spinMods()){
   if(mods.override!=null)return{n:mods.override,n2:null};
   const w=i=>words[i]>>>0;
@@ -754,28 +752,28 @@ function spinFromRandom(words, mods = spinMods()){
   const cb=mods.colorBoost;
   if(fg&&R_GROUP_INFO[fg]){const ns=[...R_GROUP_INFO[fg].nums];n=ns[w(0)%ns.length];}
   // Hot number (true Nx): a two-stage draw that keeps the wheel at its normal 37 pockets instead
-  // of diluting it. With probability boost/37 the ball is on the hot pocket — so a boost of 10
-  // lands it at 10/37, exactly 10× the fair 1/37. Otherwise it's an ordinary fair spin over the
-  // OTHER 36 pockets (word1 % 36 mapped to 0-36, skipping the hot one).
+  // of diluting it. With probability boost/37 the ball is on the hot pocket, so a boost of 10
+  // lands it at 10/37, exactly 10x the fair 1/37. Otherwise it's an ordinary fair spin over the
+  // other 36 pockets (word1 % 36 mapped to 0-36, skipping the hot one).
   else if(hot){
     if(w(0)%37<hot.boost)n=hot.num;
     else{const i2=w(1)%36;n=i2<hot.num?i2:i2+1;}
   }
   // Loaded Colors: the same two-stage shape as Hot Number, but the "hit" set is the player's chosen
   // color's 18 pockets. With probability pct/100 land uniformly on the chosen color, otherwise land
-  // uniformly on one of the other 19 pockets (the other color + green 0). Chosen color → exactly pct%.
+  // uniformly on one of the other 19 pockets (the other color + green 0). Chosen color lands exactly pct% of the time.
   else if(cb){
     n=(w(0)%100<cb.pct)?cb.nums[w(1)%cb.nums.length]:cb.others[w(1)%cb.others.length];
   }
   else n=w(0)%37;
-  // Double Ball: a second, distinct pocket — `n+1+k` for k uniform over 0..35 walks the other 36
+  // Double Ball: a second, distinct pocket. `n+1+k` for k uniform over 0..35 walks the other 36
   // pockets exactly once each, so it's uniform over them and distinct from n by construction.
   const n2=mods.doubleBall?(n+1+w(2)%36)%37:null;
   return{n,n2};
 }
 
 // SHA-256 hex of the locked bets ([[pick, amount], …] in placement order). It is a commitment to
-// the bets (not a nonce — it's deterministic, derived from the bets themselves): sent with the spin
+// the bets, not a nonce: it's deterministic, derived from the bets themselves. Sent with the spin
 // request and stored server-side, then submit-score recomputes it from the transcript and rejects a
 // mismatch. So fetching the spin words before really betting commits you to the bets you hashed.
 async function _betHash(bets){
@@ -788,8 +786,8 @@ async function _betHash(bets){
 // (idempotent per device-day, so a refresh re-fetch gets the same words and a cheater can't
 // re-roll). Dev/test/backlog runs never submit, so they draw locally; a production fetch
 // failure also falls back locally, tagged as unverified (see _acquireSpin, which records that
-// tag). PURE-ish: doesn't touch S itself (only reads it) so callers can retry it freely — the
-// unverified bookkeeping lives one level up, in _acquireSpin, so it only ever happens once.
+// tag). Doesn't touch S itself (only reads it) so callers can retry it freely. The unverified
+// bookkeeping lives one level up, in _acquireSpin, so it only ever happens once.
 async function _spinWords(bets){
   const local=()=>{
     if(crypto.getRandomValues)return[...crypto.getRandomValues(new Uint32Array(4))];
@@ -811,15 +809,15 @@ async function _spinWords(bets){
   }
 }
 
-// Acquires this spin's randomness EXACTLY once per round and tags how it was obtained, so a
+// Acquires this spin's randomness exactly once per round and tags how it was obtained, so a
 // refresh mid-fetch (or the resume path re-entering with S.rSpin still null) can never re-hit the
-// server, and rUnverified can never flip after the fact. `S.rSpinAcq` — {words, fromServer,
-// verified} — is the one persisted record of that decision; verified is true only for a real
+// server, and rUnverified can never flip after the fact. `S.rSpinAcq` ({words, fromServer,
+// verified}) is the one persisted record of that decision; verified is true only for a real
 // server draw, so it's the derivation point for S.rUnverified (kept as its own field because
-// submission + tests read `rUnverified` directly — see SUPABASE.md/ARCHITECTURE.md).
+// submission + tests read `rUnverified` directly; see SUPABASE.md/ARCHITECTURE.md).
 // Idempotent: a second call (same round) reuses the stored tag instead of fetching again.
 async function _acquireSpin(bets){
-  if(S.rSpinAcq)return S.rSpinAcq; // already acquired this round (refresh/resume re-entry) — never re-fetch
+  if(S.rSpinAcq)return S.rSpinAcq; // already acquired this round (refresh/resume re-entry): never re-fetch
   const {words,fromServer}=await _spinWords(bets);
   const tagged={words,fromServer,verified:fromServer};
   mutate(s=>{ s.rSpinAcq=tagged; s.rUnverified=!tagged.verified; }); // one place both fields are set, together
@@ -842,15 +840,15 @@ async function rSpin(){
   _rSpinPending=true;
   const bets=S.rBets.map(b=>[b.pick,b.bet]);
   tx('r','spin',{bets,respin:S.rReSpun});
-  S.rSpin=null;S.rSpin2=null;S.rSpinAcq=null; // fresh round (first spin or the one re-spin) — acquire new randomness, don't reuse last round's tag
+  S.rSpin=null;S.rSpin2=null;S.rSpinAcq=null; // fresh round (first spin or the one re-spin): acquire new randomness, don't reuse last round's tag
   S.rPhase='spinning';
   render();updateChipDisplay();
-  drawStaticWheel();   // paint the wheel face now, so it appears WITH its gold ring (not after the resolve round-trip)
+  drawStaticWheel();   // paint the wheel face now, so it appears with its gold ring (not after the resolve round-trip)
   // Preload the audio now so its duration is available by the time startWheelAnim runs.
   _initRouletteAudio();
   try{
     const sp=await _resolveSpinNumber(bets);
-    mutate(() => { S.rSpin=sp.n;S.rSpin2=sp.n2; }); // mutate-then-save seam (C6): persist the drawn numbers post-await
+    mutate(() => { S.rSpin=sp.n;S.rSpin2=sp.n2; }); // persist the drawn numbers after the await
   }finally{_rSpinPending=false;}
   // Real pre-spin hold: the static wheel (drawn at render) covers the wait, so the wheel sits with
   // its ring for a beat before the ball drops in. Animation starts from wAngle=0/e=0, matching the
@@ -866,10 +864,10 @@ function drawStaticWheel(){
   cnv.width=size;cnv.height=size;
   drawWheel(cnv,0,[]);
 }
-// Pure payout-modifier bundle from an explicit (mod, spin2, wm) — the replay-friendly core of
-// evalBetMods(). This is the ONE builder for the bundle _evalBets/resolveRoulette read: every field
+// Builds the payout-modifier bundle from an explicit (mod, spin2, wm): the replay-friendly core of
+// evalBetMods(). This is the one builder for the bundle _evalBets/resolveRoulette read: every field
 // is always present and explicitly null/false/1 when inactive, so callers never assemble or extend
-// the shape themselves (e.g. by spreading it and tacking on `wm`) — they just call the builder with
+// the shape themselves (e.g. by spreading it and tacking on `wm`); they just call the builder with
 // the extra input it needs. `spin2` (Double Ball's second pocket) only carries through when that mod
 // is active; `wm` is the win-doubling multiplier (winMultFor), folded in here so it travels with the
 // rest of the payout rules instead of being appended by each caller.
@@ -889,9 +887,9 @@ function evalBetMods(){
   return evalBetModsFor(getMod, S.rSpin2, winMult());
 }
 // Evaluates all placed bets against the spun pocket(s), applying any payout Modifiers, returning
-// enriched bet objects. PURE in its params: `mods` defaults to a snapshot of today's globals so
-// in-page callers and tests may omit it; the server passes its own. (Double Ball: a bet wins if
-// EITHER ball lands on it — pays once at normal odds, the edge is coverage, not a bigger payout.)
+// enriched bet objects. `mods` defaults to a snapshot of today's globals so in-page callers and
+// tests may omit it; the server passes its own. (Double Ball: a bet wins if either ball lands on
+// it, paying once at normal odds; the edge is coverage, not a bigger payout.)
 function _evalBets(bets, spin, mods = evalBetMods()) {
   const spin2 = mods.spin2;
   return bets.map(b => {
@@ -907,31 +905,31 @@ function _evalBets(bets, spin, mods = evalBetMods()) {
     return {...b, won, delta, pay};
   });
 }
-// Pure Roulette Resolver: per-bet results plus the win-multiplier folded into one signed net delta.
-// (bets, spin, mods = the evalBetModsFor/evalBetMods bundle) → {betResults, delta, result}. No S, no
-// DOM, no credit — the caller credits stake+delta and records. This is the settlement the engine
-// replays. `mods` defaults to today's live snapshot (same convention as _evalBets) so in-page callers
-// need not build it by hand.
+// Resolves a roulette round: per-bet results plus the win multiplier folded into one signed net
+// delta. (bets, spin, mods = the evalBetModsFor/evalBetMods bundle) returns {betResults, delta,
+// result}. No S, no DOM, no credit; the caller credits stake+delta and records. This is the
+// settlement the engine replays. `mods` defaults to today's live snapshot (same convention as
+// _evalBets) so in-page callers need not build it by hand.
 function resolveRoulette(bets, spin, mods = evalBetMods()){
   const betResults = _evalBets(bets, spin, mods);
   let delta = betResults.reduce((s,b) => s + b.delta, 0);
   if (mods.wm>1 && delta>0) delta *= mods.wm;
   return { betResults, delta, result: delta>0?'win':delta<0?'lose':'push' };
 }
-// Settlement Ledger for the settled roulette round — the ONE credit mapping shared by the live settle
+// Settlement ledger for the settled roulette round: the one credit mapping shared by the live settle
 // (_resolveRoulette) and the replay Engine. PURE: returns a single {op,n,reason} entry (applied via
 // applyLedger). The whole stake was debited at placement, so returning stake + delta lands the balance
-// exactly `delta` from break-even in one credit. Built via mkCredit (core.js) — a validated
-// {op,n,reason} factory — so a typo'd reason throws in strict mode.
+// exactly `delta` from break-even in one credit. Built via mkCredit (core.js), which validates the
+// {op,n,reason} shape, so a typo'd reason throws in strict mode.
 function rouletteAward(stake, delta){ return [mkCredit(stake+delta, 'roulette')]; }
 // Settles all bets: returns stake + profit for winners, with the win multiplier folded into delta.
 function _resolveRoulette(){
-  // Idempotency guard: only ever credit a spin once. A duplicate/late rFinish — flaky mobile
-  // audio firing both `onended` and `error`, a bfcache restore, a double-tap, or a refresh race
-  // re-running the resume path — could otherwise call this again and credit the win a second
-  // time (e.g. an all-in number win showing 2× the real stack, with the late re-credit landing
-  // after the leaderboard submission). rResult is only ever set by a completed resolve (or a
-  // skip), so if it's already set the round is done — bail before touching chips.
+  // Only ever credit a spin once. A duplicate/late rFinish (flaky mobile audio firing both
+  // `onended` and `error`, a bfcache restore, a double-tap, or a refresh race re-running the
+  // resume path) could otherwise call this again and credit the win a second time: an all-in
+  // number win showing 2× the real stack, with the late re-credit landing after the leaderboard
+  // submission. rResult is only ever set by a completed resolve (or a skip), so if it's already
+  // set the round is done. Bail before touching chips.
   if(S.rResult) return;
   // The whole staked amount was debited at placement, so returning stake + delta lands the balance
   // exactly `delta` from break-even in one credit, and `delta` is the one number recorded for the
@@ -943,7 +941,7 @@ function _resolveRoulette(){
   S.rPhase='result';navRender();updateChipDisplay(); // crossfade spin → result panel
   if(delta>0)setTimeout(sndBigWin,400);
 }
-// Called when the wheel animation finishes — goes to respin phase if unused, otherwise resolves.
+// Called when the wheel animation finishes: goes to respin phase if unused, otherwise resolves.
 function rFinish(){
   if(getMod('r_respin')&&!S.rReSpun){S.rPhase='respin';navRender();return;}
   _resolveRoulette();

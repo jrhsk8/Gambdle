@@ -1,8 +1,8 @@
 // ─── Game shell lock-in tests ─────────────────────────────────────────────────
-// Locks the current behavior of the app-shell seams in game.js before the module
-// split: statusBar(), submitAndFetchLeaderboard(), _resumeAfterRefresh(), the
-// welcome-popup gate, and the boot-call surface. If a refactor moves or renames
-// any of these, this file is the tripwire.
+// Locks in the current behavior of the app-shell functions in game.js: statusBar(),
+// submitAndFetchLeaderboard(), _resumeAfterRefresh(), the welcome-popup gate, and the
+// functions called at boot. If a refactor moves or renames any of these, this file
+// will catch it.
 //
 // Techniques reused from start-tracking.test.js:
 //   • async functions run synchronously up to their first `await`, so a sync
@@ -57,9 +57,8 @@ function withImmediateTimeouts(fn) {
   try { fn(); } finally { window.setTimeout = orig; }
 }
 
-// Stubs render() with a counter for the duration of fn — _resumeAfterRefresh's
-// contract is "fix the phase, then re-render"; the render itself is covered by
-// the render smoke tests.
+// Stubs render() with a counter for the duration of fn. _resumeAfterRefresh's job is
+// "fix the phase, then re-render"; the render itself is covered by the render smoke tests.
 function withRenderSpy(fn) {
   const orig = render;
   let count = 0;
@@ -297,15 +296,15 @@ describe('_resumeAfterRefresh — mid-animation state restore', () => {
   });
 });
 
-// ─── _acquireSpin — tagged, idempotent spin acquisition (Finding #5) ─────────────
+// ─── _acquireSpin: tagged, idempotent spin acquisition ────────────────────────
 // _spinWords itself is stubbed here (not _resolveSpinNumber, used above), so these tests exercise
-// the tagging + reuse logic in _acquireSpin directly rather than assuming its caller's behavior.
+// the tagging and reuse logic in _acquireSpin directly rather than assuming its caller's behavior.
 // The runner's `it()` doesn't await promises (see runner.js), so these stay synchronous: the
 // reuse guard (`if (S.rSpinAcq) return S.rSpinAcq`) is the first line of _acquireSpin and returns
 // before any `await`, so "did it call _spinWords at all" is observable without waiting on the
-// returned promise. The tagging-after-fetch half (verified by transcript.test.js's rSpin case
-// pre-await, and by the fallback marking S.rUnverified — game-shell's submitAndFetchLeaderboard
-// tests above) is covered indirectly; this suite's job is the idempotency guarantee itself.
+// returned promise. The tagging-after-fetch half is verified elsewhere (transcript.test.js's rSpin
+// case, and game-shell's submitAndFetchLeaderboard tests above for the S.rUnverified fallback);
+// this suite's job is just the idempotency guarantee.
 
 describe('_acquireSpin — reuses an existing tag instead of re-fetching', () => {
   it('never calls _spinWords when S.rSpinAcq is already set (refresh/resume re-entry)', () => {
@@ -377,7 +376,7 @@ describe('boot surface — every global the shell wires together exists', () => 
     }
   });
 
-  it('navigation, leaderboard, and dev seams exist', () => {
+  it('navigation, leaderboard, and dev functions exist', () => {
     for (const fn of ['goTo', 'advanceTo', 'startGame', '_submitStart', '_submitBorrow',
                       'submitAndFetchLeaderboard', 'fetchScoreDistribution', '_renderScoreDist',
                       'devReset', '_doReload', '_drawLayoutDebug', '_dragMousedown',

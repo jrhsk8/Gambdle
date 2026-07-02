@@ -1,4 +1,4 @@
-// ─── WINDOWS — the XP window chrome ─────────────────────────────────────────
+// ─── WINDOWS: the XP window chrome ─────────────────────────────────────────
 // Dragging for the main game window, the floating window manager (Help / About /
 // modifier popups / Send Feedback), and the XP notification balloon with its
 // tutorial-tip runtime. render() calls _reapplyDragPos() after each full
@@ -43,7 +43,7 @@ function _winMouseup() {
 // These dialogs reuse the WinXP `.title-bar`, so grabbing one drags the DIALOG itself (a transform
 // on its `.info-box`), not the main window behind it. Each window remembers its own drag offset on
 // the element (`box._winOffset`), so several desktop floats track independently. The main window is
-// locked only while a *blocking* (mobile) modal is open — desktop floats are non-blocking, so the
+// locked only while a *blocking* (mobile) modal is open: desktop floats are non-blocking, so the
 // game stays draggable underneath. The ✕/□ buttons (`.tb-btn`) never start a drag.
 let _dlgDrag = null;
 
@@ -79,7 +79,7 @@ function _dragMousedown(e) {
     document.addEventListener('mouseup', _dlgMouseup, { once: true });
     return;
   }
-  if (document.querySelector('.info-modal:not(.float-win)')) return; // a blocking (mobile) modal — keep the window put
+  if (document.querySelector('.info-modal:not(.float-win)')) return; // a blocking (mobile) modal: keep the window put
   e.preventDefault();
   _winDragStart = { mx: e.clientX, my: e.clientY, ox: _winOffset.x, oy: _winOffset.y };
   document.addEventListener('mousemove', _winMousemove);
@@ -100,8 +100,8 @@ const _isMobile = () => _forceMobile !== null ? _forceMobile : window.innerWidth
 // ─── WINDOW MANAGER (Help / About / modifier popup / Send Feedback) ───────────────────────────────
 // On DESKTOP these are non-blocking floating windows: multiple open at once, one instance per type
 // (re-opening focuses the existing one), and the game stays clickable + draggable underneath. On
-// MOBILE (≤480px) each is a single blocking modal (dark backdrop, outside-tap closes) — the old
-// behaviour, kept because floating windows don't fit a 360px screen. Both share the WinXP blue-bar
+// MOBILE (≤480px) each is a single blocking modal (dark backdrop, outside-tap closes), used because
+// floating windows don't fit a 360px screen. Both share the WinXP blue-bar
 // chrome; `key` namespaces the window id ('win-<key>'). See styles.css `.info-modal.float-win`.
 let _winZ = 600;        // z-index high-water mark; floats sit above the game chrome (z 1–500)
 let _winCascade = 0;    // each desktop open steps the box down-and-right so windows don't stack exactly
@@ -116,7 +116,7 @@ function focusWindow(box) {
     b.classList.toggle('win-inactive', b !== box));
 }
 
-// Greys every floating window — fired when the player clicks the game (no window focused).
+// Greys every floating window. Fired when the player clicks the game (no window focused).
 function blurAllWindows() {
   document.querySelectorAll('.info-modal.float-win > .info-box').forEach(b => b.classList.add('win-inactive'));
 }
@@ -136,10 +136,10 @@ function recenterWindow(btn) {
   setTimeout(() => { box.style.transition = ''; }, 220);
 }
 
-// Mobile only: an outside tap on the dark overlay closes the modal — EXCEPT the tap that brings an
+// Mobile only: an outside tap on the dark overlay closes the modal, EXCEPT the tap that brings an
 // unfocused tab back into focus (the _refocusAt / document.hasFocus guard). _downOnSelf gates on a
 // click that BOTH starts and ends on the overlay, so releasing a title-bar drag onto the overlay is
-// never treated as an outside tap. Desktop floats don't use this — they (de)activate via the
+// never treated as an outside tap. Desktop floats don't use this: they (de)activate via the
 // document-level focus handler (focusWindow / blurAllWindows, in _dragMousedown above).
 function _infoOverlayClick(el, e) {
   if (e.target !== el || !el._downOnSelf) return;
@@ -185,11 +185,11 @@ const _recenterBtnHTML = () => _isMobile() ? '' : `<span class="tb-btn" title="C
 // wrapper, wired through _openWindow so desktop/mobile + one-per-key behavior stays uniform. Always
 // uses `.info-box-titled` (CSS: styles.css ~1307) so the blue bar stays pinned to the rounded top
 // corners and the body beneath it owns the scrolling. Callers hand in only what varies: `key`
-// (window id + dedup), `title`, `content` (inner HTML — wrapped in the standard `.info-content`
+// (window id + dedup), `title`, `content` (inner HTML, wrapped in the standard `.info-content`
 // padded/scrollable div, or pass raw HTML plus `bare: true` to own that div yourself with different
 // padding, as Send Feedback does), `icon` (title-bar glyph, defaults to ♠), and `boxStyle` (inline
-// style on .info-box, e.g. Send Feedback's max-width). Close always calls closeWindow(this) — the
-// same × handler every dialog already shared.
+// style on .info-box, e.g. Send Feedback's max-width). Close always calls closeWindow(this), the
+// same × handler every dialog uses.
 function openModal({ key, title, icon = '♠', content, bare = false, boxStyle = '' }) {
   const styleAttr = boxStyle ? ` style="${boxStyle}"` : '';
   const body = bare ? content : `<div class="info-content">${content}</div>`;
@@ -339,7 +339,7 @@ function _tipSeen(id){ try { return !!_ls.getItem('gambdle_tip_' + id + '_seen')
 function _testTutorial(){ try { return _ls.getItem('gambdle_dev_test_tutorial') === '1'; } catch { return false; } }
 
 // Shows tip `id` once, if tutorials are on and no balloon is already up. Returns
-// true if shown. Safe to call on every render — it self-dedupes via localStorage.
+// true if shown. Safe to call on every render: it self-dedupes via localStorage.
 function _maybeTip(id){
   const force = _testTutorial();              // dev Test Tutorial: ignore seen + off, never persist
   if (!force && getPref('tutorial_off')) return false;
@@ -360,15 +360,15 @@ function _maybeTip(id){
 }
 
 // ─── TIP ELIGIBILITY REGISTRY ─────────────────────────────────────────────
-// Declarative eligibility for each tutorial tip, in priority order (first match wins — see
+// Declarative eligibility for each tutorial tip, in priority order (first match wins, see
 // _eligibleTips below). Each entry:
-//   screen  — required; matches S.screen.
-//   phase   — optional; matches S[GAMES[screen].phaseKey] against this string, or against any of
+//   screen  : required; matches S.screen.
+//   phase   : optional; matches S[GAMES[screen].phaseKey] against this string, or against any of
 //             an array of strings (OR). Omitted = any phase (the 'intro' entries don't have a
 //             phase concept at all).
-//   gate    — optional predicate for a condition beyond screen/phase, e.g. uth_turn's "only if the
+//   gate    : optional predicate for a condition beyond screen/phase, e.g. uth_turn's "only if the
 //             player hasn't already raised" (the river decision is raise-or-fold with no check).
-//   tip     — the TUTORIAL_TIPS id to show when this entry matches.
+//   tip     : the TUTORIAL_TIPS id to show when this entry matches.
 // Text lives in gametext.js (TUTORIAL_TIPS); this registry only decides WHEN each id is eligible.
 const TIP_ELIGIBILITY = [
   { screen: 'intro',                                            tip: 'modifier' },
@@ -411,7 +411,7 @@ function _isReturningPlayer(){
 // seen. A brand-new player is silently opted out of the *current* note (the key is marked seen
 // without showing anything) so they only ever see FUTURE announcements; their normal new-player tips
 // are untouched. Returns true if the balloon was shown. Environment guards (webdriver / backlog) and
-// the "intro screen only" gate live in _runTutorial, its only caller — mirroring _maybeTip.
+// the "intro screen only" gate live in _runTutorial, its only caller, mirroring _maybeTip.
 function _maybeWhatsNew(){
   if (typeof WHATS_NEW === 'undefined' || !WHATS_NEW.enabled) return false;
   if (getPref('tutorial_off')) return false;
@@ -459,10 +459,10 @@ function devToggleTestTutorial(){
   toast(on ? 'Test Tutorial on, tips always show' : 'Test Tutorial off');
 }
 
-// Timestamp (ms) of the most recent window refocus — see _popupOutsideClick.
+// Timestamp (ms) of the most recent window refocus. See _popupOutsideClick.
 let _refocusAt = 0;
 
-// Closes the balloon on any click/tap that isn't inside it — EXCEPT the click that brings the
+// Closes the balloon on any click/tap that isn't inside it, EXCEPT the click that brings the
 // window back into focus after it was unfocused (that click should leave the tip up). That refocus
 // click can arrive either before focus is restored (document not yet focused) or just after the
 // focus event fires, so we guard on both: an unfocused document, or a click within 300ms of refocus.
@@ -491,14 +491,14 @@ function _updateBalloonPosition() {
   if (!win) { el.style.bottom = '46px'; el.style.right = '8px'; return; }
   const rect = win.getBoundingClientRect();
   // Anchor just above the window's bottom-right. When the window is TALLER than the viewport (short
-  // desktop height — now possible since the window grows to fit overflowing content), its bottom is
+  // desktop height, now possible since the window grows to fit overflowing content), its bottom is
   // off-screen and the formula floors out; keep a 16px floor so the entrance animation (translateY
   // 10px) can't nudge the balloon off the bottom edge. Normal viewports already yield >16 here.
   el.style.bottom = Math.max(16, window.innerHeight - rect.bottom + 32) + 'px';
   el.style.right  = Math.max(4,  window.innerWidth  - rect.right  + 8)  + 'px';
 }
 
-// WinXP inactive title bar — dims chrome when tab loses focus
+// WinXP inactive title bar: dims chrome when tab loses focus
 window.addEventListener('blur', () => document.body.classList.add('win-inactive'));
 window.addEventListener('focus', () => { document.body.classList.remove('win-inactive'); _refocusAt = Date.now(); });
 document.addEventListener('visibilitychange', () =>

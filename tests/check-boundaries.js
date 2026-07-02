@@ -8,7 +8,7 @@
 //   • two files declare the same top-level identifier (silent global clobber)
 //   • a manifest entry drifts (export no longer declared, or a file is missing)
 //
-// Tests are exempt on purpose — they poke seams like _doReload and _forceMobile.
+// Tests are exempt on purpose: they call test-only hooks like _doReload and _forceMobile.
 // To publish a new cross-file function, add it to its file's export list here.
 // Runs first in `npm test` (tests/run.js); standalone: node tests/check-boundaries.js
 
@@ -146,7 +146,7 @@ function check() {
   }
 
   // Side effect: regenerate the symbol index (.claude/SYMBOLS.md) so "where is X
-  // defined?" is a one-line lookup instead of a grep across src/. Best-effort —
+  // defined?" is a one-line lookup instead of a grep across src/. Best-effort:
   // never fails the suite.
   try {
     const lines = [];
@@ -162,7 +162,7 @@ function check() {
       'Every top-level identifier in src/, alphabetical: `name · file · public|private`.\n' +
       'public = in the boundary MANIFEST (usable cross-file); private = file-internal.\n\n' +
       lines.join('\n') + '\n');
-  } catch (e) { /* .claude/ missing or unwritable — skip */ }
+  } catch (e) {} // .claude/ missing or unwritable: skip
 
   // No file may reference another file's private (non-exported) identifier.
   for (const f of files) {
@@ -181,10 +181,10 @@ function check() {
   // exit. Bare saveState() calls outside the allowlist can be forgotten or fire
   // mid-mutation, so they're banned everywhere else.
   //
-  // Scanned over the RAW source (not stripComments output — block-comment removal
+  // Scanned over the RAW source (not stripComments output: block-comment removal
   // collapses newlines and skews the reported line numbers), with a per-line
   // comment tracker instead. An audited exception is suppressed by ending the
-  // line with `// boundary-ok: <reason>` — the reason is mandatory.
+  // line with `// boundary-ok: <reason>` · the reason is mandatory.
   const SAVESTATE_RE = /\bsaveState\s*\(/;
   const BOUNDARY_OK_RE = /\/\/\s*boundary-ok:\s*\S/;
   for (const f of files) {

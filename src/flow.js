@@ -28,7 +28,7 @@ function statusBar(){
 
 // ─── RENDER ──────────────────────────────────────────────────────────────
 
-// Full re-render — replaces all of #app. Use surgical DOM updates mid-hand to avoid flash.
+// Full re-render: replaces all of #app. Use surgical DOM updates mid-hand to avoid flash.
 function render(){
   // Game screens dispatch through the Game registry (GAMES[screen].screen, registered by each game's
   // file); the non-game shell screens stay in this local table.
@@ -41,7 +41,7 @@ function render(){
     </div>
   </div>`;
   const _panel = document.querySelector('.panel');
-  // The Seed Checker scans FUTURE days, so today's modifier banner would be misleading there — suppress it.
+  // The Seed Checker scans FUTURE days, so today's modifier banner would be misleading there: suppress it.
   const _mod = S.screen === 'seedcheck' ? '' : modBannerHTML(S.screen === 'results');
   // Inject the modifier banner at the top of the panel after the screen HTML is in place.
   if (_panel && _mod) {
@@ -89,7 +89,7 @@ function render(){
 
 // Smooth cross-screen render: wrap the full re-render in a View Transition so significantly different
 // screens (a new game, a hand's result panel, the next hand) crossfade instead of popping. Falls back
-// to a plain synchronous render() — which keeps card choreography, replay, and the layout suite intact —
+// to a plain synchronous render() (which keeps card choreography, replay, and the layout suite intact)
 // whenever the API is unavailable (Node, Firefox, older Safari), the user prefers reduced motion, or a
 // test is running (__GAMBDLE_TEST__: the unit suite calls bjResolve/render directly and asserts on the
 // DOM synchronously, so it must never go async). Mid-hand renders keep calling render() directly.
@@ -114,22 +114,22 @@ function updateChipDisplay() {
 
 function goTo(s){S.screen=s;navRender();} // crossfade screen changes (advanceTo → goTo, borrow, menu nav)
 // Shared skip logic for all_in_or_skip: push a skip entry, increment the hand counter, advance to the
-// next screen if done, otherwise reset and re-render. Everything game-specific — the history array, the
-// hand counter, the reset fn, the successor screen — is read from the Game registry keyed on `screen`,
+// next screen if done, otherwise reset and re-render. Everything game-specific (the history array, the
+// hand counter, the reset fn, the successor screen) is read from the Game registry keyed on `screen`,
 // so a caller only says which game and what entry to record.
 function _skipHand(screen, entry) {
   const g = GAMES[screen];
   gameHistory(screen).push(entry);
   S[g.handKey]++;
   if (S[g.handKey] >= 3) { advanceTo(NEXT_SCREEN[screen]); return; }
-  g.reset('hand-advance'); // still within the same Round — see the reset(reason) contract, core.js
+  g.reset('hand-advance'); // still within the same Round: see the reset(reason) rules in core.js
   navRender();
 }
 
 // Shared "next hand" flow: sound → reset → re-render (or go to results/borrow if busted).
 function _nextHand(resetFn) {
   sndAdvance();
-  resetFn('hand-advance'); // see the reset(reason) contract, core.js
+  resetFn('hand-advance'); // see the reset(reason) rules in core.js
   if (isChipBusted()) {
     if (_canShowBorrow()) {
       S.borrowReturnScreen = _borrowReturnScreen();
@@ -141,7 +141,7 @@ function _nextHand(resetFn) {
   navRender();
 }
 
-// Advance to the next hand of the current game · the onclick target on every card game's result panel.
+// Advance to the next hand of the current game: the onclick target on every card game's result panel.
 // Dispatches through the Game registry so flow.js carries no per-game next-hand wrappers.
 function advanceHand(){ GAMES[S.screen].nextHand(); }
 
@@ -166,7 +166,7 @@ function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnT
   </div>`;
 }
 
-// The advance button (label + onclick) shown on a card game's result screen — shared by Blackjack,
+// The advance button (label + onclick) shown on a card game's result screen. Shared by Blackjack,
 // Hold'em and Poker, which all phrase it identically. Busted → go to results; the last hand of 3 →
 // the next game (worded "Final Round: Roulette" when roulette is the finale, else "Round 2: <name>");
 // any earlier hand → the next hand (via the registry-dispatched advanceHand()). `nextScreen` is
@@ -175,7 +175,7 @@ function resultAdvanceBtn(isLast, nextScreen) {
   if (isChipBusted()) return { text: `Game Over ${icon('skull',{fill:true})}`, action: "advanceTo('results')" };
   if (!isLast)        return { text: 'Next Hand →',  action: 'advanceHand()' };
   // Use the SHORT game name ("Hold'em", not "Ultimate Texas Hold'em") so the label fits the
-  // box-width advance button on one line at every breakpoint (the narrow 1024 panel especially).
+  // box-width advance button on one line at every breakpoint, especially the narrow 1024 panel.
   const text = nextScreen === 'roulette' ? 'Final Round: Roulette →' : `Round 2: ${GAME_META[nextScreen].short} →`;
   return { text, action: `advanceTo('${nextScreen}')` };
 }
@@ -190,25 +190,24 @@ function advanceTo(s){
   // states that DON'T earn it both move straight to results (so the chip recalc below runs): a player
   // who borrowed and then recovered, and a player who busted without ever borrowing. Equivalently the
   // detour fires when bust and borrow agree (isChipBusted()===S.borrowUsed): a clean finish (neither)
-  // or a borrowed-and-still-busted finish. The old `!_canShowBorrow()` gate was too broad and
-  // detoured those two excluded states into the ladder, skipping the results recalc.
+  // or a borrowed-and-still-busted finish.
   if(s==='results')s=next(s,{ladderFree:ladderMode().detourToday,ladPlayed:!!S.ladResult,rResolved:S.rResult!==null,busted:isChipBusted(),borrowUsed:S.borrowUsed});
   if(isChipBusted()&&_canShowBorrow()){
     if(s!=='results'){
       // Mid-game transition bust (e.g., would have gone to UTH/Roulette but broke).
       S.borrowReturnScreen=s;
     }else{
-      // Explicit "Game Over" bust from a result phase — determine where to return if they borrow.
+      // Explicit "Game Over" bust from a result phase: determine where to return if they borrow.
       const ret=_borrowReturnScreen();
       // Reset the current game to bet phase so returning lands on a fresh hand (no-op for single-run
       // games, which have no reset slot). The borrow flow only returns the three card games here.
-      GAMES[ret]?.reset('borrow-prep');   // see the reset(reason) contract, core.js; ret may be a non-game screen (results), hence the entry guard
+      GAMES[ret]?.reset('borrow-prep');   // see the reset(reason) rules in core.js; ret may be a non-game screen (results), hence the `?.` guard
       S.borrowReturnScreen=ret;
     }
     sndAdvance();goTo('borrow');return;
   }
   // Busted players are normally forced to results, but the free ladder entry is house
-  // money — a busted player still gets (and may need) the bonus round.
+  // money: a busted player still gets (and may need) the bonus round.
   if(s!=='results'&&!(s==='ladder'&&ladderMode().detourToday)&&isChipBusted())s='results';
   if(s==='results'&&!DEV_OVERRIDE){
     const _calc=recalcChips();
@@ -238,7 +237,7 @@ function startGame(){
 
 // Fire-and-forget: records that this device started today's game.
 // Skipped in dev/test/backlog modes; deduplicated per device per day via localStorage.
-// Requires a `starts` table in Supabase — see .claude/VERSIONS.md for setup SQL.
+// Requires a `starts` table in Supabase; see .claude/VERSIONS.md for setup SQL.
 async function _submitStart() {
   const seed = getActiveSeed();
   const key = `gambdle_started_${seed}`;
@@ -252,9 +251,9 @@ async function _submitStart() {
 }
 
 // Fire-and-forget: records that this device took the borrow loan today (only when the chips are
-// actually accepted via borrowChips — declining doesn't fire this). Skipped in dev/test/backlog
+// actually accepted via borrowChips (declining doesn't fire this). Skipped in dev/test/backlog
 // modes; deduplicated per device per day via localStorage (borrow is once-per-day anyway).
-// Requires a `borrows` table in Supabase — see .claude/VERSIONS.md for setup SQL.
+// Requires a `borrows` table in Supabase; see .claude/VERSIONS.md for setup SQL.
 async function _submitBorrow() {
   const seed = getActiveSeed();
   const key = `gambdle_borrowed_${seed}`;
@@ -270,7 +269,7 @@ async function _submitBorrow() {
 // Fire-and-forget: records the furthest game stage this device reached today (beaconed on entry to
 // UTH and Roulette via advanceTo). Lets dev stats bucket non-completers by where they stopped.
 // Skipped in dev/test/backlog modes; deduplicated per device/day/stage via localStorage.
-// Requires a `progress` table in Supabase — see .claude/SUPABASE.md.
+// Requires a `progress` table in Supabase; see .claude/SUPABASE.md.
 async function _submitProgress(stage) {
   const seed = getActiveSeed();
   const key = `gambdle_progress_${seed}_${stage}`;
@@ -295,12 +294,12 @@ const PROGRESS_STAGES = new Set([GAME2, 'roulette', 'ladder']);
 // unvalidated (NOT leaderboard-grade). Captured at load so the referrer is freshest and even players
 // who bounce on a broken layout are sampled. Skipped in dev/test/backlog; deduped per device/day via
 // localStorage (key set only on a 2xx). A plain INSERT (not an upsert) on purpose: a merge-duplicates
-// upsert needs anon SELECT on the table, which would expose the raw `ua` — so we forgo updates and let
+// upsert needs anon SELECT on the table, which would expose the raw `ua`, so we forgo updates and let
 // the (seed,fingerprint) PK turn the rare double-fire (cleared storage) into a harmless 409. Called
 // once from game.js boot (gated there to never fire under the unit-test harness). Requires a `clients`
-// table + `clients_public` view — see supabase/clients.sql.
+// table + `clients_public` view; see supabase/clients.sql.
 
-// Parse a userAgent into coarse browser/os tokens — cheap GROUP BY on the read side. Pure (string in,
+// Parse a userAgent into coarse browser/os tokens: cheap GROUP BY on the read side. Pure (string in,
 // tokens out), so it's unit-testable. Order matters: Edge ('Edg/') and Chromium-derivatives (Opera
 // 'OPR/', Samsung) are checked before Chrome, and Chrome before Safari, because every Chromium UA
 // also contains 'Safari' (and Chromium UAs contain 'Chrome').
@@ -373,14 +372,14 @@ async function _submitClient() {
 }
 
 // Fire-and-forget: snapshots where this device is the moment the tab hides (visibilitychange→hidden)
-// or the page is torn down (pagehide) — the exact screen, its phase, the hand index (3-hand games),
+// or the page is torn down (pagehide): the exact screen, its phase, the hand index (3-hand games),
 // and the live chip count. Upserts ONE row per device/day (Prefer: merge-duplicates → last write
 // wins), so the final snapshot is wherever the player actually quit. Powers the dev-only Retention
 // page's quit block. Skipped in dev/test/backlog; a module-level signature guard suppresses redundant
 // identical writes (the hide events fire on every tab-switch / phone-lock, not just the final exit).
 // Uses keepalive so the request survives an unloading page (a plain fetch would be cancelled).
 // Analytics-only: chips here are client-reported and unvalidated, unlike the `scores` submission.
-// Requires a `quits` table in Supabase — see .claude/SUPABASE.md.
+// Requires a `quits` table in Supabase; see .claude/SUPABASE.md.
 let _lastQuitSnap = '';
 function _submitQuit() {
   if (DEV_OVERRIDE || _testActive() || _backlogSeed) return;

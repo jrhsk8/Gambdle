@@ -1,4 +1,4 @@
-// ─── Stubs for UI/audio not available outside the main app ───────────────────
+// ─── TESTPROBE Stubs for UI/audio not available outside the main app ───────────────────
 if (typeof render            === 'undefined') window.render            = () => {};
 if (typeof updateChipDisplay === 'undefined') window.updateChipDisplay = () => {};
 if (typeof sndBigWin         === 'undefined') window.sndBigWin         = () => {};
@@ -20,10 +20,9 @@ function _bjRestoreS() {
 // chips should be post-bet-deduction (i.e. original chips minus the bet already taken).
 // dealer cards must total >= 17 so bjResolve doesn't try to draw from the shoe.
 //
-// Thin adapter over the shared tests/game-harness.js withGame(): same call signature as
-// before, but the snapshot/restore underneath is the one shared implementation (see
-// game-harness.js for the contract). _bjRestoreS/_bjCleanJson stay as-is above — they're
-// used standalone all over this file (refresh-recovery tests, teardown, ...), not just here.
+// Built on the shared tests/game-harness.js withGame() for snapshot/restore.
+// _bjRestoreS/_bjCleanJson above are also used standalone elsewhere in this file
+// (refresh-recovery tests, teardown, and so on), not just here.
 registerGameBuilder('bj', ({ player, dealer, bet, chips, forcedMod = {}, doubled = false }) => {
   S.forcedMod    = forcedMod;
   S.bjPlayer     = player.map(([r, s]) => card(r, s));
@@ -174,9 +173,9 @@ describe('bjResolve — history record', () => {
 });
 
 // Split-hand harness. Registered here, above every withSplit call site, because
-// the runner executes tests inline as the file parses — a builder registered
+// the runner executes tests inline as the file parses, so a builder registered
 // below its first use throws "no builder registered".
-// Thin adapter over withGame() — see withBJ above for the shared snapshot/restore note.
+// Built on withGame(); see withBJ above for the shared snapshot/restore note.
 registerGameBuilder('bjSplit', ({ hands, bets, dealer, doubled, chips, forcedMod = {} }) => {
   S.forcedMod        = forcedMod;
   S.bjSplit          = true;
@@ -198,10 +197,10 @@ function withSplit(overrides, fn) {
   withGame('bjSplit', overrides, fn);
 }
 
-// ─── bjResolve — idempotency (a hand settles exactly once) ───────────────────
-// Regression for the "win counted twice" class of bug: bjResolve is fired from timers and the
-// refresh-resume path, so a stray/duplicate call must not re-credit or push a second history entry.
-describe('bjResolve — settles a hand exactly once', () => {
+// ─── bjResolve: idempotency (a hand settles exactly once) ────────────────────
+// bjResolve is fired from timers and the refresh-resume path, so a stray or duplicate call
+// must not re-credit chips or push a second history entry.
+describe('bjResolve: settles a hand exactly once', () => {
   it('a duplicate bjResolve does not re-credit, double history, or re-advance the hand', () => {
     withBJ({ player: [['K','s'],['9','h']], dealer: [['7','d'],['J','c']], bet: 100, chips: 900 }, () => {
       assertEqual(S.chips, 1100);            // first resolve credited the win
@@ -230,7 +229,7 @@ describe('bjResolve — settles a hand exactly once', () => {
   });
 });
 
-// ─── bjResolve — split outcomes ──────────────────────────────────────────────
+// ─── bjResolve: split outcomes ─────────────────────────────────────────────────
 // The split branch in bjResolve aggregates per-hand results into S.bjResult.delta.
 // chips are pre-deducted (one bet per hand); each winning/push hand returns its stake.
 
@@ -372,13 +371,12 @@ describe('bjResolve — split: history records aggregated delta', () => {
   });
 });
 
-// ─── _bjResumeAfterRefresh — recover a hand interrupted by a page refresh ────────
-// Regression for "stuck mid-hand after a refresh": after the player Stands or Doubles there is a
-// short delay before the dealer's turn begins. If the page reloads in that window the timer is gone,
-// so resume must restart the dealer's turn (reveal, or advance to the next split hand). A stand
-// leaves the cards unchanged — indistinguishable from "still deciding" — so the intent is persisted
-// in S.bjActed. These assert the resume *fires* (schedules a timer) exactly when it should; without
-// the fix the stand/double cases schedule nothing and the hand strands in 'play'.
+// ─── _bjResumeAfterRefresh: recover a hand interrupted by a page refresh ──────
+// After the player Stands or Doubles there is a short delay before the dealer's turn begins.
+// If the page reloads in that window the timer is gone, so resume must restart the dealer's
+// turn (reveal, or advance to the next split hand). A stand leaves the cards unchanged, which
+// looks identical to "still deciding," so the intent is persisted in S.bjActed. These tests
+// check that resume fires (schedules a timer) exactly when it should.
 describe('_bjResumeAfterRefresh — resumes a stood/doubled hand lost to a refresh', () => {
   const H = (r, s) => card(r, s);
   // Run _bjResumeAfterRefresh against a crafted play-phase state with setTimeout captured (not run).
@@ -437,12 +435,12 @@ describe('bjStand / bjDouble — persist bjActed for refresh recovery', () => {
   });
 });
 
-// ─── Casino dealer peek — a dealer blackjack ends the hand before the player can act ──────────────
-// A dealer sitting on a natural blackjack is revealed immediately after the deal: the player never
-// gets to hit/double/split into a sure loss, and pays out as a push (matching blackjack) or a loss
-// of just the original bet. A dealer BJ always shows an Ace or a 10, so this is exactly the casino
-// peek. (bjResolve already settles correctly once play is locked to two cards; these lock in the
-// deal-time peek, the refresh recovery, and the settlement.)
+// ─── Casino dealer peek: a dealer blackjack ends the hand before the player can act ───
+// A dealer sitting on a natural blackjack is revealed immediately after the deal: the player
+// never gets to hit/double/split into a sure loss, and pays out as a push (matching blackjack)
+// or a loss of just the original bet. A dealer BJ always shows an Ace or a 10, so this is
+// exactly the casino peek. bjResolve already settles correctly once play is locked to two
+// cards; these tests check the deal-time peek, the refresh recovery, and the settlement.
 describe('bjDeal — dealer peek for blackjack', () => {
   const C = (r, s) => card(r, s);
   // Deal a rigged hand with audio + timers stubbed so the sndShuffle callback runs synchronously and
@@ -480,20 +478,20 @@ describe('bjDeal — dealer peek for blackjack', () => {
   it('a dealer blackjack takes priority over the player blackjack (push via the peek, no celebration)', () => {
     const r = deal([['A','s'],['K','h']], [['A','d'],['Q','c']]); // both blackjack
     assert(r.resolving,    'the peek path runs');
-    assert(!r.celebrating, 'no celebration — settled as a push by the dealer reveal');
+    assert(!r.celebrating, 'no celebration: settled as a push by the dealer reveal');
   });
 });
 
-// ─── Soft Landing (bj_safe_hit) — first hit never busts ─────────────────────────
+// ─── Soft Landing (bj_safe_hit): first hit never busts ─────────────────────────
 // The live swap (_bjSafeHitSwap, bj.js) reorders the shoe in place at S.bjIdx so a hand's first hit
 // can't bust; the engine twin (_replaySafeHitSwap, engine.js) mirrors it from the stored shoe. No
 // extra draw, so the deck stays aligned and the server replay matches byte-for-byte.
-describe('Soft Landing — _bjSafeHitSwap (live)', () => {
+describe('Soft Landing: _bjSafeHitSwap (live)', () => {
   const C = (r, s) => card(r, s);
   const hand = (...cs) => cs.map(([r, s]) => C(r, s));
   // Run fn with a controlled shoe positioned at S.bjIdx = base; restore the real shoe + idx after.
-  // The live swap now bounds its search to this hand's segment (⌊len/3⌋ for hand 0), so pad the shoe
-  // to 3× the provided cards — the segment then spans exactly the cards under test (fillers sit past it).
+  // The live swap bounds its search to this hand's segment (len/3 rounded down for hand 0), so pad
+  // the shoe to 3x the provided cards so the segment spans exactly the cards under test.
   function withShoe(cards, base, fn) {
     const origShoe = DEAL.bjShoe, origIdx = S.bjIdx, origHand = S.bjHand;
     const built = cards.map(([r, s]) => C(r, s));
@@ -558,10 +556,10 @@ describe('Soft Landing — _replaySafeHitSwap (engine twin) gate + first-hit gua
   });
 });
 
-// ─── Double Vision (bj_two_hands) — two candidate hands, pick one ───────────────
+// ─── Double Vision (bj_two_hands): two candidate hands, pick one ───────────────
 // The whole hand is dealt from a fresh per-hand deck (S.bjDeck2) routed through _bjDraw, so the
 // shared seeded shoe is untouched. The player keeps one of two candidate hands; a natural is auto-kept.
-describe('Double Vision — _bjDraw routing', () => {
+describe('Double Vision: _bjDraw routing', () => {
   const C = (r, s) => card(r, s);
   it('draws from bjDeck2 (advancing bjDeck2Idx) when set, else the shared shoe at bjIdx', () => {
     try {
@@ -575,7 +573,7 @@ describe('Double Vision — _bjDraw routing', () => {
   });
 });
 
-describe('Double Vision — bjDeal + bjPickHand', () => {
+describe('Double Vision: bjDeal + bjPickHand', () => {
   const C = (r, s) => card(r, s);
   // Deal under the mod with a rigged fresh deck (shuffle stubbed) and timers/audio swallowed.
   function dealTwo(deck) {
@@ -596,7 +594,7 @@ describe('Double Vision — bjDeal + bjPickHand', () => {
 
   it('deals two candidate hands + dealer from the fresh deck, leaving the shared shoe untouched', () => {
     const shoeTopBefore = DEAL.bjShoe[0];
-    // A=5,6 (11) · B=9,7 (16) · dealer=10,8 (18) — no naturals → the pick phase.
+    // A=5,6 (11), B=9,7 (16), dealer=10,8 (18): no naturals, so it goes to the pick phase.
     const r = dealTwo([['5','s'],['6','d'],['9','h'],['7','c'],['10','d'],['8','s'],['2','h'],['3','c']]);
     assertEqual(r.phase, 'pick', 'no natural → pick phase');
     assertEqual(r.candidates.length, 2, 'two candidate hands');
@@ -682,10 +680,11 @@ describe('bjDeal peek — supporting guards', () => {
   });
 });
 
-// ─── Pure BJ resolvers (PRD integrity Phase 2 · Candidate 02) ─────────────────
-// The payout × modifier ladder tested through its interface — no S, no DOM. `delta` is signed net
-// profit (stake debited at deal), so a win returns bet+delta to the player back in bjResolve.
-describe('resolveBJHand — the payout ladder (pure)', () => {
+// ─── Pure BJ resolvers ─────────────────────────────────────────────────────────
+// The payout and modifier ladder tested through its interface: no S, no DOM. `delta` is the
+// signed net profit (stake debited at deal), so a win returns bet+delta to the player back
+// in bjResolve.
+describe('resolveBJHand: the payout ladder (pure)', () => {
   const base = { wm: 1, bjMult: 1.5, ddm: 1 };
   it('natural blackjack pays floor(bet*bjMult*wm)', () => {
     assertDeepEqual(resolveBJHand({ pv: 21, pBJ: true, dv: 20, dBJ: false, bet: 100, ...base }), { result: 'blackjack', delta: 150 });
@@ -710,7 +709,7 @@ describe('resolveBJHand — the payout ladder (pure)', () => {
     assertDeepEqual(resolveBJHand({ pv: 12, pBJ: false, dv: 24, dBJ: false, bet: 100, ...base }), { result: 'win', delta: 100 });
   });
 });
-describe('resolveBJSplitHand — no blackjack branch, wild-split mult (pure)', () => {
+describe('resolveBJSplitHand: no blackjack branch, wild-split mult (pure)', () => {
   it('a split 21 is an ordinary win, not a blackjack', () => {
     assertDeepEqual(resolveBJSplitHand({ pv: 21, dv: 19, bet: 100, wm: 1, ddm: 1, spm: 1 }), { result: 'win', delta: 100 });
   });
@@ -722,9 +721,9 @@ describe('resolveBJSplitHand — no blackjack branch, wild-split mult (pure)', (
     assertDeepEqual(resolveBJSplitHand({ pv: 18, dv: 18, bet: 100, wm: 1, ddm: 1, spm: 1 }), { result: 'push', delta: 0 });
   });
 });
-// The credit mapping as pure data (Candidate 5): each *Award returns the {op,n,reason} ledger that
-// applyLedger replays, live and in replay. Asserting the ledger directly is the seam's test surface.
-describe('bjAward / bjAwardSplit — settlement ledger (pure)', () => {
+// The credit mapping is pure data: each *Award function returns the {op,n,reason} ledger that
+// applyLedger replays, live and in replay. These tests check the ledger output directly.
+describe('bjAward / bjAwardSplit: settlement ledger (pure)', () => {
   it('win and blackjack credit stake + profit in one entry', () => {
     assertDeepEqual(bjAward('win', 100, 100), [{ op: 'credit', n: 200, reason: 'bj-win' }]);
     assertDeepEqual(bjAward('blackjack', 100, 150), [{ op: 'credit', n: 250, reason: 'bj-blackjack' }]);
@@ -740,9 +739,9 @@ describe('bjAward / bjAwardSplit — settlement ledger (pure)', () => {
     assertDeepEqual(bjAwardSplit('bust', 50, -50), []);
   });
 });
-// Candidate 2: bjRulesFor maps a mod accessor → the day's BJ rule bundle. ONE source for the scalars
-// live (bjRules → getMod) and in replay (engine → _engMod), so the ||1.5/||17 defaults can't drift.
-describe('bjRulesFor — declarative BJ rule bundle (pure)', () => {
+// bjRulesFor maps a mod accessor to the day's BJ rule bundle. One source for the scalars live
+// (bjRules -> getMod) and in replay (engine -> _engMod), so the defaults can't drift apart.
+describe('bjRulesFor: declarative BJ rule bundle (pure)', () => {
   it('a vanilla day returns the defaults', () => {
     assertDeepEqual(bjRulesFor(() => null),
       { payout: 1.5, standAt: 17, doubleBonus: false, wildSplit: false, twoHands: false });

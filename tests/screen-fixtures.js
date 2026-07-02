@@ -1,31 +1,28 @@
 // ─── Shared Fixture registry ──────────────────────────────────────────────────
-// One source of truth mapping each Screen state-name to a Fixture: a setup() that puts
-// the global `S` into a representative state, plus optional pinned Modifier (`mod`),
-// settle hint (`settle`, ms), `afterRender` hook, and `group` label.
+// Maps each screen state-name to a Fixture: a setup() function that puts the global
+// `S` into that state, plus an optional pinned Modifier (`mod`), a settle time
+// (`settle`, ms), an `afterRender` hook, and a `group` label for display.
 //
-// Loadable two ways, both with zero build step:
-//   • Browser <script src="screen-fixtures.js"> — the UI Lab frame and the layout-test
-//     harness load it after the game scripts, so SCREEN_FIXTURES / renderFixture become
-//     page globals that reference S, card(), bestOf7(), render(), etc.
-//   • Injected into a headless Playwright page — the Chromium/WebKit screenshot scripts
-//     fs.read this whole file and page.addScriptTag({content}) it, then call
-//     renderFixture(name, opts) by name. (addScriptTag runs as a classic script, so the
-//     top-level declarations attach to the page's global scope just like a <script>.)
+// Two things load this file: a browser <script src="screen-fixtures.js"> tag (the UI
+// Lab and the layout-test harness, after the game scripts, so SCREEN_FIXTURES and
+// renderFixture become page globals that can see S, card(), bestOf7(), render()), and
+// a headless Playwright page, which reads this whole file as text and injects it with
+// page.addScriptTag({content}) before calling renderFixture(name, opts).
 //
-// COVERAGE is the union of both screenshot scripts' states PLUS the worst-case states the
-// layout suite exercises (2-/3-/4-way splits), so the lab, the screenshots, and the
-// Layout DSL all draw from one place and can never drift. See PRD-ui-tweak-pipeline.md.
+// The fixture list here is the union of every state the screenshot scripts and the
+// layout suite need (including worst-case splits), so all three draw from one place
+// and can't drift apart.
 //
-// A Fixture's setup() sets S fields ONLY — it never touches S.forcedMod. The active
-// Modifier is owned by renderFixture: it applies `opts.mod ?? fixture.mod ?? opts.defaultMod`
-// after setup so the modifier is authoritative. States that REQUIRE a specific modifier
-// (ladder day, Player's Choice) pin it via the fixture's `mod` field.
+// A Fixture's setup() only sets S fields; it never touches S.forcedMod. renderFixture
+// applies the active Modifier itself, as `opts.mod ?? fixture.mod ?? opts.defaultMod`,
+// after setup runs. States that need a specific modifier (ladder day, Player's Choice)
+// pin it via the fixture's `mod` field.
 
 (function (root) {
   'use strict';
 
-  // Card-array helpers mirror the inline screenshot fixtures: card() and bestOf7() are
-  // page globals (core.js / uth.js), so these closures resolve them lazily at setup time.
+  // card() and bestOf7() are page globals (core.js / uth.js); each setup() closure
+  // resolves them lazily when it runs, not when this file loads.
   const SCREEN_FIXTURES = {
     // ── General ──────────────────────────────────────────────────────────────
     'intro': {
@@ -48,7 +45,7 @@
     },
     'bj-play': {
       group: 'Blackjack',
-      // Mid-play: A♠ 10♥ 3♦ (soft 14) vs dealer Q♣ 7♠ down — a hand you'd hit.
+      // Mid-play: A♠ 10♥ 3♦ (soft 14) vs dealer Q♣ 7♠ down: a hand you'd hit.
       setup: () => {
         S.screen = 'bj'; S.bjPhase = 'play'; S.chips = 950; S.bjBet = 50; S.bjHand = 0; S.bjHistory = [];
         S.bjPlayer = [card('A','s'), card('10','h'), card('3','d')];
@@ -86,7 +83,7 @@
         S.bjHistory = [{ bet: 50, result: 'win', delta: 50, player: [...S.bjPlayer], dealer: [...S.bjDealer] }];
       },
     },
-    // 4-way split result, mixed outcomes (win/lose/push/win) — the original WebKit review state.
+    // 4-way split result, mixed outcomes (win/lose/push/win): the original WebKit review state.
     'bj-split-result': {
       group: 'Blackjack',
       setup: () => {
@@ -208,7 +205,7 @@
       },
     },
     'uth-sixth': {
-      // Sixth Sense (uth_sixth_card): the densest community row — 5 shared + 1 private card, all
+      // Sixth Sense (uth_sixth_card): the densest community row, 5 shared + 1 private card, all
       // face-up at the turn (the private flips with the river for the final bet).
       group: "Hold'em", mod: 'uth_sixth_card',
       setup: () => {
@@ -262,7 +259,7 @@
     'roulette-spinning': {
       group: 'Roulette',
       // The wheel face is painted by rSpin, not render(); afterRender draws it onto the
-      // canvas render() just created (replaces the old setTimeout(drawStaticWheel,0) trick).
+      // canvas render() just created.
       afterRender: () => { if (typeof drawStaticWheel === 'function') drawStaticWheel(); },
       setup: () => { S.screen = 'roulette'; S.rPhase = 'spinning'; S.chips = 0; S.rSpin = 17; S.rBets = [{ pick:45,bet:50 },{ pick:17,bet:50 },{ pick:40,bet:50 },{ pick:2,bet:50 },{ pick:31,bet:50 }]; },
     },
@@ -321,11 +318,11 @@
   // afterRender(). The reset-and-render dance, written once.
   //
   // opts:
-  //   mod        — explicit Modifier override (preset key string, raw object, or {} for
+  //   mod        : explicit Modifier override (preset key string, raw object, or {} for
   //                "no modifier / no banner"). `null`/missing falls through to the fixture.
-  //   defaultMod — consumer's fallback Modifier when neither opts.mod nor fixture.mod is set
+  //   defaultMod : consumer's fallback Modifier when neither opts.mod nor fixture.mod is set
   //                (screenshots: 'easy_dealer'; layout suite: 'bj_wild_split'; lab: {}).
-  //   afterRender— extra hook run after the fixture's own afterRender (consumer-specific).
+  //   afterRender: extra hook run after the fixture's own afterRender (consumer-specific).
   function renderFixture(name, opts) {
     opts = opts || {};
     const fx = SCREEN_FIXTURES[name];
@@ -338,7 +335,7 @@
 
     fx.setup();
 
-    // opts.mod ?? fixture.mod ?? opts.defaultMod — '`mod` in opts/fixture' lets an explicit
+    // opts.mod ?? fixture.mod ?? opts.defaultMod: '`mod` in opts/fixture' lets an explicit
     // {} or null win over the fallback (so the lab can force "no modifier").
     const mod = ('mod' in opts) ? opts.mod
               : ('mod' in fx)   ? fx.mod

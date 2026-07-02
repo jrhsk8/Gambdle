@@ -317,7 +317,7 @@ describe('computeStreak', () => {
   });
 
   it('a missed day breaks the current run', () => {
-    // played today, yesterday, and 3 days ago — the 2-days-ago gap caps current at 2.
+    // played today, yesterday, and 3 days ago: the 2-days-ago gap caps current at 2.
     withHistory([-3, -1, 0], () => { const s = computeStreak(); assertEqual(s.current, 2, 'current'); assertEqual(s.best, 2, 'best'); });
   });
 
@@ -364,7 +364,7 @@ describe('buildShareText — top-percentile line', () => {
   });
 });
 
-// ─── credit / debit — the single chip-accounting chokepoint ─────────────────
+// ─── credit / debit · the single chip-accounting chokepoint ─────────────────
 describe('credit / debit', () => {
   function withChips(start, fn) { const prev = S.chips; S.chips = start; try { fn(); } finally { S.chips = prev; } }
 
@@ -416,7 +416,7 @@ describe('applyLedger — replays a settlement ledger through an accountant in o
 // ledgerEntry/mkCredit/mkDebit: the validating factory the *Award builders use instead of hand-writing
 // {op,n,reason} literals. Strict mode is on for the whole suite (test.html sets window.__GAMBDLE_TEST__),
 // so a typo'd op or an undeclared reason should throw the moment the entry is built. Mirrors the
-// round-record.test.js _throws pattern used for mkOutcome's own strict-mode typo guard.
+// round-record.test.js _throws pattern used for mkOutcome's own strict-mode validation.
 describe('ledgerEntry — validates op/n/reason in strict mode (typo guard)', () => {
   const _throws = fn => { try { fn(); return false; } catch { return true; } };
   it('builds the same {op,n,reason} shape as the old hand-written literals', () => {

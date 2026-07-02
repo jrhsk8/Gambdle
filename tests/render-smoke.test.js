@@ -46,8 +46,8 @@ const _uthHoleP = _h(['A','s'],['A','c']);  // Pocket Aces
 const _uthHoleD = _h(['2','d'],['7','h']);
 
 // bestOf7 results (computed once; used in UTH result history entries)
-const _uthPB = bestOf7([..._uthHoleP, ..._uthComm]); // Two Pair (AA JJ) — wins
-const _uthDB = bestOf7([..._uthHoleD, ..._uthComm]); // One Pair  (JJ)   — loses
+const _uthPB = bestOf7([..._uthHoleP, ..._uthComm]); // Two Pair (AA JJ), wins
+const _uthDB = bestOf7([..._uthHoleD, ..._uthComm]); // One Pair  (JJ),   loses
 
 // A single resolved UTH win entry
 const _uthWinEntry = {
@@ -84,7 +84,7 @@ describe('render — intro screen', () => {
   });
 });
 
-// ─── Blackjack — bet phase ────────────────────────────────────────────────────
+// ─── Blackjack: bet phase ──────────────────────────────────────────────────────
 
 describe('render — BJ bet phase', () => {
   it('normal: chip selector and deal button present', () => {
@@ -102,7 +102,7 @@ describe('render — BJ bet phase', () => {
   });
 });
 
-// ─── Blackjack — play phase ───────────────────────────────────────────────────
+// ─── Blackjack: play phase ─────────────────────────────────────────────────────
 
 describe('render — BJ play phase', () => {
   it('normal: dealer and player hand sections + action buttons', () => {
@@ -154,7 +154,7 @@ describe('render — BJ play phase', () => {
   });
 });
 
-// ─── Blackjack — result phase ─────────────────────────────────────────────────
+// ─── Blackjack: result phase ───────────────────────────────────────────────────
 
 describe('render — BJ result phase', () => {
   it('win: shows You Win!', () => {
@@ -217,7 +217,7 @@ describe('render — BJ result phase', () => {
   });
 });
 
-// ─── UTH — bet phase ──────────────────────────────────────────────────────────
+// ─── UTH: bet phase ────────────────────────────────────────────────────────────
 
 describe('render — UTH bet phase', () => {
   it('normal: blind paytable and chip selector present', () => {
@@ -235,13 +235,13 @@ describe('render — UTH bet phase', () => {
   });
 });
 
-// ─── UTH — play phases ────────────────────────────────────────────────────────
+// ─── UTH: play phases ──────────────────────────────────────────────────────────
 
 describe('render — UTH play phases', () => {
   const _baseUTH = {
     screen:'uth', chips:800, uthAnte:100, uthRaise:0, uthRaiseMult:0,
     uthHole:_uthHoleP, uthDealer:_uthHoleD, uthComm:_uthComm,
-    // The deal always sets uthPrivate (uth.js:193) — model it so renders don't crash on the days the
+    // The deal always sets uthPrivate (uth.js:193); model it so renders don't crash on the days the
     // Sixth Sense modifier (uth_sixth_card) is active, which reveals this 6th card face-up at the turn.
     uthPrivate:_c('9','c'),
     uthRaised:false, uthRevealComm:0, uthPrevRevealComm:0, uthHand:0, uthHistory:[],
@@ -285,7 +285,7 @@ describe('render — UTH play phases', () => {
   });
 });
 
-// ─── UTH — result phase ───────────────────────────────────────────────────────
+// ─── UTH: result phase ─────────────────────────────────────────────────────────
 
 describe('render — UTH result phase', () => {
   const _baseUTHResult = {
@@ -360,7 +360,7 @@ describe('render — poker phases', () => {
   });
 });
 
-// ─── Roulette — bet phase ─────────────────────────────────────────────────────
+// ─── Roulette: bet phase ───────────────────────────────────────────────────────
 
 describe('render — roulette bet phase', () => {
   it('normal: board and spin button present', () => {
@@ -393,7 +393,7 @@ describe('render — roulette bet phase', () => {
   });
 });
 
-// ─── Roulette — post-bet phases ───────────────────────────────────────────────
+// ─── Roulette: post-bet phases ─────────────────────────────────────────────────
 
 describe('render — roulette spinning / result phases', () => {
   it('spinning: canvas wheel element present', () => {
@@ -408,6 +408,9 @@ describe('render — roulette spinning / result phases', () => {
   it('spinning: shows the read-only Your Bets box (each tile listed, no remove buttons)', () => {
     withRender({
       screen:'roulette', rPhase:'spinning', chips:0, rSpin:17,
+      // Pinned mod: the real daily modifier can cap roulette at 1-3 bets, which would
+      // hide the later tiles from the tracker on those days. Multi Bet allows all 5.
+      forcedMod:'r_multi_bet',
       rBets:[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}],
     }, html => {
       assert(html.includes('Your Bets 5/'), 'shows the bets-tracker title with count');

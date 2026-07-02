@@ -1,19 +1,17 @@
 // ─── BET INTAKE (pure) ───────────────────────────────────────────────────────
-// The per-game bet-cap, all-in, and guard/label math, lifted out of the onclick handlers
-// so it can be unit-tested directly. Everything here is PURE: values in, values out — it
-// never reads or writes S, touches the DOM, plays sound, or calls saveState()/render().
-// Two adapters drive it: the in-page handlers in ui.js (addChip/clearBet/allIn/maxBet)
-// and the ladder.js cap helper (ladMaxStake, composed into ladderMode()), plus the unit
-// tests in bet-intake.test.js and bet-guard.test.js.
+// The per-game bet-cap, all-in, and guard/label math. Everything here takes values in and
+// returns values out: it never reads or writes S, touches the DOM, plays sound, or calls
+// saveState()/render(). Used by the in-page handlers in ui.js (addChip/clearBet/allIn/maxBet)
+// and by ladder.js's cap helper (ladMaxStake, composed into ladderMode()).
 // This is the one place that answers "how is a bet capped, is it biddable, and what does
-// the on-screen cap label say?" — so the cap rule and its displayed label can't drift.
+// the on-screen cap label say?" so the cap rule and its displayed label can't drift.
 //
 //   ladderMaxStake(chips)            → the Ladder's raw 25%-of-stack cap
 //   maxFor(game, chips, mods)        → the most a player may stake on `game`
 //   addToBet(current, delta, max)    → current + a chip's value, clamped into [0, max]
 //   clearedBet()                     → 0
 //   allInAmount(game, chips, mods)   → the all-in stake (the cap, today)
-//   betGuard(game, chips, mods)      → {max, canBet, allIn, label} — the cap plus whether
+//   betGuard(game, chips, mods)      → {max, canBet, allIn, label}: the cap plus whether
 //                                       a bet can be placed at all, plus the display label
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -42,20 +40,19 @@ function addToBet(current, delta, max){ return Math.max(0, Math.min(current + de
 function clearedBet(){ return 0; }
 
 // All-in stakes the cap. Kept as its own function (rather than an alias of maxFor) so a
-// future game or Modifier can make all-in diverge from the per-chip cap without touching
+// future game or modifier can make all-in diverge from the per-chip cap without touching
 // addToBet's clamp.
 function allInAmount(game, chips, mods = {}){ return maxFor(game, chips, mods); }
 
 // The one place that answers every question a bet-entry screen asks about its cap: what's
 // the max, can a bet be placed at all right now, what's the all-in stake, and what does the
 // on-screen "max" label say. `mods.minChips` (if any) is the modifier's minimum-stake floor
-// (e.g. high_stakes' min_chips) — below it, a bet is never valid even if `max` is positive,
-// same rule isChipBusted() (core.js) applies at the whole-game level.
-// The label is the exact markup ladder.js's bet-phase readout hand-built before this seam
-// existed ("Max bet: <b>&lt;number&gt;</b>") — kept byte-identical (incl. the <b> wrapper
-// around just the number) so no layout test shifts and a caller can drop it straight into a
-// template. Built with the JS-builtin toLocaleString() (not ui.js's fmt(), which is the same
-// thing) so bet.js stays pure and dependency-free of ui.js.
+// (e.g. high_stakes' min_chips): below it, a bet is never valid even if `max` is positive.
+// The same rule applies at the whole-game level via isChipBusted() (core.js).
+// The label markup ("Max bet: <b>&lt;number&gt;</b>", with the <b> wrapper around just the
+// number) is exact: layout tests measure it, so a caller can drop it straight into a
+// template. Built with the JS-builtin toLocaleString() (not ui.js's fmt(), which does the
+// same thing) so this file has no dependency on ui.js.
 function betGuard(game, chips, mods = {}){
   const max = maxFor(game, chips, mods);
   const minChips = mods.minChips || 0;

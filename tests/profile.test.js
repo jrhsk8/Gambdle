@@ -164,7 +164,7 @@ describe('UNLOCKS — catalog integrity', () => {
   });
 });
 
-// ─── getNetTier — the lifetime-net title ladder ───────────────────────────────
+// ─── getNetTier: the lifetime-net title ladder ───────────────────────────────
 // Separate from the daily CHIP_TIERS: lifetime net compounds across days and can
 // go negative, so the breakpoints are an order of magnitude larger and no title
 // is shared with the daily ladder.

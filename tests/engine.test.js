@@ -1,10 +1,11 @@
 // ─── Replay Engine tests ──────────────────────────────────────────────────────
-// The engine (src/engine.js) recomputes a Run's score from the seed + Transcript. The
-// strongest check is EQUIVALENCE: drive the REAL game functions (which consume the deck and
-// record history exactly as a player would), then assert replayRun() lands on the same chips as
-// recalcChips() — without predicting any outcome. That makes the engine's independent deck
-// reconstruction the thing under test. Targeted unit tests then pin the subtle paths (a player
-// blackjack still drawing the dealer, Double Ball, the Ladder outcomes) and the legality rejections.
+// The engine (src/engine.js) recomputes a Run's score from the seed and transcript. The
+// strongest check is equivalence: drive the real game functions (which consume the deck and
+// record history exactly as a player would), then assert replayRun() lands on the same chips
+// as recalcChips(), without predicting any outcome. That way the thing under test is the
+// engine's independent deck reconstruction. Targeted unit tests then pin down the subtle paths
+// (a player blackjack that still draws the dealer, Double Ball, the Ladder outcomes) and the
+// legality rejections.
 
 // ─── Setup ──────────────────────────────────────────────────────────────────
 const _engSavedSeedFlag = _ls.getItem('gambdle_use_test_seed');
@@ -17,13 +18,13 @@ sndShuffle = cb => { if(cb) cb(); };
 
 function _clone(x){ return JSON.parse(JSON.stringify(x)); }
 function _freshDeal(){ return genDeal(); }            // pristine DEAL (test overrides applied, no play mutation)
-function _restoreDEAL(){ Object.assign(DEAL, genDeal()); } // first_ace mutates DEAL in place — reset between tests
+function _restoreDEAL(){ Object.assign(DEAL, genDeal()); } // bj_first_ace mutates DEAL in place; reset between tests
 
 function _resetRun(){
   _restoreDEAL();
   S.screen='intro'; S.chips=START_CHIPS; S.tx=[];
   S.bjHand=0; S.bjPhase='bet'; S.bjBet=0; S.bjPlayer=[]; S.bjDealer=[]; S.bjResult=null; S.bjHistory=[]; S.bjIdx=0;
-  S.bjDeck2=null; S.bjDeck2Idx=0; S.bjCandidates=null; // Double Vision — clear the fresh per-hand deck between runs
+  S.bjDeck2=null; S.bjDeck2Idx=0; S.bjCandidates=null; // Double Vision: clear the fresh per-hand deck between runs
   S.bjSplit=false; S.bjSplitHands=[]; S.bjSplitActive=0; S.bjSplitBets=[]; S.bjSplitResults=[]; S.bjSplitDone=[];
   S.bjDoubled=false; S.bjSplitDoubled=[]; S.bjActed=false; S.bjDealerReveal=false; S.bjCelebrating=false;
   S.uthHand=0; S.uthPhase='bet'; S.uthAnte=0; S.uthRaise=0; S.uthRaiseMult=0; S.uthRaised=false; S.uthFolded=false;
@@ -57,7 +58,7 @@ function _driveBJ(bet, actions, pick=0){
   bjResolve(true);
 }
 
-// BJ split: split the opening pair, then play each sub-hand. `plan` is an array of arrays — one
+// BJ split: split the opening pair, then play each sub-hand. `plan` is an array of arrays: one
 // list of 'hit'|'stand'|'double' per sub-hand, in order. Advance/resolution are stepped by hand.
 function _driveBJSplit(bet, plan){
   S.bjBet=bet; S.bjPhase='bet';
@@ -78,7 +79,7 @@ function _driveBJSplit(bet, plan){
     _bjResolving=false;
     const prevActive=S.bjSplitActive;
     bjAdvanceSplit(); // mark current done, move on (deals 2nd card / resolves when all done)
-    if(S.bjSplitActive===prevActive && S.bjPhase==='play'){ /* same hand still acting — shouldn't happen */ break; }
+    if(S.bjSplitActive===prevActive && S.bjPhase==='play'){ break; } // same hand still acting, shouldn't happen
     if(S.bjSplitDone.every(d=>d)){ break; }
   }
   _bjResolving=false;
@@ -97,8 +98,8 @@ function _driveUTH(ante, actions){
     else if(a.a==='fold') uthFold();
     else if(a.a==='timetravel') doTimeTravel();
   }
-  // A raise commits to showdown; the player advances the remaining streets via uthNextStreet
-  // (NOT logged to the transcript — the engine infers the showdown from the raise alone).
+  // A raise commits to showdown; the player advances the remaining streets via uthNextStreet.
+  // That step is not logged to the transcript: the engine infers the showdown from the raise alone.
   let guard=0;
   while(S.uthRaised && S.uthPhase!=='reveal' && S.uthPhase!=='result' && guard++<5) uthNextStreet();
 }
@@ -129,7 +130,7 @@ function _replayOf(mods, spinWords){
 }
 
 // ─── Equivalence: Blackjack ───────────────────────────────────────────────────
-describe('engine — BJ equivalence', () => {
+describe('engine: BJ equivalence', () => {
   it('three stand hands replay to the same chips', () => {
     _resetRun(); const mods=_modsFor({});
     _driveBJ(100,['stand']); _driveBJ(100,['stand']); _driveBJ(100,['stand']);
@@ -161,16 +162,16 @@ describe('engine — BJ equivalence', () => {
 
   it('a split hand replays identically', () => {
     _resetRun(); const mods=_modsFor({});
-    // TEST_CARD_OVERRIDE hand 0 deals the player a pair of 8s — split, stand both sub-hands.
+    // TEST_CARD_OVERRIDE hand 0 deals the player a pair of 8s: split, stand both sub-hands.
     _driveBJSplit(100, [['stand'],['stand']]);
     const {expected,out}=_replayOf(mods);
     assertEqual(out.chips, expected, 'split replay chips');
   });
 
-  it('a split hand WITH a hit replays identically (regression: seed plumbing in _replayBJSplit)', () => {
-    // 2026-07-01 prod: every split+hit transcript threw ReferenceError in replay because
-    // _replayBJSplit's beforeHit read `seed` without it being passed in — and no equivalence
-    // test hit a split sub-hand, so the suite stayed green. This is that missing shape.
+  it('a split hand WITH a hit replays identically (regression: seed not passed into _replayBJSplit)', () => {
+    // 2026-07-01: every split+hit transcript threw ReferenceError in replay because
+    // _replayBJSplit's beforeHit read `seed` without it being passed in, and no equivalence
+    // test hit a split sub-hand, so the suite stayed green. This test covers that case.
     _resetRun(); const mods=_modsFor({});
     _driveBJSplit(100, [['hit','stand'],['stand']]);
     const {expected,out}=_replayOf(mods);
@@ -181,7 +182,7 @@ describe('engine — BJ equivalence', () => {
     // Old clients could log a tap landing as the natural auto-settled; the engine used to hard-reject
     // (bj_act_after_natural). Skipping mirrors the ended-hand convention: the natural's settle is the
     // outcome either way, and a run where the action really did something still surfaces as a chip
-    // mismatch. Player A,K = natural; dealer 9,7 draws the 5 to 21 — natural still wins 3:2.
+    // mismatch. Player A,K = natural; dealer 9,7 draws the 5 to 21; natural still wins 3:2.
     const deal = { bjShoe: [{r:'A',s:'♠'},{r:'K',s:'♥'},{r:'9',s:'♦'},{r:'7',s:'♣'},{r:'5',s:'♥'}],
                    pokerDecks: [], uthDeck: [], ladderCards: [], rSpinOverride: null };
     const out = replayRun(1, {}, [
@@ -207,8 +208,8 @@ describe('engine — BJ equivalence', () => {
 describe('engine — UTH equivalence', () => {
   it('check/raise/fold across three hands replays identically', () => {
     _resetRun(); const mods=_modsFor({});
-    _driveUTH(100,[{a:'check'},{a:'check'},{a:'raise',mult:1}]); // check to turn, then play 1×
-    _driveUTH(100,[{a:'raise',mult:3}]);                          // preflop 3× → showdown
+    _driveUTH(100,[{a:'check'},{a:'check'},{a:'raise',mult:1}]); // check to turn, then play 1x
+    _driveUTH(100,[{a:'raise',mult:3}]);                          // preflop 3x, straight to showdown
     _driveUTH(100,[{a:'fold'}]);                                  // fold preflop
     const {expected,out}=_replayOf(mods);
     assertEqual(out.chips, expected);
@@ -232,7 +233,7 @@ describe('engine — UTH equivalence', () => {
   it('uth_sixth_card (Sixth Sense) private tail card replays identically', () => {
     _resetRun(); const mods=_modsFor('uth_sixth_card');
     // The private 6th community card (deck tail 27+) joins the PLAYER pool only; the dealer is unchanged.
-    // (Flop raise is 2x; the street graph now rejects the impossible 1x this test used to sneak past the UI.)
+    // Flop raise is 2x; the street graph rejects the impossible 1x this test used to sneak past the UI.
     _driveUTH(100,[{a:'raise',mult:3}]); _driveUTH(100,[{a:'check'},{a:'raise',mult:2}]); _driveUTH(100,[{a:'fold'}]);
     const {expected,out}=_replayOf(mods);
     assertEqual(out.chips, expected, 'Sixth Sense replay chips == recalcChips');
@@ -288,10 +289,11 @@ describe('engine — Ladder equivalence', () => {
 });
 
 // ─── Targeted: a player blackjack still draws the dealer (deck consumption) ────
-describe('engine — player blackjack draws the dealer (within its own segment)', () => {
+describe('engine: player blackjack draws the dealer (within its own segment)', () => {
   const C = (r,s) => ({r,s:{s:'♠',h:'♥',d:'♦',c:'♣'}[s]});
   it('scores blackjack and draws the dealer without shifting the independent next hand', () => {
-    // 30-card shoe → SEG = ⌊30/3⌋ = 10, so hand 0 draws from [0,10) and hand 1 from [10,20) — independent.
+    // 30-card shoe, segment size = floor(30/3) = 10, so hand 0 draws from [0,10) and hand 1 from
+    // [10,20), independent of each other.
     // Hand 0: player A,K (blackjack) vs dealer 9,7 (=16, must draw idx4 = 5 → 21). That dealer draw is
     // consumed INSIDE hand 0's segment and does NOT reach hand 1. Hand 1 (segment start idx10): player
     // 10,6 vs dealer Q,2 (=12, draws idx14 = 8 → 20).
@@ -301,7 +303,7 @@ describe('engine — player blackjack draws the dealer (within its own segment)'
     const deal = { bjShoe: shoe, pokerDecks:[], uthDeck:[], ladderCards:[], rSpinOverride:null };
     const tx = [ {g:'bj',a:'deal',h:0,bet:100},
                  {g:'bj',a:'deal',h:1,bet:100}, {g:'bj',a:'stand',h:1,s:0} ];
-    const out = replayRun(20260620, {}, tx, { deal: _clone(deal) }); // seed ≥ cutover → per-hand segments
+    const out = replayRun(20260620, {}, tx, { deal: _clone(deal) }); // seed at/after cutover: per-hand segments
     // Hand 0: blackjack +150 (the dealer draw never changes a blackjack win). Hand 1: player 16 stands
     // vs dealer 20 → -100. Net +50.
     assertEqual(out.chips, START_CHIPS + 150 - 100, 'blackjack +150; independent hand 1 loses 100');
@@ -309,13 +311,13 @@ describe('engine — player blackjack draws the dealer (within its own segment)'
 });
 
 // ─── Targeted: roulette spin modifiers ────────────────────────────────────────
-describe('engine — roulette spin mapping', () => {
+describe('engine: roulette spin mapping', () => {
   it('Double Ball pays when either pocket hits', () => {
-    // No override → words map through. r_double_ball gives a second distinct pocket.
+    // No override, so words map straight through. r_double_ball gives a second distinct pocket.
     const deal = { bjShoe:[], pokerDecks:[], uthDeck:[], ladderCards:[], rSpinOverride:null };
     const words = [3, 9, 1, 0]; // n = 3%37 = 3; n2 = (3+1+(1%36))%37 = 5
     const mods = { r_double_ball: true };
-    const tx = [ {g:'r',a:'spin',bets:[[5,100]],respin:false} ]; // bet on pocket 5 — wins via the 2nd ball
+    const tx = [ {g:'r',a:'spin',bets:[[5,100]],respin:false} ]; // bet on pocket 5, wins via the 2nd ball
     const out = replayRun(1, mods, tx, { deal: _clone(deal), spinWords:{0:words} });
     assertEqual(out.rNet, 100*35, 'second ball (pocket 5) wins the straight-up bet');
   });
@@ -332,7 +334,7 @@ describe('engine — roulette spin mapping', () => {
 });
 
 // ─── Legality rejection ───────────────────────────────────────────────────────
-describe('engine — legality rejection', () => {
+describe('engine: legality rejection', () => {
   function rejects(reason, fn){
     let threw=null;
     try { fn(); } catch(e){ threw=e; }
@@ -344,7 +346,7 @@ describe('engine — legality rejection', () => {
   it('rejects betting more than the stack holds', () => {
     rejects('bj_overbet', () => replayRun(1, {}, [{g:'bj',a:'deal',h:0,bet:5000}], { deal: emptyDeal() }));
   });
-  it('skips (not rejects) an action recorded after a natural — the settle stands', () => {
+  it('skips (not rejects) an action recorded after a natural: the settle stands', () => {
     // Was a hard bj_act_after_natural rejection; relaxed 2026-07-01 to the ended-hand skip
     // convention (see _replayBJHand) after 12 honest celebration-race flags on 2026-06-26.
     // The stray hit draws nothing and moves nothing: the natural still pays 3:2.
@@ -377,22 +379,23 @@ describe('engine — legality rejection', () => {
     const deal = { bjShoe:[], pokerDecks:[], uthDeck:[], ladderCards:[{r:'5',s:'♠'},{r:'9',s:'♦'}], rSpinOverride:null };
     rejects('lad_cash_norung', () => replayRun(1, {}, [{g:'lad',a:'stake',v:100},{g:'lad',a:'cash'}], { deal }));
   });
-  it('rejects a UTH ante above the ⌊2/3⌋ cap even when it fits the stack', () => {
-    // START_CHIPS=1000 → maxFor('uth',1000)=666. An ante of 700 fits the stack but exceeds the cap
+  it('rejects a UTH ante above the floor(2/3) cap even when it fits the stack', () => {
+    // START_CHIPS=1000, so maxFor('uth',1000)=666. An ante of 700 fits the stack but exceeds the cap
     // the live bet UI enforces, so the Engine must reject it (it would otherwise replay as legal).
     rejects('uth_overbet', () => replayRun(1, {}, [{g:'uth',a:'deal',h:0,ante:700}], { deal: emptyDeal() }));
   });
   it('rejects a UTH raise whose mult is illegal for the street the engine derives', () => {
-    // UTH_STREET_GRAPH (uth.js) only ever offers 2x on the flop (preflop is 4x/3x, turn is 1x) — a
-    // 1x flop raise is a mult the live buttons could never produce, a variance-reducing cheat vector
-    // once replay enforcement is live. The engine derives the street from its own event walk (one
-    // check → flop), never from the transcript's `st` claim — a forged `st` can't whitelist a mult.
+    // UTH_STREET_GRAPH (uth.js) only ever offers 2x on the flop (preflop is 4x/3x, turn is 1x), so a
+    // 1x flop raise is a mult the live buttons could never produce. Allowing it would let a player
+    // submit a lower-variance raise than the game actually offers. The engine derives the street
+    // from its own event walk (one check means flop), never from the transcript's `st` claim, so a
+    // forged `st` can't make an illegal mult look legal.
     rejects('uth_bad_mult', () => replayRun(1, {}, [
       {g:'uth',a:'deal',h:0,ante:100}, {g:'uth',a:'check',h:0,st:'preflop'},
       {g:'uth',a:'raise',h:0,mult:1,st:'flop'},
     ], { deal: emptyDeal() }));
     // And the forged-st variant: claiming st:'turn' (where 1x IS legal) must not launder a 1x raise
-    // that actually happened on the flop (only one check consumed → engine says flop).
+    // that actually happened on the flop (only one check consumed, so the engine says flop).
     rejects('uth_bad_mult', () => replayRun(1, {}, [
       {g:'uth',a:'deal',h:0,ante:100}, {g:'uth',a:'check',h:0,st:'preflop'},
       {g:'uth',a:'raise',h:0,mult:1,st:'turn'},
@@ -411,7 +414,7 @@ describe('engine — legality rejection', () => {
 });
 
 // ─── auditOutcome ───────────────────────────────────────────────────────────────
-describe('engine — auditOutcome', () => {
+describe('engine: auditOutcome', () => {
   it('recomputes each recorded round to its stored delta', () => {
     _resetRun(); const mods=_modsFor({});
     _driveBJ(100,['stand']); _driveBJ(120,['hit','stand']);
@@ -423,7 +426,7 @@ describe('engine — auditOutcome', () => {
 });
 
 // ─── buildDeal ────────────────────────────────────────────────────────────────
-describe('engine — buildDeal', () => {
+describe('engine: buildDeal', () => {
   it('produces the documented Deal shape with the extended BJ shoe', () => {
     const d = buildDeal(1);
     assert(Array.isArray(d.bjShoe) && d.bjShoe.length === 104 + 104, 'bjShoe = base 104 + tail 104');
@@ -433,7 +436,7 @@ describe('engine — buildDeal', () => {
     assertEqual(d.rSpinOverride, null, 'no spin override (pristine)');
   });
   it('is deterministic for a seed and re-derivable card-for-card', () => {
-    assertDeepEqual(buildDeal(12345), buildDeal(12345), 'same seed → identical deal');
+    assertDeepEqual(buildDeal(12345), buildDeal(12345), 'same seed produces an identical deal');
     assert(JSON.stringify(buildDeal(1)) !== JSON.stringify(buildDeal(2)), 'different seeds differ');
   });
 });
@@ -441,7 +444,7 @@ describe('engine — buildDeal', () => {
 // ─── config horizon (enforce gate) ──────────────────────────────────────────────
 // submit-score only treats the replay as authoritative for seed <= replayConfigHorizon(), so a day
 // whose DAILY_* config isn't in the deployed bundle can never mass-reject honest players.
-describe('engine — config horizon', () => {
+describe('engine: config horizon', () => {
   it('returns the max calendar-seed across both day-config tables', () => {
     const keys = [...Object.keys(DAILY_MODIFIERS), ...Object.keys(DAILY_SEED_OVERRIDES)].map(Number);
     assertEqual(replayConfigHorizon(), Math.max(...keys), 'horizon = furthest configured day');

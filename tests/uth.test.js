@@ -215,7 +215,7 @@ describe('bestOf7', () => {
   });
 
   it('finds four-of-a-kind even when kings are at non-consecutive positions', () => {
-    // K at positions 0, 2, 4, 6 — first 5 cards are only trips
+    // K at positions 0, 2, 4, 6: the first 5 cards are only trips
     const cards = h([['K','s'],['2','h'],['K','h'],['3','d'],['K','d'],['4','c'],['K','c']]);
     const r = bestOf7(cards);
     assertEqual(r.cat, 7, 'should find four Kings');
@@ -291,7 +291,7 @@ describe('uthBlindDelta', () => {
   it('Flush (cat 5) pays 1.5x blind (rounded up)', () => {
     assertEqual(uthBlindDelta(5, 100), 150);
     assertEqual(uthBlindDelta(5, 50), 75);
-    // Odd blind: Math.ceil(50 * 1.5 * 1) = Math.ceil(75) = 75 — but test with odd
+    // Odd blind: Math.ceil(50 * 1.5 * 1) = Math.ceil(75) = 75, but test with an odd blind
     assertEqual(uthBlindDelta(5, 51), Math.ceil(51 * 1.5));
   });
 
@@ -322,9 +322,8 @@ describe('uthBlindDelta', () => {
 // ─── UTH game flow: uthFold / uthRaise / uthResolve ─────────────────────────
 // These exercise the state machine and chip math, not just hand evaluation.
 
-// Thin adapter over the shared tests/game-harness.js withGame(): same call signature as
-// before (plain Object.assign, caller invokes the action inside fn()), but the snapshot/
-// restore underneath is the one shared implementation (see game-harness.js for the contract).
+// Built on the shared tests/game-harness.js withGame(): a plain Object.assign onto S, the
+// caller invokes the action inside fn(), and withGame handles the snapshot/restore.
 registerGameBuilder('uth', overrides => {
   Object.assign(S, overrides);
 });
@@ -518,9 +517,9 @@ describe('UTH odd-bet handling — ante=ceil, blind=floor', () => {
 });
 
 // ─── Idempotency: a UTH hand settles exactly once ───────────────────────────
-// Regression for the "win counted twice" class of bug — a double-tap on the resolving action,
-// or a stray call, must not credit the payouts / push the loss a second time.
-describe('uthResolve / uthFold — settle exactly once', () => {
+// A double-tap on the resolving action, or a stray call, must not credit the payouts or
+// push the loss a second time.
+describe('uthResolve / uthFold: settle exactly once', () => {
   it('a duplicate uthResolve does not re-credit or double the history', () => {
     withUth({
       screen:'uth', uthPhase:'turn', uthAnte:200, uthRaise:100, uthRaiseMult:0,
@@ -555,10 +554,10 @@ describe('uthResolve / uthFold — settle exactly once', () => {
   });
 });
 
-// ─── Pure UTH resolver (PRD integrity Phase 2 · Candidate 02) ─────────────────
-// The three-way ante/blind/play settlement tested through its interface — synthetic bestOf7 results
-// {cat, score} in, the per-leg deltas + result out. No S, no DOM, no credit.
-describe('resolveUTH — three-way settlement (pure)', () => {
+// ─── Pure UTH resolver ─────────────────────────────────────────────────────────
+// The three-way ante/blind/play settlement tested through its interface: synthetic bestOf7
+// results {cat, score} in, the per-leg deltas and result out. No S, no DOM, no credit.
+describe('resolveUTH: three-way settlement (pure)', () => {
   const baseMods = { wm: 1, doublePlay: false, hardQualify: false, blindExtended: false, blindBoost: 1 };
   it('a win pays play, ante (dealer qualifies), and the blind by category', () => {
     const r = resolveUTH({ cat: 4, score: 6000 }, { cat: 4, score: 5000 }, 100, 100, 100, baseMods);
@@ -597,9 +596,9 @@ describe('resolveUTH — three-way settlement (pure)', () => {
   });
 });
 
-// The credit mapping as pure data (Candidate 5): uthAward returns the ordered ledger applyLedger
-// replays. Order (play, ante, blind) and the ante-push variant are load-bearing — assert them directly.
-describe('uthAward — settlement ledger, order play→ante→blind (pure)', () => {
+// The credit mapping is pure data: uthAward returns the ordered ledger applyLedger replays.
+// The order (play, ante, blind) and the ante-push variant both matter, so assert them directly.
+describe('uthAward: settlement ledger, order play/ante/blind (pure)', () => {
   it('a win emits three credits; the ante pushes when the dealer does not qualify', () => {
     const res = { result: 'win', playDelta: 100, anteDelta: 0, blindDelta: 0, dealerQualifies: false };
     assertDeepEqual(uthAward(res, 100, 100, 100), [
@@ -620,9 +619,9 @@ describe('uthAward — settlement ledger, order play→ante→blind (pure)', () 
   });
 });
 
-// Candidate 2: uthRulesFor maps a mod accessor → the day's UTH rule bundle. ONE source for the scalars
-// + deal-shape flags, live (uthRules → getMod) and in replay (engine → _engMod).
-describe('uthRulesFor — declarative UTH rule bundle (pure)', () => {
+// uthRulesFor maps a mod accessor to the day's UTH rule bundle: one source for the scalars
+// and deal-shape flags, live (uthRules -> getMod) and in replay (engine -> _engMod).
+describe('uthRulesFor: declarative UTH rule bundle (pure)', () => {
   it('a vanilla day returns the defaults (blindBoost 1, blindExtended null, flags false)', () => {
     assertDeepEqual(uthRulesFor(() => null), {
       doublePlay: false, hardQualify: false, blindExtended: null, blindBoost: 1,

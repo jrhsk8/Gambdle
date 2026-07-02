@@ -1,11 +1,11 @@
-// ─── Tutorial tip balloon — device fit ──────────────────────────────────────────
+// ─── Tutorial tip balloon: device fit ───────────────────────────────────────────
 // The tip balloon is position:fixed, anchored to the window's bottom-right, capped at
 // min(300px, 100vw - 24px). It must sit fully on-screen and never cause horizontal
 // scroll, on every viewport the layout suite cycles through (mobile floor 360×780 up
 // to 4K). Loaded after layout.test.js so it can reuse its _ltSnap / _ltRestore globals.
 
 describe('layout — tutorial tip balloon', () => {
-  // Renders a real screen, then shows the balloon with the longest real tip body
+  // Renders a real screen, then shows the balloon with the longest real tip text
   // (worst case for width/height). Returns the balloon element.
   function showBalloon(overrides) {
     const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);

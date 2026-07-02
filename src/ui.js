@@ -1,3 +1,7 @@
+// Shared UI rendering helpers: number/chip formatting, card and control markup,
+// surgical DOM patching (so mid-hand updates never call render()), and sharing.
+// See .claude/ARCHITECTURE.md for the render() rules this file has to respect.
+
 // ─── UI HELPERS ───────────────────────────────────────────
 const fmt=n=>n.toLocaleString();
 // Compact number for tight readouts (bet box, blind pay-table payouts): full below 1,000; above it,
@@ -9,7 +13,7 @@ function fmtK(n){
   const sgn=n<0?'-':'';
   let div=a<1e6?1e3:1e6, unit=a<1e6?'k':'m';
   let v=Math.round(a/div*100)/100;
-  if(unit==='k'&&v>=1000){ v=Math.round(v/1000*100)/100; unit='m'; } // 999,999 -> 1m, not 1000k
+  if(unit==='k'&&v>=1000){ v=Math.round(v/1000*100)/100; unit='m'; } // 999,999 becomes 1m, not 1000k
   const s=Number.isInteger(v)?String(v):v.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
   return sgn+s+unit;
 }
@@ -18,18 +22,18 @@ const col=n=>n>0?'#1fa845':n<0?'#e03535':'#000';
 
 // ─── CHIP DISPLAY (chip_div modifier) ─────────────────────────────────
 // Some days the player runs a tiny stack shown at 1/Nth its internal value (a "10 chip"
-// stack that scores ×100, say). The internal chip balance, every payout, the submitted
-// score, the leaderboard, tier badges and the integrity replay all stay FULL-scale —
-// only these player-facing readouts divide. So the "×100" is purely the gap between what
+// stack that scores x100, say). The internal chip balance, every payout, the submitted
+// score, the leaderboard, tier badges and the integrity replay all stay full scale:
+// only these player-facing readouts divide. So the "x100" is purely the gap between what
 // you see while playing and the score that's recorded; nothing downstream changes.
 //
-// chipDisp() is the ONE place that owns every chip-display rule: which screens scale
-// (CHIP_SCALE_SCREENS — the in-run ones; the final Daily Results screen and any cross-day
+// chipDisp() is the one place that owns every chip-display rule: which screens scale
+// (CHIP_SCALE_SCREENS, the in-run ones; the final Daily Results screen and any cross-day
 // total are deliberately excluded so they reveal the true full-scale score), how the
-// chip_div modifier scales (divide, round to 2dp to kill FP fuzz), and signed vs
-// K-formatted output. cfmt/cfmtK/csign are the thin public entry points other files call;
-// chipScale/chipDispDiv are exposed too because other files (roulette.js's chip-relabel,
-// screens.js's intro/results captions) need the raw divisor for non-formatting decisions,
+// chip_div modifier scales (divide, round to 2dp to kill floating-point fuzz), and signed vs
+// K-formatted output. cfmt/cfmtK/csign are the public functions other files call;
+// chipScale/chipDispDiv are exported too because roulette.js's chip-relabel and
+// screens.js's intro/results captions need the raw divisor for non-formatting decisions,
 // not just formatted text. With no chip_div mod (or off an in-run screen), the divisor is
 // 1 and every c* helper behaves exactly like fmt/fmtK/sign.
 const CHIP_SCALE_SCREENS = new Set(['intro','bj','uth','poker','roulette','ladder','borrow']);
@@ -55,7 +59,7 @@ function cardHTML(c,sz='md',ex='',dl=0,anim=true){
   const cl=(RED_S.has(c.s)?'red':'blk')+' '+(SUIT_CLS[c.s]||'suit-s');
   const ds=anim&&dl?`animation-delay:${dl}s`:'';
   // U+FE0E forces text presentation so iOS renders the suit as a flat glyph that honors
-  // the card's red/black color, instead of a multicolor emoji. Display-only — the stored
+  // the card's red/black color, instead of a multicolor emoji. Display-only: the stored
   // c.s stays a bare symbol for game logic (RED_S, evalBet, card matching).
   const s=c.s+'︎';
   return`<div class="card ${sz} ${cl}${anim?' deal-anim':''}" style="${ds}${ex?';'+ex:''}">
@@ -68,7 +72,7 @@ function cardHTML(c,sz='md',ex='',dl=0,anim=true){
 // Renders an array of cards with staggered deal-in animation.
 // animFrom=ANIM_NONE (default) suppresses all animation; 0 animates all cards.
 // delay formula for animated cards: (i - animFrom) * interval + base
-// ex: per-card extra style — string (shared) or function(card, idx) => string.
+// ex: per-card extra style, either a shared string or a function(card, idx) => string.
 function renderCards(cards, sz, animFrom=ANIM_NONE, interval=0, base=0, ex='') {
   return cards.map((c, i) => {
     const n = i >= animFrom;
@@ -151,7 +155,7 @@ function hdr(sub){
 // Returns the gold modifier banner HTML, or '' if no modifier is active today.
 // Injected into .panel by render() after the screen HTML is built, not part of any screenX() call.
 function modBannerHTML(slim=false){
-  // The picker screen IS the modifier reveal — don't also stack the banner above it.
+  // The picker screen IS the modifier reveal: don't also stack the banner above it.
   if (S.screen === 'choice') return '';
   const modTitle = getMod('title');
   const modDesc = getMod('desc');
@@ -181,11 +185,11 @@ function _liveBetMods(){
 function maxBet(){ return betGuard(S.screen, S.chips, _liveBetMods()).max; }
 
 // ─── SURGICAL PATCH HELPERS ───────────────────────────────────
-// The single home of the "patch in place, else rebuild from S" decision — so the never-render()-
-// mid-hand invariant lives in one place instead of hand-written at every site. `target` is an
+// The single place that decides "patch in place, else rebuild from S", so the never-render()-
+// mid-hand rule lives in one place instead of being hand-written at every call site. `target` is an
 // element-id string, an element, or an array of either; all must resolve. With a `fn`, runs
 // fn(...els) when they resolve (returns true) or render()s and returns false. Without a `fn` (guard
-// form, for long patch bodies), returns the resolved elements array, or null after rendering — so
+// form, for long patch bodies), returns the resolved elements array, or null after rendering. So
 // the caller does `const t = patchOrRender(ids, null, opts); if(!t) return; const [a,b] = t;`.
 // opts.noAnim suppresses the fallback render's card animation (a mid-hand fallback must not replay
 // deal animations).
@@ -209,11 +213,11 @@ function patchZones(map, opts){
   for(const id of ids) document.getElementById(id).innerHTML = map[id]();
   return true;
 }
-// Lightweight guard for fine-grained surgical mutation: run fn(el) only if #id is on screen, else
-// no-op (returns whether it ran). The companion to patchOrRender/patchZones — those replace innerHTML
-// and fall back to a full render(); reach for patchEl when you're mutating one element's
-// style/textContent/children in place and a missing element should simply be skipped, concentrating
-// the get-by-id-then-guard dance in one seam instead of hand-rolling it at every call site.
+// Lightweight guard: run fn(el) only if #id is on screen, else no-op (returns whether it ran).
+// The companion to patchOrRender/patchZones: those replace innerHTML and fall back to a full
+// render(); reach for patchEl when you're mutating one element's style/textContent/children in
+// place and a missing element should simply be skipped, rather than hand-rolling the
+// get-by-id-then-guard check at every call site.
 function patchEl(id, fn){
   const el = document.getElementById(id);
   if(el){ fn(el); return true; }
@@ -223,15 +227,15 @@ function patchEl(id, fn){
 // check, reimplemented rather than shared since that one lives in the engine-bundled half of core.js
 // and this is DOM-only). Kept local to ui.js so patchGroup's warning never fires for real players.
 const _patchGroupStrict = () => !!DEV_OVERRIDE || !!(typeof window !== 'undefined' && window.__GAMBDLE_TEST__);
-// Atomic multi-element patch group: the answer to sites like rAddBet that touch several named
-// elements (a mix of textContent/class/innerHTML tweaks, not just "replace this zone's HTML" like
-// patchZones) as one logical update. `refs` maps a caller-chosen name to a target (element-id string,
-// an Element, or a possibly-null querySelector result) — same target vocabulary as patchOrRender.
+// Patches several named elements as one logical update: for sites like rAddBet that touch several
+// elements at once (a mix of textContent/class/innerHTML tweaks, not just "replace this zone's HTML"
+// like patchZones). `refs` maps a caller-chosen name to a target (element-id string, an Element, or
+// a possibly-null querySelector result), same target vocabulary as patchOrRender.
 // EITHER every name resolves and fn(byName) runs with the whole group live, OR nothing runs and the
 // existing patchOrRender fallback (a full render(), which rebuilds every zone from S) repairs the
 // screen instead of leaving a partial update on screen. Returns whether fn ran.
 // In dev/test (_patchGroupStrict), a missing name is named in a console.warn so the gap is visible
-// during development instead of only showing up as "screen looks stale" — never logs for real players.
+// during development instead of only showing up as "screen looks stale". Never logs for real players.
 // opts.noAnim suppresses the fallback render's card animation, same as patchOrRender/patchZones.
 function patchGroup(refs, fn, opts){
   const names = Object.keys(refs);
@@ -261,7 +265,7 @@ function patchBetUI() {
   const isBetValid = bet >= (getMod('min_chips') || 0);
   const bv=document.getElementById(DOM.betVal);
   // Re-render only if no chip-bet UI is on screen at all. UTH replaces #bv with its Ante+Blind
-  // summary (updated below via #uth-summary), so a missing #bv alone is fine — patch surgically.
+  // summary (updated below via #uth-summary), so a missing #bv alone is fine: patch it directly.
   if(!bv && !document.querySelector('.chbtn')){ render(); return; }
   if(bv) bv.textContent = cfmt(bet);
   document.querySelectorAll('.chbtn').forEach(b => {
@@ -289,10 +293,10 @@ function _inBetPhase(){
   const g=GAMES[S.screen];
   return !!g && S[g.phaseKey]==='bet';
 }
-// Adapter over the pure bet-intake core (bet.js): the bet-phase guard (a phase concern, not bet math),
-// then resolve the active bet key, run the pure function for `action`, write the result back to S,
-// sound (except the silent clear), and surgically patch. The single tested seam the chip controls
-// share.  action: 'add' (ctx.delta) | 'clear' | 'allin'.
+// Wraps the pure bet-intake core (bet.js): checks the bet-phase guard, resolves the active bet key,
+// runs the pure function for `action`, writes the result back to S, plays a sound (except the silent
+// clear), and patches the UI. All the chip controls (addChip/clearBet/allIn) share this one path.
+// action: 'add' (ctx.delta) | 'clear' | 'allin'.
 function applyBetAction(action, ctx){
   if(!_inBetPhase())return;
   const k=curBetRef();
@@ -310,8 +314,8 @@ function allIn(){applyBetAction('allin');}
 const nextBtn = (action, text) => `<button class="btn-gold" style="margin-top:12px" onclick="${action}">${text}</button>`;
 
 // ─── BET INLAY BOX + GAME CONTROLS ────────────────────────────
-// The bet inlay box is the .bet-amt readout reused OUTSIDE the bet phase — on the play, reveal, and
-// result screens — so the player's stake (and, after a hand, their new total) always shows in the same
+// The bet inlay box is the .bet-amt readout reused outside the bet phase, on the play, reveal, and
+// result screens, so the player's stake (and, after a hand, their new total) always shows in the same
 // box in the same place. It's height-locked to --btn-h by the unified-button rule, so it lines up with
 // the buttons placed beneath it. betInlay = the plain "LABEL value" readout (Blackjack stake, post-hand
 // total); betInlaySum = a single centered summary line (UTH's Ante · Blind · Raise breakdown), with an

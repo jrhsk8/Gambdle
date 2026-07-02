@@ -1,39 +1,38 @@
-/**
- * GAMBDLE GAME TEXT. Edit the text in this file freely.
- *
- * All the editable player-facing copy lives in this one file:
- *   TUTORIAL_TIPS     one-time XP-balloon tips (first bet, first showdown, …)
- *   WHATS_NEW         the one-off announcement balloon for returning players
- *   ABOUT_GAMBDLE     File → About Gambdle subtitle/body
- *   INFO_SECTIONS     Help-menu windows (How to Play / Blackjack / Hold'em / …)
- *   POPUP_MESSAGES    the (currently disabled) first-visit welcome popup
- *   STATUS_HINT       the status-bar hint line shown per screen
- *   buildShareText    the "Copy & Share" text template on the results screen
- *
- * Bodies accept simple HTML such as <b>, <br>, or <span>. Text that is part of a
- * game mechanic (modifier titles/descriptions, button labels, result headlines)
- * stays with its feature: modifiers in src/modifiers.js, screens in the game files.
- *
- * ─── TUTORIAL TIPS ─────────────────────────────────────────────────────────
- * Small popups (the XP balloon) that show the first time a player runs into each
- * situation, and then never again. They stay light on purpose: they only point
- * out the things people tend to trip over (mostly the ways this Ultimate Texas
- * Hold'em is not the same as regular Hold'em), rather than teaching every game
- * from scratch. Players can switch them off from the Help menu under "Tips".
- *
- * EDITING: change any title or body string below. To drop a tip, delete its
- * entry here and remove its id from TUTORIAL_ORDER. To add one, add an entry,
- * add its id to TUTORIAL_ORDER, and declare its trigger as a row in the
- * TIP_ELIGIBILITY registry (src/windows.js) — {screen, phase?, gate?, tip}.
- *
- * WHEN EACH TIP FIRES (declared in TIP_ELIGIBILITY, keyed by these ids):
- *   modifier     the intro screen (points at the daily rule banner)
- *   bj_hands     first Blackjack bet screen
- *   uth_bet      first Hold'em bet screen
- *   uth_raise    first Hold'em decision (preflop)
- *   uth_turn     Hold'em river decision (all 5 cards out: raise 1x or fold, no check)
- *   uth_qualify  first Hold'em showdown
- */
+// 
+// GAMBDLE GAME TEXT. Edit the text in this file freely.
+// 
+// All the editable player-facing copy lives in this one file:
+//   TUTORIAL_TIPS     one-time XP-balloon tips (first bet, first showdown, …)
+//   WHATS_NEW         the one-off announcement balloon for returning players
+//   ABOUT_GAMBDLE     File → About Gambdle subtitle/body
+//   INFO_SECTIONS     Help-menu windows (How to Play / Blackjack / Hold'em / …)
+//   POPUP_MESSAGES    the (currently disabled) first-visit welcome popup
+//   STATUS_HINT       the status-bar hint line shown per screen
+//   buildShareText    the "Copy & Share" text template on the results screen
+// 
+// Bodies accept simple HTML such as <b>, <br>, or <span>. Text that is part of a
+// game mechanic (modifier titles/descriptions, button labels, result headlines)
+// stays with its feature: modifiers in src/modifiers.js, screens in the game files.
+// 
+// ─── TUTORIAL TIPS ─────────────────────────────────────────────────────────
+// Small popups (the XP balloon) that show the first time a player runs into each
+// situation, and then never again. They stay light on purpose: they only point
+// out the things people tend to trip over (mostly the ways this Ultimate Texas
+// Hold'em is not the same as regular Hold'em), rather than teaching every game
+// from scratch. Players can switch them off from the Help menu under "Tips".
+// 
+// EDITING: change any title or body string below. To drop a tip, delete its
+// entry here and remove its id from TUTORIAL_ORDER. To add one, add an entry,
+// add its id to TUTORIAL_ORDER, and declare its trigger as a row in the
+// TIP_ELIGIBILITY registry (src/windows.js) · {screen, phase?, gate?, tip}.
+// 
+// WHEN EACH TIP FIRES (declared in TIP_ELIGIBILITY, keyed by these ids):
+//   modifier     the intro screen (points at the daily rule banner)
+//   bj_hands     first Blackjack bet screen
+//   uth_bet      first Hold'em bet screen
+//   uth_raise    first Hold'em decision (preflop)
+//   uth_turn     Hold'em river decision (all 5 cards out: raise 1x or fold, no check)
+//   uth_qualify  first Hold'em showdown
 
 const TUTORIAL_TIPS = {
   modifier: {
@@ -76,7 +75,7 @@ const TUTORIAL_OFF_NOTE =
 // ─── "WHAT'S NEW" ANNOUNCEMENT ─────────────────────────────────────────────
 // A one-off balloon shown on the intro screen to RETURNING players (anyone who has finished at least
 // one run) whose Tips are on, to flag changes to the game.
-//   • Edit `title` / `body` freely — `body` accepts simple HTML (<b>, <br>, …).
+//   • Edit `title` / `body` freely · `body` accepts simple HTML (<b>, <br>, …).
 //   • Bump `id` whenever you ship an update you want to announce; each id shows at most once per
 //     player, so changing it makes the note re-appear for everyone.
 //   • Set `enabled: false` to turn it off entirely.
@@ -92,7 +91,7 @@ const WHATS_NEW = {
 // ─── ABOUT GAMBDLE ─────────────────────────────────────────────────────────
 // Shown by File → "About Gambdle". The ♠ GAMBDLE logo at the top is fixed; edit the `subtitle`
 // (the small line under the logo, like the front page) and the `body` below it freely. `body`
-// accepts simple HTML — <b>, <br>, <a href="…">, <p>, etc.
+// accepts simple HTML: <b>, <br>, <a href="…">, <p>, etc.
 const ABOUT_GAMBDLE = {
   subtitle: "By jrhsk8",
   body: `https://github.com/jrhsk8/Gambdle<br>
@@ -104,7 +103,7 @@ const ABOUT_GAMBDLE = {
 // ─── DONATE ────────────────────────────────────────────────────────────────
 // Shown by the "Donate" menu-bar tab (showDonate, windows.js). `url` is the Ko-fi page; `heading`
 // is the line under the icon; `body` accepts simple HTML and `btn` is the button label. Edit freely
-// (no em dashes — see COPY-STYLE.md). The button + raw-URL fallback are built around these.
+// (no em dashes · see COPY-STYLE.md). The button + raw-URL fallback are built around these.
 const DONATE = {
   url: "https://ko-fi.com/jrhsk8",
   heading: "Help support Gambdle!",
@@ -236,7 +235,7 @@ function buildShareText(){
   const modTitle = getMod('title');
   // Top-percentile brag, appended to the chip-total line only when the player landed in the
   // top half. The percentile arrives async after the share box first renders, so the
-  // leaderboard fetch caches it (_lbTopPct) and re-renders the box — see _refreshShareBox.
+  // leaderboard fetch caches it (_lbTopPct) and re-renders the box · see _refreshShareBox.
   const topSuffix = (_lbTopPct != null && _lbTopPct <= 50) ? ` (Top ${_lbTopPct}%)` : ``;
   return [
     `🎰 Gambdle #${S.day}`,
@@ -247,7 +246,7 @@ function buildShareText(){
     ..._ladShareLine(),
     ``,
     `${trophy} Finished with ${fmt(S.chips)} chips${topSuffix}`,
-    // Keep the protocol on the URL — Discord (and most chat apps) only auto-link/embed when it's present.
+    // Keep the protocol on the URL: Discord (and most chat apps) only auto-link/embed when it's present.
     `https://gambdle.net`
   ].join('\n');
 }

@@ -1,9 +1,9 @@
 // ─── Bet-intake (pure core) tests ─────────────────────────────────────────────
-// Exercises the pure bet-cap / all-in math in src/bet.js directly — no DOM, no S, no
+// Exercises the pure bet-cap / all-in math in src/bet.js directly: no DOM, no S, no
 // fake clicks. Each case reads as a table of (game, chips, modifiers) → expected stake.
 // The bet-phase guard around the live handlers is covered separately in bet-guard.test.js.
 
-// ─── maxFor — the per-game cap ─────────────────────────────────────────────────
+// ─── maxFor · the per-game cap ─────────────────────────────────────────────────
 describe('maxFor — per-game stake cap', () => {
   it('lets bj / poker / roulette stake the whole stack', () => {
     assertEqual(maxFor('bj', 1000, {}), 1000, 'bj caps at the full stack');
@@ -36,7 +36,7 @@ describe('maxFor — per-game stake cap', () => {
   });
 });
 
-// ─── ladderMaxStake — the raw 25% cap shared with ladder.js ────────────────────
+// ─── ladderMaxStake · the raw 25% cap shared with ladder.js ────────────────────
 describe('ladderMaxStake — 25% of stack, floored at 25, never above the stack', () => {
   it('returns 25% of the stack above the floor', () => {
     assertEqual(ladderMaxStake(1000), 250, '1000 → 250');
@@ -52,7 +52,7 @@ describe('ladderMaxStake — 25% of stack, floored at 25, never above the stack'
   });
 });
 
-// ─── addToBet — clamp into [0, max] ────────────────────────────────────────────
+// ─── addToBet · clamp into [0, max] ────────────────────────────────────────────
 describe('addToBet — adds a chip, clamped into [0, max]', () => {
   it('adds the chip value below the cap', () => {
     assertEqual(addToBet(0, 100, 1000), 100, '0 + 100 → 100');
@@ -73,7 +73,7 @@ describe('clearedBet — always zero', () => {
   it('returns 0', () => assertEqual(clearedBet(), 0, 'cleared bet is 0'));
 });
 
-// ─── allInAmount — the all-in stake ────────────────────────────────────────────
+// ─── allInAmount · the all-in stake ────────────────────────────────────────────
 describe('allInAmount — stakes the cap per game', () => {
   it('matches maxFor for every game today', () => {
     for (const g of ['bj', 'uth', 'poker', 'roulette', 'ladder']) {

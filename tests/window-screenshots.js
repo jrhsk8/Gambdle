@@ -21,9 +21,9 @@ const { chromium } = require('playwright');
 const { versionedOutDir } = require('./screenshot-versioning');
 const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
 
-// Shared Fixture registry (tests/screen-fixtures.js) — injected wholesale into the page,
-// then driven by name via renderFixture(). The inline per-screen state that used to live
-// here is gone; this script just chooses WHICH fixtures to capture and in what order.
+// Shared Fixture registry (tests/screen-fixtures.js), injected wholesale into the page,
+// then driven by name via renderFixture(). This script just chooses which fixtures to
+// capture and in what order.
 const FIXTURES_SRC = fs.readFileSync(path.join(__dirname, 'screen-fixtures.js'), 'utf8');
 
 // Window sizes to capture. Mobile uses the phone shell; everything ≥1024 uses the
@@ -67,8 +67,8 @@ const SCREENS = [
     !screenArgs.length || screenArgs.some(a => name.includes(a)));
 
   // Resolve screenshots/<version>/windows, fresh each run so it only holds the current set
-  // (stale/renamed shots otherwise pile up), and prune version folders >3 versions old. Only this
-  // version's windows/ subfolder is wiped — the WebKit shots and other versions are left alone.
+  // (stale/renamed shots otherwise pile up), and prune version folders more than 3 versions old.
+  // Only this version's windows/ subfolder is wiped; the WebKit shots and other versions stay.
   const OUT = versionedOutDir('windows');
   const browser = await chromium.launch();
   const json = body => r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });

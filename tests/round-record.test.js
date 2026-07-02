@@ -1,10 +1,9 @@
-// ─── Canonical settled-round record (deepen-game-envelopes #2) ────────────────
-// Every game records a settled round in ONE shape via mkOutcome({slot,delta,result,…detail}); the
-// score basis (recalcChips, through settledOutcomes) and a future server replay read that single
-// format instead of the old three (per-game history arrays, the rResult singleton, the ladResult
-// singleton). These tests pin: the envelope mkOutcome builds; that settledOutcomes/recalcChips read it
-// uniformly; that roulette's win-multiplier is folded into one net delta (one credit); that each
-// game emits the canonical shape; and that the loadState shim upgrades pre-v1.42 saved records.
+// ─── Canonical settled-round record ────────────────────────────────────────
+// Every game records a settled round in ONE shape via mkOutcome({slot,delta,result,…detail}), and
+// the score basis (recalcChips, through settledOutcomes) reads that single format. These tests
+// check: the shape mkOutcome builds; that settledOutcomes/recalcChips read it uniformly; that
+// roulette's win-multiplier is folded into one net delta (one credit); that each game emits the
+// canonical shape; and that loading a save upgrades pre-v1.42 saved records.
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 const _rrSnap = () => JSON.stringify({ ...S, pkHeld: [...S.pkHeld] });
@@ -31,7 +30,7 @@ function withResolve(overrides, fn) {
   try { fn(); } finally { Object.assign(window, saved); _rrRestore(snap); }
 }
 
-// ─── mkOutcome — the canonical envelope ─────────────────────────────────────────
+// ─── mkOutcome: the standard result shape ─────────────────────────────────────────
 describe('mkOutcome — builds the {slot,delta,result,…detail} envelope', () => {
   it('spreads detail fields after the envelope', () => {
     assertDeepEqual(mkOutcome('bj', 100, 'win', { bet: 50, player: [], dealer: [] }),
@@ -46,10 +45,10 @@ describe('mkOutcome — builds the {slot,delta,result,…detail} envelope', () =
   });
 });
 
-// ─── mkOutcome — detail-shape validation (dev/test only) ────────────────────────
-// The typo guard from PRD integrity Phase 2: a mistyped or stray detail key records silently today and
-// only surfaces as a server-replay mismatch. Under the test harness (and ?dev=true) mkOutcome throws;
-// production runtime stays lenient so an unanticipated shape can't crash a live Run mid-game.
+// ─── mkOutcome: detail-shape validation (dev/test only) ────────────────────────
+// A mistyped or stray detail key would otherwise record silently and only surface later as a
+// server-replay mismatch. Under the test harness (and ?dev=true) mkOutcome throws instead;
+// production runtime stays lenient so an unanticipated shape can't crash a live run mid-game.
 describe('mkOutcome — rejects an off-schema detail (dev/test strict)', () => {
   const _throws = fn => { try { fn(); return false; } catch { return true; } };
   it("throws on a typo'd detail key", () => {
@@ -68,7 +67,7 @@ describe('mkOutcome — rejects an off-schema detail (dev/test strict)', () => {
   });
 });
 
-// ─── settledOutcomes + recalcChips — one read path for the score basis ──────────
+// ─── settledOutcomes + recalcChips: one read path for the score basis ──────────
 describe('settledOutcomes — the unified record list', () => {
   it('concatenates the two played slots plus roulette and ladder, in order', () => {
     withRR({
@@ -105,13 +104,13 @@ describe('recalcChips — sums every settled record uniformly', () => {
   });
 });
 
-// ─── Roulette — win-multiplier folded into one net delta, one credit ──────────
-// Regression intent: the multiplier used to be a SECOND credit() on top of the per-bet payouts.
-// Folding it into the single delta must leave both the recorded delta and the balance identical.
+// ─── Roulette: win-multiplier folded into one net delta, one credit ──────────
+// The multiplier used to be a second credit() on top of the per-bet payouts. Folding it into the
+// single delta must leave both the recorded delta and the balance identical.
 describe('_resolveRoulette — win-multiplier is one folded delta', () => {
   it('a winMult day records delta×mult and credits stake+delta exactly once', () => {
     withResolve({
-      forcedMod: { all_in_or_skip: true }, // winMult() ⇒ 2
+      forcedMod: { all_in_or_skip: true }, // winMult() returns 2
       rResult: null, rReSpun: false, rPhase: 'spinning',
       rBets: [{ pick: 14, bet: 100 }], rSpin: 14, chips: 0,
     }, () => {
@@ -158,7 +157,7 @@ describe('per-game records carry slot/delta/result', () => {
   it('the ladder records {slot:lad, result, rung, free} on cash out', () => {
     withResolve({ screen: null, forcedMod: {}, ladPhase: 'climb', ladBet: 100, ladRung: 3, ladFree: false, ladResult: null, chips: 1000 },
       () => {
-        ladCashOut(); // pot = 100 × 3.2 = 320 ⇒ delta 220
+        ladCashOut(); // pot = 100 × 3.2 = 320, so delta = 220
         assertDeepEqual({ slot: S.ladResult.slot, delta: S.ladResult.delta, result: S.ladResult.result, rung: S.ladResult.rung, free: S.ladResult.free },
                         { slot: 'lad', delta: 220, result: 'cash', rung: 3, free: false });
       });
@@ -178,7 +177,7 @@ describe('per-game records carry slot/delta/result', () => {
   });
 });
 
-// ─── Backward-compat: _normalizeRounds upgrades pre-v1.42 saved records ────────
+// ─── Backward compatibility: _normalizeRounds upgrades pre-v1.42 saved records ─
 describe('_normalizeRounds — upgrades legacy records on load', () => {
   it('adds slot to history records and slot/result to the singletons', () => {
     withRR({

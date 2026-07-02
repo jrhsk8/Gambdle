@@ -73,7 +73,7 @@ describe('_dragMousedown — dialogs drag themselves; main window locks while on
   });
 
   // A desktop FLOAT (.info-modal.float-win) is non-blocking, so unlike a mobile modal it must NOT
-  // lock the main window — the player can still drag the game while instructions float over it.
+  // lock the main window: the player can still drag the game while instructions float over it.
   it('grabbing the main window bar while a FLOAT is open still drags the window', () => {
     reset();
     const wrap = document.createElement('div');
@@ -113,10 +113,10 @@ describe('_dragMousedown — dialogs drag themselves; main window locks while on
   });
 });
 
-// ─── recenterWindow — the □ button glides a dragged window back to center ────────────────────────
-// Per-window analogue of snapWindowToOrigin: zero the box's own _winOffset and animate it back to
-// translate(0,0). No-op when that window hasn't been moved. Takes the □ button; finds its .info-box.
-describe('recenterWindow — □ recenters a dragged window', () => {
+// ─── recenterWindow: the [] button glides a dragged window back to center ─────
+// Per-window version of snapWindowToOrigin: zero the box's own _winOffset and animate it back to
+// translate(0,0). No-op when that window hasn't been moved. Takes the [] button; finds its .info-box.
+describe('recenterWindow: [] recenters a dragged window', () => {
   function makeModal() {
     const wrap = document.createElement('div');
     wrap.innerHTML = `<div class="info-modal float-win"><div class="info-box"><div class="title-bar">` +
@@ -158,12 +158,12 @@ describe('recenterWindow — □ recenters a dragged window', () => {
   });
 });
 
-// ─── _infoOverlayClick — mobile blocking modal: outside tap closes (with refocus guard) ──────────
-// Desktop floats deactivate via the document focus handler (covered above), so _infoOverlayClick is
-// now mobile-only: an outside tap on the dark overlay closes it, EXCEPT the tap that re-focuses an
-// unfocused tab (the _refocusAt / document.hasFocus guard). Only a click that both starts (_downOnSelf)
-// and ends on the overlay counts as outside.
-describe('_infoOverlayClick — mobile outside-tap close with refocus guard', () => {
+// ─── _infoOverlayClick: mobile blocking modal, outside tap closes (with refocus guard) ─────
+// Desktop floats deactivate via the document focus handler (covered above), so _infoOverlayClick
+// is mobile-only: an outside tap on the dark overlay closes it, except the tap that re-focuses an
+// unfocused tab (the _refocusAt / document.hasFocus guard). Only a click that both starts
+// (_downOnSelf) and ends on the overlay counts as outside.
+describe('_infoOverlayClick: mobile outside-tap close with refocus guard', () => {
   function makeOverlay() {
     const el = document.createElement('div');
     el.className = 'info-modal';

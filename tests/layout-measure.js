@@ -1,7 +1,7 @@
 // ─── Layout measurement core ──────────────────────────────────────────────────
 // Pure geometry for the currently-rendered Screen: zoom factor, fit/overflow deltas,
 // element gaps, and alignment deltas. Every function returns NUMBERS and asserts NOTHING,
-// and nothing here imports the test runner — so it's reusable and testable in isolation.
+// and nothing here imports the test runner, so it's reusable and testable in isolation.
 //
 // Two consumers share this ONE code path so they can never disagree about what "fits":
 //   • the layout suite's checkScreen()/checkNoPooledSlack()/checkHeadlineTight()
@@ -30,7 +30,7 @@
   // On large displays `.app` gets a CSS `zoom` (styles.css large-display block).
   // getBoundingClientRect returns POST-zoom geometry while getComputedStyle returns PRE-zoom
   // values, so any comparison between the two must normalize by this factor. Window-vs-viewport
-  // overflow checks must NOT normalize — a zoomed window really occupies zoomed screen pixels.
+  // overflow checks must NOT normalize: a zoomed window really occupies zoomed screen pixels.
   function appZoom() {
     const a = document.querySelector('.app');
     return a ? (parseFloat(getComputedStyle(a).zoom) || 1) : 1;
@@ -42,7 +42,7 @@
   }
 
   // Fit / overflow measurement of the currently-rendered Screen. Returns the exact primitives
-  // checkScreen() asserts on — raw where it compares raw (overflow vs viewport) and rounded
+  // checkScreen() asserts on: raw where it compares raw (overflow vs viewport) and rounded
   // where it compares rounded (panel-internal geometry). No assertions, no thresholds.
   function measureFit() {
     const win   = document.querySelector('.window');
@@ -63,10 +63,10 @@
       hasWindow: !!win,
       hasPanel:  !!panel,
       vw, vh,
-      // Raw overflow vs the real viewport (NOT zoom-normalized — see appZoom note).
+      // Raw overflow vs the real viewport (NOT zoom-normalized, see appZoom note).
       horizOver: rect ? rect.right - vw  : 0,
       vertOver:  rect ? rect.bottom - vh : 0,
-      // Desktop: fixed-height window — does panel content scroll, and how much slack is left?
+      // Desktop: fixed-height window. Does panel content scroll, and how much slack is left?
       panelScroll: panel ? Math.round(panel.scrollHeight - panel.clientHeight) : 0,
       panelSlack:  (panelRect) ? Math.round(panelRect.height - lastBottomInPanel) : 0,
       lastBottomInPanel,

@@ -5,7 +5,7 @@
 // anywhere else that wants a yes/no without also wanting to rebuild.
 //
 // WHY this exists as its own gate: on 2026-06-22, submit-score was deployed with a bundle that was
-// 5 days stale against src/ — the client and server engines disagreed, and that mismatch alone
+// 5 days stale against src/. The client and server engines disagreed, and that mismatch alone
 // produced mass false rejections (players flagged as cheating for legitimate runs) plus a
 // replay_diff over-credit bug. `npm test` already caught staleness, but nothing stopped a deploy
 // from happening WITHOUT running the tests first. verifyBundleFresh() is the one function both
@@ -31,7 +31,8 @@ function verifyBundleFresh() {
   const freshSrc = build();
 
   let current = null;
-  try { current = fs.readFileSync(outPath, 'utf8'); } catch { /* missing: first run */ }
+  // Missing on first run; that's fine, not an error.
+  try { current = fs.readFileSync(outPath, 'utf8'); } catch {}
 
   if (current === null) {
     fs.writeFileSync(outPath, freshSrc, 'utf8');

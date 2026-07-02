@@ -224,8 +224,8 @@ describe('getRBetNums', () => {
 
 // ─── Roulette payouts: _evalBets payout amounts ─────────────────────────────
 
-// Tests _evalBets payout amounts (not just win/loss).
-// Neutralize daily modifier unless testing modifier effects.
+// Checks the actual payout amounts _evalBets returns, not just win/loss.
+// S.forcedMod is set to {} (no modifier) except in tests that target a specific modifier's effect.
 
 function _bet(pick, amount) { return { pick, bet: amount }; }
 
@@ -447,7 +447,7 @@ describe('_evalBets — result fields', () => {
   });
 });
 
-// ─── rBetLabel — clear, disambiguated bet names ───────────────────────────────
+// ─── rBetLabel · clear, disambiguated bet names ───────────────────────────────
 describe('rBetLabel', () => {
   it('numbers: "#17" compact, "Number 17" long', () => {
     assertEqual(rBetLabel(17), '#17');
@@ -482,7 +482,7 @@ describe('rBetLabel', () => {
   });
 });
 
-// ─── _resolveRoulette — idempotency (a spin is only ever credited once) ──────────
+// ─── _resolveRoulette · idempotency (a spin is only ever credited once) ──────────
 // Regression for the "all-in win counted twice" bug: a duplicate/late rFinish (flaky audio
 // firing onended + error, bfcache restore, refresh race) must not re-credit the payout.
 describe('_resolveRoulette — credits a spin exactly once', () => {
@@ -578,7 +578,7 @@ describe('_evalBets — r_double_ball (Double Ball)', () => {
   });
 });
 
-// ─── spinFromRandom — winning-pocket selection from spin words (incl. the hot-number boost) ─────
+// ─── spinFromRandom · winning-pocket selection from spin words (incl. the hot-number boost) ─────
 // The server (or local fallback) supplies 4 random uint32 "words"; spinFromRandom maps them to
 // the pocket(s) as w0 % pool (+ w1 for the hot-number fall-through, w2 for Double Ball). Feeding
 // small ints walks every pool slot deterministically (no statistics / flakiness).
@@ -674,9 +674,9 @@ describe('spinFromRandom — no boost, force group, Double Ball, override', () =
 });
 
 // ─── Parity/color force-groups (Even Money, Odd One Out, Seeing Red, In the Black) ──────────────
-// Every outside group button now has a force-group mod. These reuse the generic R_GROUP_INFO walk
-// in spinFromRandom and the generic rBetBlocked overlap logic, so the tests confirm the new groups
-// wire through both correctly (each has 18 pockets, so a clean 18-bucket walk hits every one once).
+// Every outside group button has a force-group modifier. All four reuse the same R_GROUP_INFO walk
+// in spinFromRandom and the same rBetBlocked overlap logic, so these tests confirm each group wires
+// through correctly (each has 18 pockets, so a clean 18-bucket walk hits every one once).
 describe('spinFromRandom — parity/color force-groups', () => {
   const walk = (mod, fits) => {
     const prev = S.forcedMod; S.forcedMod = mod;
@@ -717,7 +717,7 @@ describe('rBetBlocked — parity/color force-groups', () => {
   });
 });
 
-// ─── Sweet Sixteen — modifier configuration (the day wiring) ─────────────────────────────────────
+// ─── Sweet Sixteen · modifier configuration (the day wiring) ─────────────────────────────────────
 describe('Sweet Sixteen — modifier config', () => {
   it('preset exists with the right type, title, and boost keys', () => {
     const m = PRESET_MODIFIERS.r_sweet_sixteen;
@@ -743,7 +743,7 @@ describe('Sweet Sixteen — modifier config', () => {
   });
 });
 
-// ─── spinFromRandom — Loaded Colors (dynamic 66% boost on the player's chosen color) ─────────────
+// ─── spinFromRandom · Loaded Colors (dynamic 66% boost on the player's chosen color) ─────────────
 // Unlike the fixed hot-number boost, this one reads the single locked bet, so the boosted set is
 // whichever color the player picked. Stage 1 is w0 % 100 < 66 (hit the chosen 18 pockets via w1),
 // else fall through to the other 19 pockets (other color + green 0) via w1. Feeding small ints
@@ -801,7 +801,7 @@ describe('spinFromRandom — Loaded Colors boost (chosen color wins 66%)', () =>
   });
 });
 
-// ─── Loaded Colors — modifier configuration (the day wiring) ─────────────────────────────────────
+// ─── Loaded Colors · modifier configuration (the day wiring) ─────────────────────────────────────
 describe('Loaded Colors — modifier config', () => {
   it('preset exists with the right type, title, boost, and one-bet cap', () => {
     const m = PRESET_MODIFIERS.r_color_lock;
@@ -826,12 +826,12 @@ describe('Loaded Colors — modifier config', () => {
   });
 });
 
-// ─── rAddBet — keep the bet amount selected after placing a bet ──────────────────────────────────
+// ─── rAddBet · keep the bet amount selected after placing a bet ──────────────────────────────────
 // The amount stays so the player can quickly stake the same on another tile; only the tile pick
 // clears, and the kept amount caps to the chips left (it can never exceed the balance).
 describe('rAddBet — keeps the bet amount (capped to remaining chips)', () => {
   // No roulette board is rendered in the unit harness, so rAddBet mutates state then bails at its
-  // `if(!boardBtn) render()` early-return — exactly the state we assert. Stub the side effects.
+  // `if(!boardBtn) render()` early return: exactly the state we assert. Stub the side effects.
   function withStubs(fn) {
     const _r = window.render, _s = window.saveState, _c = window.sndChip;
     window.render = () => {}; window.saveState = () => {}; window.sndChip = () => {};
@@ -868,10 +868,11 @@ describe('rAddBet — keeps the bet amount (capped to remaining chips)', () => {
   });
 });
 
-// ─── resolveRoulette — pure settlement folds the win multiplier (Candidate 02) ───
-// The win-multiplier folds into one signed net delta: only a positive net is scaled, a losing spin
-// is never multiplied. Pure: (bets, spin, mods) → {betResults, delta, result}. mods omits the payout
-// modifiers here (undefined → falsy), so this isolates the win-mult fold.
+// ─── resolveRoulette · pure settlement folds the win multiplier ───
+// resolveRoulette(bets, spin, mods) returns {betResults, delta, result} with no side effects.
+// The win multiplier (mods.wm) folds into one signed net delta: only a positive net is scaled,
+// a losing spin is never multiplied. mods omits the payout modifiers here so these tests isolate
+// the win-mult behavior on its own.
 describe('resolveRoulette — folds win multiplier into one net delta (pure)', () => {
   const _b = (pick, bet) => ({ pick, bet });
   it('scales only a positive net by wm', () => {
@@ -891,8 +892,8 @@ describe('resolveRoulette — folds win multiplier into one net delta (pure)', (
   });
 });
 
-// The credit mapping as pure data (Candidate 5): rouletteAward returns the single-entry ledger
-// applyLedger replays — the whole stake was debited at placement, so it credits stake + delta.
+// rouletteAward(stake, delta) returns a single-entry ledger that applyLedger replays to update
+// chips. The whole stake was already debited at placement, so the credit is stake + delta.
 describe('rouletteAward — settlement ledger (pure)', () => {
   it('credits the whole stake plus the net delta in one entry', () => {
     assertDeepEqual(rouletteAward(30, 320), [{ op: 'credit', n: 350, reason: 'roulette' }]);

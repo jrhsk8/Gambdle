@@ -23,11 +23,10 @@ function devApplyMod(k) {
   render();
 }
 function devSpin(){
-  // Place a fresh, varied 5-bet set so the multi-bet spin + result flow gets exercised across
-  // bet types: a straight number, a color, a 2:1 row (column), a dozen, and an even-money bet.
-  // Routed through roulette.js's own preset-bets entry point (roulettePresetBets) instead of
-  // reaching into S.rBets/debit() here, so this stays in lockstep with rAddBet's real commit
-  // sequence — roulette.js owns how a bet gets onto the board, dev.js just asks for one.
+  // Places a varied 5-bet set (a straight number, a color, a column, a dozen, and an
+  // even-money bet) so the multi-bet spin and result flow gets exercised. Goes through
+  // roulettePresetBets in roulette.js rather than writing S.rBets/debit() directly here,
+  // so the bets get placed the same way a real player's bet would.
   mutate(s => { s.screen='roulette'; s.rPhase='bet'; });
   if(S.rBets.length===0) roulettePresetBets([17,45,37,40,44],10);
   closeDropdowns();
@@ -193,7 +192,7 @@ async function fetchDevStats() {
     // the rolling 7-day metrics, the per-seed new-player counts, and the score distribution.
     const countHeaders = { ...headers, 'Prefer': 'count=exact', 'Range': '0-0', 'Range-Unit': 'items' };
     const jsonHeaders = { 'Content-Type': 'application/json', ...headers };
-    // Last 7 daily seeds (today first, then prior 6), Phoenix time — for the rolling 7-day metrics.
+    // Last 7 daily seeds (today first, then prior 6), Phoenix time: for the rolling 7-day metrics.
     const last7Seeds = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(Date.now() - _PHOENIX_OFFSET_MS); d.setUTCDate(d.getUTCDate() - i);
       return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
@@ -202,9 +201,9 @@ async function fetchDevStats() {
       fetch(`${SUPABASE_URL}/rest/v1/scores?seed=eq.${seed}&select=chips,created_at,fingerprint&order=chips.desc`, { headers }),
       fetch(`${SUPABASE_URL}/rest/v1/starts?seed=eq.${seed}&select=id`, { headers: countHeaders }).catch(() => null),
       fetch(`${SUPABASE_URL}/rest/v1/borrows?seed=eq.${seed}&select=id`, { headers: countHeaders }).catch(() => null),
-      // Lifetime completion count (header only). Unique players + net chips need a server-side aggregate
-      // (count-distinct / sum over the whole table); a REST row fetch is capped by Supabase's row limit,
-      // so those two are accurate only via the get_dev_stats fast path (run supabase/dev_stats.sql).
+      // Lifetime completion count (header only). Unique players and net chips need a server-side
+      // aggregate (count-distinct / sum over the whole table); a REST row fetch is capped by
+      // Supabase's row limit, so those two are accurate only via the get_dev_stats path (run supabase/dev_stats.sql).
       fetch(`${SUPABASE_URL}/rest/v1/scores?select=id`, { headers: countHeaders }).catch(() => null),
       // Plays across the last 7 days (one submission per device per day, so this is player-days).
       fetch(`${SUPABASE_URL}/rest/v1/scores?seed=in.(${last7Seeds.join(',')})&select=id`, { headers: countHeaders }).catch(() => null),
@@ -229,10 +228,10 @@ async function fetchDevStats() {
     const newPlayers7 = newPlayerCounts.every(v => Number.isFinite(v)) ? newPlayerCounts.reduce((a, b) => a + b, 0) : null;
 
     // Lifetime (all seeds, all days). Completion count is a cheap count header. Unique players and net
-    // chips need a server-side aggregate (count-distinct / sum over the whole table) — a REST row fetch
+    // chips need a server-side aggregate (count-distinct / sum over the whole table): a REST row fetch
     // is capped by Supabase's row limit and would badly undercount (a fingerprint that played thousands
-    // of times still counts once, but we'd only see the first page of rows), so we DON'T fake them here.
-    // They show real values via the get_dev_stats fast path above (run supabase/dev_stats.sql).
+    // of times still counts once, but this would only see the first page of rows), so they aren't
+    // computed here. They show real values via the get_dev_stats path above (run supabase/dev_stats.sql).
     const lifeCompletions = countOf(lifeScoresRes);
     const plays7 = countOf(plays7Res);
     const lifetimeGroup = ['Lifetime · All Days', [
@@ -248,7 +247,7 @@ async function fetchDevStats() {
     const rows = await res.json();
     const total = rows.length;
 
-    // Engagement values — computable even with zero completions.
+    // Engagement values: computable even with zero completions.
     const startedVal = startsCount !== null ? fmt(startsCount) : warn('needs table');
     const dnfCount = startsCount !== null ? Math.max(startsCount - total, 0) : null;
     const dnfVal = dnfCount !== null
@@ -257,7 +256,7 @@ async function fetchDevStats() {
     const completionVal = startsCount !== null && startsCount > 0
       ? `${Math.round(total / startsCount * 100)}%`
       : startsCount === 0 ? warn('no starts yet') : warn('n/a');
-    // Borrowed = devices that actually took the loan today (% of starts — the base for any
+    // Borrowed = devices that actually took the loan today (% of starts: the base for any
     // in-run behaviour; shown in Outcomes below). Computed here so it's ready for that group.
     const borrowedVal = borrowsCount !== null
       ? `${fmt(borrowsCount)}${pct(borrowsCount, startsCount)}`
@@ -281,8 +280,8 @@ async function fetchDevStats() {
     const fingerprintedCount = rows.filter(r => r.fingerprint).length;
     const bozos  = scores.filter(s => s === 0).length;
     const inProfit = scores.filter(s => s > START_CHIPS).length;
-    // Value stats (avg/median/high/net) ignore scores above 100,000 — almost always tampered or
-    // corrupted saves — so they don't skew. Counts above (and completions) still include every row.
+    // Value stats (avg/median/high/net) ignore scores above 100,000: almost always tampered or
+    // corrupted saves: so they don't skew. Counts above (and completions) still include every row.
     const valScores = scores.filter(s => s <= 100000); // rows are ordered chips.desc, so [0] is the max
     const avg    = valScores.length ? Math.round(valScores.reduce((a, b) => a + b, 0) / valScores.length) : 0;
     const sorted = [...valScores].sort((a, b) => a - b);
@@ -302,14 +301,14 @@ async function fetchDevStats() {
     const peakHour = hourBuckets.indexOf(Math.max(...hourBuckets));
     const peakAMPM = peakHour === 0 ? '12am' : peakHour < 12 ? peakHour + 'am' : peakHour === 12 ? '12pm' : (peakHour - 12) + 'pm';
 
-    // New today / Returning — reuse the today entry from the per-seed counts fetched above.
+    // New today / Returning: reuse the today entry from the per-seed counts fetched above.
     const newPlayersVal = newPlayers !== null ? fmt(newPlayers) : warn('needs RPC');
     const returningPlayers = newPlayers !== null ? fingerprintedCount - newPlayers : null;
     const returningVal = returningPlayers !== null
       ? `${fmt(returningPlayers)}${pct(returningPlayers, fingerprintedCount)}`
       : warn('needs RPC');
 
-    // Score distribution — same RPC as results screen (fetched in the parallel batch above), no "you" line.
+    // Score distribution: same RPC as results screen (fetched in the parallel batch above), no "you" line.
     let distHTML = '';
     try {
       if (distRes && distRes.ok) {
@@ -347,9 +346,9 @@ async function fetchDevStats() {
 // Dev-only page (goTo('retention')) dedicated to player retention & in-session drop-off. Three
 // blocks, all from the get_retention RPC: day-over-day return (D1/D7 + days-played), the drop-off
 // funnel (moved here from Player Stats), and quit position (where the tab was last hidden + the chip
-// count held at that moment, from the `quits` beacon — see _submitQuit in flow.js). Every return
+// count held at that moment, from the `quits` beacon: see _submitQuit in flow.js). Every return
 // number is keyed on the localStorage device id, which churns (cleared storage, private mode, second
-// device, Safari ITP eviction), so the rates are lower bounds — labeled "approximate" on the page.
+// device, Safari ITP eviction), so the rates are lower bounds: labeled "approximate" on the page.
 
 function screenRetention() {
   const seed = getActiveSeed();
@@ -391,12 +390,12 @@ async function fetchRetention() {
     if (!d || !d.returns) { el.innerHTML = `<div style="color:var(--shadow);padding:14px 0;text-align:center">${warn('get_retention RPC not deployed yet · run supabase/retention.sql')}</div>`; return; }
     const R = d.returns, F = d.funnel || {}, Q = d.quit || {};
 
-    // Day-over-day return — D1/D7 across all cohorts that have had time to mature (lower bounds).
+    // Day-over-day return: D1/D7 across all cohorts that have had time to mature (lower bounds).
     const returnGroup = ['Return · day-over-day', [
       ['Next-day (D1)', rate(R.d1?.ret || 0, R.d1?.base || 0)],
       ['One-week (D7)', rate(R.d7?.ret || 0, R.d7?.base || 0)],
     ]];
-    // Days played in the trailing 7-day window — one bucket per distinct-days-played count.
+    // Days played in the trailing 7-day window: one bucket per distinct-days-played count.
     const dp = (R.days_played || []).map(c => +c);
     const dpTotal = dp.reduce((a, b) => a + b, 0);
     const daysGroup = ['Days played · last 7d', dp.length === 7
@@ -416,12 +415,12 @@ async function fetchRetention() {
         ]]
       : null;
 
-    // Quit position — where the tab was hidden last today, and the chips held at that moment.
+    // Quit position: where the tab was hidden last today, and the chips held at that moment.
     const chips = Q.chips || {};
     const qN = chips.n || 0;
     const SCREEN_LBL = { bj: 'Blackjack', uth: "Hold'em", poker: 'Poker', roulette: 'Roulette', ladder: 'The Ladder', borrow: 'Borrow', results: 'Results', intro: 'Intro', choice: 'Choice' };
     const byScreen = Array.isArray(Q.by_screen) ? Q.by_screen : [];
-    // Excludes finishers (screen='results') server-side — this is mid-run abandonment only.
+    // Excludes finishers (screen='results') server-side: this is mid-run abandonment only.
     const quitGroup = ['Quit position · mid-run', byScreen.length
       ? byScreen.slice(0, 8).map(b => [`${SCREEN_LBL[b.screen] || b.screen}${b.phase && b.phase !== '?' ? ' · ' + b.phase : ''}`, `${fmt(b.n)}${pct(b.n, qN)}`])
       : [['Status', warn('no mid-run quits yet')]]];
@@ -440,7 +439,7 @@ async function fetchRetention() {
 
 // ─── DEVICES SCREEN ────────────────────────────────────────────────────────
 // Dev-only page (goTo('devices')) for the player device/environment census: a viewport-size
-// distribution plus browser/OS, form factor, traffic source, timezone, and environment prefs — the
+// distribution plus browser/OS, form factor, traffic source, timezone, and environment prefs: the
 // gap the Player Stats (audience) and Retention pages don't cover. Reads the clients_public VIEW
 // (raw UA omitted) for today's seed and aggregates client-side (beacon: _submitClient in flow.js;
 // schema: supabase/clients.sql). Seed-scoped like the other dev pages; intentionally exempt from the
@@ -525,7 +524,7 @@ async function fetchDevices() {
     };
     const asRows = (entries, top = 6) => entries.slice(0, top).map(([k, n]) => [k, `${fmt(n)}${pct(n, total)}`]);
 
-    // Viewport distribution (bar chart) — counts per ordered width bucket.
+    // Viewport distribution (bar chart): counts per ordered width bucket.
     const vpCounts = {};
     for (const row of rows) { const b = _vpBucket(row.w); vpCounts[b] = (vpCounts[b] || 0) + 1; }
     const vpBars = _VP_BUCKETS.map(b => ({ label: b, count: vpCounts[b] || 0 }));
@@ -545,7 +544,7 @@ async function fetchDevices() {
     const retina = dprVals.filter(d => d >= 2).length;
     const displayRows = [['Snapshots', fmt(total)], ['Avg DPR', avgDpr.toFixed(2)], ['Retina (2x+)', `${fmt(retina)}${pct(retina, total)}`]];
 
-    // Timezone — getTimezoneOffset() minutes → "UTC±H" label (offset is positive WEST, so negate).
+    // Timezone: getTimezoneOffset() minutes → "UTC±H" label (offset is positive WEST, so negate).
     const tzLabel = (min) => {
       const o = -(+min) / 60; if (!Number.isFinite(o)) return '?';
       const a = Math.abs(o);

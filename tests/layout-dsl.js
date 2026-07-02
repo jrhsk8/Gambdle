@@ -1,5 +1,5 @@
 // ─── Layout DSL ───────────────────────────────────────────────────────────────
-// A declarative assertion surface for codifying layout INTENT (not just "it fits"):
+// A way to write layout checks that describe INTENT, not just "it fits":
 //
 //   expectLayout('bj-bet', '1280x800', L => {
 //     L.fits();                                   // no overflow / no scroll / no pooled slack
@@ -8,21 +8,21 @@
 //     L.centeredOverhang('#db', '.bet-amt');      // named intent: centers over + overhangs the bet box
 //   });
 //
-// Built on the shared measurement core (tests/layout-measure.js) so an assertion measures the
-// SAME geometry the suite's own fit checks do, and on the runner's describe/it/assert. Every
-// assertion is zoom-normalized and tolerance-aware; failures name the Screen, size, selectors,
-// and expected-vs-actual px. State is set via the shared Fixture registry (renderFixture), so an
-// assertion runs against the exact named state you previewed in the UI Lab. See PRD-ui-tweak-pipeline.md.
+// Built on the shared measurement code (tests/layout-measure.js) so a check measures the SAME
+// geometry the suite's own fit checks do, and on the runner's describe/it/assert. Every check is
+// zoom-normalized and tolerance-aware; failures name the screen, size, selectors, and
+// expected-vs-actual px. State is set via the shared fixture registry (renderFixture), so a check
+// runs against the exact named state you previewed in the UI Lab. See PRD-ui-tweak-pipeline.md.
 //
-// expectLayout self-gates to its target Viewport through gateFor(size, fn): the layout suite
-// re-runs this same page at each binding size, so a call is a no-op unless window.innerWidth/Height
+// expectLayout only runs at its target viewport, via gateFor(size, fn): the layout suite re-runs
+// this same page at each binding size, so a call does nothing unless window.innerWidth/Height
 // matches `size`.
 
 (function (root) {
   'use strict';
 
   const LM = root.LayoutMeasure;
-  const DEFAULT_TOL = 2; // px — default alignment/gap tolerance, overridable per matcher
+  const DEFAULT_TOL = 2; // px: default alignment/gap tolerance, can be overridden per matcher
 
   const $ = sel => document.querySelector(sel);
   const need = (ctx, ...pairs) => {
@@ -31,12 +31,12 @@
     }
   };
 
-  // ONE viewport gate for the whole DSL. The layout suite re-renders the same page once per
-  // binding size (see tests/run.js), so any assertion written for a specific size (e.g. "1280x800")
-  // must become a no-op — not a failure — at every OTHER size the page happens to load at. Centralizing
-  // this here means there is exactly one place that decides "is this my viewport?"; a caller that needs
-  // the same skip semantics for something other than expectLayout (e.g. a future DSL entry point) reuses
-  // this instead of re-deriving its own window.innerWidth/Height check.
+  // ONE viewport gate for the whole file. The layout suite re-renders the same page once per
+  // binding size (see tests/run.js), so any check written for a specific size (e.g. "1280x800")
+  // must do nothing, not fail, at every OTHER size the page happens to load at. Keeping this in
+  // one place means there is exactly one spot that decides "is this my viewport?"; anything else
+  // that needs the same skip behavior reuses this instead of writing its own
+  // window.innerWidth/Height check.
   function parseSize(size) {
     const [w, h] = size.split('x').map(Number);
     return { w, h };
@@ -47,7 +47,7 @@
     return window.innerWidth === w && window.innerHeight === h;
   }
 
-  // Wraps `fn` so it only runs at the target Viewport `size` ("WIDTHxHEIGHT"); silently skips
+  // Wraps `fn` so it only runs at the target viewport `size` ("WIDTHxHEIGHT"); silently skips
   // (returns undefined) otherwise. Skip, not fail: a non-matching viewport is expected on 7 of
   // the suite's 8 runs, not a violation.
   function gateFor(size, fn) {
@@ -55,9 +55,9 @@
     return fn();
   }
 
-  // Bare assertion surface: each matcher MEASURES via the core and asserts directly (throws on
-  // violation, returns nothing on success). No it()/describe() — so the DSL's own meta-tests can
-  // try/catch a matcher to prove it fires in both directions. expectLayout wraps these in it()s.
+  // The raw matchers: each one MEASURES the real DOM and asserts directly (throws on violation,
+  // returns nothing on success). No it()/describe() here, so the meta-tests below can try/catch
+  // a matcher directly to prove it fires in both directions. expectLayout wraps these in it()s.
   function makeBareL(ctx) {
     function fits() {
       const m = LM.measureFit();
@@ -128,10 +128,10 @@
       };
     }
 
-    // Named intent matcher: a control that centers over a baseline element and overhangs it on
-    // both sides (the repeated "Deal button sits above its bet box" shape across the bet screens).
-    // Composes el().centered() + el().widerThan() so call sites read as one design intent instead
-    // of two separate geometry checks that happen to always travel together.
+    // Named matcher for a control that centers over a baseline element and overhangs it on both
+    // sides (the repeated "Deal button sits above its bet box" shape across the bet screens).
+    // Combines el().centered() + el().widerThan() so a call site reads as one design intent
+    // instead of two separate geometry checks that happen to always travel together.
     function centeredOverhang(sel, baseline, opts = {}) {
       el(sel).centered(opts.within, opts.centerTol);
       el(sel).widerThan(baseline, opts.minOverhang);
@@ -140,11 +140,11 @@
     return { fits, gap, el, centeredOverhang };
   }
 
-  // The public entry point. Renders the named Fixture (worst-case banner default, matching the
+  // The public entry point. Renders the named fixture (worst-case banner default, matching the
   // suite) and wraps each matcher call in an it() so it shows as its own pass/fail line.
   function expectLayout(fixtureName, size, callback) {
-    // Self-gate through the one shared gate: the suite runs this page at every binding size,
-    // so this call must act only when `size` is the current viewport.
+    // Route through the one shared gate: the suite runs this page at every binding size, so
+    // this call must act only when `size` is the current viewport.
     gateFor(size, () => expectLayoutAt(fixtureName, size, callback));
   }
 
@@ -167,8 +167,8 @@
           widerThan: (s2, min) => it(`${ctx} · ${sel} widerThan ${s2}`, () => bare.el(sel).widerThan(s2, min)),
           centered:  (wn, tol) => it(`${ctx} · ${sel} centered`,        () => bare.el(sel).centered(wn, tol)),
         }),
-        // Intent matcher: `sel` centers over `baseline` and overhangs it on both sides — the
-        // Deal-button-over-bet-box shape repeated across the desktop/mobile bet screens.
+        // `sel` centers over `baseline` and overhangs it on both sides: the Deal-button-over-bet-box
+        // shape repeated across the desktop/mobile bet screens.
         centeredOverhang: (sel, baseline, opts) =>
           it(`${ctx} · ${sel} centeredOverhang ${baseline}`, () => bare.centeredOverhang(sel, baseline, opts)),
       };

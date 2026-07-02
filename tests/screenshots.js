@@ -2,14 +2,14 @@
 // Each screen is rendered at iPhone 15 (393×852) with realistic Safari chrome reserved
 // (Dynamic Island/status bar ~59px top, floating toolbar ~55px bottom) drawn as faint
 // labeled bands, so you can confirm content clears the chrome.
-// Run: npm run screenshots   →   writes screenshots/*.png  (the folder is git-ignored)
+// Run: npm run screenshots, writes screenshots/*.png (the folder is git-ignored)
 // First time: npx playwright install webkit
 const fs = require('fs');
 const path = require('path');
 const { webkit } = require('playwright');
 const { versionedOutDir } = require('./screenshot-versioning');
 const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
-// screenshots/<GAME_VERSION>/webkit/  — versioned + auto-pruned (see screenshot-versioning.js).
+// screenshots/<GAME_VERSION>/webkit/ : versioned and auto-pruned (see screenshot-versioning.js).
 const OUT = versionedOutDir('webkit');
 const SA_T = 59, SA_B = 55;
 
@@ -42,7 +42,7 @@ const FIXTURES = [
   const json = body => r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
-  // Generic routes first, specific RPC mocks last — Playwright uses the LAST matching
+  // Generic routes first, specific RPC mocks last: Playwright uses the LAST matching
   // route, so the score-distribution / percentile mocks must win over **/rest/v1/**.
   await page.route('**/functions/v1/**', json({}));
   await page.route('**/rest/v1/**', json([]));

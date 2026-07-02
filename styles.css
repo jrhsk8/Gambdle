@@ -3,7 +3,7 @@
    Base: Desktop background · Window chrome (XP-style) · WinXP inactive window ·
      Luna themes · Panel body (felt) · Headline label · Daily modifier banner ·
      Sunken readout box · Logo / brand · Buttons · Unified button sizing
-   Game UI: Player's Choice picker · Cards — Balatro-readable · BJ inactive
+   Game UI: Player's Choice picker · Cards: Balatro-readable · BJ inactive
      split hands · Split-result vertical rhythm · Overlapping card fan ·
      BJ bet screen · Chip selector · Hand progress dots · Info row ·
      Game manifest tile · Pay table · Roulette · Results screen ·
@@ -61,13 +61,13 @@ button { touch-action: manipulation; font-family: var(--btn-f); }
   --cream:    #fbf5dc;
   --raised: inset 1.5px 1.5px 0 var(--highlight), inset -2px -2px 0 var(--shadow);
   --raised-sm: inset 1px 1px 0 var(--highlight), inset -1px -1px 0 var(--shadow);
-  /* Unified button metrics — every action/gold/clear/all-in button and the bet box
+  /* Unified button metrics: every action/gold/clear/all-in button and the bet box
      shares one height + font size per breakpoint. Overridden in the media queries below.
      Forced with !important on the button rules so per-screen tweaks can't make the
      same control a different size from one game to the next. */
   --btn-h:  44px;
   --btn-fs: 1.3rem;
-  /* Fixed bet-box width — identical across every screen at a given size, so the bet inlay box is
+  /* Fixed bet-box width: identical across every screen at a given size, so the bet inlay box is
      pixel-perfect the same wherever it appears (bet phase, play, reveal, result). It never stretches
      with the window; the controls AROUND it do. 350 fits flanked by Clear + All In within the tightest
      desktop panel (1024); it widens to 420 at >=1280 and narrows to the phone panel on mobile. */
@@ -77,7 +77,7 @@ button { touch-action: manipulation; font-family: var(--btn-f); }
      width:100% lets it shrink on panels narrower than this. */
   --ctrl-w: 680px;
   /* The lone action button (Deal / Final Spin / Next Game / Next Hand …) sits slightly WIDER than the
-     bet/inlay box rather than exactly matching it — a consistent ~12% at every breakpoint, so the
+     bet/inlay box rather than exactly matching it: a consistent ~12% at every breakpoint, so the
      proportion reads the same on desktop as on mobile (where the button already overhangs the box).
      Mobile pins it back to the box width (the button is already full-panel there); see the mobile :root. */
   --act-btn-w: calc(var(--bet-box-w) * 1.12);
@@ -233,7 +233,7 @@ body {
 
 /* ── WinXP inactive window ──────────────────────────────── */
 /* Applies both when the whole tab loses focus (body.win-inactive) and when a single popup is
-   deactivated by a desktop click-away (.info-box.win-inactive — see _infoOverlayClick). */
+   deactivated by a desktop click-away (.info-box.win-inactive: see _infoOverlayClick). */
 body.win-inactive .title-bar,
 .info-box.win-inactive .title-bar {
   background: linear-gradient(180deg, #c8c8c8 0%, #a8a8a8 100%);
@@ -321,7 +321,7 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
   font-family: var(--btn-f);
   display: flex; justify-content: space-between; align-items: center; gap: 14px;
   font-size: 1.4rem;
-  cursor: pointer;   /* a button: opens today's modifier help (LAYOUT.md — raised bevel = clickable) */
+  cursor: pointer;   /* a button: opens today's modifier help (LAYOUT.md: raised bevel = clickable) */
 }
 /* Button feedback matching .act-btn/.btn-gold: hover brightens, press sinks (translate + inverted bevel). */
 .mod-banner:hover  { background: linear-gradient(180deg, #f9f1cc 0%, #f0e0a8 100%); }
@@ -411,7 +411,7 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 
 /* ── Game controls cluster (play / reveal / result) ────────
    The fixed-width bet inlay box stacked above the main game button row. The cluster stretches to the
-   near-full-panel --ctrl-w, and the buttons fill it — so they're WIDER than the centered box (which
+   near-full-panel --ctrl-w, and the buttons fill it: so they're WIDER than the centered box (which
    stays --bet-box-w). The box and the buttons both carry --btn-h, so their heights line up. */
 .game-controls {
   width: 100%; max-width: var(--ctrl-w); margin-left: auto; margin-right: auto;
@@ -421,7 +421,7 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 /* Multi-button play rows fill the cluster (full control width) so 3-4 buttons never cramp. */
 .game-controls .act-btns, .game-controls > #uth-actions-ui { width: 100%; }
 .game-controls > #uth-actions-ui { display: flex; flex-direction: column; align-items: center; }
-/* A LONE action button (Next Hand/Game, See Results, See Turn & River, Showdown, Draw — the single
+/* A LONE action button (Next Hand/Game, See Results, See Turn & River, Showdown, Draw: the single
    advances stacked under the box; Deal/Final Spin live in #db) sits slightly wider than the bet box and
    centers, so the action button overhangs the box above it. Multi-button rows above are .act-btns. */
 .game-controls > .btn-gold,
@@ -462,7 +462,7 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
   .pc-icon { font-size: 2.1rem; }
   .pc-title { font-size: 1.55rem; }
 }
-/* Desktop: lots of room — center the (short) picker vertically and go big on the header
+/* Desktop: lots of room, center the (short) picker vertically and go big on the header
    and bars so they fill the window like substantial buttons. */
 @media (min-width: 1024px) {
   .pc-panel { justify-content: center; }
@@ -475,7 +475,7 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
   .pc-desc { font-size: 1.45rem; }
 }
 
-/* ── Cards — Balatro-readable ──────────────────────────── */
+/* ── Cards: Balatro-readable ──────────────────────────── */
 .card {
   display: inline-block; position: relative;
   background: var(--cream);
@@ -529,7 +529,7 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 /* Inline SVG icons (see src/icons.js). Sized in em, color via currentColor. */
 .ic { width: 1em; height: 1em; vertical-align: -0.15em; flex: 0 0 auto; }
 /* The ♦ glyph is the narrowest suit in virtually every system font (Tahoma: ♦≈27px vs ♣≈35px at the
-   same size), so a diamond reads visibly smaller than ♠♥♣ — most noticeable on the tiny split cards
+   same size), so a diamond reads visibly smaller than ♠♥♣: most noticeable on the tiny split cards
    where the centre suit is the only suit shown. Scale diamonds up so all four suits look balanced.
    These elements are flex items (.cbody / .ctl / .cbr are flex), so transform applies and, scaling
    about the default centre origin, keeps the glyph centred and the corner rank in place. */
@@ -591,7 +591,7 @@ body.cardback-orange .card.back {
     repeating-linear-gradient(-45deg, rgba(251,245,220,0.10) 0 1px, transparent 1px 5px),
     radial-gradient(ellipse at center, #f06010 0%, #8c3a00 75%);
 }
-/* Emoji deck (unlockable at 3500+ PB) — replace suit symbols and ranks with emoji */
+/* Emoji deck (unlockable at 3500+ PB): replace suit symbols and ranks with emoji */
 body.deck-emoji .ct-s,
 body.deck-emoji .csuit,
 body.deck-emoji .ct-r[data-r="A"],  body.deck-emoji .ct-r[data-r="2"],
@@ -648,10 +648,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 @keyframes fadein { from { opacity: 1; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* Cross-screen view transitions (navRender): crossfade ONLY the centered .panel card between
-   significantly different screens — a new game, a hand's result panel, the next hand. We take the
+   significantly different screens: a new game, a hand's result panel, the next hand. We take the
    root OUT of the transition (view-transition-name:none) so the full viewport is never snapshotted
    or animated: that whole-screen capture+composite scaled with pixel count and was the source of
-   the desktop lag (big window → big textures; mobile's small viewport was always cheap). The static
+   the desktop lag (big window means big textures; mobile's small viewport was always cheap). The static
    window frame, background, and status bar now swap instantly while the bounded panel crossfades.
    Exactly one .panel exists per render (even BJ split nests its aside hands inside it), so the name
    stays unique. Gated in JS (feature-detect + the test flag); reduced-motion guard belt-and-suspenders. */
@@ -679,7 +679,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .hand-val.bust { color: var(--lose-hi); }
 .hand-val.bj { color: var(--gold-hi); }
 
-/* UTH bet screen — middle column that takes the role the BJ bet table plays: flex:1 so it eats all
+/* UTH bet screen: middle column that takes the role the BJ bet table plays. flex:1 so it eats all
    the panel slack, pinning the chip selector + Deal button to the exact same spot as Blackjack, and
    space-evenly so the pay table + its caption are spread evenly through whatever slack exists. */
 .uth-bet-center {
@@ -721,18 +721,16 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .bj-split-lbl { font-size: 1.1rem; margin-bottom: 4px; }
 .bj-split-val { font-size: 1.4rem; font-weight: 700; margin-top: 2px; }
 .bj-active-lbl { font-size: 1.4rem; }
-/* Bet amount folded into the active-hand label (replaces the old bottom bet row),
-   slightly dimmed so the hand number reads first (cream, not shadow — shadow is
-   too dark to read on the felt). */
+/* Bet amount folded into the active-hand label, slightly dimmed so the hand number
+   reads first (cream, not shadow: shadow is too dark to read on the felt). */
 .bj-active-bet { opacity: 0.7; }
 
 /* ── Split-result vertical rhythm ───────────────────────────
    Spread leftover panel height evenly across the gaps BETWEEN the result-body
    elements (headline → sub → dealer → hands → running total), instead of pooling
-   it into one big band under the dots (the old margin-top:auto centering). The
-   dots stay pinned at the top and the Next-Hand button stays tucked under the
-   running total — neither boundary gap grows. Auto-margins split the free space
-   equally among the elements that carry one. */
+   it into one big band under the dots. The dots stay pinned at the top and the
+   Next-Hand button stays tucked under the running total: neither boundary gap
+   grows. Auto-margins split the free space equally among the elements that carry one. */
 /* The headline + chip-delta now ride together in one .result-head block, which carries the
    auto-margin (its internal gap keeps the sub tucked tight under the headline). */
 .bj-split-result > .result-head,
@@ -752,12 +750,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* Auto-fan when 5+ cards would overflow */
 .hand:has(.card:nth-child(5)) { flex-wrap: nowrap; gap: 0; }
 .hand:has(.card:nth-child(5)) .card + .card { margin-left: -28px; }
-/* UTH community cards — cancel auto-fan, keep all 5 evenly spaced */
+/* UTH community cards: cancel auto-fan, keep all 5 evenly spaced */
 #uth-community-hand.hand:has(.card:nth-child(5)) { flex-wrap: nowrap; gap: 5px; }
 #uth-community-hand.hand:has(.card:nth-child(5)) .card + .card { margin-left: 0; }
 
 /* ── Sixth Sense (uth_sixth_card): a private 6th community card ───────────
-   Six cards (5 shared + the player's private one) on one row — shrink the community cards so the row
+   Six cards (5 shared + the player's private one) on one row: shrink the community cards so the row
    still fits the 360px floor. The private card carries a gold glow + a "YOU" tag. */
 #uth-community-hand.sixth-sense.hand:has(.card:nth-child(5)) { gap: 4px; }
 #uth-community-hand.sixth-sense .card { width: 48px; height: 67px; }
@@ -785,7 +783,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .bj-pick-btn-lbl { font-size: 0.8rem; letter-spacing: 0.06em; opacity: 0.85; }
 .bj-pick-btn-val { font-size: 1.2rem; font-weight: 700; }
 
-/* ── BJ bet screen: empty card slots framing the chip selector ─── */
+/* ── BJ bet screen: empty card slots framing the chip selector ── */
 .bj-bet-table {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
@@ -805,7 +803,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   border-radius: 5px;
   background: rgba(0, 0, 0, 0.07);
 }
-/* Casino felt rules — small uppercase text between dealer & player slots */
+/* Casino felt rules: small uppercase text between dealer & player slots */
 .felt-rules {
   text-align: center; line-height: 1.4;
   color: var(--cream); opacity: 0.7;
@@ -818,7 +816,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .felt-rule-line { white-space: nowrap; }
 
 /* ── Chip selector ──────────────────────────────────────── */
-/* Chip row never wraps — chips that don't fit shrink via flex-shrink rather than
+/* Chip row never wraps: chips that don't fit shrink via flex-shrink rather than
    spilling onto a second row. Mobile re-asserts nowrap with tighter gap below. */
 .chip-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: nowrap; }
 .chbtn {
@@ -881,7 +879,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .bet-amt {
   /* flex:0 0 auto (NOT a flex-basis of --bet-box-w): in .game-controls (a column flex) a flex-basis
      would set the box HEIGHT. Width is pinned via `width` so it's the cross-axis size there and the
-     main size in the bet-row — identical --bet-box-w either way; height stays --btn-h. */
+     main size in the bet-row: identical --bet-box-w either way; height stays --btn-h. */
   flex: 0 0 auto; width: var(--bet-box-w); min-width: 0;
   padding: 0 8px;
   color: var(--ink);
@@ -893,7 +891,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 /* Uniform horizontal padding so the box is pixel-identical across every screen (the unified-button rule
    above already forces vertical padding to 0). !important beats the scattered per-screen/per-breakpoint
-   .panel:has(...) .bet-amt padding overrides — the box is fixed-width with centered content, so one
+   .panel:has(...) .bet-amt padding overrides: the box is fixed-width with centered content, so one
    padding value reads the same everywhere. */
 .bet-amt { padding-left: 14px !important; padding-right: 14px !important; }
 /* "Bet" label sits to the LEFT of the amount on one line. Both are black (the plain box uses ink for
@@ -918,7 +916,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .dots-row { display: flex; gap: 8px; margin: 4px 0 4px; }
 /* UTH wraps its dots in #uth-dots-container (for surgical re-renders). Make that wrapper always
    generate no box (display:contents) so .dots-row is a direct flex child of the panel on every UTH
-   phase — otherwise the wrapper introduces margin-collapse and block-layout quirks that shift the
+   phase, otherwise the wrapper introduces margin-collapse and block-layout quirks that shift the
    dots-row by 2-6px between bet and play phases depending on viewport width. */
 #uth-dots-container { display: contents; }
 .hand-dot {
@@ -950,7 +948,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .ik { font-size: 1.4rem; color: var(--shadow); letter-spacing: 0.04em; }
 .iv { font-family: var(--btn-f); font-size: 1.35rem; color: var(--ink); }
 .sec-sm { font-size: 1rem; }
-/* ── Dev-stats grouped boxes ── Each category is one inlaid (recessed) box; the boxes flow into
+/* ── Dev-stats grouped boxes ── each category is one inlaid (recessed) box; the boxes flow into
    two columns so the screen fits. The box provides the chrome, so its rows drop their own tile. */
 .dvs-groups { columns: 2; column-gap: 6px; text-align: left; }
 .dvs-box {
@@ -963,7 +961,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 .dvs-box .irow { border: none; box-shadow: none; background: transparent; padding: 2px 8px; }
 .dvs-box .irow + .irow { border-top: 1px solid rgba(0,0,0,0.07); }
-/* Dev-stats group label — small, gold; header inside each inlay box. */
+/* Dev-stats group label: small, gold; header inside each inlay box. */
 .dvs-grp-lbl {
   font-family: var(--btn-f);
   font-size: 0.82rem;
@@ -975,7 +973,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   padding: 2px 8px 3px;
   border-bottom: 1px solid rgba(0,0,0,0.14);
 }
-/* Standalone section label (no surrounding box) — e.g. the Score Distribution chart heading. */
+/* Standalone section label (no surrounding box): e.g. the Score Distribution chart heading. */
 .dvs-grp-lbl-bare { border-bottom: none; padding: 0 0 0 2px; }
 /* Desktop: dev stats carries many groups + the chart, so tighten boxes/rows (scoped to
    #devstats-body) to keep the whole screen on one window at 1280×800. */
@@ -990,12 +988,12 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* Borrow screen "0 chips remaining": a touch smaller than a normal result-sub. */
 .result-sub.borrow-rem { font-size: 1.7rem; }
 /* ── Result head ────────────────────────────────────────── */
-/* The win/lose headline with the chip delta tucked right beneath it, as one unit — used by
+/* The win/lose headline with the chip delta tucked right beneath it, as one unit: used by
    EVERY result screen (BJ single + split, UTH showdown/fold, Roulette, Poker) so the spacing
    reads identically across games. The head is one flex child of the panel; we zero the
    element directly above it (the divider, or roulette's number-name line) and the one directly
    below it, so the panel's own flex `gap` plus the head's small symmetric margin space it
-   EQUALLY top and bottom at every breakpoint — the block stays centered between its neighbors,
+   EQUALLY top and bottom at every breakpoint: the block stays centered between its neighbors,
    while the chip line hugs the headline via the tight internal `gap`. */
 .result-head { display: flex; flex-direction: column; gap: 4px; margin: 3px 0; text-align: center; }
 .result-head > .result-hl, .result-head > .result-sub { margin: 0 !important; }
@@ -1012,7 +1010,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   box-shadow: var(--raised-sm);
 }
 /* On the results page the game-summary box reads as an inlay (recessed): flip to the
-   canonical inlay bevel — shadow top-left, highlight bottom-right, same as .bet-amt. */
+   canonical inlay bevel: shadow top-left, highlight bottom-right, same as .bet-amt. */
 .results-panel .game-manifest {
   box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
 }
@@ -1101,8 +1099,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 /* Roulette's selection + bets boxes keep the centered chip-cluster width. */
 .panel:has(#r-bets-zone) #r-sel-box,
 .panel:has(#r-bets-zone) #r-bets-zone { width: 100%; max-width: 468px; margin-left: auto !important; margin-right: auto !important; }
-/* Spin screen reuses the bare .r-bets-zone class (no #id), so the id-scoped rule above doesn't reach
-   it — match its width + centering here, keyed off the spin panel's wheel canvas. */
+/* Spin screen reuses the bare .r-bets-zone class (no #id), so the id-scoped rule above doesn't
+   reach it: match its width and centering here, keyed off the spin panel's wheel canvas. */
 .panel:has(#rwheel) .r-bets-zone { width: 100%; max-width: 468px; margin: 0 auto; }
 /* Blackjack/UTH/Poker Deal and roulette's Final Spin (the lone commit button on each bet screen) sit
    slightly wider than the bet box and center, so the action button overhangs the box. */
@@ -1153,7 +1151,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .btn-timetravel-glow { border-color: #2b7fff !important; box-shadow: 0 0 0 1px #2b7fff, 0 0 10px 2px rgba(43,127,255,0.4); animation: btn-timetravel-pulse 1.1s ease-in-out infinite; }
 @keyframes btn-timetravel-pulse { 50% { box-shadow: 0 0 0 1px #5aa0ff, 0 0 14px 4px rgba(90,160,255,0.55); border-color: #5aa0ff !important; } }
 /* Force-group mod: tiles that can't win (outside the group) or are guaranteed wins (cover the whole
-   group) are blocked — greyed and unclickable. No win/lose highlighting; the playable area + the
+   group) are blocked: greyed and unclickable. No win/lose highlighting; the playable area + the
    today's-modifier banner communicate the forced group. */
 .r-blocked { opacity: 0.22; cursor: not-allowed; pointer-events: none; }
 
@@ -1199,9 +1197,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 @keyframes popIn { from { transform: scale(.5) rotate(-20deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
 
 /* ── Results screen ─────────────────────────────────────── */
-/* The daily-modifier banner's pale-gold gradient + ink border, but pressed INTO the panel via
-   the canonical inlay bevel (shadow top-left, highlight bottom-right — same as .bet-amt) so it
-   reads as a recessed plaque, not a raised button/overlay. */
+/* The daily-modifier banner's pale-gold gradient and ink border, but pressed into the panel
+   via the canonical inlay bevel (shadow top-left, highlight bottom-right, same as .bet-amt)
+   so it reads as a recessed plaque, not a raised button/overlay. */
 .share-box {
   background: linear-gradient(180deg, #f5eabc 0%, #ead89a 100%); color: var(--ink);
   border: 1px solid var(--ink);
@@ -1212,7 +1210,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   white-space: pre-line; letter-spacing: 0.02em;
 }
 /* Share box + its Copy & Share button travel as one unit: the cluster shrinks to the share
-   text's longest line and centers, and both children stretch to fill it — so the button is
+   text's longest line and centers, and both children stretch to fill it, so the button is
    always locked to the share box's width. Desktop overrides the cluster width to a centred
    half-window card (see the results desktop block). */
 .share-cluster {
@@ -1223,8 +1221,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
 
 /* ── Score distribution chart ───────────────────────────── */
-/* Daily-streak line on the results screen — its own prominent gold line under the chip
-   total (the "chips" label was dropped; the big number reads as chips on its own). */
+/* Daily-streak line on the results screen: its own prominent gold line under the chip
+   total (there's no "chips" label; the big number reads as chips on its own). */
 .results-streak {
   color: var(--gold-hi); font-weight: 700;
   font-size: 1.5rem; line-height: 1.1; letter-spacing: 0.04em;
@@ -1417,8 +1415,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   border-radius: 6px;
   overflow: hidden; position: relative; z-index: 1;
 }
-/* Diamond tail below the balloon — sits in front so its fill hides the body's
-   bottom border across the base, leaving a clean point with no horizontal line */
+/* Diamond tail below the balloon: sits in front so its fill hides the body's
+   bottom border across the base, leaving a clean point with no horizontal line. */
 .xpb-tail {
   position: absolute;
   bottom: -8px; right: 30px;
@@ -1482,7 +1480,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 
 /* ── The Ladder ─────────────────────────────────────────── */
 /* Fixed skeleton: every zone keeps a constant min-height so phase changes
-   never move elements — only contents swap. The action zone is a flex column
+   never move elements: only contents swap. The action zone is a flex column
    so the call row and the big button share one width: the big button spans
    exactly the combined span of the two call buttons above it. */
 .lad-head  { min-height: 38px; }
@@ -1536,7 +1534,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 .lad-btn-big { width: 100%; margin-top: 4px; font-size: 1.15rem; }
 .lad-chips-locked { opacity: .45; pointer-events: none; }
 
-/* Desktop: the bonus round shows little content, so fill the panel slack —
+/* Desktop: the bonus round shows little content, so fill the panel slack:
    bigger cards, ladder tiles, readout and buttons, with more breathing room. */
 @media (min-width: 1024px) {
   .lad-head  { min-height: 52px; }
@@ -1562,7 +1560,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* On phones the box fills the control width (so it cleanly takes its own row and Clear/All In wrap
      below it); box == ctrl width here, equal rather than the box being narrower as on desktop. */
   :root { --btn-h: 40px; --btn-fs: 1.1rem; --btn-px: 8px; --bet-box-w: 316px; --ctrl-w: 316px; --act-btn-w: var(--bet-box-w); }
-  /* Reduce outer chrome — the 30px bottom padding was the biggest offender */
+  /* Reduce outer chrome. The 30px bottom padding was the biggest offender */
   /* Cap the shell at the viewport so it can never grow past it (the XP window
      must stay put). Content that would exceed it is handled by the inner
      overflow:hidden + the one designated scroll region (#r-bets-zone), never by
@@ -1579,8 +1577,8 @@ body.cardback-whale .card.back::before { content: '🐋'; }
     padding: calc(5px + var(--sa-t)) calc(5px + var(--sa-r)) calc(5px + var(--sa-b)) calc(5px + var(--sa-l));
     /* Fill the visible viewport (dvh excludes Safari's toolbar; vh/svh are fallbacks for
        pre-iOS-15.4). NO max-height: if a screen's content is taller than the phone, the
-       app grows past the viewport and the page scrolls vertically so buttons stay reachable
-       — never clipped. On phones the content fits, this just fills the screen. */
+       app grows past the viewport and the page scrolls vertically so buttons stay reachable,
+       never clipped. On phones the content fits, this just fills the screen. */
     min-height: 100vh; min-height: 100svh; min-height: 100dvh;
     display: flex; flex-direction: column;
   }
@@ -1601,7 +1599,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .mod-banner-title { font-size: 1.25rem; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .mod-banner-r { font-size: 1.05rem; text-align: left; }
   .tb-detail, .btn-detail, .dot-detail { display: none; }
-  .tb-prefix { display: none; } /* drop "Gambdle — " on mobile; the long game name then fits */
+  .tb-prefix { display: none; } /* drop "Gambdle" prefix on mobile; the long game name then fits */
   .sb-prefix, .sb-suffix { display: none; }
   /* Section labels */
   .sec { font-size: 1.2rem; margin-bottom: 3px; }
@@ -1624,7 +1622,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Intro logo */
   .logo { font-size: 4rem; }
   .logo-sub { font-size: 1.4rem; margin-top: 4px; }
-  /* Cards — modestly smaller to reclaim vertical space */
+  /* Cards: modestly smaller to reclaim vertical space */
   .card.lg { width: 80px; height: 114px; }
   .card.md { width: 72px; height: 102px; }
   .card.sm { width: 58px; height: 82px; }
@@ -1636,7 +1634,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      With the corner indices now pulled tight to the edge (.card.sm above), 1.4rem sits
      comfortably clear of them while staying prominent. */
   .panel:has(#uth-actions-ui) .card.sm .csuit { font-size: 1.4rem; }
-  /* Roulette board — reduce row heights; horizontal scroll is acceptable */
+  /* Roulette board: reduce row heights; horizontal scroll is acceptable */
   .rboard, .rboard-sub { grid-template-columns: 22px repeat(12, 1fr) 32px; }
   .r2to1, .rout { font-size: 0.95rem; }
   .rboard { grid-template-rows: 23px 23px 23px; }
@@ -1654,7 +1652,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#r-bets-zone) #r-sel-box { max-width: 316px; font-size: 0.85rem; padding: 2px 8px; }
   .panel:has(#r-bets-zone) .r-bet-center { gap: 3px; }
   .panel:has(#r-bets-zone) { gap: 4px; }
-  /* Roulette's chip selector now matches BJ/UTH — full-size chips at the same vertical spot — by letting
+  /* Roulette's chip selector now matches BJ/UTH: full-size chips at the same vertical spot: by letting
      the bets-zone (flex + scrollable) give up the height. The roulette panel's tighter `gap:4px` shaves
      2px off the chip->bet-row gap vs BJ/UTH, so add it back onto the chip-row margin to land the chips
      at the identical Y (verified by the chip-selector-parity test). */
@@ -1696,20 +1694,20 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .chip-row { flex-wrap: nowrap; gap: 5px; }
   .chbtn { width: 44px; height: 44px; }
   .ch-1000 > span { font-size: 0.95rem; }
-  /* Bet row — inline on phones too: [✕ Clear][box][All In] on ONE row, matching desktop. The box
+  /* Bet row: inline on phones too: [✕ Clear][box][All In] on ONE row, matching desktop. The box
      flex-shrinks to fill whatever the natural-width buttons leave (the same shrink roulette's box already
      uses on desktop to pack its 4 items, styles.css:2145). nowrap keeps it on one line; the box gives up
-     width before anything wraps. This frees the row the box used to occupy on its own — spent on larger
+     width before anything wraps. This frees the row the box used to occupy on its own: spent on larger
      chips above. The box is no longer pixel-width-identical to the play/result inlay box at phone width;
      that width parity is now a desktop guarantee (it already was for roulette, at every size). */
   .bet-row { gap: 6px; flex-wrap: nowrap; max-width: none; }
-  /* No `order` overrides: source order is Clear, box, (roulette) Place Bet, All In — so it reads
+  /* No `order` overrides: source order is Clear, box, (roulette) Place Bet, All In: so it reads
      [✕ Clear][box][Place Bet][All In] left-to-right, exactly like the desktop bet-row. */
   .bet-row > .bet-amt { flex: 1 1 auto; width: auto; min-width: 0; }
   .bet-row > .ch-clear, .bet-row > .ch-allin { flex: 0 0 auto; }
   /* Roulette's Place Bet: natural width (may shrink), so the box keeps the rest of the row. */
   .bet-row > #pb-add { flex: 0 1 auto; width: auto; min-width: 0; }
-  /* BJ bet table — compact slots on mobile */
+  /* BJ bet table: compact slots on mobile */
   .bj-bet-table { gap: 4px; padding: 2px 0; }
   .card-slot { width: 44px; height: 62px; border-width: 1.5px; }
   .bj-bet-slot-lbl { font-size: 0.78rem; letter-spacing: 0.14em; }
@@ -1722,7 +1720,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Action buttons */
   .act-btns { gap: 6px; }
   .act-btn { font-size: 1.1rem; padding: 12px 5px; white-space: normal; }
-  /* Results screen — even vertical rhythm. The mod banner stays pinned to the top,
+  /* Results screen: even vertical rhythm. The mod banner stays pinned to the top,
      so spare height collects at the bottom; use some of it to fill the page (larger
      hero number, consistent section gaps) while staying clear of the status bar even
      after the async ~110px distribution chart renders. */
@@ -1782,22 +1780,22 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .uth-result-panel .card.md .ct-s { font-size: 0.68rem; }
   .uth-result-panel .card.md .ct-r[data-r="10"] { font-size: 0.66rem !important; }
   .uth-bets-grid { display:flex; flex-wrap:wrap; justify-content:center; gap:2px 10px; margin-bottom:6px; }
-  /* Keep tight screens' cards at original size — they have no room for growth */
+  /* Keep tight screens' cards at original size: they have no room for growth */
   #bj-dealer-section .card.lg { width: 72px; height: 102px; }
   .uth-result-panel .card.sm { width: 44px; height: 62px; }
-  /* Even bands centre the dealer in its half, so no asymmetric dealer margin (was margin-bottom:6px). */
+  /* Even bands centre the dealer in its half, so it needs no extra bottom margin. */
   /* The face-down dealer's value line is a hidden spacer (.hand-val-ghost) reserving the reveal
-     height. On the tight mobile play screens, collapse it to reclaim the dealer-card→separator gap —
+     height. On the tight mobile play screens, collapse it to reclaim the dealer-card-to-separator gap:
      the slack the bet inlay box + action buttons now need under a full mod banner. The reveal
      re-renders to its own visible-value layout, so nothing is clipped there. */
   #bj-dealer-section .hand-val-ghost { height: 0 !important; min-height: 0 !important; margin: 0 !important; line-height: 0 !important; }
   .bj-split-aside { margin-bottom: 2px; }
   .bj-split-aside .card.sm { width: 43px; height: 60px; }
   .bj-split-aside .card.sm .csuit { font-size: 1.1rem; }
-  /* BJ 4-way split result — compact result hand cards */
+  /* BJ 4-way split result: compact result hand cards */
   .bj-sr-hands .card.sm { width: 39px; height: 55px; }
   /* Match the prominent center glyph of the showdown / dealer cards (~0.55 of card
-     height) now that the corner indices are tucked tight — see the tiny-card block above. */
+     height) now that the corner indices are tucked tight: see the tiny-card block above. */
   .bj-sr-hands .card.sm .csuit { font-size: 1.4rem; }
   .bj-sr-hands .hand-val { font-size: 1.1rem !important; }
   .bj-sr-hands .sec { font-size: 0.84rem !important; }
@@ -1807,7 +1805,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .sr-4 .card.sm .ct-r { font-size: 0.62rem; }
   .sr-4 .card.sm .ct-s { font-size: 0.5rem; }
   /* 2-/3-hand result splits show one row (vs the 4-way 2×2 grid) and have far
-     more vertical room — grow their cards to fill it. (.sr-N set in bj.js.) */
+     more vertical room: grow their cards to fill it. (.sr-N set in bj.js.) */
   .sr-2 .bj-sr-dealer .card.sm { width: 50px; height: 70px; }
   .sr-2 .bj-sr-hands .card.sm { width: 56px; height: 78px; }
   .sr-2 .card.sm .csuit { font-size: 1.9rem; }
@@ -1818,7 +1816,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .sr-3 .card.sm .csuit { font-size: 1.7rem; }
   .sr-3 .hand-val { font-size: 1.3rem !important; }
   .sr-3 .bj-sr-hands .sec { font-size: 0.92rem !important; }
-  /* UTH showdown — override inline divider margins */
+  /* UTH showdown: override inline divider margins */
   .uth-result-panel .uth-cards-col .divider { margin: 2px 0 !important; }
   .uth-result-panel .uth-hand-name { font-size: 1.05rem !important; margin-top: 1px !important; }
   /* ── Short-screen button visibility ──────────────────────────────────────────
@@ -1849,9 +1847,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* UTH play (preflop/flop/turn): reclaim space around the bet chips. */
   .uth-bet-chips { margin: 4px 0 !important; }
   .uth-bet-chip { padding: 4px 14px !important; }
-  /* Roulette placed bets — compact list and spin button */
+  /* Roulette placed bets: compact list and spin button */
   #db { margin: 3px 0 !important; }
-  /* Hide the "Roulette · " / etc. prefix on mobile — title bar already shows the game */
+  /* Hide the "Roulette · " / etc. prefix on mobile: title bar already shows the game */
   .sec-game-prefix { display: none; }
   .r-bets-zone .rbz-title { font-size: 1.3rem; padding-bottom: 4px; }
   .r-bets-zone .rbz-item { margin-bottom: 0 !important; }
@@ -1859,7 +1857,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   body.deck-emoji .ct-s::after { font-size: 0.72em; }
 }
 
-/* Results — taller phones leave bottom slack (≈62px at 812h, ≈102px at 852h, vs only ≈30px
+/* Results: taller phones leave bottom slack (≈62px at 812h, ≈102px at 852h, vs only ≈30px
    on the 780h support floor). Spend that slack on bigger gaps between the stacked elements
    rather than leaving dead space at the bottom. Tiered by height so the 360×780 floor (which
    has little slack and must fit without scrolling) keeps its tight 8px gap. */
@@ -1921,7 +1919,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 @media (min-width: 1280px) { :root { --bet-box-w: 420px; } }
 
 @media (min-width: 1024px) {
-  /* Shell — fluid window, capped well below viewport so the desktop frames it.
+  /* Shell: fluid window, capped well below viewport so the desktop frames it.
      Width:  620px at 1024w  →  810px at 1440w  →  880px at 1920w (capped).
      Height: 704px at 768h   →  836px at 900h   →  940px at 1080h (capped).  */
   body { font-size: 22px; overflow-x: hidden; overflow-y: auto; }
@@ -1929,7 +1927,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .app { max-width: clamp(620px, 56vw, 880px); padding: 16px 16px; }
   .window {
     /* min-height (not a fixed height) so the window stays at the framed clamp size when content
-       fits — preserving the XP look — but GROWS when content is genuinely taller than it (a short
+       fits: preserving the XP look: but GROWS when content is genuinely taller than it (a short
        window, or a user's enlarged browser/OS fonts). The page then scrolls vertically so every
        button stays reachable, instead of the panel clipping the bottom one off-screen. */
     min-height: clamp(700px, calc(100svh - 32px), 960px);
@@ -1953,7 +1951,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .menu-bar .mb-item { padding: 4px 10px; }
   .status-bar { font-size: 1.08rem; padding: 3px 10px; }
 
-  /* Mod banner — fill width, modest */
+  /* Mod banner: fill width, modest */
   .mod-banner { padding: 8px 18px; font-size: 1.45rem; margin-bottom: 5px; }
   .mod-banner-label { font-size: 1.05rem; }
   .mod-banner-title { font-size: 1.78rem; }
@@ -1976,7 +1974,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* Hand values under cards */
   .hand-val { font-size: 2.2rem; margin-top: 6px; }
 
-  /* Desktop cards — modest upscale from mobile sizes (~10% larger). */
+  /* Desktop cards: modest upscale from mobile sizes (~10% larger). */
   .card.lg { width: 88px; height: 124px; }
   .card.md { width: 78px; height: 110px; }
   .card.sm { width: 62px; height: 87px; }
@@ -1993,7 +1991,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .card.md .ct-r[data-r="10"] { font-size: 0.92rem !important; }
   .card.sm .ct-r[data-r="10"] { font-size: 0.75rem !important; }
 
-  /* Chip selector — slightly larger and roomier */
+  /* Chip selector: slightly larger and roomier */
   .chbtn { width: 56px; height: 56px; }
   .chbtn > span { font-size: 1.15rem; }
   .chip-row { gap: 10px; margin-bottom: 8px; }
@@ -2025,7 +2023,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bj-split-active ~ div .irow,
   #bj-player-hand ~ * .irow { margin-top: 4px !important; padding: 4px 12px !important; }
 
-  /* BJ normal play — scale dealer/player cards + UI up to pull in the centered
+  /* BJ normal play: scale dealer/player cards + UI up to pull in the centered
      slack between the dealer divider, the player hand, and the buttons. Scoped
      to #bj-player-hand so the dense 4-way split (already tight) is untouched.
      Card width is held in check by the multi-card fan on the narrow 1024 panel,
@@ -2049,7 +2047,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#bj-player-hand) .ik,
   .panel:has(#bj-player-hand) .iv { font-size: 1.4rem; }
 
-  /* BJ result screens — shrink headline/sub from base 3rem/2rem */
+  /* BJ result screens: shrink headline/sub from base 3rem/2rem */
   .panel .result-hl { font-size: 2.2rem; margin-bottom: 2px; }
   .panel .result-sub { font-size: 1.5rem; margin-bottom: 6px; }
   .panel .result-sub.borrow-rem { font-size: 1.3rem; }
@@ -2060,7 +2058,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel > div[style*="gap:16px"] .hand-val { font-size: 1.2rem !important; margin-top: 2px !important; }
 
   /* ── BJ 4-way split play / result ─────────────── */
-  /* Heaviest screens — tightest possible to fit the 4-hand active layout */
+  /* Heaviest screens: tightest possible to fit the 4-hand active layout */
   .bj-split-aside { margin-bottom: 2px; }
   .bj-split-lbl { font-size: 1rem; }
   .bj-split-val { font-size: 1.3rem; margin-top: 1px; }
@@ -2068,7 +2066,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bj-split-aside .card.sm .csuit { font-size: 1.2rem; }
   .bj-active-lbl { font-size: 1.05rem; margin-bottom: 1px; }
   /* Split play: dealer and active hand share one size so they read as balanced
-     (active was bigger than the dealer). Tuned to stay vertically neutral — the
+     (active was bigger than the dealer). Tuned to stay vertically neutral: the
      dealer's growth is paid for by the active's reduction. */
   .panel:has(.bj-split-active) #bj-dealer-section .card.lg,
   .bj-split-active .card.lg { width: 90px; height: 126px; }
@@ -2086,7 +2084,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      box→button spacing is the .game-controls gap, kept uniform for control-position parity). */
   .bj-split-active + div .act-btns,
   .bj-split-active ~ div .act-btns { gap: 4px; }
-  /* Split-play-only panel overrides — most aggressive */
+  /* Split-play-only panel overrides: most aggressive */
   .panel:has(.bj-split-active) { padding: 4px 28px !important; gap: 2px !important; }
   .panel:has(.bj-split-active) #bj-dealer-section { margin-bottom: 0 !important; }
   /* Cards scaled down a touch; spend the savings on label→card breathing room and
@@ -2152,20 +2150,20 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-actions-ui) .act-btn,
   .panel:has(#uth-actions-ui) .btn-gold { padding: 8px 12px; font-size: 1.25rem; }
 
-  /* UTH bet chips block (preflop/flop/turn/reveal) — compact margin + inner padding */
+  /* UTH bet chips block (preflop/flop/turn/reveal): compact margin + inner padding */
   .uth-bet-chips { margin: 4px 0 !important; gap: 8px !important; }
   .uth-bet-chip { padding: 4px 14px !important; }
   .uth-bet-chip > div:first-child { font-size: 0.78rem !important; }
   .uth-bet-chip > div:last-child { font-size: 1.4rem !important; }
 
   /* ── UTH bet screen ───────────────────────────── */
-  /* The pay table is the chunk that pushes UTH bet over — compact it */
+  /* The pay table is the chunk that pushes UTH bet over: compact it */
   .ptable { gap: 0 18px; padding: 4px 14px; }
   .pname { font-size: 1.1rem; }
   .ppay { font-size: 1.05rem; }
   .uth-summary { font-size: 1.15rem; }
 
-  /* ── UTH bet panel — scale up to fill the empty bottom on desktop ── */
+  /* ── UTH bet panel: scale up to fill the empty bottom on desktop ── */
   /* Tuned for 1280×800. Larger viewports get further bumps in the 1440+
      and 1920+ blocks below. Summary is a natural one-line block (no flex);
      remaining slack at larger viewports gets eaten by the ptable/chip/dot
@@ -2189,7 +2187,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .ppay  { font-size: 0.95rem; }
 
   /* ── UTH play (preflop / flop / turn) ─────────── */
-  /* 4 sections + dividers + bet chips + actions — keep things tight */
+  /* 4 sections + dividers + bet chips + actions: keep things tight */
 
   /* ── UTH showdown result (win/lose/fold) ──────── */
   /* Cards scaled up to fill the short (800h) window; content vertically
@@ -2294,9 +2292,9 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .dist-bars { height: 34px; margin: 22px 4px 27px; }
   /* Cap the results column to a centred ~620px so the share box, Copy button, result rows
      and chart don't stretch super-wide on big windows (the felt frames them). On narrower
-     desktop windows the window is itself < this width, so the cap simply doesn't bite —
+     desktop windows the window is itself < this width, so the cap simply doesn't bite:
      side-whitespace appears only where there is spare width. */
-  /* width:100% is REQUIRED — auto margins on a column flex item disable align-items:stretch,
+  /* width:100% is REQUIRED: auto margins on a column flex item disable align-items:stretch,
      so without a definite width the item shrinks to content. #dist-chart's bars are flex:1 with
      no intrinsic width (their labels are absolutely positioned), so it would collapse to slivers. */
   .results-panel .game-manifest,
@@ -2311,13 +2309,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .results-panel > .share-cluster { width: 50%; min-width: 340px; max-width: 460px; gap: 4px; margin-left: auto; margin-right: auto; }
   /* .results-hero (flex:1) absorbs the slack between the banner and the box and floats
      the tier/chips/streak centered in it, so the manifest/chart/share/button group settles
-     at the bottom. No auto-margins here — they'd claim the free space and starve that grow. */
+     at the bottom. No auto-margins here: they'd claim the free space and starve that grow. */
 
   /* ── Dev stats / borrow / 5-card poker ────────── */
-  /* Devstats has lots of slack — base font rules absorb it.
+  /* Devstats has lots of slack: base font rules absorb it.
      Poker is not a priority; existing base rules suffice. */
 
-  /* ── BJ bet — slots flex-grow to fill slack; chips/bet scaled up ────── */
+  /* ── BJ bet: slots flex-grow to fill slack; chips/bet scaled up ────── */
   .panel:has(> #db:last-child) { justify-content: flex-start; gap: 8px; }
   .panel:has(> #db:last-child) .sec { font-size: 1.45rem; text-align: center; margin-bottom: 0; }
   .panel:has(> #db:last-child) .chip-row { gap: 12px; margin-bottom: 18px; }
@@ -2330,7 +2328,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(> #db:last-child) .ch-clear,
   .panel:has(> #db:last-child) .ch-allin { padding: 9px 18px; font-size: 1.2rem; }
   .panel:has(> #db:last-child) > #db { padding: 12px 18px; font-size: 1.55rem; }
-  /* Desktop slots — bigger and breathe more vertical space */
+  /* Desktop slots: bigger and breathe more vertical space */
   .panel:has(> #db:last-child) .bj-bet-table { gap: 10px; padding: 6px 0; }
   .panel:has(> #db:last-child) .card-slot { width: 76px; height: 106px; }
   .panel:has(> #db:last-child) .bj-bet-slot-lbl { font-size: 1.1rem; }
@@ -2371,7 +2369,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
     font-size: 2.7rem;
   }
 
-  /* Roulette spin — wheel scaled down to fit the narrower window. */
+  /* Roulette spin: wheel scaled down to fit the narrower window. */
   .panel:has(#rwheel) { justify-content: flex-start; }
   .panel:has(#rwheel) .wheel-outer { margin-top: auto; margin-bottom: 14px; }
   .panel:has(#rwheel) #rwheel { width: 280px; height: 280px; }
@@ -2417,17 +2415,17 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r[data-r="10"] { font-size: 0.9rem !important; }
   /* Center the BJ win-result head (banner + dots stay pinned at the top). The headline+chip
      block carries auto-margins top AND bottom so its slack splits evenly above (to the divider)
-     and below (to the cards) — the whole unit floats vertically centered between them. */
+     and below (to the cards): the whole unit floats vertically centered between them. */
   .panel:has(> div[style*="gap:16px"]) > .result-head { margin-top: auto; margin-bottom: auto; }
   .panel:has(> div[style*="gap:16px"]) > .btn-gold:last-child { margin-bottom: auto; }
   .panel:has(> div[style*="gap:16px"]) .hand-val { font-size: 1.5rem !important; }
   .panel:has(> div[style*="gap:16px"]) .sec-sm { font-size: 1.1rem; }
 
-  /* UTH dealer-reveal screen (and similar) — the inline gap:12px stack of cards
+  /* UTH dealer-reveal screen (and similar): the inline gap:12px stack of cards
      plus pay-summary tends to leave slack; nothing to do, already centered. */
 }
 
-/* ── Tall desktop (1024×880+) — fill more slack on the UTH bet panel.
+/* ── Tall desktop (1024×880+): fill more slack on the UTH bet panel.
    Chip/font scale-ups use the SAME chbtn width as the base so the chip row
    always fits the narrow (1024 wide → 576px inner) panel without wrapping. */
 /* Short desktop windows (e.g. 1280x800, 1024x640): the big desktop card slots make the BJ bet-table
@@ -2441,7 +2439,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
 }
 /* Short desktop windows (e.g. 1024×640 landscape) lack the vertical room for the full split cards, so the
    active hand would spill into the bet box. Shrink the split cards just here (only where forced) so the
-   active hand clears the controls — every taller window keeps the full size. */
+   active hand clears the controls: every taller window keeps the full size. */
 @media (min-width: 1024px) and (max-height: 720px) {
   .panel:has(.bj-split-active) #bj-dealer-section .card.lg,
   .bj-split-active .card.lg { width: 72px; height: 100px; }
@@ -2470,7 +2468,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .intro-lead { font-size: 2.2rem; }
   .intro-sub { font-size: 1.65rem; }
   .intro-prog-label { font-size: 1.6rem; }
-  /* Split play leaves deep vertical slack on tall desktop (~160px at 1440×900) —
+  /* Split play leaves deep vertical slack on tall desktop (~160px at 1440×900):
      spend it on the active hand. Width tracks normal play's 118px ceiling so a
      multi-card fan still fits the narrow 1024 panel. Aside hands grow modestly. */
   .panel:has(.bj-split-active) #bj-dealer-section .card.lg,
@@ -2498,7 +2496,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .pname { font-size: 1.1rem; }
   .panel:has(#uth-summary) .ppay  { font-size: 1.05rem; }
 
-  /* BJ normal play — grow cards/UI on taller windows */
+  /* BJ normal play: grow cards/UI on taller windows */
   .panel:has(#bj-player-hand) .card.lg { width: 104px; height: 146px; }
   .panel:has(#bj-player-hand) .card.lg .csuit { font-size: 4rem; }
   .panel:has(#bj-player-hand) .card.lg .ct-r { font-size: 1.6rem; }
@@ -2510,7 +2508,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#bj-player-hand) #bj-dealer-section .hand-val { font-size: 2.4rem; }
   .panel:has(#bj-player-hand) .act-btn { font-size: 1.7rem; padding: 15px 14px; }
 
-  /* BJ win result — grow cards on taller windows */
+  /* BJ win result: grow cards on taller windows */
   .panel > div[style*="gap:16px"] .card.sm { width: 92px; height: 128px; }
   .panel > div[style*="gap:16px"] .card.sm .csuit { font-size: 3.4rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r { font-size: 1.35rem; }
@@ -2519,7 +2517,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(> div[style*="gap:16px"]) .result-hl { font-size: 3rem; }
   .panel:has(> div[style*="gap:16px"]) .hand-val { font-size: 1.7rem !important; }
 
-  /* BJ split result — grow cards on taller windows */
+  /* BJ split result: grow cards on taller windows */
   .bj-sr-dealer .card.sm,
   .bj-sr-hands .card.sm { width: 59px; height: 83px; }
   .bj-sr-dealer .card.sm .csuit,
@@ -2531,7 +2529,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bj-sr-dealer .hand-val,
   .bj-sr-hands .hand-val { font-size: 1.38rem !important; }
   .bj-sr-hands .sec { font-size: 1.08rem !important; }
-  /* 2-/3-hand result splits — taller window, single row */
+  /* 2-/3-hand result splits: taller window, single row */
   .sr-2 .bj-sr-dealer .card.sm { width: 80px; height: 112px; }
   .sr-2 .bj-sr-hands .card.sm { width: 92px; height: 129px; }
   .sr-2 .card.sm .csuit { font-size: 2.2rem; }
@@ -2543,7 +2541,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .sr-3 .hand-val { font-size: 1.7rem !important; }
   .sr-3 .bj-sr-hands .sec { font-size: 1.25rem !important; }
 
-  /* Roulette result — grow the result number + outcome on taller windows */
+  /* Roulette result: grow the result number + outcome on taller windows */
   .panel:has(.r-res-num) .r-res-num { width: 124px; height: 124px; font-size: 3.1rem; }
   .panel:has(.r-res-num) .result-hl { font-size: 3rem; }
   .panel:has(.r-res-num) .result-sub { font-size: 1.8rem; }
@@ -2552,10 +2550,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(.r-res-num) .ik,
   .panel:has(.r-res-num) .iv { font-size: 1.3rem; }
   .panel:has(.r-res-num) .btn-gold { font-size: 1.6rem; padding: 14px 16px; }
-  /* Roulette spin — wheel up to its native 300px (sharp); transient screen. */
+  /* Roulette spin: wheel up to its native 300px (sharp); transient screen. */
   .panel:has(#rwheel) #rwheel { width: 300px; height: 300px; }
 
-  /* Final results — scale up on taller windows. Open the gaps between the stacked elements so
+  /* Final results: scale up on taller windows. Open the gaps between the stacked elements so
      the group isn't cramped, and pay for it by shrinking the share box and trimming the chart
      margins (with the distribution chart shown the panel is nearly full, so this stays roughly
      height-neutral rather than overflowing). Result rows + chip number are kept compact here so
@@ -2574,7 +2572,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   /* .dist-bars top margin is 18px here → re-center the title (see desktop base rule). */
   #dist-title { margin-top: 4px !important; margin-bottom: 5px !important; }
 
-  /* UTH mid-hand (preflop/flop/turn) — grow cards/UI to shrink the
+  /* UTH mid-hand (preflop/flop/turn): grow cards/UI to shrink the
      margin-auto gaps above the dealer and below the actions. */
   .panel:has(#uth-actions-ui) { gap: 4px; }
   /* gap:4px → banner_mb(5)+gap(4)+dots_mt = 11 → dots_mt = 2px (reset to standard) */
@@ -2598,7 +2596,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-actions-ui) .act-btn,
   .panel:has(#uth-actions-ui) .btn-gold { padding: 12px 14px; font-size: 1.45rem; }
 
-  /* UTH showdown result — grow cards on taller windows */
+  /* UTH showdown result: grow cards on taller windows */
   .uth-result-panel .result-hl { font-size: 1.9rem; }
   .uth-result-panel .result-sub { font-size: 1.4rem; }
   .uth-result-panel .card.md { width: 68px; height: 96px; }
@@ -2616,7 +2614,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .uth-result-panel .btn-gold { font-size: 1.4rem; padding: 10px 16px !important; }
 }
 
-/* ── Wider tall desktop (1280×880+) — wider panel can fit larger chips. */
+/* ── Wider tall desktop (1280×880+): wider panel can fit larger chips. */
 @media (min-width: 1280px) and (min-height: 880px) {
   /* Wide + tall: the program tiles have room to grow and still stay one line. */
   .intro-panel .gm-row { padding: 13px 18px; gap: 16px; }
@@ -2627,11 +2625,11 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .chbtn > span { font-size: 1.35rem; }
   .panel:has(#uth-summary) .chip-row { gap: 14px; margin: 4px 0 14px; }
   .panel:has(#uth-summary) #uth-summary { font-size: 1.6rem; margin: 6px 0 !important; }
-  /* Tallest desktops have the most slack — grow the pay-table box a little more. */
+  /* Tallest desktops have the most slack: grow the pay-table box a little more. */
   .panel:has(#uth-summary) .ptable { padding: 7px 18px; gap: 2px 22px; max-width: 360px; }
   .panel:has(#uth-summary) .pname { font-size: 1.15rem; }
   .panel:has(#uth-summary) .ppay  { font-size: 1.1rem; }
-  /* 2-/3-hand result splits — wide window removes the narrow-panel width cap,
+  /* 2-/3-hand result splits: wide window removes the narrow-panel width cap,
      so cards can grow larger than the 1024-tier value. */
   .sr-2 .bj-sr-dealer .card.sm { width: 92px; height: 129px; }
   .sr-2 .bj-sr-hands .card.sm { width: 104px; height: 146px; }
@@ -2643,19 +2641,19 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .sr-3 .hand-val { font-size: 1.85rem !important; }
 }
 
-/* ── Narrow-tall desktop (1024×1060+) — fills the empty bands when the user
+/* ── Narrow-tall desktop (1024×1060+): fills the empty bands when the user
    has a tall but narrow window. Chip width can't grow here (1024 inner is
    576px), so we lean on font + padding scale-ups instead. */
 @media (min-width: 1024px) and (min-height: 1060px) {
   :root { --btn-h: 52px; --btn-fs: 1.48rem; }
-  /* Even more felt at 1080h+ — push the intro elements larger still (tiles kept to a
+  /* Even more felt at 1080h+: push the intro elements larger still (tiles kept to a
      size that still fits the long Hold'em name on one line at the narrow 1024 width). */
   .intro-panel .logo { font-size: 6.6rem; }
   .intro-panel .logo-sub { font-size: 2.1rem; }
   .intro-lead { font-size: 2.6rem; }
   .intro-sub { font-size: 1.9rem; }
   .intro-prog-label { font-size: 1.8rem; }
-  /* BJ normal play — narrow-but-tall window: hold card width back so a
+  /* BJ normal play: narrow-but-tall window: hold card width back so a
      multi-card fan still fits the 1024 panel; lean on height + fonts. */
   .panel:has(#bj-player-hand) .card.lg { width: 118px; height: 168px; }
   .panel:has(#bj-player-hand) .card.lg .csuit { font-size: 4.5rem; }
@@ -2663,7 +2661,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#bj-player-hand) .card.lg .ct-s { font-size: 1.46rem; }
   .panel:has(#bj-player-hand) .card.lg .ct-r[data-r="10"] { font-size: 1.4rem !important; }
   .panel:has(#bj-player-hand) .card.lg.back::before { font-size: 4.3rem; }
-  /* Split play — ~250px of slack here; push the active hand close to normal-play
+  /* Split play: ~250px of slack here; push the active hand close to normal-play
      size (118px width ceiling for fan fit), and enlarge the aside hands too. */
   .panel:has(.bj-split-active) #bj-dealer-section .card.lg,
   .bj-split-active .card.lg { width: 106px; height: 148px; }
@@ -2683,7 +2681,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#bj-player-hand) .hand-val { font-size: 3.1rem; }
   .panel:has(#bj-player-hand) .act-btn { font-size: 1.9rem; padding: 20px 14px; }
 
-  /* BJ win result — narrow-tall: bigger cards, width held for the fan */
+  /* BJ win result: narrow-tall: bigger cards, width held for the fan */
   .panel > div[style*="gap:16px"] .card.sm { width: 100px; height: 140px; }
   .panel > div[style*="gap:16px"] .card.sm .csuit { font-size: 3.7rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r { font-size: 1.5rem; }
@@ -2692,7 +2690,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(> div[style*="gap:16px"]) .result-hl { font-size: 3.3rem; }
   .panel:has(> div[style*="gap:16px"]) .hand-val { font-size: 1.9rem !important; }
 
-  /* BJ split result — narrow-tall */
+  /* BJ split result: narrow-tall */
   .bj-sr-dealer .card.sm,
   .bj-sr-hands .card.sm { width: 72px; height: 101px; }
   .bj-sr-dealer .card.sm .csuit,
@@ -2703,7 +2701,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bj-sr-dealer .hand-val,
   .bj-sr-hands .hand-val { font-size: 1.6rem !important; }
   .bj-sr-hands .sec { font-size: 1.25rem !important; }
-  /* 2-/3-hand result splits — tallest tier. Width-capped by the narrow 1024 panel
+  /* 2-/3-hand result splits: tallest tier. Width-capped by the narrow 1024 panel
      (2-hand = 50%, 3-hand = 33% of a 576px inner width). */
   .sr-2 .bj-sr-dealer .card.sm { width: 86px; height: 120px; }
   .sr-2 .bj-sr-hands .card.sm { width: 100px; height: 140px; }
@@ -2716,13 +2714,13 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .sr-3 .hand-val { font-size: 1.8rem !important; }
   .sr-3 .bj-sr-hands .sec { font-size: 1.3rem !important; }
 
-  /* Roulette result — tallest windows */
+  /* Roulette result: tallest windows */
   .panel:has(.r-res-num) .r-res-num { width: 144px; height: 144px; font-size: 3.6rem; }
   .panel:has(.r-res-num) .result-hl { font-size: 3.3rem; }
   .panel:has(.r-res-num) .res-row,
   .panel:has(.r-res-num) .game-manifest > div { font-size: 1.3rem; }
 
-  /* Final results — tallest windows. Slightly wider gaps; share box + chart margins trimmed
+  /* Final results: tallest windows. Slightly wider gaps; share box + chart margins trimmed
      to keep it from overflowing when the chart is present. Result-row padding stays modest so
      the chart's reserved top/bottom label margins fit (esp. the narrow-tall 1024×1080). */
   .results-panel { gap: 8px !important; }
@@ -2750,7 +2748,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-summary) .pname { font-size: 1.1rem; }
   .panel:has(#uth-summary) .ppay  { font-size: 1.05rem; }
 
-  /* UTH mid-hand (preflop/flop/turn) — largest cards/UI on the tallest windows */
+  /* UTH mid-hand (preflop/flop/turn): largest cards/UI on the tallest windows */
   .panel:has(#uth-actions-ui) { gap: 6px; }
   /* gap:6px → banner_mb(5)+gap(6)+dots_mt = 11 → dots_mt = 0 */
   .panel:has(#uth-actions-ui) .dots-row { margin-top: 0; }
@@ -2773,7 +2771,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#uth-actions-ui) .act-btn,
   .panel:has(#uth-actions-ui) .btn-gold { padding: 15px 16px; font-size: 1.6rem; }
 
-  /* UTH showdown result — largest cards on the tallest windows */
+  /* UTH showdown result: largest cards on the tallest windows */
   .uth-result-panel { gap: 5px !important; }
   .uth-result-panel > .divider { margin: 4px 0; }
   .uth-result-panel .uth-cards-col { gap: 5px; }
@@ -2794,7 +2792,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .uth-hand-name { font-size: 1.3rem !important; }
 }
 
-/* ── Tallest desktop (1280×1060+) — fill remaining empty bands on UTH bet.
+/* ── Tallest desktop (1280×1060+): fill remaining empty bands on UTH bet.
    Locked to min-width 1280 because the 82px chip row + larger ptable rows
    would not fit the 576px inner width of a 1024-wide panel. */
 @media (min-width: 1280px) and (min-height: 1060px) {
@@ -2803,7 +2801,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .intro-panel .rnd-ic { font-size: 2.1rem; }
   .intro-panel .rnd-nm { font-size: 2.5rem; }
   .intro-panel .rnd-dc { font-size: 1.7rem; }
-  /* BJ normal play — wide + tall window has the room for the biggest cards. */
+  /* BJ normal play: wide + tall window has the room for the biggest cards. */
   .panel:has(#bj-player-hand) .card.lg { width: 132px; height: 186px; }
   .panel:has(#bj-player-hand) .card.lg .csuit { font-size: 5rem; }
   .panel:has(#bj-player-hand) .card.lg .ct-r { font-size: 2rem; }
@@ -2812,14 +2810,14 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .panel:has(#bj-player-hand) .card.lg.back::before { font-size: 4.7rem; }
   .panel:has(#bj-player-hand) .hand-val { font-size: 3.3rem; }
 
-  /* BJ win result — wide + tall: biggest cards */
+  /* BJ win result: wide + tall: biggest cards */
   .panel > div[style*="gap:16px"] .card.sm { width: 112px; height: 156px; }
   .panel > div[style*="gap:16px"] .card.sm .csuit { font-size: 4.1rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r { font-size: 1.65rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-s { font-size: 1.35rem; }
   .panel > div[style*="gap:16px"] .card.sm .ct-r[data-r="10"] { font-size: 1.25rem !important; }
 
-  /* 2-/3-hand result splits — widest + tallest windows */
+  /* 2-/3-hand result splits: widest + tallest windows */
   .sr-2 .bj-sr-dealer .card.sm { width: 104px; height: 146px; }
   .sr-2 .bj-sr-hands .card.sm { width: 120px; height: 168px; }
   .sr-2 .card.sm .csuit { font-size: 2.9rem; }
@@ -2851,7 +2849,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
    screen. `zoom` (unlike `transform: scale`) reflows cleanly and keeps
    fonts crisp + hit-areas correct. Gated on width AND height so a short-
    but-wide ultrawide (e.g. 3440×1440) can't zoom itself into vertical
-   scroll — the capped 960px window × zoom must still fit the viewport.
+   scroll: the capped 960px window × zoom must still fit the viewport.
    Note most 4K monitors run at 150% OS scaling → a 2560×1440 CSS viewport,
    which is exactly the first step. True 4K-at-100% hits the second.       */
 @media (min-width: 2560px) and (min-height: 1400px) {

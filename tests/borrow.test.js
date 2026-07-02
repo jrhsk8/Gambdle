@@ -40,7 +40,7 @@ describe('_canShowBorrow — eligibility checks', () => {
   });
 });
 
-// ─── advanceTo — bust intercept ───────────────────────────────────────────────
+// ─── advanceTo · bust intercept ───────────────────────────────────────────────
 
 describe('advanceTo — redirects to borrow screen when eligible', () => {
   it('bust going to results mid-BJ → borrow screen, return = bj (hand < 3)', () => {
@@ -233,7 +233,7 @@ describe('loadState — applies borrow debt only on the exact target day', () =>
     S.chips = START_CHIPS;
     try {
       loadState();
-      // Debt expired — chips should be unaffected and debt cleared
+      // Debt expired: chips should be unaffected and debt cleared
       assertEqual(S.chips, START_CHIPS, 'expired debt should not deduct chips');
       assert(!_ls.getItem('gambdle_borrow_debt'), 'expired debt should be removed from localStorage');
     } finally {
@@ -278,16 +278,16 @@ describe('loadState — applies borrow debt only on the exact target day', () =>
   });
 });
 
-// ─── _effectiveBorrowAmount — respects min_chips modifier ────────────────────
+// ─── _effectiveBorrowAmount · respects min_chips modifier ────────────────────
 
 describe('_effectiveBorrowAmount — min_chips floor', () => {
-  // _activeMod() resolves off getActiveSeed()/getActiveDayNum() — the REAL calendar date, not the
-  // test seed — so these pin _backlogSeed to frozen DAILY_MODIFIERS days (never reassigned by future
+  // _activeMod() resolves off getActiveSeed()/getActiveDayNum(), which is the real calendar date, not the
+  // test seed. So these pin _backlogSeed to frozen DAILY_MODIFIERS days (never reassigned by future
   // CYCLE_ORDER edits, per modifiers.js) instead of relying on whatever mod today's real date happens
   // to carry. (forcedMod can't express "no modifier": resolveDayMod does `forcedMod || ...`, so a
   // falsy forcedMod just falls through to the real day's mod.)
   it('returns BORROW_AMOUNT when no min_chips modifier', () => {
-    _setBacklogSeedForTest(20260505); // Day 1 — r_hot_numbers, no min_chips
+    _setBacklogSeedForTest(20260505); // Day 1: r_hot_numbers, no min_chips
     try {
       // forcedMod/pcPick cleared: another file's test may have left one set on the shared S.
       withBrwState({ forcedMod: null, pcPick: null }, () => {
@@ -297,7 +297,7 @@ describe('_effectiveBorrowAmount — min_chips floor', () => {
   });
 
   it('returns min_chips when min_chips > BORROW_AMOUNT', () => {
-    _setBacklogSeedForTest(20260522); // Day 18 — high_stakes, min_chips: 100
+    _setBacklogSeedForTest(20260522); // Day 18: high_stakes, min_chips: 100
     try {
       withBrwState({ forcedMod: null, pcPick: null }, () => {
         const minC = getMod('min_chips') || 0;
@@ -369,7 +369,7 @@ describe('advanceTo(results) — recalculates chips including borrow', () => {
 
   it('declined borrow (borrowUsed=true, borrowAmount=0) adds NO phantom 50', () => {
     // Regression: declineBorrow sets borrowUsed=true (to gate the re-prompt + the ladder detour)
-    // but takes no loan, so borrowAmount stays 0. recalc must add 0 — not fall back to BORROW_AMOUNT.
+    // but takes no loan, so borrowAmount stays 0. recalc must add 0, not fall back to BORROW_AMOUNT.
     // The bug credited a free 50 the Transcript never records, so the server replay (0) disagreed
     // with the client (50). A busted player who accepts defeat scores their real total.
     const bjH = [{ bet:1000, result:'lose', delta:-1000, player:[], dealer:[] }];
@@ -456,7 +456,7 @@ describe('screenBorrow — renders without throwing', () => {
   });
 });
 
-// ─── screenIntro — reflects debt-adjusted starting chips ─────────────────────
+// ─── screenIntro · reflects debt-adjusted starting chips ─────────────────────
 
 describe('screenIntro — shows S.chips not START_CHIPS', () => {
   it('shows reduced chips when debt has been applied (e.g. 950)', () => {

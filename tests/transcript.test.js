@@ -1,7 +1,6 @@
-// ─── Run transcript (S.tx / txLog) — integrity Phase 1 ───────────────────────
+// ─── Run transcript (S.tx / txLog) ──────────────────────────────────────────────
 // Every replay-relevant player decision must land in S.tx in order, with the shape
-// the submit-score Edge Function stores (and Phase 2 will replay). See
-// .claude/LEADERBOARD-INTEGRITY.md.
+// the submit-score Edge Function stores. See .claude/LEADERBOARD-INTEGRITY.md.
 
 // Snapshot/restore S around each test (pattern from modifiers.test.js).
 const _txSnap = JSON.stringify({ ...S, pkHeld: [...S.pkHeld] });

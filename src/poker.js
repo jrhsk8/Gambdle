@@ -1,15 +1,15 @@
 // ─── 5 CARD POKER (grep the function name; line numbers drift) ─────────────
-// The partially-built five-card draw game (keyed 'poker', state on S.pk*). Distinct from UTH; it
-// now lives in its own file and registers its own Game-registry slots, exactly like every other
-// game. Shares only the seeded DEAL.pokerDecks and the rankPoker evaluator (exported from uth.js,
-// where UTH's bestOf7 also uses it). Not yet on the leaderboard board and not replayed server-side
-// (the Engine stubs 'pk' events to a 0 net); see .claude/ARCHITECTURE.md.
+// The partially-built five-card draw game (keyed 'poker', state on S.pk*). Distinct from UTH.
+// It has its own Game-registry slots, like every other game, and shares only the seeded
+// DEAL.pokerDecks and the rankPoker evaluator (exported from uth.js, where UTH's bestOf7 also
+// uses it). Not yet on the leaderboard and not replayed server-side (the Engine stubs 'pk'
+// events to a 0 net); see .claude/ARCHITECTURE.md.
 //   pkSkip · pkDeal · toggleHold · pkDraw · screenPoker · GAMES.poker.{reset,screen,resume,nextHand}
 
-/** Skip the current poker hand (all_in_or_skip modifier). Records delta 0 and advances. */
+// Skip the current poker hand (all_in_or_skip modifier). Records delta 0 and advances.
 function pkSkip(){ tx('pk','skip'); _skipHand('poker',{bet:0,result:'skip',pts:0,delta:0}); }
 
-/** Initial deal for 5-Card Draw Poker. */
+// Initial deal for 5-Card Draw Poker.
 function pkDeal(){
   if(!S.pkBet||S.pkPhase!=='bet')return;
   S.pkPhase='dealing'; // lock immediately
@@ -28,8 +28,8 @@ function toggleHold(i){
   // Persist the hold decision before the DOM patch.
   mutate(s=>{ s.pkHeld.has(i)?s.pkHeld.delete(i):s.pkHeld.add(i); });
   const h=S.pkHeld.has(i);
-  // Surgically toggle this card's lift/tag in place; a missing wrap (post-refresh) falls back to a
-  // no-anim render via the shared patch seam.
+  // Toggle this card's lift/tag in place; if the wrap is missing (e.g. after a refresh),
+  // patchOrRender falls back to a plain no-animation render instead.
   patchOrRender(DOM.pkHoldWrap+i, hw=>{
     const card=hw.querySelector('.card');
     const tag=hw.querySelector('.hold-tag');
@@ -39,23 +39,23 @@ function toggleHold(i){
     if(status)status.textContent=`Tap cards to hold · ${S.pkHeld.size} held · ${5-S.pkHeld.size} replaced`;
   }, {noAnim:true});
 }
-// Pure resolver — rank result + bet + win-multiplier in, {result, delta} out; no S, no DOM, no
-// credit (the parity-seam shape, mirroring resolveBJHand/resolveUTH). 5-Card Draw is jacks-or-better:
+// Rank result + bet + win-multiplier in, {result, delta} out. Takes no S or DOM and does no
+// crediting itself, same shape as resolveBJHand/resolveUTH. 5-Card Draw is jacks-or-better:
 // a paying rank returns bet·payout·wm profit, anything else loses the already-debited stake (no push).
 function resolvePoker(rank, bet, wm){
   const delta = rank.p>0 ? bet*rank.p*wm : -bet;
   return { result: rank.n, delta };
 }
-// Credit-from-result over an Accountant (liveAcct live), so poker settles through the same seam as
-// every other game instead of calling credit() directly. Stake was debited at deal → a win returns
-// stake + profit, a loss credits nothing.
+// Credits a win through an Accountant (liveAcct live) instead of calling credit() directly, so
+// poker settles the same way every other game does. Stake was already debited at deal, so a
+// win returns stake + profit and a loss credits nothing.
 function pkAward(acct, bet, delta){ if(delta>0) acct.credit(bet+delta,'pk-win'); }
 
-/** Discard unheld cards and draw new ones, then calculate final rank. */
+// Discard unheld cards and draw new ones, then calculate final rank.
 function pkDraw(){
-  // Idempotency guard (see _resolveRoulette): draw/settle exactly once. A double-tap on "Draw
-  // Cards" must not credit the payout and push a second history entry twice. Only runs from the
-  // 'hold' phase and flips to 'draw' below, so a duplicate call bails.
+  // Guards against running draw/settle twice (see _resolveRoulette for the same pattern): a
+  // double-tap on "Draw Cards" must not credit the payout or push a history entry twice. Only
+  // runs from the 'hold' phase and flips to 'draw' below, so a duplicate call bails here.
   if(S.pkPhase!=='hold')return;
   tx('pk','draw',{held:[...S.pkHeld].sort((a,b)=>a-b)});
   const draw=DEAL.pokerDecks[S.pkHand].slice(5);let di=0;
@@ -67,17 +67,17 @@ function pkDraw(){
   const replaceIdxs=[0,1,2,3,4].filter(i=>!S.pkHeld.has(i));
   S.pkRevealStep=0;S.pkPhase='draw';
   _noAnim=true;render();updateChipDisplay();
-  // Staggered reveal → settle through the shared scheduler (was a hand-rolled setTimeout recursion).
-  // Each replaced card flips at 300 + k*650ms; the result panel follows 900ms after the last.
+  // Reveals replaced cards one at a time through the shared scheduler: each card flips at
+  // 300 + k*650ms, and the result panel follows 900ms after the last one.
   const steps=replaceIdxs.map((_,k)=>({at:300+k*650,do:()=>{S.pkRevealStep++;_noAnim=true;render();sndCard(50);}}));
   const base=300+replaceIdxs.length*650;
   if(delta>0)steps.push({at:base+200,do:sndBigWin});
   runReveal({steps,finishAt:base+900,signal:()=>S.pkPhase==='draw',
     onFinish:()=>{S.pkHand++;S.pkPhase='result';navRender();}}); // crossfade draw → result panel
 }
-// reset(reason) — see the contract in core.js ('hand-advance' | 'borrow-prep' today; both clear the
-// same fields, so it's accepted but unbranched).
-GAMES.poker.reset = (reason) => { S.pkBet=0; S.pkPhase='bet'; }; GAMES.poker.screen = screenPoker; GAMES.poker.nextHand = () => _nextHand(GAMES.poker.reset); // register this game's fns into the Game registry (defined in this file; core.js loads first)
+// reset(reason) follows core.js's reset contract: called with 'hand-advance' or 'borrow-prep'
+// today, both of which clear the same fields, so the reason isn't branched on here.
+GAMES.poker.reset = (reason) => { S.pkBet=0; S.pkPhase='bet'; }; GAMES.poker.screen = screenPoker; GAMES.poker.nextHand = () => _nextHand(GAMES.poker.reset); // registers this game's functions into the Game registry (core.js loads first)
 // Refresh landed mid-draw: bump the hand counter and show the result panel.
 GAMES.poker.resume = function(){
   if(S.pkPhase!=='draw') return;

@@ -11,9 +11,9 @@ function closeDropdowns() {
 }
 
 // The trigger element whose first-level submenu (.dd-sub1) is currently open. Lets _openSub1 tell a
-// re-click of the SAME trigger (toggle closed) from a click on a DIFFERENT submenu trigger (switch to
-// it in one click) instead of just closing whatever's open. Stale values are harmless — _openSub1
-// only consults it while a .dd-sub1 is actually in the DOM.
+// re-click of the SAME trigger (toggle closed) apart from a click on a DIFFERENT submenu trigger
+// (switch to it in one click) instead of just closing whatever's open. A stale value is harmless:
+// _openSub1 only reads it while a .dd-sub1 is actually in the DOM.
 let _sub1Trigger = null;
 
 // Mobile: inlines submenus directly below the trigger item instead of floating them.
@@ -48,7 +48,7 @@ function _positionSubmenu(sub, trigger) {
   document.body.appendChild(sub);
   const sr = sub.getBoundingClientRect();
   if (sr.right > window.innerWidth - 4) {
-    // Doesn't fit to the right — drop below the trigger instead
+    // Doesn't fit to the right: drop below the trigger instead
     sub.style.top = tr.bottom + 'px';
     sub.style.left = Math.max(4, Math.min(tr.left, window.innerWidth - sr.width - 4)) + 'px';
   }
@@ -59,7 +59,7 @@ function _positionSubmenu(sub, trigger) {
 
 // Opens a first-level floating submenu (or inline on mobile). Re-clicking the SAME trigger toggles it
 // closed; clicking a DIFFERENT submenu trigger switches to it in one click (keyed by trigger, like
-// _openSub2's dataset.key) rather than just closing whatever was open.
+// _openSub2's dataset.key), rather than just closing whatever was open.
 function _openSub1(html, trigger) {
   if (_isMobile()) { _showInlineSub(trigger, html, 1); return; }
   if (document.querySelector('.dd-sub1') && _sub1Trigger === trigger) {
@@ -89,36 +89,35 @@ function _openSub2(key, html, trigger) {
 }
 
 // ─── Declarative menu builder ────────────────────────────────────────────
-// Every submenu below used to hand-concatenate `.dd-item` HTML and re-invoke _openSub1/_openSub2
-// itself; adding one item meant copy-pasting markup + re-wiring stopPropagation by hand. Instead each
-// submenu function now just BUILDS A DESCRIPTOR (data: what rows exist and what they do) and hands it
-// to `_renderDDItems` (turn descriptor → HTML, one place that knows the `.dd-item` markup) plus
-// `_openSub1`/`_openSub2` (unchanged — nesting choreography stays exactly as it was).
+// Each submenu function below builds a DESCRIPTOR (data: what rows exist and what they do) and hands
+// it to `_renderDDItems` (turns the descriptor into HTML, the one place that knows the `.dd-item`
+// markup) plus `_openSub1`/`_openSub2` to open it. This keeps the row markup and click wiring in one
+// place instead of every submenu hand-building its own HTML.
 //
 // Descriptor = an array of row objects. Every row is one of:
-//   { label, action }                    plain item — click runs `action` (a JS expression string,
+//   { label, action }                    plain item: click runs `action` (a JS expression string,
 //                                         same as today's onclick bodies) then closes all dropdowns.
-//   { label, action, keepOpen:true }      like above but runs bare (no closeDropdowns() appended) —
+//   { label, action, keepOpen:true }      like above but runs bare (no closeDropdowns() appended): 
 //                                         for rows whose action already manages the dropdown itself
 //                                         (navigates away, or is itself a dev toggle that re-renders).
-//   { label, action, stopProp:true }      like above but appends `event.stopPropagation()` instead —
+//   { label, action, stopProp:true }      like above but appends `event.stopPropagation()` instead: 
 //                                         for rows that intentionally leave the dropdown open in place
 //                                         (e.g. a label that re-renders itself on click).
 //   { label, opens }                     a ► row: click opens a nested submenu. `opens` is the literal
-//                                         call string that opens it — e.g.
-//                                         `showModTypeSubmenu('bj', this, 'devApplyMod')` — i.e. the
+//                                         call string that opens it: e.g.
+//                                         `showModTypeSubmenu('bj', this, 'devApplyMod')`: i.e. the
 //                                         SAME "call the next submenu function with `this`" pattern
 //                                         every submenu already used; the builder only adds the
 //                                         trailing `►` glyph + `event.stopPropagation()`. Kept as a
 //                                         call string rather than a function reference because these
 //                                         run from an inline `onclick="…"` attribute string, not an
-//                                         event listener — a real closure can't cross that boundary.
+//                                         event listener: a real closure can't cross that boundary.
 //   { label, checked, toggle, id? }       a checkbox row (prefs/dev toggles): `toggle` is the JS
 //                                         expression the row's onclick AND the checkbox's onclick both
 //                                         run (matches today's dual-onclick pattern so clicking the
 //                                         label or the box behaves identically).
-//   { label, active, action }             a highlighted list row (archive/future day) — `active` adds
-//                                         `dd-active`, same click contract as a plain item.
+//   { label, active, action }             a highlighted list row (archive/future day): `active` adds
+//                                         `dd-active`; clicking it behaves the same as a plain item.
 //   { label, disabled:true, hint? }       inert row (locked option / disabled action), optional trailing hint.
 //   { label, picked, pick }               a radio-style single-select row (cardback/deck/felt/theme
 //                                         pickers): `pick` is the click action; the checkbox itself is
@@ -127,10 +126,10 @@ function _openSub2(key, html, trigger) {
 //                                         "select this one," not "flip this one."
 //   { sep:true }                          a `.dd-sep` divider.
 //   { html }                              escape hatch for markup that isn't an item row at all (the
-//                                         Game Setup button grid) — emitted verbatim.
+//                                         Game Setup button grid): emitted verbatim.
 // Any row (except `sep`/`html`) may also carry `attrs` (extra raw HTML attributes, e.g.
 // `data-picker="deck"` so setPick can re-find a trigger after a re-render) and `style` (inline CSS,
-// e.g. the red "Reset All" row) — both passed through verbatim onto the `.dd-item` div.
+// e.g. the red "Reset All" row): both passed through verbatim onto the `.dd-item` div.
 function _ddRow(row) {
   if (row.sep) return '<div class="dd-sep"></div>';
   if (row.html !== undefined) return row.html;
@@ -194,7 +193,7 @@ function showGameSetupSubmenu(trigger){
     { slot:1, current:GAME1, opts:GAME1_OPTIONS.filter(o=>o.value!==GAME2), label:'Game 1' },
     { slot:2, current:GAME2, opts:GAME2_OPTIONS.filter(o=>o.value!==GAME1), label:'Game 2' },
   ];
-  // The game-picker rows are a button grid, not `.dd-item`s — kept as a raw `html` row (the
+  // The game-picker rows are a button grid, not `.dd-item`s: kept as a raw `html` row (the
   // descriptor's escape hatch) since forcing them into the item/checkbox/opens shapes would just
   // reintroduce the special-casing this builder exists to remove.
   const cfg = slots.map(({slot,current,opts,label}) =>
@@ -253,7 +252,7 @@ function showModifierPopup(key) {
 
 // The gold modifier banner is a button: clicking it opens the help popup for TODAY'S live modifier.
 // Read through getMod so it works for inline date-override mods AND the player's committed Player's
-// Choice pick — neither of which has a PRESET_MODIFIERS key, so showModifierPopup(key) can't serve
+// Choice pick: neither of which has a PRESET_MODIFIERS key, so showModifierPopup(key) can't serve
 // them. No devNote here (that's dev-only; this is the player-facing window). Shares the 'modifier'
 // window key with the Help-menu popup, so only one is ever open.
 function showActiveModInfo() {
@@ -288,8 +287,7 @@ function toggleMenu(which, trigger) {
       { label: 'Game Setup', opens: 'showGameSetupSubmenu(this)' },
       { label: 'Give Chips', opens: 'showChipsSubmenu(this)' },
       { sep: true },
-      // ids kept on these two ► triggers (pre-existing, no known re-query site today) in case a future
-      // dev flow wants to open one programmatically by id, same as before this refactor.
+      // ids kept on these two ► triggers in case a future dev flow wants to open one programmatically by id.
       { label: 'Preview Future Day', opens: 'showFutureSubmenu(this)', attrs: 'id="dd-future-trigger"' },
       { label: 'Force Modifier', opens: 'showModSubmenu(this)', attrs: 'id="dd-mod-trigger"' },
       { sep: true },
@@ -407,10 +405,10 @@ function applyPrefs(){
   document.body.classList.toggle('theme-green',  theme==='green' && !!p.green_theme_unlocked);
 }
 
-// _prefItem predates the descriptor builder and is kept as its own function (rather than inlined into
-// showPrefsSubmenu's row list) because it's the one row shape simple enough to want a direct call
-// (key/id/label, no picker/hint variants) — a thin wrapper over the same `_ddRow` a descriptor uses,
-// so its rendered markup/behavior is identical to any other toggle row.
+// _prefItem is its own function (rather than inlined into showPrefsSubmenu's row list) because it's
+// the one row shape simple enough to want a direct call (key/id/label, no picker/hint variants). It's
+// a thin wrapper over the same `_ddRow` a descriptor uses, so its markup and behavior match any other
+// toggle row.
 function _prefItem(key,id,label){
   return _ddRow({ label, toggle: `togglePref('${key}')`, checked: !!getPref(key), id });
 }
@@ -507,7 +505,7 @@ function closeFeedbackDialog() {
 }
 
 // Builds the Discord-bound feedback payload: the player's note plus a compact context block so a
-// report can be triaged without a back-and-forth — version (which release), where they are in the
+// report can be triaged without a back-and-forth: version (which release), where they are in the
 // run (screen + phase), the active daily modifier (the usual suspect for a bug), game progress, and
 // device/viewport/browser (for layout reports). Every field is best-effort: a missing piece of game
 // state must never stop the feedback from sending, so the whole block is wrapped defensively.
@@ -528,7 +526,8 @@ function _feedbackBody(msg) {
       `\`${(navigator.userAgent || '').slice(0, 180)}\``,
     ];
     meta = '\n' + lines.join('\n');
-  } catch (_e) { /* context is a nice-to-have; never block a send */ }
+  } catch (_e) { // context is a nice-to-have; never block a send
+  }
   return `📬 **Gambdle Feedback** · ${GAME_VERSION}${meta}\n>>> ${msg}`;
 }
 

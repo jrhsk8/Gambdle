@@ -1,9 +1,9 @@
 // ─── Fixture registry smoke tests ─────────────────────────────────────────────
-// Guards the shared source of truth (tests/screen-fixtures.js): every entry in
-// SCREEN_FIXTURES, driven through renderFixture(), must render without throwing and land
-// on a valid Screen (a .panel). A broken or renamed Fixture — used by the lab, the
-// screenshot scripts, and the Layout DSL alike — is caught here immediately.
-// Companion to render-smoke.test.js (raw screen*() coverage); this proves the registry
+// Guards tests/screen-fixtures.js: every entry in SCREEN_FIXTURES, driven through
+// renderFixture(), must render without throwing and land on a valid screen (a .panel).
+// A broken or renamed fixture is caught here immediately, before it breaks the lab,
+// the screenshot scripts, or the layout tests that all read from this same registry.
+// Companion to render-smoke.test.js (raw screen*() coverage): this proves the registry
 // entries that feed the whole UI-tweak pipeline are all live.
 
 // ─── Setup ────────────────────────────────────────────────────────────────────

@@ -1,35 +1,36 @@
-// ─── FUTURE-SEED CHECKER (dev-only) ─────────────────────────────────────────────
-// A dev page (?dev=true → Developer ▸ Seed Checker) that scans the next 30 calendar days and flags
-// seeds that would force players to lose — the brutal days worth remapping via DAILY_SEED_OVERRIDES
-// before they go live. It answers two questions per day, both PURE functions of the seed + that day's
-// modifier (no DOM, no S, no network):
+// Dev-only page (?dev=true, Developer > Seed Checker) that scans the next 30 calendar
+// days and flags seeds that would force players to lose, so the brutal ones can be
+// remapped via DAILY_SEED_OVERRIDES before they go live. For each day it answers two
+// questions, both pure functions of the seed and that day's modifier (no DOM, no S,
+// no network):
 //
-//   • UTH guaranteed losses (the must-have): for each of the 3 Hold'em hands, the cards are locked
-//     at uthDeck[9N..] (or a per-hand fresh deck under pocket-aces / suited-conn), and a showdown
-//     loss is truly unwinnable — UTH has no bluffing and the blind bonus only pays on a WIN, so a
-//     losing board forfeits ante+blind+play no matter how the player bets or folds. We count the
-//     hands where the player's best 5 LOSES the showdown. No strategy model needed.
+//   - UTH guaranteed losses: for each of the 3 Hold'em hands, the cards are locked at
+//     uthDeck[9N..] (or a per-hand fresh deck under pocket-aces / suited-conn), and a
+//     showdown loss is truly unwinnable. UTH has no bluffing and the blind bonus only
+//     pays on a win, so a losing board forfeits ante+blind+play no matter how the
+//     player bets or folds. Counts hands where the player's best 5 loses the showdown.
 //
-//   • BJ losses under basic strategy (best-effort): a BJ loss is never "guaranteed" (a different
-//     decision could change it). Each hand draws from its OWN segment of the shoe (independent), and
-//     we play it out off a standard S17 basic-strategy table incl. DAS pair-splits + resplit, via the
-//     shared bjSplitStep (engine.js). We count hands that net a loss (a split hand: sub-hands net < 0).
+//   - BJ losses under basic strategy (best-effort, not guaranteed: a different
+//     decision could change the outcome). Each hand draws from its own segment of the
+//     shoe (independent), and is played out on a standard S17 basic-strategy table
+//     including DAS pair-splits and resplit, via the shared bjSplitStep (engine.js).
+//     Counts hands that net a loss (a split hand counts as a loss if its sub-hands net < 0).
 //
-// Roulette is excluded: its outcome comes from server-fetched spin words, not the daily seed, so a
-// future day's wheel is not predictable. Magnitudes/EV are out of scope — this is a loss TALLY.
+// Roulette is excluded: its outcome comes from server-fetched spin words, not the daily
+// seed, so a future day's wheel isn't predictable. This is a loss tally, not an EV model.
 //
-// CORRECTNESS: the deal MUST match live/replay exactly or the verdicts silently rot. We reuse the
-// engine's shared deal twins (uthHandCards, bjFirstAceSwap, _replaySafeHitSwap), the shared rule
-// bundles (bjRulesFor/uthRulesFor — so a modifier's scalar/flag reads can't drift from bj.js/uth.js),
-// and the same pure resolvers (bestOf7, resolveUTH, resolveBJHand/resolveBJSplitHand) the game and
-// server use — one source of truth, no duplication. The only genuinely checker-private logic is the
-// basic-strategy DECISION TABLE below (_scStratAction/_scPairAction/_scAction): the game has no bot,
-// so there is no shared "what would the player do" policy to route through.
-// Three modifiers undermine the "forced" claim because the player can change the outcome by a choice
-// (uth_time_travel re-deals, bj_two_hands picks one of two hands, all_in_or_skip can skip a hand) —
-// those days, plus Player's Choice days, are computed at their no-action baseline and FLAGGED.
+// The deal here must match live play and replay exactly, or the verdicts are wrong. It
+// reuses the engine's shared deal helpers (uthHandCards, bjFirstAceSwap,
+// _replaySafeHitSwap), the shared rule bundles (bjRulesFor/uthRulesFor, so a modifier's
+// reads can't drift from bj.js/uth.js), and the same resolvers (bestOf7, resolveUTH,
+// resolveBJHand/resolveBJSplitHand) the game and server use. The only checker-only logic
+// is the basic-strategy decision table below (_scStratAction/_scPairAction/_scAction):
+// the game has no bot, so there's no existing "what would the player do" policy to reuse.
+// Three modifiers let the player change the outcome by a choice (uth_time_travel
+// re-deals, bj_two_hands picks one of two hands, all_in_or_skip can skip a hand), so
+// those days, plus Player's Choice days, are computed at their no-action baseline and flagged.
 
-const _SC_DAYS = 30;                  // horizon: scan today → +29 days
+const _SC_DAYS = 30;                  // horizon: scan today through +29 days
 let _scSort = 'total';                // active sort column (date | mod | uth | bj | total)
 
 // Modifiers whose presence lets the player dodge an otherwise-forced loss by a decision; on these
@@ -59,8 +60,8 @@ function _scFmtDate(seed){
 
 // ─── Standard basic strategy (S17, no split, no surrender) ──────────────────────
 // Returns 'H' (hit), 'S' (stand), 'Dh' (double else hit), 'Ds' (double else stand). Dealer upcard
-// `up` is the card value (A = 11). Approximate on easy_dealer (S15) days by design — BJ is best-
-// effort, not a guarantee. Pairs are intentionally NOT split (v1 scope): they play by their total.
+// `up` is the card value (A = 11). This is only approximate on easy_dealer (S15) days, since BJ is
+// best-effort here, not a guarantee. Pairs are intentionally not split by this table; they play by total.
 function _scStratAction(total, soft, up){
   if(soft){
     if(total >= 19) return 'S';                                   // soft 19,20,21
@@ -78,9 +79,9 @@ function _scStratAction(total, soft, up){
   return 'H';                                                     // <= 8
 }
 
-// Standard DAS (double-after-split allowed, as this game does) pair-split table → 'P' (split) or null
-// (play the pair by its total). `up` is the dealer upcard value (A = 11). Only true rank-pairs split;
-// on wild_split days non-pairs still aren't split (the 2× payout applies via spm at settlement).
+// Standard DAS (double-after-split allowed, as this game does) pair-split table: returns 'P' (split)
+// or null (play the pair by its total). `up` is the dealer upcard value (A = 11). Only true rank-pairs
+// split; on wild_split days non-pairs still aren't split (the 2x payout applies via spm at settlement).
 function _scPairAction(rank, up){
   if(rank === 'A' || rank === '8') return 'P';                              // always
   if(rank === '5' || rank === '10' || rank === 'J' || rank === 'Q' || rank === 'K') return null; // never (10 / 20)
@@ -107,8 +108,8 @@ function _scModAccessor(modObj){
   return key => (modObj && modObj[key] !== undefined ? modObj[key] : null);
 }
 
-// Count of the 3 UTH hands the player LOSES at showdown (truly unwinnable). Pure; no betting walk
-// needed — the verdict is just the best-5 comparison, exactly what resolveUTH keys off (cmp < 0).
+// Count of the 3 UTH hands the player loses at showdown (truly unwinnable). Pure: no betting
+// walk needed, the verdict is just the best-5 comparison that resolveUTH itself uses.
 function _scUthLosses(deal, mod, seed){
   const R = uthRulesFor(mod);   // shared UTH rule bundle; resolveUTH only reads the qualify/boost keys
   let n = 0;
@@ -116,28 +117,27 @@ function _scUthLosses(deal, mod, seed){
     const { hole, dealer, comm, priv } = uthHandCards(deal, mod, hand, seed);
     const pb = bestOf7([...hole, ...comm, ...priv]);
     const db = bestOf7([...dealer, ...comm]);
-    // Nominal 1-chip stakes: resolveUTH's result category ('win'/'push'/'lose') is decided purely by
-    // the pb/db score comparison, independent of stake size — routing through it (instead of a private
-    // `pb.score < db.score`) means the live win/lose rule can't drift from what the checker counts.
+    // Nominal 1-chip stakes: resolveUTH's win/push/lose result only depends on the pb/db score
+    // comparison, not the stake size, so routing through it keeps this in sync with live play.
     const res = resolveUTH(pb, db, 1, 1, 1, { wm: 1, ...R });
     if(res.result === 'lose') n++;
   }
   return n;
 }
 
-// Count of the 3 BJ hands that net a loss under basic strategy. Each hand draws from its OWN fixed
-// segment of the shoe (bjSegStart), so hands are independent — but within a hand the player still
-// hits / doubles / splits in sequence, so we play each out under a standard table. Mirrors the live
-// deal, the shared bjSplitStep, the dealer draw, and resolve exactly. Splits/doubles assume sufficient
-// chips (nominal — no balance tracking, consistent with a count). A split hand is one loss if its
-// sub-hands net < 0.
+// Count of the 3 BJ hands that net a loss under basic strategy. Each hand draws from its own
+// fixed segment of the shoe (bjSegStart), so hands are independent, but within a hand the
+// player still hits / doubles / splits in sequence, so each is played out under a standard
+// table. Mirrors the live deal, the shared bjSplitStep, the dealer draw, and resolve exactly.
+// Splits/doubles assume sufficient chips (nominal, no balance tracking). A split hand counts
+// as one loss if its sub-hands net < 0.
 function _scBjLosses(deal, mod, seed){
-  const Rbj = bjRulesFor(mod);         // shared BJ rule bundle (same builder bjRules()/_replayBJHand use)
+  const Rbj = bjRulesFor(mod);         // same BJ rule bundle bjRules()/_replayBJHand use
   const twoHands = Rbj.twoHands;
   const stand17 = Rbj.standAt;
   const bjMult = Rbj.payout;
   const spm = Rbj.wildSplit ? 2 : 1;
-  const contCursor = { idx: 0 };       // continuous cursor — used pre-cutover, when segments are gated off
+  const contCursor = { idx: 0 };       // continuous cursor: used pre-cutover, when segments are gated off
   let losses = 0;
 
   for(let hand = 0; hand < 3; hand++){
@@ -164,12 +164,12 @@ function _scBjLosses(deal, mod, seed){
       player = [draw(), draw()];
       dealer = [draw(), draw()];
     }
-    const up = cVal(dealer[0].r);   // shared card-value primitive (core.js) — same upcard value hVal uses
+    const up = cVal(dealer[0].r);   // card-value helper (core.js), same one hVal uses for the upcard
 
     const pBJ = isBJ(player), dBJ = isBJ(dealer);
     if(pBJ || dBJ){
       // Naturals end the hand before the player acts (casino peek). A player BJ vs a non-BJ dealer
-      // STILL draws the dealer to 17+, consuming its segment — pin that to match the live game.
+      // still draws the dealer to 17+, consuming its segment: this matches the live game.
       if(!dBJ){ while(hVal(dealer) < stand17) dealer.push(draw()); }
       const res = resolveBJHand({ pv: hVal(player), pBJ, dv: hVal(dealer), dBJ: isBJ(dealer), bet: 1, wm: 1, bjMult, ddm: 1 });
       if(res.delta < 0) losses++;

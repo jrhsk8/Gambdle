@@ -189,8 +189,8 @@ section('Seed & Date Logic');
 // Advanced dev-mode tests: seed switching, date arithmetic, state isolation, RNG behavior.
 // Runs in dev-tests.html alongside dev.test.js.
 //
-// Uses direct manipulation of globals (_backlogSeed, DAILY_SEED_OVERRIDES) — intentional,
-// since we're testing the contracts those globals define.
+// Uses direct manipulation of globals (_backlogSeed, DAILY_SEED_OVERRIDES). That's intentional,
+// since these tests are checking the behavior those globals define.
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -333,7 +333,7 @@ describe('day number arithmetic', () => {
   });
 });
 
-// ─── getRngSeed — seed overrides ─────────────────────────────────────────────
+// ─── getRngSeed: seed overrides ────────────────────────────────────────────────
 
 describe('getRngSeed — DAILY_SEED_OVERRIDES', () => {
   it('no override: getRngSeed() returns getActiveSeed()', () => {

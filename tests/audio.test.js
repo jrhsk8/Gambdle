@@ -1,9 +1,9 @@
-// ─── sndShuffle — the deal callback must ALWAYS fire (no "dealing" hang) ──────────────────
+// ─── sndShuffle: the deal callback must ALWAYS fire (no "dealing" hang) ──────────────────
 // Regression for the reported "game gets stuck after the first hand" / "got a result and got
 // stuck" bugs. Every deal (bjDeal/uthDeal/pkDeal) locks phase to 'dealing' and only advances when
 // sndShuffle's callback fires. If the shuffle audio's play() RESOLVES but never emits 'ended'/
 // 'error' (tab backgrounded mid-clip, a stalled/suspended element, iOS's per-session audio-element
-// limit), the callback used to never run — leaving the game stuck on the dealing screen with a
+// limit), the callback used to never run, leaving the game stuck on the dealing screen with a
 // disabled Deal button. A bounded timeout backstop guarantees the callback fires regardless.
 //
 // These tests stub window.Audio + window.setTimeout so they stay synchronous: setTimeout calls are
@@ -113,7 +113,7 @@ describe('sndShuffle — deal callback always fires', () => {
   });
 });
 
-// ─── playMp3 — must never throw into the timer chains that drive game flow ────────────────
+// ─── playMp3 · must never throw into the timer chains that drive game flow ────────────────
 // sndCard/sndBigWin/sndChip/sndAdvance all route through playMp3, and they fire from inside the
 // setTimeout chains for the dealer reveal, the blackjack celebration, and the next-hand advance.
 // If playMp3 throws, that chain dies and the hand softlocks with no way to advance.

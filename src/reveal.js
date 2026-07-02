@@ -1,11 +1,11 @@
 // ─── REVEAL / SETTLE SCHEDULER ───────────────────────────────────────────────
-// One sequenced-reveal scheduler the games share, instead of each hand-rolling a staggered setTimeout
-// chain, a single-fire finish guard, and refresh-resume math. PURE timing orchestration: no DOM, no S,
-// no rng. A caller declares WHAT happens WHEN (a list of {at, do} steps + an onFinish); this owns the
-// stagger, the exactly-once terminal finish (roulette's finishOnce generalized so every game inherits
-// the dual-fire protection), an optional absolute ceiling backstop, and resume-replay (skip steps
-// already shown, fire the rest from an elapsed offset). Step bodies — card swaps, sounds, _noAnim +
-// render() — stay in the game files; only the timing/finish/resume mechanics move here.
+// Shared scheduler for staggered reveal animations (card swaps, sounds, dealer reveals) used by
+// every game, so each one doesn't hand-roll its own setTimeout chain, finish guard, and refresh-resume
+// math. Touches no DOM, no game state, no rng · a caller declares WHAT happens WHEN (a list of
+// {at, do} steps plus an onFinish); this handles the stagger, firing onFinish exactly once (even if
+// triggered twice), an optional absolute ceiling backstop, and resuming after a refresh (skip steps
+// already shown, fire the rest from an elapsed offset). Step bodies themselves (card swaps, sounds,
+// render calls) stay in the game files; only the timing/finish/resume logic lives here.
 //
 // spec: {
 //   steps:    [{ at:<ms>, do:<fn> }],   // fired in `at` order from sequence start; each `do` runs once
@@ -18,8 +18,8 @@
 //                                        //   false aborts that step / the finish silently (covers stale post-nav timers)
 // }
 // returns { cancel(), finish() }:
-//   cancel() — clears every pending timer + the ceiling and blocks any later finish.
-//   finish() — triggers the once-guarded onFinish early (roulette calls this when audio/RAF completes).
+//   cancel(): clears every pending timer plus the ceiling and blocks any later finish.
+//   finish(): triggers onFinish early, once (roulette calls this when audio/RAF completes).
 function runReveal(spec){
   const from = spec.from || 0;
   const steps = (spec.steps || []).slice().sort((a, b) => a.at - b.at);
@@ -45,6 +45,6 @@ function runReveal(spec){
     finish,
   };
 }
-// Timer seam — overridable in unit tests with a fake clock (mirrors how the suite already swaps setTimeout).
+// Overridable in unit tests with a fake clock (mirrors how the suite already swaps setTimeout).
 runReveal._timer = (fn, ms) => setTimeout(fn, ms);
 runReveal._clear = (id) => clearTimeout(id);

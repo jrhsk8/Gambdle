@@ -1,7 +1,6 @@
-// ─── reveal.js — runReveal scheduler (fake-clock unit tests) ──────────────────
-// The timing / idempotency / resume logic that used to be buried inside DOM + audio callbacks (and was
-// therefore untestable) is now exercised directly with a virtual clock — no DOM, no real timers. This
-// is the testability win of Candidate 3.
+// ─── reveal.js: runReveal scheduler (fake-clock unit tests) ──────────────────
+// The timing, idempotency, and resume logic is exercised directly with a virtual clock:
+// no DOM, no real timers.
 (function () {
   // Minimal virtual clock: schedule by absolute due time; advance() fires due timers in time order.
   function makeClock() {

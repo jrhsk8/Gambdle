@@ -1,53 +1,52 @@
-/**
- * GAMBDLE RUN MODIFIERS CONFIGURATION
- *
- * HOW IT WORKS:
- * - Every day automatically gets a modifier via CYCLE_ORDER (cycling by day number).
- * - To override a specific date, add an entry to DAILY_MODIFIERS (YYYYMMDD key).
- *   Use a PRESET_MODIFIERS key string, or a full object for a one-off rule.
- * - Dev override: devApplyMod() stores to localStorage, reloads; cleared on load.
- *
- * AVAILABLE MODIFIER KEYS:
- * - bj_payout: 2.0          BJ payout multiplier (default 1.5)
- * - bj_dealer_stand: 15     Dealer stands on this value instead of 17
- * - bj_double_bonus: true   Successful double-downs pay 2× profit
- * - bj_first_ace: true      Player's first card each BJ hand is always an Ace
- * - bj_wild_split: true     Any two cards can be split (max 4 hands); split wins pay 2×
- * - bj_two_hands: true      BJ: dealt two starting hands each hand; pick one to play (naturals auto-pick). Fresh deck per hand
- * - bj_safe_hit: true       BJ: your first hit each hand (and each split hand) can't bust; swaps in the nearest safe card
- * - min_chips: 50           Minimum chip requirement
- * - chip_div: 100           Show chips at 1/100 scale (a 10-chip stack that scores ×100); display-only,
- *                           the internal balance/score/leaderboard stay full-scale. Pair with min_chips: 100.
- * - peek: 3                 Number of free dealer hole-card peeks per day (one per hand)
- * - comeback: true          Below starting chips (1000)? Wins pay 2×
- * - uth_blind_boost: 2.0    Blind bonus payouts multiplier
- * - uth_blind_extended: true Blind pays on two pair and three of a kind
- * - uth_double_play: true   Raising pays 2:1 instead of 1:1
- * - uth_hard_qualify: true  Dealer needs two pair or better to qualify
- * - uth_pocket_aces: true   Player hole cards are AA every round (fresh deck each hand)
- * - uth_river_monster: true Hold'em: the river card is dealt face-up before the bet
- * - uth_time_travel: true   Hold'em: once/day, re-deal the flop or the turn+river
- * - uth_three_hole: true    Hold'em: player gets a 3rd hole card; best 5 of 8 plays (dealer keeps 2)
- * - uth_sixth_card: true    Hold'em: a private 6th community card (only you use it) flips with the river; best 5 of 8 plays
- * - uth_suited_conn: true   Hold'em: your hole cards are forced to a suited connector (lower card 7+), varying per hand
- * - all_in_or_skip: true    Each hand/spin: go all in or skip. Wins pay 2×
- * - r_double_ball: true     Two balls spin; a bet wins if either ball lands on it
- * - r_payout_mult: 2.0      All roulette wins pay this multiple
- * - r_number_pay: 50        Straight number bets pay this (default 35)
- * - r_hot_number: 16        The straight-up pocket that gets the hot-pocket boost (0 = Hot Zero, 16 = Sweet Sixteen)
- * - r_hot_boost: 10         Likelihood multiplier for r_hot_number vs a fair wheel — 10 ⇒ it lands 10× its normal 1/37 (≈27%)
- * - r_color_double: true    Red and Black bets pay 2:1
- * - r_color_boost: 66       Player's single Red/Black bet wins this % of the time (dynamic to whichever
- *                           color they pick); a non-color bet spins fair. Pair with r_max_bets: 1.
- * - r_force_group: '1_12'   Winning pocket is guaranteed to fall in this R_GROUP_INFO group (one of
- *                           '1_12'/'13_24'/'25_36'/'1_18'/'19_36'/'even'/'odd'/'red'/'black')
- * - r_max_bets: 3           Max roulette bets per spin (default 6)
- * - r_respin: true          After spin, choose to keep the result or re-spin once
- * - ladder_free: 250        The Ladder bonus round after roulette; free house-money entry of
- *                           this many chips (crash costs nothing, cash out keeps the full pot)
- * - choices: [k1,k2,k3]     Player's Choice: offer these 3 preset keys; the player picks one
- *                           before the run and it becomes the active modifier for the day.
- */
+// 
+// GAMBDLE RUN MODIFIERS CONFIGURATION
+// 
+// HOW IT WORKS:
+// - Every day automatically gets a modifier via CYCLE_ORDER (cycling by day number).
+// - To override a specific date, add an entry to DAILY_MODIFIERS (YYYYMMDD key).
+//   Use a PRESET_MODIFIERS key string, or a full object for a one-off rule.
+// - Dev override: devApplyMod() stores to localStorage, reloads; cleared on load.
+// 
+// AVAILABLE MODIFIER KEYS:
+// - bj_payout: 2.0          BJ payout multiplier (default 1.5)
+// - bj_dealer_stand: 15     Dealer stands on this value instead of 17
+// - bj_double_bonus: true   Successful double-downs pay 2× profit
+// - bj_first_ace: true      Player's first card each BJ hand is always an Ace
+// - bj_wild_split: true     Any two cards can be split (max 4 hands); split wins pay 2×
+// - bj_two_hands: true      BJ: dealt two starting hands each hand; pick one to play (naturals auto-pick). Fresh deck per hand
+// - bj_safe_hit: true       BJ: your first hit each hand (and each split hand) can't bust; swaps in the nearest safe card
+// - min_chips: 50           Minimum chip requirement
+// - chip_div: 100           Show chips at 1/100 scale (a 10-chip stack that scores ×100); display-only,
+//                           the internal balance/score/leaderboard stay full-scale. Pair with min_chips: 100.
+// - peek: 3                 Number of free dealer hole-card peeks per day (one per hand)
+// - comeback: true          Below starting chips (1000)? Wins pay 2×
+// - uth_blind_boost: 2.0    Blind bonus payouts multiplier
+// - uth_blind_extended: true Blind pays on two pair and three of a kind
+// - uth_double_play: true   Raising pays 2:1 instead of 1:1
+// - uth_hard_qualify: true  Dealer needs two pair or better to qualify
+// - uth_pocket_aces: true   Player hole cards are AA every round (fresh deck each hand)
+// - uth_river_monster: true Hold'em: the river card is dealt face-up before the bet
+// - uth_time_travel: true   Hold'em: once/day, re-deal the flop or the turn+river
+// - uth_three_hole: true    Hold'em: player gets a 3rd hole card; best 5 of 8 plays (dealer keeps 2)
+// - uth_sixth_card: true    Hold'em: a private 6th community card (only you use it) flips with the river; best 5 of 8 plays
+// - uth_suited_conn: true   Hold'em: your hole cards are forced to a suited connector (lower card 7+), varying per hand
+// - all_in_or_skip: true    Each hand/spin: go all in or skip. Wins pay 2×
+// - r_double_ball: true     Two balls spin; a bet wins if either ball lands on it
+// - r_payout_mult: 2.0      All roulette wins pay this multiple
+// - r_number_pay: 50        Straight number bets pay this (default 35)
+// - r_hot_number: 16        The straight-up pocket that gets the hot-pocket boost (0 = Hot Zero, 16 = Sweet Sixteen)
+// - r_hot_boost: 10         Likelihood multiplier for r_hot_number vs a fair wheel : 10 ⇒ it lands 10× its normal 1/37 (≈27%)
+// - r_color_double: true    Red and Black bets pay 2:1
+// - r_color_boost: 66       Player's single Red/Black bet wins this % of the time (dynamic to whichever
+//                           color they pick); a non-color bet spins fair. Pair with r_max_bets: 1.
+// - r_force_group: '1_12'   Winning pocket is guaranteed to fall in this R_GROUP_INFO group (one of
+//                           '1_12'/'13_24'/'25_36'/'1_18'/'19_36'/'even'/'odd'/'red'/'black')
+// - r_max_bets: 3           Max roulette bets per spin (default 6)
+// - r_respin: true          After spin, choose to keep the result or re-spin once
+// - ladder_free: 250        The Ladder bonus round after roulette; free house-money entry of
+//                           this many chips (crash costs nothing, cash out keeps the full pot)
+// - choices: [k1,k2,k3]     Player's Choice: offer these 3 preset keys; the player picks one
+//                           before the run and it becomes the active modifier for the day.
 
 const PRESET_MODIFIERS = {
   // Blackjack
@@ -108,65 +107,63 @@ const PRESET_MODIFIERS = {
   r_group_black:  { type: 'roulette', title: "In the Black",         desc: "Roulette: Winning number will be black.",         r_force_group: 'black', r_max_bets: 3,      devNote: '' },
 };
 
-/**
- * Daily cycling order — modifiers rotate through this list by slot index (day-1 mod length).
- * Two rhythm rules hold (enforced by the alternation tests in modifiers.test.js):
- *   1. No two roulette days are ever adjacent. There are 17 roulette entries vs 21 non-roulette,
- *      so roulette stays fully separated.
- *   2. Any two adjacent non-roulette days are DIFFERENT gameplay types (bj / uth / cross / choice).
- * The six Player's Choice variants (type 'choice') are interleaved, each placed right after a
- * roulette day; because they share the 'choice' type, rule 2 keeps any two of them from ever
- * landing back to back. With 21 non-roulette vs 17 roulette entries a strict 1:1 roulette
- * alternation is impossible, so a few adjacent non-roulette pairs exist by necessity (exactly
- * 21 - 17 = 4) — expected, not a regression.
- * The Jun 17-24 single-game showcase (Days 44-51) is pinned in DAILY_MODIFIERS, so CYCLE_ORDER
- * edits only affect Day 52 (Jun 25) onward — no past archive shifts.
- */
+// 
+// Daily cycling order : modifiers rotate through this list by slot index (day-1 mod length).
+// Two rhythm rules hold (enforced by the alternation tests in modifiers.test.js):
+//   1. No two roulette days are ever adjacent. There are 17 roulette entries vs 21 non-roulette,
+//      so roulette stays fully separated.
+//   2. Any two adjacent non-roulette days are DIFFERENT gameplay types (bj / uth / cross / choice).
+// The six Player's Choice variants (type 'choice') are interleaved, each placed right after a
+// roulette day; because they share the 'choice' type, rule 2 keeps any two of them from ever
+// landing back to back. With 21 non-roulette vs 17 roulette entries a strict 1:1 roulette
+// alternation is impossible, so a few adjacent non-roulette pairs exist by necessity (exactly
+// 21 - 17 = 4) : expected, not a regression.
+// The Jun 17-24 single-game showcase (Days 44-51) is pinned in DAILY_MODIFIERS, so CYCLE_ORDER
+// edits only affect Day 52 (Jun 25) onward : no past archive shifts.
 const CYCLE_ORDER = [
-  'r_hot_numbers',         // 1  — roulette
-  'uth_river_monster',     // 2  — uth
-  'r_group_1_12',          // 3  — roulette
-  'bj_double_bonus',       // 4  — bj
-  'r_double_ball',         // 5  — roulette
-  'players_choice_bj',     // 6  — choice (House Rules — all-blackjack trio)
-  'r_group_13_24',         // 7  — roulette
-  'players_choice_roul',   // 8  — choice (Croupier's Choice — all-roulette trio) ┐ non-roulette pair (choice→cross)
-  'ladder_day',            // 9  — cross (The Ladder bonus round)                 ┘
-  'r_color_double',        // 10 — roulette
-  'uth_three_hole',        // 11 — uth
-  'r_group_25_36',         // 12 — roulette
-  'bj_first_ace',          // 13 — bj
-  'r_sweet_sixteen',       // 14 — roulette
-  'players_choice_uth',    // 15 — choice (Hold'em Pick — all-Hold'em trio)
-  'r_group_1_18',          // 16 — roulette
-  'uth_sixth_card',        // 17 — uth (Sixth Sense)                              ┐ non-roulette pair (uth→bj)
-  'bj_two_hands',          // 18 — bj  (Double Vision)                            ┘
-  'r_group_even',          // 19 — roulette (Even Money)
-  'pocket_change',         // 20 — cross (Pocket Change)
-  'r_double_all',          // 21 — roulette
-  'uth_time_travel',       // 22 — uth
-  'r_group_19_36',         // 23 — roulette
-  'easy_dealer',           // 24 — bj
-  'r_group_red',           // 25 — roulette (Seeing Red)
-  'players_choice',        // 26 — choice (mixed trio — one mod from each game)   ┐ non-roulette pair (choice→cross)
-  'peek',                  // 27 — cross (Dealer Peek)                            ┘
-  'r_hot_zero',            // 28 — roulette
-  'uth_pocket_aces',       // 29 — uth
-  'r_group_odd',           // 30 — roulette (Odd One Out)
-  'bj_wild_split',         // 31 — bj
-  'r_respin',              // 32 — roulette
-  'players_choice_payout', // 33 — choice (Big Spender — payout trio, one mod from each game)
-  'r_group_black',         // 34 — roulette (In the Black)
-  'uth_suited_conn',       // 35 — uth (Suited Up)                                ┐ non-roulette pair (uth→bj)
-  'bj_safe_hit',           // 36 — bj  (Soft Landing)                             ┘
-  'r_color_lock',          // 37 — roulette
-  'players_choice_wild',   // 38 — choice (Wild Card — high-variance trio, one mod from each game)
+  'r_hot_numbers',         // 1  · roulette
+  'uth_river_monster',     // 2  · uth
+  'r_group_1_12',          // 3  · roulette
+  'bj_double_bonus',       // 4  · bj
+  'r_double_ball',         // 5  · roulette
+  'players_choice_bj',     // 6  · choice (House Rules : all-blackjack trio)
+  'r_group_13_24',         // 7  · roulette
+  'players_choice_roul',   // 8  · choice (Croupier's Choice : all-roulette trio) ┐ non-roulette pair (choice→cross)
+  'ladder_day',            // 9  · cross (The Ladder bonus round)                 ┘
+  'r_color_double',        // 10 · roulette
+  'uth_three_hole',        // 11 · uth
+  'r_group_25_36',         // 12 · roulette
+  'bj_first_ace',          // 13 · bj
+  'r_sweet_sixteen',       // 14 · roulette
+  'players_choice_uth',    // 15 · choice (Hold'em Pick : all-Hold'em trio)
+  'r_group_1_18',          // 16 · roulette
+  'uth_sixth_card',        // 17: uth (Sixth Sense)                              ┐ non-roulette pair (uth→bj)
+  'bj_two_hands',          // 18: bj  (Double Vision)                            ┘
+  'r_group_even',          // 19: roulette (Even Money)
+  'pocket_change',         // 20: cross (Pocket Change)
+  'r_double_all',          // 21: roulette
+  'uth_time_travel',       // 22: uth
+  'r_group_19_36',         // 23: roulette
+  'easy_dealer',           // 24: bj
+  'r_group_red',           // 25: roulette (Seeing Red)
+  'players_choice',        // 26: choice (mixed trio · one mod from each game)   ┐ non-roulette pair (choice→cross)
+  'peek',                  // 27: cross (Dealer Peek)                            ┘
+  'r_hot_zero',            // 28: roulette
+  'uth_pocket_aces',       // 29: uth
+  'r_group_odd',           // 30: roulette (Odd One Out)
+  'bj_wild_split',         // 31: bj
+  'r_respin',              // 32: roulette
+  'players_choice_payout', // 33: choice (Big Spender · payout trio, one mod from each game)
+  'r_group_black',         // 34: roulette (In the Black)
+  'uth_suited_conn',       // 35: uth (Suited Up)                                ┐ non-roulette pair (uth→bj)
+  'bj_safe_hit',           // 36: bj  (Soft Landing)                             ┘
+  'r_color_lock',          // 37: roulette
+  'players_choice_wild',   // 38: choice (Wild Card: high-variance trio, one mod from each game)
 ];
 
-/**
- * Date-specific overrides (YYYYMMDD). These take priority over CYCLE_ORDER.
- * Use a preset key string or a full modifier object for one-off rules.
- */
+// 
+// Date-specific overrides (YYYYMMDD). These take priority over CYCLE_ORDER.
+// Use a preset key string or a full modifier object for one-off rules.
 const DAILY_MODIFIERS = {
   // ── Historical days (frozen so future CYCLE_ORDER edits don't alter archives) ──
   20260505: 'r_hot_numbers',      // Day 1
@@ -208,33 +205,32 @@ const DAILY_MODIFIERS = {
   20260608: 'r_hot_zero',          // Day 35
   20260609: 'uth_time_travel',     // Day 36
   20260610: 'r_group_1_12',        // Day 37
-  20260611: 'players_choice',      // Day 38 — launch of Player's Choice (same trio every day)
-  20260612: 'uth_three_hole',      // Day 39 — launch of Triple Threat (3 hole cards)
-  20260613: 'r_color_lock',        // Day 40 — launch of Loaded Colors (chosen color wins 66%)
-  20260614: 'ladder_day',          // Day 41 — launch of The Ladder (free 250 hi-lo climb after roulette)
-  20260615: 'r_group_25_36',       // Day 42 — frozen at its pre-reorder cycle value before the v1.51 CYCLE_ORDER reshuffle
+  20260611: 'players_choice',      // Day 38: launch of Player's Choice (same trio every day)
+  20260612: 'uth_three_hole',      // Day 39: launch of Triple Threat (3 hole cards)
+  20260613: 'r_color_lock',        // Day 40: launch of Loaded Colors (chosen color wins 66%)
+  20260614: 'ladder_day',          // Day 41: launch of The Ladder (free 250 hi-lo climb after roulette)
+  20260615: 'r_group_25_36',       // Day 42: frozen at its pre-reorder cycle value before the v1.51 CYCLE_ORDER reshuffle
   20260616: 'r_double_ball',       // Day 43
   // ── Jun 17-24 single-game showcase (Days 44-51): the 4 roulette force-groups + 4 new single-game
   //    mods, interleaved roulette / new so no two roulette days touch. Pocket Change is unpinned and
   //    now debuts via the cycle (Day 52+). ⚠ Redeploy the engine bundle before each new mod's day.
-  20260617: 'uth_sixth_card',        // Day 44 — Sixth Sense (UTH: private 6th community card)
-  20260618: 'r_group_even',          // Day 45 —
-  20260619: 'bj_safe_hit',         // Day 45 — Soft Landing (BJ: first hit can't bust)
-  20260620: 'r_group_odd',         // Day 46 — Odd One Out (roulette force-group)
-  20260621: 'uth_suited_conn',     // Day 47 — Suited Up (UTH: forced suited connectors)
-  20260622: 'r_group_red',         // Day 48 — Seeing Red (roulette force-group)
-  20260623: 'bj_two_hands',        // Day 49 — Double Vision (BJ: pick one of two hands)
-  20260624: 'r_group_black',       // Day 50 — In the Black (roulette force-group)
-  20260701: 'r_respin',            // Day 58 — Second Chance (swapped in for the cycled Pocket Change)
+  20260617: 'uth_sixth_card',        // Day 44: Sixth Sense (UTH: private 6th community card)
+  20260618: 'r_group_even',          // Day 45:
+  20260619: 'bj_safe_hit',         // Day 45: Soft Landing (BJ: first hit can't bust)
+  20260620: 'r_group_odd',         // Day 46: Odd One Out (roulette force-group)
+  20260621: 'uth_suited_conn',     // Day 47: Suited Up (UTH: forced suited connectors)
+  20260622: 'r_group_red',         // Day 48: Seeing Red (roulette force-group)
+  20260623: 'bj_two_hands',        // Day 49: Double Vision (BJ: pick one of two hands)
+  20260624: 'r_group_black',       // Day 50: In the Black (roulette force-group)
+  20260701: 'r_respin',            // Day 58: Second Chance (swapped in for the cycled Pocket Change)
 };
 
-/**
- * RNG seed overrides by date — maps a calendar date (YYYYMMDD) to a different seed.
- * Only the card draw sequence changes; mods and save slots are unaffected.
- * Add an entry here to swap tomorrow's cards before it goes live.
- *
- * Example: 20260528: 20260601  → May 28 uses June 1st's card draws
- */
+// 
+// RNG seed overrides by date: maps a calendar date (YYYYMMDD) to a different seed.
+// Only the card draw sequence changes; mods and save slots are unaffected.
+// Add an entry here to swap tomorrow's cards before it goes live.
+// 
+// Example: 20260528: 20260601  → May 28 uses June 1st's card draws
 const DAILY_SEED_OVERRIDES = {
   // 20260528: 20260601,
   20260609: 20260103,
@@ -271,14 +267,14 @@ Object.entries(PRESET_MODIFIERS).forEach(([name, mod]) => {
   });
 });
 
-// ─── DECLARED SCHEMA (typo/shape guard) ───────────────────────────────────────
-// The two guards above only catch a BAD REFERENCE (a CYCLE_ORDER/choices entry pointing at a
-// preset that doesn't exist). They can't catch a bad KEY inside a preset itself — `{ br_payout:
+// ─── DECLARED SCHEMA (catches typo'd/malformed modifier keys) ───────────────────────────────────────
+// The two checks above only catch a bad reference (a CYCLE_ORDER/choices entry pointing at a
+// preset that doesn't exist). They can't catch a bad key inside a preset itself: `{ br_payout:
 // 3.0 }` (typo'd `bj_payout`) is a perfectly valid-looking object, so `getMod('bj_payout')`
 // silently returns null forever and the day quietly plays default rules. MODIFIER_SCHEMA below is
 // the declared list of every real modifier key: `type` for a shape check, `game` for the dead-key
 // sweep. Derived by grepping every `getMod('...')`/`mod('...')` call site across src/ (see
-// bjRulesFor/uthRulesFor/spinModsFor for the per-game rule bundles) — if you add a new modifier
+// bjRulesFor/uthRulesFor/spinModsFor for the per-game rule bundles). If you add a new modifier
 // key, add its row here (NEW-MODIFIER.md step 1 already has you touching this doc comment).
 // `type` values: 'number' | 'bool' | a fixed array of allowed values (enum, e.g. r_force_group).
 const MODIFIER_SCHEMA = {
@@ -305,7 +301,7 @@ const MODIFIER_SCHEMA = {
   r_double_ball:  { type: 'bool',   game: 'roulette' },
   r_payout_mult:  { type: 'number', game: 'roulette' },
   r_number_pay:   { type: 'number', game: 'roulette' },
-  r_hot_number:   { type: 'number', game: 'roulette' }, // 0 is a valid value (Hot Zero) — not falsy-skippable
+  r_hot_number:   { type: 'number', game: 'roulette' }, // 0 is a valid value (Hot Zero) · not falsy-skippable
   r_hot_boost:    { type: 'number', game: 'roulette' },
   r_color_double: { type: 'bool',   game: 'roulette' },
   r_color_boost:  { type: 'number', game: 'roulette' },
@@ -320,11 +316,11 @@ const MODIFIER_SCHEMA = {
   all_in_or_skip:{ type: 'bool',   game: 'cross' },
   ladder_free:   { type: 'number', game: 'cross' },
 };
-// Preset meta fields that aren't gameplay keys — every preset carries some subset of these plus
+// Preset meta fields that aren't gameplay keys: every preset carries some subset of these plus
 // its MODIFIER_SCHEMA keys. Anything outside both sets is an unrecognized key (typo).
 const _MODIFIER_META_KEYS = ['type', 'title', 'desc', 'devNote', 'choices'];
 
-// Strict-mode gate — mirrors core.js's _testActive/DEV_OVERRIDE check, but self-contained: this
+// Strict-mode gate: mirrors core.js's _testActive/DEV_OVERRIDE check, but self-contained: this
 // file loads BEFORE core.js (see index.html), so DEV_OVERRIDE doesn't exist yet at this point, and
 // under the server engine bundle `window` is a stub ({location:{search:''}}) so this reads false
 // there too. Keeps the deep walk below at zero cost in production and in the replay engine.
@@ -353,19 +349,19 @@ function _validateModifierShape(mod, label) {
   }
 }
 
-// The deep schema walk — dev/test only (see _modifiersStrict), so prod load cost is one boolean
+// The deep schema walk: dev/test only (see _modifiersStrict), so prod load cost is one boolean
 // check. Validates every PRESET_MODIFIERS entry (including a choice preset's nested `choices`
-// options — a trio can reference a retired preset, and retired presets are never deleted per
+// options: a trio can reference a retired preset, and retired presets are never deleted per
 // NEW-MODIFIER.md, so they must keep validating forever too) plus the CYCLE_ORDER/DAILY_MODIFIERS
-// reference checks the two guards above already do. A key in MODIFIER_SCHEMA that no preset ever
-// sets is left as a comment-level "dead key" note below rather than a thrown error — retired-but-
-// unused schema rows aren't a load-time bug the way a typo is.
+// reference checks the two checks above already do. A key in MODIFIER_SCHEMA that no preset ever
+// sets is left as a comment-level "dead key" note below rather than a thrown error: a retired-but-
+// unused schema row isn't a load-time bug the way a typo is.
 if (_modifiersStrict()) {
   Object.entries(PRESET_MODIFIERS).forEach(([name, mod]) => {
     _validateModifierShape(mod, name);
     if (mod.choices) mod.choices.forEach(k => _validateModifierShape(PRESET_MODIFIERS[k], `${name} choice "${k}"`));
   });
-  // Every schema key should be read somewhere in src/ — this is intentionally NOT enforced (a
+  // Every schema key should be read somewhere in src/: this is intentionally NOT enforced (a
   // dead key is a cleanup nit, not a correctness bug), just documented: grep
   // `getMod\('KEY'\)|mod\('KEY'\)` per MODIFIER_SCHEMA key if you ever suspect one rotted.
 }

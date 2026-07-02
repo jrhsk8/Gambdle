@@ -2,7 +2,7 @@
 // Mobile (375×812): window must not extend past viewport edges.
 // Desktop (1280×800): window has fixed height = 100svh - 20px, so it never
 //   overflows the viewport. The real check is that panel content fits without
-//   scrolling — panel.scrollHeight must not exceed panel.clientHeight.
+//   scrolling: panel.scrollHeight must not exceed panel.clientHeight.
 
 section(`Layout [${window.innerWidth}×${window.innerHeight}]`);
 
@@ -13,8 +13,8 @@ _ls.removeItem('gambdle_forced_mod');
 
 // Every real play-day has an active modifier, so its banner (~2 lines, ~55px) is ALWAYS on screen.
 // Fixtures that render without one under-measure real height and can pass while overflowing in
-// production. Bake a representative worst-case banner — bj_wild_split ("Big Splitter", a 2-line
-// desc, and thematically the day splits actually happen) — into the base snapshot so every screen
+// production. Bake a representative worst-case banner (bj_wild_split, "Big Splitter", a 2-line
+// desc, and thematically the day splits actually happen) into the base snapshot so every screen
 // is measured WITH a banner; fixtures that need a different mod (e.g. ladder_day) still override it.
 const _ltSnap = JSON.stringify({ ...S, forcedMod: 'bj_wild_split', pkHeld: [...S.pkHeld] });
 const _ltRestore = () => {
@@ -23,9 +23,9 @@ const _ltRestore = () => {
 
 // Fit tolerances come from the shared measurement core, so this suite and the Layout DSL's
 // L.fits() enforce identical thresholds.
-const VERT_TOL         = LayoutMeasure.FIT_TOL.vert;        // px — mobile window overflow tolerance
+const VERT_TOL         = LayoutMeasure.FIT_TOL.vert;        // px, mobile window overflow tolerance
 const HORIZ_TOL        = LayoutMeasure.FIT_TOL.horiz;       // px
-const PANEL_SCROLL_TOL = LayoutMeasure.FIT_TOL.panelScroll; // px — desktop panel scroll tolerance
+const PANEL_SCROLL_TOL = LayoutMeasure.FIT_TOL.panelScroll; // px, desktop panel scroll tolerance
 
 // Viewport + zoom helpers come from the shared measurement core (tests/layout-measure.js),
 // so this suite and the Layout DSL read identical geometry. Aliased to the historical names
@@ -36,7 +36,7 @@ const _isDesktop = LayoutMeasure.isDesktop;
 const _appZoom   = LayoutMeasure.appZoom;
 
 // Merges clean state with overrides, renders, checks bounds, restores.
-// afterRender (optional) runs after render() but before measurement — used to
+// afterRender (optional) runs after render() but before measurement: used to
 // force async content (e.g. the score-distribution chart) to render synchronously
 // so its real height is measured. All geometry comes from the measurement core, so
 // L.fits() (Layout DSL) and these checks are literally the same numbers.
@@ -55,14 +55,14 @@ function checkScreen(label, overrides, afterRender) {
   }
 
   if (_isDesktop()) {
-    // Desktop: window is fixed height — check that panel content doesn't scroll.
+    // Desktop: window is fixed height, so check that panel content doesn't scroll.
     measure(label, m.panelScroll > 0 ? -m.panelScroll : m.panelSlack);
     assert(m.panelScroll <= PANEL_SCROLL_TOL,
       `panel scrolls by ${m.panelScroll}px — reduce content to fit fixed desktop window`);
   } else {
     // Mobile: the window is CSS-capped at 100svh (.app max-height + .window
     // overflow:hidden), so its own box never reports overflow. The real failure
-    // mode is panel content spilling under the status bar (the XP taskbar) — the
+    // mode is panel content spilling under the status bar (the XP taskbar): the
     // panel is flex:1 with min-height:0, so over-tall content overflows its box
     // and overlaps the status bar that follows it. Assert the last panel child
     // sits above the status bar, not merely inside the viewport.
@@ -86,7 +86,7 @@ function checkScreen(label, overrides, afterRender) {
 const MAX_SPLIT_GAP = 50;
 
 // Renders a screen and asserts no single gap between stacked panel children exceeds
-// MAX_SPLIT_GAP — i.e. the layout fills the panel evenly rather than pooling slack.
+// MAX_SPLIT_GAP, i.e. the layout fills the panel evenly rather than pooling slack.
 function checkNoPooledSlack(label, overrides) {
   const base = JSON.parse(_ltSnap); base.pkHeld = new Set(base.pkHeld);
   Object.assign(S, base, overrides);
@@ -101,7 +101,7 @@ function checkNoPooledSlack(label, overrides) {
 }
 
 // The result headline ("Push") and its +chips sub-line must stay tight together as one
-// unit — the slack distributor must not push them apart (and enlarging them must not
+// unit: the slack distributor must not push them apart (and enlarging them must not
 // reintroduce a gap). CSS px, zoom-normalized.
 const MAX_HEADLINE_GAP = 16;
 
@@ -202,7 +202,7 @@ describe('layout — even dividers', () => {
     screen:'bj', bjPhase:'play', chips:900, bjBet:100, bjHand:0, bjHistory:[],
     bjPlayer:_bjPair, bjDealer:_bjDealer,
   }));
-  // (Split play is intentionally NOT even — the dealer band sizes to content so the active hand gets
+  // (Split play is intentionally NOT even: the dealer band sizes to content so the active hand gets
   //  the rest of the board; see the no-overlap guard below.)
   it('UTH preflop: two interior dividers split into even thirds', () => checkEvenDividers('uth-preflop', {
     screen:'uth', uthPhase:'preflop', chips:1200, uthAnte:100, uthHand:0, uthHistory:[],
@@ -304,7 +304,7 @@ describe('layout — BJ screens', () => {
   // The pick screen's bottom cluster mirrors the play screen exactly: the bet inlay and the gold
   // keep-buttons occupy the SAME box the play bet inlay + action buttons do (same modifier/banner on
   // both, so only the screen content differs; the cluster heights are --btn-h-locked). Pixel-exact
-  // wherever the (denser) play screen actually fits — i.e. the bet box never jumps when you pick. At a
+  // wherever the (denser) play screen actually fits, i.e. the bet box never jumps when you pick. At a
   // viewport too short to even show the play controls (e.g. 1024×640 landscape), the play screen is
   // already overflowing, so the only guarantee is that picking doesn't push the box LOWER.
   it('Double Vision pick: bet box + keep buttons sit exactly where the play controls do', () => {
@@ -498,7 +498,7 @@ describe('layout — UTH screens', () => {
       const summary = document.querySelector('#uth-summary');
       assert(summary !== null, `uth-bet-summary: #uth-summary not found at ante=${ante}`);
       const inner = summary.querySelector('span') || summary;
-      // Rect height is post-zoom; fontSize (computed) is pre-zoom — normalize to match.
+      // Rect height is post-zoom; fontSize (computed) is pre-zoom, so normalize to match.
       const height = inner.getBoundingClientRect().height / _appZoom();
       const fontSize = parseFloat(getComputedStyle(inner).fontSize);
       // A single line of text is ≤ ~1.6× font-size. 2× catches any wrap to 2+ lines.
@@ -550,7 +550,7 @@ describe('layout — UTH screens', () => {
       const pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
       // Normalize zoomed rect height back to pre-zoom space to match pad/lineHeight.
       const contentH = dot.getBoundingClientRect().height / _appZoom() - pad;
-      // Allow some sub-pixel tolerance — 1.5× line-height still counts as one line.
+      // Allow some sub-pixel tolerance: 1.5x line-height still counts as one line.
       const lines = Math.round(contentH / lineHeight);
       assert(lines <= 1,
         `uth-bet-dots: dot wraps to ${lines} lines — content height ${Math.round(contentH)}px / line-height ${Math.round(lineHeight)}px (content: "${dot.textContent}")`);
@@ -607,15 +607,15 @@ describe('layout — roulette screens', () => {
     rBets:[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50}],
   }));
 
-  // A full set of bets is the binding case — the placed-bets list is at its
-  // tallest. The old 3-bet fixture fit fine while 5 bets overflowed, so adding
+  // A full set of bets is the binding case: the placed-bets list is at its
+  // tallest. A smaller fixture could fit fine while 5 bets overflow, so adding
   // bets could grow/clip the window. Always test the max.
   const _rMaxBets = { screen:'roulette', rPhase:'bet', chips:1000, rBet:0, rPick:null,
     rBets:[{pick:45,bet:50},{pick:17,bet:50},{pick:40,bet:50},{pick:2,bet:50},{pick:31,bet:50}] };
   it('bet phase — full set of bets fits viewport', () => checkScreen('roulette-bet-max', _rMaxBets));
 
   // The betting board must NEVER scroll on any view. .r-board-wrap has
-  // overflow-x:auto, which makes overflow-y compute to `auto` too — so when the
+  // overflow-x:auto, which makes overflow-y compute to `auto` too, so when the
   // flex panel shrinks it (e.g. with a full bet list on a short window), the
   // lower betting rows silently scroll out of reach. The panel-level scroll
   // check can't see this nested scroll, so assert it directly, with max bets.
@@ -628,7 +628,7 @@ describe('layout — roulette screens', () => {
     const overY = Math.round(wrap.scrollHeight - wrap.clientHeight);
     const overX = Math.round(wrap.scrollWidth  - wrap.clientWidth);
     assert(overY <= HORIZ_TOL,
-      `roulette-board: board scrolls vertically by ${overY}px — lower betting rows are hidden`);
+      `roulette-board: board scrolls vertically by ${overY}px: lower betting rows are hidden`);
     assert(overX <= HORIZ_TOL,
       `roulette-board: board scrolls horizontally by ${overX}px — tiles off-screen at this viewport`);
     _ltRestore();
@@ -639,7 +639,7 @@ describe('layout — roulette screens', () => {
     chips:450, rSpin:36, rBets:[{pick:46,bet:50}],
   }));
 
-  // Five bets is the binding case for the spinning screen — the read-only "Your Bets" box
+  // Five bets is the binding case for the spinning screen: the read-only "Your Bets" box
   // below the wheel lists the full set, so it (capped + scrollable) plus the wheel must still
   // fit the viewport without the panel itself scrolling.
   it('spinning phase with a full set of bets fits viewport', () => checkScreen('roulette-spinning-max', {
@@ -710,7 +710,7 @@ describe('layout — final results', () => {
   }));
 
   // The score-distribution chart is fetched async, so the headless env normally
-  // shows only the short "Loading…" placeholder — hiding ~110px of real chart
+  // shows only the short "Loading…" placeholder, hiding ~110px of real chart
   // height (title + bars + axis labels). On a real completed game this pushed the
   // Copy & Share button under the status bar on mobile. Seed local history and
   // render the chart synchronously so its true height is in the measurement.
@@ -732,7 +732,7 @@ describe('layout — final results', () => {
   // The streak tag renders inline on the "chips" label line, so it must not wrap to a
   // new line or push content wider/taller. Seed a long consecutive run ENDING TODAY
   // (relative to whatever date the suite runs on) so the tag actually shows, then check
-  // fit with the chart present — the realistic worst case for a returning player.
+  // fit with the chart present: the realistic worst case for a returning player.
   it('with a long daily streak fits viewport', () => {
     const _savedHist = _ls.getItem('gambdle_history');
     const idxToSeed = idx => { const d = new Date(START_DATE_UTC + idx * 86400000); return d.getUTCFullYear()*10000 + (d.getUTCMonth()+1)*100 + d.getUTCDate(); };
@@ -750,7 +750,7 @@ describe('layout — final results', () => {
 
   // Regression: the desktop results width-cap (max-width + auto margins on #dist-chart) must NOT
   // collapse the chart. Auto margins on a column flex item disable align-items:stretch, so without
-  // an explicit width:100% the chart shrinks to its content — and since the bars are flex:1 with
+  // an explicit width:100% the chart shrinks to its content, and since the bars are flex:1 with
   // absolutely-positioned labels (no intrinsic width), they render as ~2-4px slivers. Fit tests
   // miss this (a collapsed chart is smaller, so it "fits"); these assertions check real widths.
   it('score-distribution chart fills its width (bars are not collapsed by the width cap)', () => {
@@ -775,7 +775,7 @@ describe('layout — final results', () => {
       const minBar = Math.min(...bars.map(b => b.getBoundingClientRect().width));
 
       assert(bars.length >= 5, `expected the 7-day history to draw several bars, got ${bars.length}`);
-      // Chart must span most of the available width (collapse shrank it to ~content → slivers).
+      // Chart must span most of the available width (collapse shrank it to ~content, i.e. slivers).
       assert(chartW >= panelW * 0.5, `dist-chart collapsed: ${Math.round(chartW)}px in a ${Math.round(panelW)}px panel`);
       // The bar row must fill the chart container.
       assert(barsW >= chartW * 0.85, `dist-bars (${Math.round(barsW)}px) doesn't fill the chart (${Math.round(chartW)}px)`);
@@ -791,7 +791,7 @@ describe('layout — final results', () => {
   // Regression: the chart's bucket labels (0/250/500/1k/… and #day labels) are absolutely
   // positioned ~22px BELOW the bars (out of flow), so .dist-bars needs enough bottom margin to
   // both clear them and leave a gap before the share box. With too-small a margin the labels
-  // overlap the share box (measured down to -9px). Desktop only — the 375 mobile viewport is
+  // overlap the share box (measured down to -9px). Desktop only: the 375 mobile viewport is
   // intentionally tighter and the 360 floor is covered by the WebKit suite. Gap is mod-independent.
   it('bucket labels clear the share box with breathing room (desktop)', () => {
     if (!_isDesktop()) return; // 375×812 mobile viewport is intentionally tighter; checked in WebKit
@@ -822,7 +822,7 @@ describe('layout — final results', () => {
   // Regression: the "You (N)" marker label sits ~20px ABOVE the bars (out of flow, on .dist-you-line),
   // so .dist-bars needs enough TOP margin or the label overlaps the "Score Distribution" title. It did
   // on desktop (gap measured down to -10px) while mobile was fine. Uses _renderScoreDist directly since
-  // the real chart is fetched async (can't run offline). Desktop only — mobile is intentionally tighter.
+  // the real chart is fetched async (can't run offline). Desktop only: mobile is intentionally tighter.
   it('the You label clears the Score Distribution title (desktop)', () => {
     if (!_isDesktop()) return;
     try {
@@ -845,8 +845,8 @@ describe('layout — final results', () => {
 
   // The "Score Distribution" title sits in the gap between the game results box (above) and
   // the chart (below). Two things must hold on every screen (mobile 375 + all desktop sizes):
-  //   (1) the chart's topmost rendered element — the "You" marker, which floats ~20px above the
-  //       bars — keeps a few px of clearance below the title (no crowding/overlap), and
+  //   (1) the chart's topmost rendered element (the "You" marker, which floats ~20px above the
+  //       bars) keeps a few px of clearance below the title (no crowding/overlap), and
   //   (2) the title reads as centered: the gap above it (box→title) ≈ the gap below it
   //       (title→chart top).
   // The chart is fetched async (can't run offline), so render it synchronously via
@@ -903,15 +903,15 @@ describe('layout — devstats', () => {
 
 // ─── iOS safe-area insets ───────────────────────────────────────────────────────
 // Safe-area handling (viewport-fit=cover + env() padding + the dvh/scroll fallback for
-// phones smaller than a screen is designed for) is tested authoritatively in WebKit —
-// Safari's real engine — by `npm run test:webkit` (tests/webkit-layout.js). It simulates
+// phones smaller than a screen is designed for) is tested authoritatively in WebKit,
+// Safari's real engine, by `npm run test:webkit` (tests/webkit-layout.js). It simulates
 // realistic iPhone chrome and checks overlap, out-of-bounds, reachability, and that any
 // scrolling is vertical-only. That belongs in WebKit, not headless Chromium, which
-// reports env() as 0 and can't reproduce Safari's scroll/inset behaviour.
+// reports env() as 0 and can't reproduce Safari's scroll/inset behavior.
 
 // ─── Button uniformity ────────────────────────────────────────────────────────
 // Every in-game button (act-btn, btn-gold, clear/all-in, bet box) must share ONE
-// height and ONE font size per window size — the same control can't be a different
+// height and ONE font size per window size: the same control can't be a different
 // size from one game to the next. Heights are checked against the --btn-h variable
 // across screens drawn from all three games.
 describe('layout — buttons share one height + font per window size', () => {
@@ -978,7 +978,7 @@ describe('layout — buttons share one height + font per window size', () => {
 });
 
 // ─── Bet box parity ───────────────────────────────────────────────────────────
-// The bet box (.bet-amt) must be pixel-identical — same FORMAT (padding/border/bg/color/height) on EVERY
+// The bet box (.bet-amt) must be pixel-identical: same FORMAT (padding/border/bg/color/height) on EVERY
 // screen it appears (bet phase, play, reveal, result, across all games), and every in-game button must
 // share one height across those screens. WIDTH parity: on desktop the bet-phase box matches the
 // play/result box (one --bet-box-w everywhere); on phones the bet-phase box is shrunk so [Clear][box]
@@ -991,7 +991,7 @@ describe('layout - bet box parity', () => {
     ['uth-bet',      { screen:'uth', uthPhase:'bet', chips:1000, uthAnte:500, uthHand:0, uthHistory:[] }],
     ['poker-bet',    { screen:'poker', pkPhase:'bet', chips:1000, pkBet:500, pkHand:0, pkHistory:[] }],
     ['ladder-bet',   { screen:'ladder', ladPhase:'bet', ladBet:200, ladFree:false, ladIdx:0, ladRung:0, ladResult:null, chips:1000 }],
-    // NOTE: roulette-bet is intentionally NOT here — its box is shrunk to pack Clear + box + Place Bet
+    // NOTE: roulette-bet is intentionally NOT here: its box is shrunk to pack Clear + box + Place Bet
     // + All In onto one line, so the pixel-width parity is a bj/uth/poker/ladder guarantee, not roulette.
     ['bj-play',      { screen:'bj', bjPhase:'play', chips:950, bjBet:150, bjHand:0, bjHistory:[], bjPlayer:_bjPair, bjDealer:_bjDealer }],
     ['bj-split',     { screen:'bj', bjPhase:'play', chips:600, bjBet:100, bjHand:0, bjHistory:[], bjPlayer:[], bjDealer:_bjDealer, bjSplit:true, bjSplitActive:0, bjSplitHands:[_bjPair,_bjPair], bjSplitBets:[100,100], bjSplitDone:[false,false], bjSplitDoubled:[false,false], bjSplitAnimFrom:[0,0] }],
@@ -1066,10 +1066,10 @@ describe('layout - bet box parity', () => {
 
   // ── Control position parity (the "same spot throughout the game" invariant) ──────────────────────
   // The bet/total box AND the commit/advance/action button must sit at the SAME vertical position on
-  // every BJ/UTH bet/play/result screen — they must not jump as the player moves bet → play → showdown.
+  // every BJ/UTH bet/play/result screen: they must not jump as the player moves bet → play → showdown.
   // Measured as the gap from box bottom / button bottom to the panel bottom (panel height is constant at
   // a given viewport, so equal gap = identical absolute Y). Enforced at EVERY breakpoint (mobile AND
-  // desktop) — the harness re-runs this file per binding size. See .claude/LAYOUT.md "Control position
+  // desktop): the harness re-runs this file per binding size. See .claude/LAYOUT.md "Control position
   // parity". Excluded: poker / ladder / roulette bet screens (they place content below the box by design)
   // and uth-reveal (a ~2.3s auto-transition with no button row). BJ split PLAY and RESULT are both in.
   const POS_EXTRA = [
@@ -1095,7 +1095,7 @@ describe('layout - bet box parity', () => {
     const button = document.querySelector('.game-controls') || document.getElementById('db');
     assert(panel && box && button, `control pos: panel/box/button missing on "${label}"`);
     // Normalize by the app zoom so parity is measured in LOGICAL px: on 4K/large displays .app carries a
-    // CSS zoom, and a 1px-logical difference reads as ~2 device px — visually identical, so it shouldn't fail.
+    // CSS zoom, and a 1px-logical difference reads as ~2 device px: visually identical, so it shouldn't fail.
     const z = _appZoom();
     const pb = panel.getBoundingClientRect().bottom;
     return {
@@ -1135,11 +1135,11 @@ describe('layout - bet box parity', () => {
       assert(box, `btn-width: box missing on "${label}"`);
       const boxW = box.getBoundingClientRect().width;
       const actBtns = gc.querySelector('.act-btns');
-      if (actBtns) {  // multi-button play row — stays wider than the box
+      if (actBtns) {  // multi-button play row: stays wider than the box
         const w = actBtns.getBoundingClientRect().width;
         assert(w > boxW + 1,
           `btn-width: "${label}" multi-button row (${Math.round(w)}px) should be wider than the box (${Math.round(boxW)}px)`);
-      } else {        // lone advance button — sits slightly wider than the box (overhangs it)
+      } else {        // lone advance button: sits slightly wider than the box (overhangs it)
         const solo = gc.querySelector('.btn-gold');
         assert(solo, `btn-width: no action button on "${label}"`);
         const w = solo.getBoundingClientRect().width;
@@ -1192,7 +1192,7 @@ describe('layout - chip selector parity', () => {
     for (const m of measured.slice(1)) {
       for (const prop of props) {
         assert(Math.abs(m.chips[prop] - ref.chips[prop]) <= 1,
-          `chip parity: "${m.label}" ${prop} ${m.chips[prop]} != ${ref.chips[prop]} (ref "${ref.label}") — the chip selector moved/resized between screens`);
+          `chip parity: "${m.label}" ${prop} ${m.chips[prop]} != ${ref.chips[prop]} (ref "${ref.label}"): the chip selector moved/resized between screens`);
       }
     }
   });
@@ -1207,7 +1207,7 @@ describe('layout - chip selector parity', () => {
 describe('layout — progress dots stable across phases', () => {
   // Renders one screen state, captures the .dots-row position relative to the panel
   // and its size, then restores state. Relative measurement eliminates viewport shifts
-  // caused by different title-bar/menu-bar heights across screens — the panel is the
+  // caused by different title-bar/menu-bar heights across screens: the panel is the
   // stable game board; dots moving within it is the failure we guard.
   // All values are zoom-normalized (logical px) for cross-viewport portability.
   function dotsRect(label, overrides) {
@@ -1274,7 +1274,7 @@ describe('layout — progress dots stable across phases', () => {
 
   // ── Cross-game alignment ─────────────────────────────────────────────────────
   // By design, the UTH bet screen applies display:contents on #uth-dots-container so
-  // the .dots-row becomes a direct flex child — pixel-aligning with BJ's bet screen.
+  // the .dots-row becomes a direct flex child, pixel-aligning with BJ's bet screen.
   it('BJ bet and UTH bet: dots row sits at the exact same position', () => {
     const bj  = dotsRect('bj-bet',  { screen:'bj',  bjPhase:'bet',  chips:1000, bjBet:0,   bjHand:0, bjHistory:[] });
     const uth = dotsRect('uth-bet', { screen:'uth', uthPhase:'bet', chips:1000, uthAnte:0, uthHand:0, uthHistory:[] });

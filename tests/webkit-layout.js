@@ -1,11 +1,11 @@
 // ─── WebKit (Safari engine) layout checks ──────────────────────────────────────
-// Renders each interactive screen in WebKit — the engine iPhone Safari uses — across
+// Renders each interactive screen in WebKit (the engine iPhone Safari uses) across
 // iPhone viewports, with and without simulated safe-area insets, and geometrically
 // asserts that every tap target (buttons, chips, roulette tiles) is:
-//   1. IN BOUNDS  — fully inside the window, above the status bar, not clipped.
-//   2. NON-OVERLAPPING — no two tap targets sit on top of each other.
+//   1. IN BOUNDS: fully inside the window, above the status bar, not clipped.
+//   2. NON-OVERLAPPING: no two tap targets sit on top of each other.
 // This complements the Chromium suite (npm test), which can't reproduce Safari's
-// exact metrics or the safe-area behaviour seen on real iPhones.
+// exact metrics or the safe-area behavior seen on real iPhones.
 //
 // Run: npm run test:webkit   (first time: npx playwright install webkit)
 
@@ -18,19 +18,18 @@ const BASE = 'file:///' + __dirname.replace(/\\/g, '/') + '/../index.html';
 // CDN. Headless WebKit would sometimes report the CDN font as loaded yet never apply it to LAYOUT for a
 // whole session, leaving text in the wider Courier-New fallback and spuriously tripping the no-scroll
 // check. Injecting a fully-loaded FontFace from these bytes (see runOnce) makes every pass deterministic
-// and the run fully offline. This is the latin subset — the only glyphs the English UI renders in VT323;
+// and the run fully offline. This is the latin subset, the only glyphs the English UI renders in VT323;
 // chars outside it (e.g. →) fall back identically on a real device, so the metrics match. Font: VT323
-// (Google Fonts, SIL OFL 1.1 — see assets/VT323-OFL.txt), the exact woff2 the live CDN serves WebKit.
+// (Google Fonts, SIL OFL 1.1, see assets/VT323-OFL.txt), the exact woff2 the live CDN serves WebKit.
 const VT323_DATA_URL = 'data:font/woff2;base64,' +
   fs.readFileSync(path.join(__dirname, '..', 'assets', 'vt323-latin.woff2')).toString('base64');
 
-// Shared Fixture registry (tests/screen-fixtures.js) — same source screenshots.js and
-// window-screenshots.js inject. Fixture STATE lives there once; this file only picks which
-// named states to geometry-check and drives them via renderFixture(). Used to hand-reconstruct
-// every fixture inline (buildFixture) — that copy has been deleted in favor of the registry so
-// a new Screen state only has to be defined once to be covered by screenshots, the lab, AND this.
+// Shared Fixture registry (tests/screen-fixtures.js): same source screenshots.js and
+// window-screenshots.js inject. Fixture state lives there once; this file only picks which
+// named states to geometry-check and drives them via renderFixture(). A new Screen state
+// only has to be defined once to be covered by screenshots, the lab, and this suite.
 
-// Supported floor is iPhone 12/13-mini (360×780) and up — the user's reports are iPhone 15
+// Supported floor is iPhone 12/13-mini (360×780) and up: the user's reports are iPhone 15
 // (393×852). iPhone SE (375×667) is intentionally NOT tested yet.
 // FUTURE IDEA: support iPhone SE (375×667). Several screens don't fit that short a window
 // even before browser chrome; would need a more aggressive mobile-result compaction pass.
@@ -42,7 +41,7 @@ const VIEWPORTS = [
 // Inset conditions drive --sa-t/--sa-b directly (env() is 0 in the emulator):
 //   - none:  baseline, full window.
 //   - ios:   worst realistic iPhone-Safari chrome. Top = Dynamic Island/status bar (~59).
-//            Bottom = the floating Safari toolbar + home indicator (~55) — the emulator's
+//            Bottom = the floating Safari toolbar + home indicator (~55). The emulator's
 //            dvh does NOT shrink for the toolbar the way a real device does, so we model
 //            it here to match what users actually see (the screenshots had it overlapping).
 const INSETS = [
@@ -53,7 +52,7 @@ const INSETS = [
 // Which SCREEN_FIXTURES entries this pass geometry-checks, in review order. This is the union
 // of what screenshots.js and window-screenshots.js already treat as review-worthy states, so a
 // Screen doesn't need to be re-listed per script to get WebKit tap-target coverage. Two registry
-// entries are deliberately left out — see the comment below the list.
+// entries are deliberately left out: see the comment below the list.
 const FIXTURES = [
   'intro', 'choice', 'borrow',
   'bj-bet', 'bj-play', 'bj-pick', 'bj-split-2', 'bj-split-3', 'bj-split-4', 'bj-result', 'bj-result-last', 'bj-split-result',
@@ -63,18 +62,18 @@ const FIXTURES = [
   'ladder-bet-free', 'ladder-climb', 'ladder-crash', 'ladder-cash',
 ];
 // Intentionally excluded (present in SCREEN_FIXTURES, not here):
-//   - 'uth-reveal' — the transient "Dealer Reveals" auto-advance frame (~2.3s, then moves itself
+//   - 'uth-reveal': the transient "Dealer Reveals" auto-advance frame (~2.3s, then moves itself
 //     to the result). Neither screenshot script captures it either; it exists in the registry so
 //     the lab can pin and eyeball it, not so an automated pass measures a frame that never holds still.
-//   - 'bj-result-split-2' / '-3' / '-4' — worst-case split-result states, but the registry's own
+//   - 'bj-result-split-2' / '-3' / '-4': worst-case split-result states, but the registry's own
 //     comment marks them "not in the screenshot sets, but available to the Layout DSL": they pin
 //     bjDealerAnimFrom to force the mid-reveal dealer-card-slide animation frame, which the Chromium
 //     Layout DSL is built to reason about (see layout-dsl.js) but this pass isn't. 'bj-split-result'
 //     below already covers the settled 4-way split result geometry.
 
 // ── In-page: geometric checks; returns an array of human-readable violations ──
-// Rules (per design): horizontal scroll is NEVER allowed; every tap target must be
-// reachable (never clipped off-screen) — it may sit below the fold on a phone smaller
+// Rules: horizontal scroll is NEVER allowed; every tap target must be
+// reachable (never clipped off-screen), it may sit below the fold on a phone smaller
 // than a screen is designed for, reachable by vertical scroll; and on configs the game
 // IS designed to fit (allowVScroll=false), the content must fit with no vertical scroll.
 function runChecks(opts) {
@@ -108,25 +107,25 @@ function runChecks(opts) {
 
   const v = [];
 
-  // RULE 1 — no horizontal page scroll, ever.
+  // RULE 1: no horizontal page scroll, ever.
   if (pageW > vw + TOL) v.push(`HORIZONTAL SCROLL: page width ${R(pageW)} > viewport ${vw}`);
 
-  // RULE 3 — on a config the game is designed to fit, content must not need vertical scroll.
+  // RULE 3: on a config the game is designed to fit, content must not need vertical scroll.
   if (!allowVScroll && pageH > vh + TOL) v.push(`UNEXPECTED VERTICAL SCROLL: content ${R(pageH)} > viewport ${vh} (should fit without scrolling)`);
 
   for (const el of els) {
     const r = el.getBoundingClientRect();
-    // RULE 2 — reachable: a tap target must lie within the scrollable document (never clipped off).
+    // RULE 2: reachable: a tap target must lie within the scrollable document (never clipped off).
     const pageBottom = r.bottom + window.scrollY;
     if (pageBottom > pageH + TOL) v.push(`CLIPPED/UNREACHABLE ↓  ${desc(el)}  bottom=${R(pageBottom)} > scrollHeight ${R(pageH)}`);
-    // RULE 1 (per element) — must fit within the window's width (board excluded; it scrolls internally).
+    // RULE 1 (per element): must fit within the window's width (board excluded; it scrolls internally).
     if (!inBoard(el)) {
       if (r.right > win.right + TOL) v.push(`OUT-OF-BOUNDS →  ${desc(el)}  right=${R(r.right)} > window right ${R(win.right)}`);
       if (r.left < win.left - TOL)   v.push(`OUT-OF-BOUNDS ←  ${desc(el)}  left=${R(r.left)} < window left ${R(win.left)}`);
     }
   }
 
-  // Overlap — no two tap targets sit on top of each other.
+  // Overlap: no two tap targets sit on top of each other.
   for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
     const a = els[i], b = els[j];
     if (a.contains(b) || b.contains(a)) continue;
@@ -153,7 +152,7 @@ async function runOnce(verbose) {
   for (const vp of VIEWPORTS) {
     const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
     const page = await ctx.newPage();
-    // Generic routes first, specific RPC mocks last — Playwright uses the LAST matching
+    // Generic routes first, specific RPC mocks last: Playwright uses the LAST matching
     // route, so these score-distribution / percentile mocks win over **/rest/v1/** and the
     // results screen actually renders its chart (its true, taller height).
     await page.route('**/functions/v1/**', json({}));
@@ -167,8 +166,7 @@ async function runOnce(verbose) {
     await page.goto(BASE);
     await page.addScriptTag({ content: fixturesSrc }); // defines SCREEN_FIXTURES + renderFixture as page globals
     // Register VT323 as a fully-loaded FontFace before snapshotting, so every fixture lays out with the
-    // real pixel-font metrics on the FIRST pass. Replaces the old "poll document.fonts.check() and hope
-    // it applied" wait, which non-deterministically left the whole session in the Courier-New fallback.
+    // real pixel-font metrics on the FIRST pass.
     await page.evaluate(async (url) => {
       const ff = new FontFace('VT323', `url(${url})`);
       await ff.load();
@@ -186,12 +184,12 @@ async function runOnce(verbose) {
       for (const fx of FIXTURES) {
         // Vertical scroll is the accepted fallback only when the usable area is smaller than
         // a screen is designed for: a short phone (<800px) with chrome, OR the terminal
-        // results screen under chrome (it's chart-tall and only has Copy/Share — the toolbar
+        // results screen under chrome (it's chart-tall and only has Copy/Share; the toolbar
         // collapses on scroll). Gameplay screens on iPhone 15 must still FIT with no scroll.
         const allowVScroll = inset.b > 0 && (vp.height < 800 || fx === 'results');
-        // renderFixture owns reset → setup → apply Modifier → render() → afterRender(); pin
-        // 'easy_dealer' as the fallback banner (a banner is always present on a real day — this
-        // doesn't change any button — for fixtures that don't pin their own via `mod`).
+        // renderFixture owns reset -> setup -> apply Modifier -> render() -> afterRender(); pin
+        // 'easy_dealer' as the fallback banner (a banner is always present on a real day, this
+        // doesn't change any button) for fixtures that don't pin their own via `mod`.
         const settle = await page.evaluate((n) => {
           renderFixture(n, { defaultMod: 'easy_dealer' });
           return SCREEN_FIXTURES[n].settle || 0;
@@ -231,10 +229,10 @@ async function runOnce(verbose) {
   // First pass (normal streaming output).
   let { totalChecks, failLines } = await runOnce(true);
   // Safety net: confirm any failure on up to 2 fresh browser launches and keep only the ones that
-  // persist (a real overflow fails every launch). The headless-WebKit font flake this used to absorb is
-  // now fixed at the source — VT323 is injected as a local fully-loaded FontFace above, so the first
-  // pass is deterministic — but the cheap re-check stays as insurance against any other per-launch
-  // fluke. Re-runs happen ONLY after a failed first pass, so the common all-pass run stays one fast pass.
+  // persist (a real overflow fails every launch). VT323 is injected as a local fully-loaded FontFace
+  // above, so the first pass is already deterministic, but the cheap re-check stays as insurance
+  // against any other per-launch fluke. Re-runs happen ONLY after a failed first pass, so the
+  // common all-pass run stays one fast pass.
   for (let i = 0; i < 2 && failLines.length; i++) {
     console.log(`\n… re-running ${failLines.length} failed check(s) on a fresh browser (per-launch font-flake guard ${i + 1}/2)…`);
     const again = await runOnce(false);

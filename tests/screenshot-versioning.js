@@ -4,8 +4,8 @@
 // so every render is tagged with the game version it captured. Re-running an engine for the
 // current version refreshes ONLY that engine's folder (stale/renamed shots don't pile up),
 // and version folders that are more than KEEP_VERSIONS_BACK versions behind the current
-// GAME_VERSION are pruned — so a few recent versions stay around for comparison, but old ones
-// don't accumulate forever. (screenshots/ is git-ignored; these are throwaway review artifacts.)
+// GAME_VERSION are pruned, so a few recent versions stay around for comparison without old
+// ones accumulating forever. (screenshots/ is git-ignored; these are throwaway review artifacts.)
 const fs = require('fs');
 const path = require('path');
 
@@ -37,7 +37,7 @@ function pruneOldVersions(current) {
   if (curKey == null || !fs.existsSync(ROOT)) return;
   for (const name of fs.readdirSync(ROOT)) {
     const key = versionKey(name);
-    if (key == null) continue;                                  // not a vX.Y folder — leave it alone
+    if (key == null) continue;                                  // not a vX.Y folder, leave it alone
     if (!fs.statSync(path.join(ROOT, name)).isDirectory()) continue;
     if (curKey - key > KEEP_VERSIONS_BACK) {
       fs.rmSync(path.join(ROOT, name), { recursive: true, force: true });

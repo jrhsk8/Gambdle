@@ -1,24 +1,16 @@
-// ─── CONTENTS (grep the banner/function name; line numbers drift) ──────────
-//   THE LADDER LOGIC: LADDER_MULTS · ladRankVal/ladCallCorrect (ties lose) ·
-//     ladPotAt pot math · ladStakeCommit / ladCall / ladCashOut / _ladSettle ·
-//     resetLadderRun
-//   THE LADDER RENDER: screenLadder (fixed zones), zone helpers, surgical
-//     mid-run updates
-// ───────────────────────────────────────────────────────────────────────────
+// The Ladder minigame: a hi-lo card-streak climb, plus its screen rendering.
+// One shared seeded 8-card sequence per day (1 face-up start + up to 7 calls).
+// Each correct call climbs a rung of the fixed multiplier ladder; a wrong call
+// or a tie crashes the run. Cash out any time from rung 1. On ladder_free mod
+// days the entry is house money: crash costs nothing, cash out keeps the full pot.
 
 // ─── THE LADDER LOGIC ─────────────────────────────────────────
-// Hi-lo streak climb. One shared seeded 8-card sequence per day
-// (the active Ladder sequence: 1 face-up start + up to 7 calls, see _ladCards()).
-// Each correct call climbs a rung of the fixed multiplier ladder; a wrong call OR
-// A TIE crashes the run. Cash out any time from rung 1. On ladder_free mod days the
-// entry is house money: crash costs nothing, cash out keeps the full pot.
 
 const LADDER_MULTS = [1.5, 2.2, 3.2, 5, 8, 13, 21];
 
-// The one seam onto the day's shared 8-card sequence (DEAL.ladderCards is drawn LAST
-// in the seeded sequence — see core.js genDeal — so nothing here may change how/when
-// it's drawn). Trivial today; exists so logic/render call one name instead of reaching
-// into DEAL directly (finding #38).
+// Reads the day's shared 8-card sequence. DEAL.ladderCards is drawn LAST in the
+// seeded sequence (see core.js genDeal), so nothing here may change how/when it's
+// drawn. Logic and render code call this instead of reaching into DEAL directly.
 function _ladCards(){ return DEAL.ladderCards; }
 
 // Rank order for hi-lo: RANKS is already ordered 2..A, so the index is the value (A high).
@@ -36,31 +28,25 @@ function ladCallCorrect(cur, next, dir){
 function ladPotAt(stake, rung){ return rung === 0 ? stake : Math.round(stake * LADDER_MULTS[rung - 1]); }
 
 // Max standalone stake: 25% of stack (min 25, never above the stack itself).
-// The rule lives in the pure bet-intake core (bet.js); this just feeds it the live stack.
+// The rule itself lives in bet.js; this just feeds it the live stack.
 function ladMaxStake(){ return ladderMaxStake(S.chips); }
 
-// ─── LADDER FREE-ENTRY POLICY (finding #6) ─────────────────────
-// The ONE place that answers every question the free-entry rule raises elsewhere.
-// Two different things both get asked "is this free?" and must not be conflated:
-//   · getMod('ladder_free') — TODAY's Modifier: is the *day* running a free bonus round?
-//     Read directly by call sites that need to know before a Round exists yet (routing,
-//     the roulette advance prompt) — those aren't asking about "this run", there is no
-//     run yet. ladderMode() itself reads it too, to answer the 'bet'-phase questions.
-//   · S.ladFree — the ACTIVE Round's entry mode, latched by ladStakeCommit() the moment
-//     a run starts, and read for the rest of that run's life (climb/settle/share). This
-//     is what ladderMode() reports as `.free` once a run exists.
-// Every call site below used to re-derive "free ⇒ locked stake / crash costs nothing /
-// keep the full pot" by hand; now they all ask this one object instead.
+// ─── LADDER FREE-ENTRY POLICY ─────────────────────
+// Everything callers need to know about whether this is a free (house money) run.
+// "Is this free" can be asked two ways, and they mean different things:
+//   · getMod('ladder_free') is today's modifier: is the day running a free bonus
+//     round at all? Read directly by code that needs an answer before a Round
+//     exists yet (routing, the roulette advance prompt).
+//   · S.ladFree is the active Round's entry mode, set once by ladStakeCommit() when
+//     a run starts and unchanged for the rest of that run (climb/settle/share), even
+//     if the day's modifier reads differently later.
 function ladderMode(){
   const modFree = getMod('ladder_free');
-  // Before commit, "is this run free" is a preview of today's mod; after commit it's the
-  // latched S.ladFree (a run keeps its entry mode even if the mod check changes later).
+  // Before commit, "free" previews today's mod; after commit it's the latched S.ladFree.
   const free = S.ladPhase === 'bet' ? !!modFree : S.ladFree;
-  // The generic bet-guard shape (bet.js), asked for the Ladder specifically: on a free day the
-  // "cap" the guard reports isn't meaningful (the stake is locked, not chosen), so the bet-phase
-  // readout label instead composes its own "FREE <stake>" wording (see _LAD_PHASE.bet.readout);
-  // guard.label is used only on a standalone day, so it and betGuard's generic "Max bet: N"
-  // wording can't drift apart.
+  // The generic bet-guard (bet.js) asked for the Ladder. On a free day its "cap" isn't
+  // meaningful (the stake is locked, not chosen); guard.label is only used on standalone
+  // days, so the free-day readout composes its own "FREE <stake>" wording instead.
   const guard = betGuard('ladder', S.chips, {});
   return {
     free,
@@ -69,22 +55,21 @@ function ladderMode(){
     // Cap/lock on the bet-phase stake control: free days lock to the mod value; standalone
     // days cap at the 25%-of-stack rule.
     maxStake: free ? modFree : guard.max,
-    // The bet-phase cap label (standalone days only) — see the comment on `guard` above.
+    // The bet-phase cap label (standalone days only).
     label: guard.label,
     // Free entry locks the stake (no chip picker); standalone lets the player choose.
     canEditBet: !free,
-    // Chip delta once a run of this mode settles: crash costs nothing on a free run,
-    // loses the stake on a standalone one. (Non-crash outcomes still need the rung's pot,
-    // computed by ladPotAt — this only covers crash, the one outcome free/standalone diverge on.)
+    // Chip delta if a run of this mode crashes: nothing lost on a free run, the stake
+    // lost on a standalone one. Non-crash outcomes use the rung's pot (ladPotAt) instead.
     crashDelta: free ? 0 : -S.ladBet,
-    // Today's bonus-round detour gate (flow.js routing / the roulette advance prompt): does
-    // TODAY run a free bonus round at all, independent of whether a Round has started.
+    // Whether today runs a free bonus round at all, independent of whether a Round
+    // has started (used by flow.js routing and the roulette advance prompt).
     detourToday: !!modFree,
   };
 }
 
 // Commits the stake and starts the climb. On ladder_free mod days the entry is
-// locked to the mod value (house money — S.ladFree). Standalone stakes must be
+// locked to the mod value (house money: S.ladFree). Standalone stakes must be
 // within [25, ladMaxStake()].
 function ladStakeCommit(){
   if (S.ladPhase !== 'bet') return;
@@ -92,7 +77,7 @@ function ladStakeCommit(){
   if (mode.free) { S.ladBet = mode.stake; S.ladFree = true; }
   if (!S.ladFree && (S.ladBet < 25 || S.ladBet > ladMaxStake())) return;
   tx('lad', 'stake', {v:S.ladBet});
-  mutate(s => { s.ladPhase = 'climb'; s.ladIdx = 0; s.ladRung = 0; }); // mutate-then-save seam (C6)
+  mutate(s => { s.ladPhase = 'climb'; s.ladIdx = 0; s.ladRung = 0; });
   _ladAfterAction('chips');
 }
 
@@ -103,8 +88,8 @@ function ladCall(dir){
   const cur = cards[S.ladIdx], next = cards[S.ladIdx + 1];
   tx('lad', dir);
   if (ladCallCorrect(cur, next, dir)) {
-    mutate(s => { s.ladRung++; s.ladIdx++; }); // mutate-then-save seam (C6)
-    if (S.ladRung >= LADDER_MULTS.length) { _ladSettle('top'); return; } // _ladSettle saves again (last write wins)
+    mutate(s => { s.ladRung++; s.ladIdx++; });
+    if (S.ladRung >= LADDER_MULTS.length) { _ladSettle('top'); return; }
     _ladAfterAction('card');
   } else {
     S.ladIdx++; // advance so the killer card is the one on display
@@ -118,9 +103,10 @@ function ladCashOut(){
   _ladSettle('cash');
 }
 
-// Pure Ladder Resolver: the chip outcome of a settled run. (outcome, bet, rung, free) → {delta,
-// result}. No S, no DOM, no credit. Free entry: a crash costs nothing and a non-crash keeps the full
-// pot; a staked run risks the bet (crash loses it, cash-out/top nets pot − bet).
+// PURE: the chip outcome of a settled run, no S, no DOM, no credit applied.
+// (outcome, bet, rung, free) -> {delta, result}. Free entry: a crash costs
+// nothing and a non-crash keeps the full pot; a staked run risks the bet
+// (crash loses it, cash-out/top nets pot minus bet).
 function resolveLadder(outcome, bet, rung, free){
   const pot = ladPotAt(bet, rung);
   const delta = outcome === 'crash' ? (free ? 0 : -bet)
@@ -128,21 +114,20 @@ function resolveLadder(outcome, bet, rung, free){
   return { delta, result: outcome };
 }
 
-// Settlement Ledger for the settled Ladder run — the ONE credit mapping shared by the live settle
-// (_ladSettle) and the replay Engine. PURE: a positive delta credits the net, a negative delta debits
-// it, zero is a no-op (applied via applyLedger). This is the only game whose ledger can carry a debit.
-// Built via mkCredit/mkDebit (core.js) — a validated {op,n,reason} factory — so a typo'd reason throws
-// in strict mode; -delta is always >=0 here since it's only taken on the delta<0 branch.
+// Turns a settlement delta into ledger entries for applyLedger: positive
+// credits the net, negative debits it, zero is a no-op. Shared by the live
+// settle (_ladSettle) and the replay engine. Ladder is the only game whose
+// ledger can carry a debit.
 function ladderAward(delta){ return delta>0 ? [mkCredit(delta, 'ladder')] : delta<0 ? [mkDebit(-delta, 'ladder')] : []; }
 
 // Ends the run: applies the chip delta and records ladResult for recalcChips,
 // the results screen, and the share text. Free entry: crash costs nothing,
 // cash out keeps the full pot.
 function _ladSettle(outcome){
-  const free = ladderMode().free; // the Round's latched entry mode (S.ladFree), asked through the policy
+  const free = ladderMode().free;
   const { delta } = resolveLadder(outcome, S.ladBet, S.ladRung, free);
-  applyLedger(liveAcct(), ladderAward(delta)); // credits/debits S.chips (no save); the mutate below persists it
-  mutate(s => { // mutate-then-save seam (C6)
+  applyLedger(liveAcct(), ladderAward(delta));
+  mutate(s => {
     s.ladResult = mkOutcome('lad', delta, outcome, { rung: s.ladRung, free });
     s.ladPhase = 'done';
   });
@@ -150,25 +135,25 @@ function _ladSettle(outcome){
   _ladAfterAction(outcome === 'cash' ? 'chips' : 'card');
 }
 
-// Post-action repaint: surgical zone updates when the screen is live, full
-// render as fallback. Guarded so logic-only unit tests (no DOM screen) skip it.
-// `snd`: 'chips' for stake/cash-out money events, 'card' when a card after the first
-// is revealed (climb / crash / top) — delayed so it lands like a dealt card.
+// Repaints the screen after a player action: surgical zone updates if the
+// screen is live, otherwise nothing (logic-only unit tests skip it since
+// there's no DOM). `snd`: 'chips' for stake/cash-out money events, 'card'
+// when a card after the first is revealed (climb / crash / top).
 function _ladAfterAction(snd){
   if (typeof document === 'undefined' || S.screen !== 'ladder' || typeof render !== 'function') return;
   if (snd === 'card' && typeof sndCard === 'function') sndCard(120);
   else if (snd === 'chips' && typeof sndChip === 'function') sndChip();
-  // Surgical repaint of the six zones (no full render mid-run — no flash, fixed layout); patchZones
-  // rebuilds from S via render() if any zone is missing.
+  // Only the six zones repaint (no full render mid-run, so no flash and a fixed
+  // layout); patchZones falls back to a full render() if a zone is missing.
   const zones = { [DOM.ladHead]:_ladHeadHTML, [DOM.ladStrip]:_ladStripHTML, [DOM.ladRead]:_ladReadoutHTML,
                   [DOM.ladCards]:_ladCardsHTML, [DOM.ladMsg]:_ladMsgHTML, [DOM.ladAct]:_ladActionsHTML };
   if (patchZones(zones, { noAnim: true })) updateChipDisplay();
 }
 
-// `reason` — see the reset(reason) contract in core.js. Only ever called with 'dev-jump' today (the
-// dev Jump submenu and devLadder()): Ladder is a single run per day, so the normal Round flow never
-// needs to reset it (its one real entry point, the ladder_day free-bonus detour, always finds S
-// already at its fresh-day defaults — see the contract comment). Accepted but unbranched.
+// Resets Ladder state to its fresh-day defaults. `reason` follows the
+// reset(reason) rules in core.js. Only ever called with 'dev-jump' (the
+// dev Jump submenu and devLadder()): Ladder runs once per day, so normal play
+// never needs to reset it.
 function resetLadderRun(reason){
   S.ladPhase = 'bet'; S.ladBet = 0; S.ladFree = false;
   S.ladIdx = 0; S.ladRung = 0; S.ladResult = null;
@@ -176,12 +161,11 @@ function resetLadderRun(reason){
 
 // ─── THE LADDER RENDER ────────────────────────────────────────
 // Fixed skeleton: six zones with stable ids and constant min-heights so nothing
-// moves between phases — only zone contents swap (see styles.css .lad-*).
+// moves between phases; only zone contents swap (see styles.css .lad-*).
 
-GAMES.ladder.screen = screenLadder; // register into the Game registry (defined just below; core.js loads first)
-// No GAMES.ladder.rulesFor: the Ladder has no per-game rule bundle to register — it reads
-// getMod('ladder_free') straight (ladderMode(), above) and that key is `cross`-attributed in
-// MODIFIER_SCHEMA (a cross-game key, not ladder-owned), not a scalar/flag set worth a builder.
+GAMES.ladder.screen = screenLadder;
+// No GAMES.ladder.rulesFor: Ladder has no per-game rule bundle. It reads
+// getMod('ladder_free') directly (see ladderMode() above).
 function screenLadder(){
   const mode = ladderMode();
   // Free-entry days lock the displayed stake to the house's entry.
@@ -197,12 +181,10 @@ function screenLadder(){
   </div>`;
 }
 
-// ─── PHASE → RENDERER TABLE (finding #22) ──────────────────────
-// Each zone used to re-branch on S.ladPhase independently (six copies of the same
-// 'bet'/'climb'/'done' switch). Instead the phase tree lives once, here: one row per
-// phase, one column per zone. Zone builders (below) become a one-line lookup that
-// throws loud on a phase with no entry — a blank zone would otherwise render silently
-// and only surface as a layout-test diff days later.
+// ─── PHASE -> RENDERER TABLE ──────────────────────
+// One row per phase ('bet'/'climb'/'done'), one column per zone (head, strip,
+// readout, cards, msg, actions). Each zone builder below is a one-line lookup
+// into this table instead of its own phase switch.
 const _LAD_PHASE = {
   bet: {
     head: () => `<span class="lad-hl">THE LADDER</span>`,
@@ -283,8 +265,8 @@ const _LAD_PHASE = {
   },
 };
 
-// Looks up today's phase row, failing loud (rather than rendering blank) if S.ladPhase
-// is ever something the table doesn't cover — a silent blank zone is a worse bug than a throw.
+// Looks up today's phase row. Throws if S.ladPhase is ever a value the table
+// doesn't cover, rather than silently rendering a blank zone.
 function _ladPhaseRow(){
   const row = _LAD_PHASE[S.ladPhase];
   if (!row) throw new Error(`ladder: no renderer for phase "${S.ladPhase}"`);

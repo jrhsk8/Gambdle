@@ -1,13 +1,12 @@
 // ─── THE DEAL ────────────────────────────────────────────────────────────────
-// The day's shared, pre-drawn cards (CONTEXT.md: the "Deal"). buildDeal(seed) is the PURE,
-// order-critical construction the replay Engine also calls (engine.js:423); genDeal() layers the
-// test/seed overrides on top, and DEAL is built once at page load. Lifted out of core.js so the
-// RNG draw-order invariant lives in one module with one interface. Depends on core.js: mkRng,
+// The day's shared, pre-drawn cards (CONTEXT.md: the "Deal"). buildDeal(seed) is the exact,
+// order-critical construction the replay engine also calls (engine.js:423); genDeal() layers the
+// test/seed overrides on top, and DEAL is built once at page load. Depends on core.js: mkRng,
 // buildDeck, shuffle, card, getRngSeed, _testActive. Loads right after core.js, and is bundled
-// into the Edge Function replay engine (tests/build-engine-bundle.js). PUBLIC: buildDeal, DEAL.
+// into the Edge Function replay engine (tests/build-engine-bundle.js). Public: buildDeal, DEAL.
 // ─────────────────────────────────────────────────────────────────────────────
-/** Manual overrides for deck seeding (independent of ?dev=true flag) */
-const ENABLE_CARD_SEEDING = false; // Set to true to enable the overrides below
+// Manual overrides for deck seeding (independent of the ?dev=true flag).
+const ENABLE_CARD_SEEDING = false; // set to true to enable the overrides below
 
 // ─── TEST & SEEDING ────────────────────────────────────────────
 // Hardcoded test scenarios applied when the dev "Test Seed" checkbox is active.
@@ -77,44 +76,44 @@ function _applyUthDeckOverride(deck, hands) {
   return newDeck;
 }
 
-// Two extra decks for the BJ shoe, shuffled by a PRNG seeded INDEPENDENTLY of the main
-// draw sequence — so the base 104 cards and every poker/UTH draw stay byte-identical while
+// Two extra decks for the BJ shoe, shuffled by a PRNG seeded independently of the main
+// draw sequence, so the base 104 cards and every poker/UTH draw stay byte-identical while
 // the shoe gains a tail it can fall back on. Deterministic per seed (identical for everyone
 // on a given day). Only ever consumed if a player draws past the base 104 (aggressive
-// wild-split play); without it, a draw past the end is undefined → uncaught crash.
+// wild-split play); without it, a draw past the end is undefined and would crash.
 function _extendBjShoe(seed){
   const rng2=mkRng((seed^0x9e3779b9)>>>0);
   return shuffle(buildDeck(),rng2).concat(shuffle(buildDeck(),rng2));
 }
 
-// Pristine daily deal for an explicit RNG seed — the canonical card layout BEFORE any
+// The pristine daily deal for an explicit RNG seed: the canonical card layout before any
 // test/seed overrides. genDeal() layers overrides on the base 104 then re-assembles; the
-// Phase-2 replay engine rebuilds from this same construction so client and server agree
-// byte-for-byte (see .claude/LEADERBOARD-INTEGRITY.md). PURE: (seed) → fresh arrays, no S/DOM.
-// RNG draw ORDER is load-bearing — bjShoe shuffle, then the 3 poker decks, then the uthDeck,
-// then the ladder cards. _extendBjShoe seeds its own independent rng, so the no-run-dry tail is
-// appended without shifting the shared sequence (do not reorder these lines).
+// server's replay engine rebuilds from this same construction so client and server agree
+// card-for-card (see .claude/LEADERBOARD-INTEGRITY.md). PURE: (seed) -> fresh arrays, no S/DOM.
+// The RNG draw order matters and must not change: bjShoe shuffle, then the 3 poker decks, then
+// the uthDeck, then the ladder cards. _extendBjShoe seeds its own independent rng, so the
+// no-run-dry tail is appended without shifting the shared sequence (do not reorder these lines).
 // Per-hand BJ segment start. Each of the 3 BJ hands draws from its own fixed slice of the shoe, so a
-// split/hit/double in one hand never shifts another hand's cards — BJ hands are independent (like the
+// split/hit/double in one hand never shifts another hand's cards (BJ hands are independent, like the
 // per-hand UTH slices), which also lets the future-seed checker evaluate each hand in isolation. Hand 0
-// still starts at index 0. The shoe (base 104 + 2-deck tail = 208) is far larger than 3× a hand's
-// worst case (split-to-4 + dealer ≈ 30), so segments never overflow.
+// still starts at index 0. The shoe (base 104 + 2-deck tail = 208) is far larger than 3 times a hand's
+// worst case (split-to-4 + dealer, about 30), so segments never overflow.
 //
-// ┌─ TEMPORARY DEPLOY GATE — added 2026-06-19, REMOVE on/after 2026-06-23 ───────────────────────────┐
+// ┌─ DEPLOY GATE, added 2026-06-19 ───────────────────────────────────────────────────────────────────┐
 // │ Per-hand segments apply only for RNG seeds from BJ_SEGMENT_CUTOVER onward; earlier seeds return     │
-// │ null and every caller falls back to the OLD continuous shoe (no per-hand cursor reset, unbounded    │
-// │ First-Ace / Soft-Landing swaps). This lets the change ship MID-DAY without rejecting in-flight runs: │
+// │ null and every caller falls back to the old continuous shoe (no per-hand cursor reset, unbounded    │
+// │ First-Ace / Soft-Landing swaps). This let the change ship mid-day without rejecting in-flight runs:  │
 // │ a run dealt on the old continuous client still replays identically on the new server for any         │
-// │ pre-cutover day (client/server cards match — avoids the 2026-06-16 incident). Today + every already- │
-// │ started run stays continuous; only the next Phoenix day onward goes segmented.                       │
-// │ REMOVAL (once old clients have cycled past the cutover, ~2-3 days, and no pre-cutover day resubmits   │
-// │ — backlog never submits): delete the cutover check + the constant, drop the `seed` param, and        │
-// │ simplify the `if (seg !== null)` guards in bj.js / engine.js / seedcheck.js to reset unconditionally. │
+// │ pre-cutover day (client/server cards match, avoiding the 2026-06-16 incident). Days already          │
+// │ started stayed continuous; only the next Phoenix day onward went segmented.                          │
+// │ Once old clients have cycled past the cutover and no pre-cutover day can resubmit (backlog never      │
+// │ submits), this can be simplified: delete the cutover check and the constant, drop the `seed` param,   │
+// │ and make the `if (seg !== null)` guards in bj.js / engine.js / seedcheck.js reset unconditionally.     │
 // └──────────────────────────────────────────────────────────────────────────────────────────────────┘
-// Pure: (shoeLen, hand, seed) → start idx, or null when the seed predates the cutover (continuous shoe).
+// Pure: (shoeLen, hand, seed) -> start idx, or null when the seed predates the cutover (continuous shoe).
 const BJ_SEGMENT_CUTOVER = 20260620; // first Phoenix day (YYYYMMDD) dealt in per-hand segments
 function bjSegStart(shoeLen, hand, seed){
-  if(seed < BJ_SEGMENT_CUTOVER) return null;        // TEMPORARY (see note) — pre-cutover stays continuous
+  if(seed < BJ_SEGMENT_CUTOVER) return null;        // pre-cutover stays continuous (see note above)
   return hand * Math.floor(shoeLen / 3);
 }
 
@@ -127,12 +126,12 @@ function buildDeal(seed){
   const pokerDecks=Array.from({length:3},()=>shuffle(buildDeck(),rng));
   const uthDeck=shuffle(buildDeck(),rng);
   // The Ladder: one shared 8-card hi-lo sequence (1 first reveal + up to 7 called cards).
-  // MUST be the last rng consumer (no call after this) — order is load-bearing for replay alignment.
+  // MUST be the last rng consumer (no call after this): the draw order has to match replay exactly.
   const ladderCards=shuffle(buildDeck(),rng).slice(0,8);
   return{bjShoe,pokerDecks,uthDeck,ladderCards,rSpinOverride:null};
 }
 
-// Pre-generates all cards and spin data for the daily run — buildDeal() plus the test/seed
+// Pre-generates all cards and spin data for the daily run: buildDeal() plus the test/seed
 // overrides. Overrides only ever touch the base 104 (the no-run-dry tail is split off and
 // re-appended), so they keep the appended decks pristine and the layout deterministic per day.
 function genDeal(){
@@ -177,5 +176,5 @@ function genDeal(){
   bjShoe=bjShoe.concat(tail);
   return{bjShoe,pokerDecks,uthDeck,ladderCards,rSpinOverride};
 }
-// DEAL is generated once at page load — the same cards for everyone on the same calendar day.
+// DEAL is generated once at page load: the same cards for everyone on the same calendar day.
 const DEAL=genDeal();

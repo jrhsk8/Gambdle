@@ -1,9 +1,9 @@
 // Node-side verification of the Deno engine bundle (supabase/functions/_shared/engine-bundle.mjs)
-// that submit-score imports for server replay (integrity Phase 2 · Thread A). The browser suite
+// that submit-score imports for server replay (integrity Phase 2, Thread A). The browser suite
 // (tests/engine.test.js) already proves replayRun === recalcChips against the LIVE game functions;
-// this proves the SAME engine, once concatenated + stubbed for Deno, (a) loads with a COMPLETE pure
-// closure — every game's replay path reachable with no missing cross-file global — and (b) computes
-// the RNG-independent goldens and the seed-parameterized modifier resolution the server depends on.
+// this proves the SAME engine, once concatenated + stubbed for Deno, (a) loads fully, with every
+// game's replay path reachable and no missing cross-file global, and (b) computes the
+// RNG-independent goldens and the seed-parameterized modifier resolution the server depends on.
 //
 // Run standalone:  node tests/engine-bundle.node.test.js
 // Also invoked by tests/run.js before the browser suite (so `npm test` covers it).
@@ -36,7 +36,7 @@ async function run() {
   ok('players_choice + pick → resolved preset', pcPicked?.bj_first_ace === true, JSON.stringify(pcPicked));
   ok('replayRngSeed override (20260615 → 20250422)', replayRngSeed(20260615) === 20250422, String(replayRngSeed(20260615)));
   ok('replayRngSeed passthrough', replayRngSeed(20260505) === 20260505);
-  // config horizon: the enforce gate submit-score reads — furthest day the bundled config covers.
+  // config horizon: the enforce gate submit-score reads. Furthest day the bundled config covers.
   const horizon = replayConfigHorizon();
   ok('config horizon is a calendar seed >= a known configured day', Number.isInteger(horizon) && horizon >= 20260617, String(horizon));
 

@@ -1,4 +1,4 @@
-// Headless test runner — opens tests/test.html and tests/layout-test.html in Chromium.
+// Headless test runner: opens tests/test.html and tests/layout-test.html in Chromium.
 // Usage: npm test  (or:  node tests/run.js)
 // Quiet by default: on all-pass it prints one line per suite; failing pages always
 // print full detail. Pass --verbose (or set GAMBDLE_TEST_VERBOSE=1) for the full
@@ -7,7 +7,7 @@
 
 const { chromium } = require('playwright');
 
-// Static module-boundary check first — it needs no browser and fails fast.
+// Static module-boundary check first: it needs no browser and fails fast.
 const boundaryProblems = require('./check-boundaries').check();
 if (boundaryProblems.length) {
   console.error(`❌ MODULE BOUNDARIES: ${boundaryProblems.length} violation(s)`);
@@ -16,9 +16,9 @@ if (boundaryProblems.length) {
 }
 console.log('MODULE BOUNDARIES: ✅ clean\n');
 
-// Engine bundle (server-replay) must be regenerated whenever a bundled src file changes — the
+// Engine bundle (server-replay) must be regenerated whenever a bundled src file changes: the
 // submit-score Edge Function imports it, so a stale bundle means client and server disagree.
-// Same check tests/verify-bundle.js exposes as a standalone pre-deploy CLI (run that before any
+// tests/verify-bundle.js exposes the same check as a standalone pre-deploy CLI (run that before any
 // `supabase functions deploy submit-score`, since a deploy can happen without `npm test` running).
 const bundleCheck = require('./verify-bundle').verifyBundleFresh();
 if (!bundleCheck.fresh) {
@@ -93,8 +93,8 @@ function summaryCounts(summary) {
 }
 
 (async () => {
-  // Server-replay engine bundle: load it in Node and assert closure-completeness + the
-  // RNG-independent goldens + seed-parameterized modifier resolution (tests/engine-bundle.node.test.js).
+  // Server-replay engine bundle: load it in Node and check it has everything it needs, plus the
+  // RNG-independent goldens and seed-parameterized modifier resolution (tests/engine-bundle.node.test.js).
   const bundle = await require('./engine-bundle.node.test').run();
   console.log(bundle.fail
     ? `❌ ENGINE BUNDLE: ${bundle.fail}/${bundle.total} failed`
@@ -104,7 +104,7 @@ function summaryCounts(summary) {
 
   const browser = await chromium.launch();
 
-  // Desktop sizes — covers the fluid clamp range and the narrow-but-tall case
+  // Desktop sizes: covers the fluid clamp range and the narrow-but-tall case
   // (1024×1080) where the panel hits its width minimum but still needs to fit
   // the chip row and pay table without wrapping or overflow.
   const DESKTOP_SIZES = [
@@ -117,8 +117,8 @@ function summaryCounts(summary) {
     { width: 1280, height:  800 },
     { width: 1440, height:  900 },
     { width: 1920, height: 1080 },
-    { width: 2560, height: 1440 },  // 1440p / 4K-at-150% — first zoom step (1.25×)
-    { width: 3840, height: 2160 },  // true 4K-at-100% — second zoom step (1.5×)
+    { width: 2560, height: 1440 },  // 1440p / 4K-at-150%: first zoom step (1.25×)
+    { width: 3840, height: 2160 },  // true 4K-at-100%: second zoom step (1.5×)
   ];
 
   const [main, mobile, ...desktops] = await Promise.all([
@@ -129,7 +129,7 @@ function summaryCounts(summary) {
 
   await browser.close();
 
-  // Grand total across every test type (unit + layout at every viewport) on the very top line.
+  // Grand total across every test type (unit and layout at every viewport) on the very top line.
   const unitC = summaryCounts(main.summary);
   const layoutC = [mobile, ...desktops].reduce((a, p) => {
     const c = summaryCounts(p.summary); a.pass += c.pass; a.fail += c.fail; return a;

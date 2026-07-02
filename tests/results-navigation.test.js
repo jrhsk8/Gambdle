@@ -38,7 +38,7 @@ const _uthFold = (ante, d) => ({
   playerBest: null, dealerBest: null, dealerQualifies: false,
 });
 
-// ─── getTier — edge cases ─────────────────────────────────────────────────────
+// ─── getTier: edge cases ────────────────────────────────────────────────────────
 
 describe('getTier — always returns a valid tier', () => {
   it('returns correct tier for all normal chip values', () => {
@@ -70,7 +70,7 @@ describe('getTier — always returns a valid tier', () => {
   });
 });
 
-// ─── gameNet — malformed history entries ──────────────────────────────────────
+// ─── gameNet: malformed history entries ────────────────────────────────────────
 
 describe('gameNet — non-finite deltas handled gracefully', () => {
   function withBJ(hist, fn) { const p = S.bjHistory;  S.bjHistory  = hist; try{fn();}finally{S.bjHistory  = p;} }
@@ -128,7 +128,7 @@ describe('gameNet — non-finite deltas handled gracefully', () => {
   });
 });
 
-// ─── loadState — results screen with corrupted history ────────────────────────
+// ─── loadState: results screen with corrupted history ──────────────────────────
 
 describe('loadState — results screen chip guard with bad history', () => {
   it('chips remain finite when a BJ entry has undefined delta', () => {
@@ -165,7 +165,7 @@ describe('loadState — results screen chip guard with bad history', () => {
   });
 });
 
-// ─── advanceTo results — corrupted history doesn't crash navigation ────────────
+// ─── advanceTo results: corrupted history doesn't crash navigation ─────────────
 
 describe('advanceTo results — stuck roulette-result scenario', () => {
   it('navigates to results with undefined delta in BJ history', () => {

@@ -2,20 +2,20 @@
 //   Standalone poker hand evaluator: rankPoker · cardNum · handScore · bestOf7
 // ─────────────────────────────────────────────────────────────────────────
 //
-// This file owns the ONE evaluator used by every poker-family game in the codebase: UTH's
-// showdown (uth.js bestOf7 call), 5 Card Poker's payout (poker.js rankPoker call), and the
-// server-side replay Engine (engine.js bestOf7 call, via the bundle below). It used to live
-// inside uth.js — but it is consumed well outside UTH, so it gets its own module rather than
-// forcing poker.js/engine.js to reach into a game-specific file for shared logic.
+// The one evaluator used by every poker-family game in the codebase: UTH's showdown
+// (uth.js bestOf7 call), 5 Card Poker's payout (poker.js rankPoker call), and the
+// server-side replay Engine (engine.js bestOf7 call, via the bundle below). It has its
+// own module because it is used well outside UTH.
 //
-// MUST STAY PURE: no reads of S, no DOM, no rng()/getMod() calls, no globals beyond the plain
-// function/card-shape inputs below. This file is concatenated verbatim into the server replay
-// bundle (tests/build-engine-bundle.js derives its file list from index.html and this file is
-// NOT excluded, so it ships as part of the Node/Deno replay closure) — anything impure here
-// would desync live scoring from replayed scoring, or crash the headless bundle outright.
+// Must stay pure: no reads of S, no DOM, no rng()/getMod() calls, no globals beyond the
+// plain function/card-shape inputs below. This file is concatenated verbatim into the
+// server replay bundle (tests/build-engine-bundle.js derives its file list from index.html
+// and does not exclude this file, so it ships as part of the Node/Deno replay closure).
+// Anything impure here would desync live scoring from replayed scoring, or crash the
+// headless bundle outright.
 
-// Standard video poker hand evaluator (Jacks or Better threshold). Used by UTH's bestOf7 here AND
-// by 5 Card Poker in poker.js, so it is exported from this file.
+// Standard video poker hand evaluator (Jacks or Better threshold). Used by UTH's bestOf7
+// here and by 5 Card Poker in poker.js.
 function rankPoker(cs){
   const rs=cs.map(c=>c.r),ss=cs.map(c=>c.s),vs=cs.map(c=>cardNum(c.r));
   const rc={};for(const r of rs)rc[r]=(rc[r]||0)+1;
@@ -75,7 +75,8 @@ function handScore(cs){
 }
 
 // Checks every five-card combination and returns the best. Despite the name it takes any
-// hand size ≥ 5: 7 cards normally (21 combos), 8 under Triple Threat's third hole card (56).
+// hand size of 5 or more: 7 cards normally (21 combos), 8 under Triple Threat's third hole
+// card (56 combos).
 function bestOf7(cards){
   let best=null,bs=-1,bc=0;
   const n=cards.length;

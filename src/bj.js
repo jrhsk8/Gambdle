@@ -12,12 +12,12 @@ const BJ_RESOLVE_MS   = 1000;  // delay after dealer finishes drawing before set
 const BJ_CELEBRATE_MS = 1500;  // inner duration of the blackjack celebration animation
 const BJ_PEEK_MS      = 700;   // beat after the deal before the dealer flips a natural blackjack (casino peek)
 
-// Mutex flag — prevents double-actions while cards are mid-animation.
+// Mutex flag: prevents double-actions while cards are mid-animation.
 let _bjResolving=false;
 
 // Resolve choreography, kept in one place. _bjDefer: hold the action-button lock for `ms`, then
 // release it and run `next` (the dealer reveal, or the next split hand). _bjAfterCard: the same,
-// preceded by locking + a no-animation re-render — so a card the player can't act on (a hit to 21,
+// preceded by locking + a no-animation re-render: so a card the player can't act on (a hit to 21,
 // a double's single card) stays on screen for a beat before play advances.
 function _bjDefer(next, ms){ setTimeout(()=>{ _bjResolving=false; next(); }, ms); }
 function _bjAfterCard(next){ _bjResolving=true; _noAnim=true; render(); _bjDefer(next, BJ_ADVANCE_MS); }
@@ -28,7 +28,7 @@ function _bjAfterCard(next){ _bjResolving=true; _noAnim=true; render(); _bjDefer
 // byte-identical to DEAL.bjShoe[S.bjIdx++], so non-mod days are unaffected.
 function _bjDraw(){ return S.bjDeck2 ? S.bjDeck2[S.bjDeck2Idx++] : DEAL.bjShoe[S.bjIdx++]; }
 
-// Called once on boot — if the page was refreshed while cards were mid-animation,
+// Called once on boot: if the page was refreshed while cards were mid-animation,
 // the saved state has a resolved hand but the setTimeout chain is gone.
 // Re-enter the appropriate step so the hand can resolve.
 function _bjResumeAfterRefresh(){
@@ -83,7 +83,7 @@ function _bjResumeAfterRefresh(){
   }
 }
 
-// `reason` — see the reset(reason) contract in core.js ('hand-advance' | 'borrow-prep' today; both
+// `reason`: see reset(reason) in core.js ('hand-advance' | 'borrow-prep' today; both
 // clear the same fields, so it's accepted but unbranched).
 function resetBJHand(reason){
   S.bjBet=0; S.bjPhase='bet'; S.bjPlayer=[]; S.bjDealer=[];
@@ -97,10 +97,10 @@ function resetBJHand(reason){
 }
 GAMES.bj.reset = resetBJHand; GAMES.bj.screen = screenBJ; GAMES.bj.resume = _bjResumeAfterRefresh; GAMES.bj.nextHand = () => _nextHand(resetBJHand); GAMES.bj.rulesFor = bjRulesFor; // register this game's fns into the Game registry (defined in this file; core.js loads first)
 
-/** Skip the current BJ hand (all_in_or_skip modifier). Records delta 0 and advances. */
+// Skip the current BJ hand (all_in_or_skip modifier). Records delta 0 and advances.
 function bjSkip(){ tx('bj','skip'); _skipHand('bj',{bet:0,result:'skip',delta:0,player:[],dealer:[]}); }
 
-/** Handles the initial deal for a Blackjack hand. */
+// Handles the initial deal for a Blackjack hand.
 function bjDeal(){
   if(!S.bjBet||S.bjPhase!=='bet')return;
   S.bjPhase='dealing'; // lock immediately so bet controls can't mutate S.bjBet during sndShuffle
@@ -121,7 +121,7 @@ function bjDeal(){
       S.bjPlayer=S.bjCandidates[nat];S.bjCandidates=null;S.bjPhase='play';
       sndShuffle(_bjAfterDeal); // celebrate / settle the natural through the shared post-deal path
     }else{
-      mutate(() => { S.bjPhase='pick'; }); // mutate-then-save seam
+      mutate(() => { S.bjPhase='pick'; }); // persist before the DOM work below runs
       sndShuffle(()=>{ render(); updateChipDisplay(); sndCard(100);sndCard(500);sndCard(900); });
     }
     return;
@@ -143,8 +143,8 @@ function bjDeal(){
 // sndShuffle (normal / auto-kept natural) or synchronously right after a pick (the shuffle already played).
 function _bjAfterDeal(){
   // Casino peek: the dealer checks for a natural blackjack before the player acts. A dealer
-  // blackjack ends the hand immediately — the player never gets to hit/double/split into a sure
-  // loss — settling as a push if the player also has a blackjack, otherwise a loss of the original
+  // blackjack ends the hand immediately: the player never gets to hit/double/split into a sure
+  // loss: settling as a push if the player also has a blackjack, otherwise a loss of the original
   // bet. (A dealer BJ always shows an Ace or a 10 up, so this is exactly the real-table peek.)
   if(isBJ(S.bjDealer)){
     S.bjPhase='play';
@@ -155,7 +155,7 @@ function _bjAfterDeal(){
       onFinish:()=>{_bjResolving=false;bjRevealDealer();}});
     return;
   }
-  // Player blackjack with no dealer blackjack — an automatic win; celebrate, then settle.
+  // Player blackjack with no dealer blackjack: an automatic win; celebrate, then settle.
   if(isBJ(S.bjPlayer)){
     S.bjPhase='play';S.bjCelebrating=true;
     _noAnim=true;render();
@@ -174,7 +174,7 @@ function _bjAfterDeal(){
 function bjPickHand(idx){
   if(S.bjPhase!=='pick'||!S.bjCandidates||(idx!==0&&idx!==1))return;
   tx('bj','pick',{s:idx});
-  mutate(() => { // mutate-then-save seam: commit the chosen candidate before the post-deal DOM work runs
+  mutate(() => { // commit the chosen candidate before the post-deal DOM work runs
     S.bjPlayer=S.bjCandidates[idx];
     S.bjCandidates=null;
     S.bjAnimFrom=0;
@@ -184,7 +184,7 @@ function bjPickHand(idx){
 
 // Soft Landing (bj_safe_hit): a hand's first hit (it still holds just its 2 dealt cards) can't bust.
 // If the next shoe card would push it over 21, swap in the nearest LATER card that keeps the total
-// ≤21 — a pure in-place shoe reorder (no extra draw), so the engine replays it identically (engine.js).
+// ≤21: a pure in-place shoe reorder (no extra draw), so the engine replays it identically (engine.js).
 function _bjSafeHitSwap(hand){
   const idx=S.bjIdx;
   if(hVal(hand.concat(DEAL.bjShoe[idx]))<=21)return;            // the natural draw is already safe
@@ -193,7 +193,7 @@ function _bjSafeHitSwap(hand){
   if(si!==-1)[DEAL.bjShoe[idx],DEAL.bjShoe[si]]=[DEAL.bjShoe[si],DEAL.bjShoe[idx]];
 }
 
-/** Player takes another card. */
+// Player takes another card.
 function bjHit(){
   if(!bjCanAct().hit)return; // ONE eligibility check, same one the Hit button's disabled attr reads
   const isSplit=S.bjSplit;
@@ -215,7 +215,7 @@ function bjHit(){
     // Surgically append the card + update the total; patchOrRender falls back to a full render (which
     // rebuilds from S and saves) if the target is missing, so the pushed card is never lost.
     // Not wrapped in mutate(): the S writes (hand.push, animFrom) already happened above the patch,
-    // and this saveState deliberately fires AFTER the DOM patch (not before) — wrapping would pull the
+    // and this saveState deliberately fires AFTER the DOM patch (not before): wrapping would pull the
     // save earlier than it runs today, so it stays a bare call to preserve that ordering.
     patchOrRender([isSplit?DOM.bjActiveHand:DOM.bjPlayerHand, isSplit?DOM.bjActiveVal:DOM.bjPlayerVal], (handEl, valEl) => {
       handEl.insertAdjacentHTML('beforeend', cardHTML(hand[hand.length-1], 'lg', '', 0.1, true));
@@ -225,7 +225,7 @@ function bjHit(){
   }
 }
 
-/** Player finishes their turn. */
+// Player finishes their turn.
 function bjStand(){
   if(!bjCanAct().stand)return; // ONE eligibility check, same one the Stand button's disabled attr reads
   tx('bj','stand',{s:S.bjSplit?S.bjSplitActive:0});
@@ -234,14 +234,14 @@ function bjStand(){
   // dealer's turn instead of stranding the hand in 'play' with the action buttons live again
   // (a stand leaves the cards unchanged, so without this flag the saved state is indistinguishable
   // from "still deciding"). See _bjResumeAfterRefresh.
-  mutate(() => { S.bjActed=true; }); // mutate-then-save seam
+  mutate(() => { S.bjActed=true; }); // persists immediately
   _bjDefer(S.bjSplit?bjAdvanceSplit:bjRevealDealer, BJ_RESUME_MS);
 }
 
-/** Double the bet and receive exactly one more card. */
+// Double the bet and receive exactly one more card.
 function bjDouble(){
   // ONE eligibility check (covers the resolving lock + the chips>=bet coverage requirement below),
-  // same one the Double button's disabled attr reads — bjCanAct().double already folds in
+  // same one the Double button's disabled attr reads: bjCanAct().double already folds in
   // hand.length===2 (initial hand only) via splitCanAct, so no separate chips<bet guard is needed here.
   if(!bjCanAct().double)return;
   if(S.bjSplit){
@@ -269,11 +269,10 @@ function bjDouble(){
   }
 }
 
-/** Splits a pair into two separate hands. Supports re-splitting. */
+// Splits a pair into two separate hands. Supports re-splitting.
 function bjSplit(){
   // ONE eligibility check (resolving lock + pair/wild-split + hands<4 + chips>=bet), same one the
-  // Split button's disabled attr reads via bjCanAct().split — this also closes a pre-existing gap
-  // where the handler itself never checked "is this actually a pair" (only the render did).
+  // Split button's disabled attr reads via bjCanAct().split.
   if(!bjCanAct().split)return;
   if(S.bjSplit){
     const ai=S.bjSplitActive,bet=S.bjSplitBets[ai];
@@ -286,7 +285,7 @@ function bjSplit(){
     S.bjSplitAnimFrom.splice(ai,1,0,0);
     render(); updateChipDisplay();
   }else{
-    // Splitting stakes a second hand at the full original bet, so it requires full coverage —
+    // Splitting stakes a second hand at the full original bet, so it requires full coverage:
     // same rule as double-down (bjCanAct().double). Coverage + pair/wild-split legality both
     // already checked above via bjCanAct().split.
     tx('bj','split',{s:0});
@@ -319,7 +318,7 @@ function bjCheckSplitHand(){
   }else{_noAnim=true;render();}
 }
 
-/** Moves play to the next split hand, or to the dealer if all hands are done. */
+// Moves play to the next split hand, or to the dealer if all hands are done.
 function bjAdvanceSplit(){
   S.bjActed=false; // this sub-hand's action is consumed; the next sub-hand (if any) is freshly playable
   // splitAdvance (the shared machine) picks the next undone sub-hand; live still owns dealing that
@@ -340,7 +339,7 @@ function bjAdvanceSplit(){
 }
 
 // Draws the dealer's remaining hits up front (pure cursor advance, same total draws/order as the old
-// recursive loop — just no longer interleaved with the reveal timing) so runReveal's step list can be
+// recursive loop: just no longer interleaved with the reveal timing) so runReveal's step list can be
 // built once. Returns the indices (in S.bjDealer, post-draw) each hit lands at, in draw order.
 function _bjDrawDealerHits(){
   const standAt=getMod('bj_dealer_stand')||17;
@@ -351,16 +350,16 @@ function _bjDrawDealerHits(){
   }
   return hitAts;
 }
-/** Reveals the dealer's hole card, then hits every BJ_HIT_MS until standing (17+), via runReveal. */
+// Reveals the dealer's hole card, then hits every BJ_HIT_MS until standing (17+), via runReveal.
 function bjRevealDealer(){
   S.bjDealerReveal=true;
-  S.bjActed=false; // consumed — from here the dealer-reveal branch owns refresh recovery
+  S.bjActed=false; // consumed: from here the dealer-reveal branch owns refresh recovery
   S.bjDealerAnimFrom=1; // animate the hole card reveal
   S.bjAnimFrom=ANIM_NONE;S.bjSplitAnimFrom=S.bjSplitAnimFrom.map(()=>ANIM_NONE);
   _noAnim=true;render();
   sndCard(100);
   // The dealer's full hit sequence is data-dependent (stand-at-17+) but deterministic from the shoe,
-  // so it's safe to draw all of it now and just stagger the REVEAL of each card — byte-identical shoe
+  // so it's safe to draw all of it now and just stagger the REVEAL of each card: byte-identical shoe
   // consumption to the old draw-per-step loop, since nothing reads the shoe cursor between hits.
   const hitAts=_bjDrawDealerHits();
   const steps=hitAts.map((at,k)=>({at:(k+1)*BJ_HIT_MS,do:()=>{
@@ -374,9 +373,9 @@ function bjRevealDealer(){
 }
 
 // ─── BLACKJACK RESOLVERS (pure) ───────────────────────────────────────────────
-// The payout × modifier decision for one settled hand, lifted out of bjResolve so the win/loss math
-// is testable in isolation and (Phase 2) replayable by the engine. PURE: hand values + bet + resolved
-// multipliers in, {result, delta} out — no S, no DOM, no credit. The caller draws the dealer, applies
+// The payout × modifier decision for one settled hand: kept separate from bjResolve so the win/loss
+// math is testable in isolation and replayable by the engine. PURE: hand values + bet + resolved
+// multipliers in, {result, delta} out: no S, no DOM, no credit. The caller draws the dealer, applies
 // chips (derivable from result), and records. `delta` is signed net profit; the stake was debited at
 // deal, so the caller credits bet+delta on a win, bet on a push, nothing on a loss/bust.
 //   wm = winMult()  ·  bjMult = bj_payout (blackjack pay, default 1.5)  ·  ddm = doubled-profit mult
@@ -401,14 +400,13 @@ function resolveBJSplitHand({pv, dv, bet, wm, ddm, spm}){
 // The ONE place the split-hand decisions live: who can act, what a split/resplit does to the
 // parallel hand/bet/doubled/done arrays, and which sub-hand plays next. Both the live handlers
 // below (bjSplit/bjAdvanceSplit) and the replay Engine's bjSplitStep (engine.js, driven by a
-// transcript instead of clicks) call these so the two can't decide differently — engine.js used to
-// carry its own copy of this exact logic. PURE: arrays + a draw() accessor in, new arrays out; no S,
-// no DOM, no timers. The live handlers still own S.bjSplit*/bjAnimFrom/txLog/render/animation pacing
-// — the machine only owns the state-shape transitions, so live storage (the 6 parallel S arrays)
-// stays byte-compatible with old saves (mid-split resume still loads).
+// transcript instead of clicks) call these, so the two can't decide differently. PURE: arrays +
+// a draw() accessor in, new arrays out; no S, no DOM, no timers. The live handlers still own
+// S.bjSplit*/bjAnimFrom/txLog/render/animation pacing; this only owns the state-shape transitions,
+// so live storage (the 6 parallel S arrays) stays compatible with old saves (mid-split resume still loads).
 //
-// splitCanAct — the split/double-down legality for the active sub-hand (mirrors bjSplitStep's
-// per-iteration `ctx`, and bjCanAct() below — the live convergence point for BOTH split and
+// splitCanAct: the split/double-down legality for the active sub-hand (mirrors bjSplitStep's
+// per-iteration `ctx`, and bjCanAct() below, the live convergence point for BOTH split and
 // non-split hands). `wildSplit`: bj_wild_split lets ANY pair resplit, not just a matching rank.
 function splitCanAct(hands, bets, active, chips, wildSplit){
   const hand=hands[active];
@@ -419,14 +417,14 @@ function splitCanAct(hands, bets, active, chips, wildSplit){
   };
 }
 
-// bjCanAct() — FINDING #17: the ONE eligibility resolver for "can the player act right now, and on
+// bjCanAct(): the ONE eligibility resolver for "can the player act right now, and on
 // what" for the live active hand (split or not). Both the render (screenBJ/bjActionBtns: which buttons
 // exist/are disabled) and the action handlers (bjHit/bjStand/bjDouble/bjSplit early-return guards) call
-// this instead of keeping separate inline chains + separate _bjResolving checks, so the two can't
+// this instead of keeping separate inline chains and separate _bjResolving checks, so the two can't
 // silently disagree. A non-split hand is just a length-1 "hands" array through the same splitCanAct
-// machine (hands=[S.bjPlayer], active=0) — splitCanAct already generalizes to it byte-for-byte, so
+// logic (hands=[S.bjPlayer], active=0): splitCanAct already generalizes to it exactly, so
 // there's no second parallel legality formula to keep in sync. Reads S directly (this is the live-only
-// convergence point, not a pure/shared-with-engine machine like splitCanAct itself).
+// convergence point, not a pure function shared with the engine like splitCanAct itself).
 function bjCanAct(){
   const locked=S.bjPhase!=='play'||S.bjDealerReveal||_bjResolving;
   const isSplit=S.bjSplit;
@@ -445,7 +443,7 @@ function bjCanAct(){
     locked,
   };
 }
-// splitInit — the very first split: stakes hand 0 a 2nd card (drawn), hand 1 waits for its 2nd card
+// splitInit: the very first split: stakes hand 0 a 2nd card (drawn), hand 1 waits for its 2nd card
 // until it becomes active. Mirrors bjSplit()'s non-split branch and bjSplitStep's setup.
 function splitInit(pair, bet, draw){
   return {
@@ -455,7 +453,7 @@ function splitInit(pair, bet, draw){
     done: [false, false],
   };
 }
-// splitResplit — resplitting the active sub-hand into two (its 2nd card draws now; the new second
+// splitResplit: resplitting the active sub-hand into two (its 2nd card draws now; the new second
 // sub-hand waits, same as the initial split). Mirrors bjSplit()'s split branch and bjSplitStep's
 // 'split' action. Returns new arrays (caller assigns via splice or replaces wholesale).
 function splitResplit(hands, bets, doubled, done, active, draw){
@@ -466,7 +464,7 @@ function splitResplit(hands, bets, doubled, done, active, draw){
   const newDone=done.slice(); newDone.splice(active,1,false,false);
   return {hands:newHands, bets:newBets, doubled:newDoubled, done:newDone};
 }
-// splitAdvance — marks the active sub-hand done and picks the next undone one. Mirrors
+// splitAdvance: marks the active sub-hand done and picks the next undone one. Mirrors
 // bjAdvanceSplit / bjSplitStep's advance(). Returns {done, active, allDone}; when allDone the caller
 // moves on to the dealer (no next hand to deal a 2nd card to).
 function splitAdvance(done, active){
@@ -474,35 +472,33 @@ function splitAdvance(done, active){
   const next=newDone.indexOf(false);
   return {done:newDone, active: next===-1?active:next, allDone: next===-1};
 }
-// splitIsActionable — true once the active sub-hand has its 2nd card and is still under 21 (needs a
+// splitIsActionable: true once the active sub-hand has its 2nd card and is still under 21 (needs a
 // player decision). False means it auto-resolves (21/BJ or a bust already showing on 1 card can't
 // happen pre-2nd-card): the caller deals the missing 2nd card first, THEN re-checks. Mirrors
 // bjCheckSplitHand's `hVal(hand)>=21` gate and bjSplitStep's settleToActionable loop condition.
 function splitIsActionable(hand){ return hVal(hand)<21; }
 
-/** Settles all bets and records history. dealerDrawn=true means the dealer already animated; false means we skip straight to resolve (e.g. player blackjack). */
-// Settlement Ledger for a settled Blackjack hand — the ONE credit mapping shared by the live settle
+// Settles all bets and records history. dealerDrawn=true means the dealer already animated; false means we skip straight to resolve (e.g. player blackjack).
+// Settlement Ledger for a settled Blackjack hand: the ONE credit mapping shared by the live settle
 // (bjResolve) and the replay Engine. PURE: returns the list of {op,n,reason} entries (applied via
 // applyLedger), no acct, no S. The stake was debited at deal, so a win/blackjack returns stake +
-// profit, a push the stake, a loss/bust nothing. Entries are built via mkCredit/mkDebit (core.js) —
-// a validated {op,n,reason} factory, not a hand-written literal — so a typo'd reason throws in strict
-// mode; the returned shape is byte-identical to the old literals either way.
+// profit, a push the stake, a loss/bust nothing. Entries are built via mkCredit/mkDebit (core.js): 
+// which validate {op,n,reason}, so a typo'd reason throws in strict mode instead of entering the ledger silently.
 function bjAward(result, bet, delta){
   if(result==='blackjack') return [mkCredit(bet+delta, 'bj-blackjack')];
   if(result==='win')       return [mkCredit(bet+delta, 'bj-win')];
   if(result==='push')      return [mkCredit(bet,       'bj-push')];
   return [];
 }
-// Per sub-hand Ledger for a split — no blackjack branch (a split hand can't be a natural).
+// Per sub-hand Ledger for a split: no blackjack branch (a split hand can't be a natural).
 function bjAwardSplit(result, bet, delta){
   if(result==='win')  return [mkCredit(bet+delta, 'bj-split-win')];
   if(result==='push') return [mkCredit(bet,       'bj-split-push')];
   return [];
 }
-// The day's Blackjack rule bundle — a PURE function of the mod accessor (getMod live, the engine's
+// The day's Blackjack rule bundle: a PURE function of the mod accessor (getMod live, the engine's
 // _engMod in replay), mirroring roulette's spinModsFor. ONE place the BJ payout/rule scalars are
-// derived, so live and replay can't compute them differently (they used to mirror the same ||1.5/||17
-// defaults inline in both bj.js and engine.js). Defaults are lifted verbatim. Card-forcing swaps
+// derived, so live and replay can't compute them differently. Card-forcing swaps
 // (first_ace, safe_hit) keep reading the accessor directly in their helpers, by design.
 function bjRulesFor(mod){
   return {
@@ -513,7 +509,7 @@ function bjRulesFor(mod){
     twoHands:    !!mod('bj_two_hands'),           // Double Vision: deal two starting hands, pick one
   };
 }
-function bjRules(){ return bjRulesFor(getMod); } // live snapshot — the only getMod read for BJ rules
+function bjRules(){ return bjRulesFor(getMod); } // live snapshot: the only getMod read for BJ rules
 
 function bjResolve(dealerDrawn=false){
   // Idempotency guard (see _resolveRoulette): settle a hand exactly once. bjResolve is fired
@@ -576,15 +572,15 @@ function bjDealerHTML(){
       ${valHTML}`;
 }
 
-// Renders the Hit/Stand/Double/Split row from bjCanAct() — the SAME eligibility resolver bjHit/
+// Renders the Hit/Stand/Double/Split row from bjCanAct(): the SAME eligibility resolver bjHit/
 // bjStand/bjDouble/bjSplit's own early-return guards consult, so a button is enabled here iff its
-// handler would actually act on a click (FINDING #17). `done21` is read only for the Split glow's
-// cosmetic timing (see below), not for legality — that's entirely inside bjCanAct() now.
+// handler would actually act on a click. `done21` is read only for the Split glow's
+// cosmetic timing (see below), not for legality: that's entirely inside bjCanAct() now.
 function bjActionBtns(){
   const{hit,stand,double,split}=bjCanAct();
   const wildSplit=getMod('bj_wild_split');
   const done21=hVal(S.bjSplit?S.bjSplitHands[S.bjSplitActive]:S.bjPlayer)===21;
-  // The glow is a "you get a free upgrade" nudge, not a legality signal — it intentionally uses a
+  // The glow is a "you get a free upgrade" nudge, not a legality signal · it intentionally uses a
   // narrower "not mid-reveal" condition than the full `locked` (which also covers the brief
   // _bjResolving window), matching the pre-convergence behavior.
   const splitLit=wildSplit&&split&&!done21&&!S.bjDealerReveal;
@@ -616,7 +612,7 @@ function peekRevealed(){
 function doPeek(){
   const limit=getMod('peek');
   if(!limit||S.peeksUsed>=limit) return;
-  mutate(() => { // mutate-then-save seam: persist the peek usage before touching the DOM below
+  mutate(() => { // persist the peek usage before touching the DOM below
     S.peeksUsed++;
     S.peekAt={game:S.screen,hand:_peekHand()};
   });
@@ -689,7 +685,7 @@ function screenBJ(){
   if(ph==='pick'){
     // Double Vision: the dealer upcard is visible; the two candidate hands are shown side by side in the
     // middle (where the play hand sits), and the keep action is two solid-gold buttons in the action-
-    // button zone — Hand 1 on the left (the Hit/Stand half), Hand 2 on the right (the Double/Split half).
+    // button zone: Hand 1 on the left (the Hit/Stand half), Hand 2 on the right (the Double/Split half).
     // The bottom cluster mirrors the play screen exactly, so the bet inlay lands in the same spot.
     const [A,B]=S.bjCandidates||[[],[]];
     const cand=(hand)=>`<div style="text-align:center">

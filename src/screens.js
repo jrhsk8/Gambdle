@@ -1,8 +1,9 @@
-// ─── META SCREENS ───────────────────────────────────────────────────────────
 // The screens around the games: intro, borrow, Player's Choice picker, and the
 // results screen with its leaderboard submission/fetch and score charts. The
 // game screens themselves live in bj.js / uth.js / roulette.js; navigation and
 // render() live in flow.js.
+
+// ─── META SCREENS ───────────────────────────────────────────────────────────
 
 // ─── SCREEN RENDERING ────────────────────────────────────────────────────
 
@@ -32,10 +33,9 @@ function screenIntro(){
 
 // One line in a "game manifest" list: an icon + label, and (when `net` is passed) a delta-colored
 // chip value flush right. Intro's upcoming-games list uses the icon-only form; the results screen's
-// per-game breakdown passes `net` for the colored value. Markup kept byte-identical to the
-// pre-extraction originals (layout tests measure both screens at 8 sizes) — the two forms render
-// structurally different rows (icon+name vs label+net), so `net`'s presence switches the template
-// rather than the two converging on one shared tag shape.
+// per-game breakdown passes `net` for the colored value. The two forms render structurally
+// different rows (icon+name vs label+net); layout tests measure both screens at 8 sizes, so the
+// markup for each form must stay exact.
 function gameManifestRow(iconHtml, label, net) {
   if (net === undefined) {
     return `
@@ -139,7 +139,7 @@ function screenChoice(){
 function pickModifier(key){
   const choices = pendingPlayersChoice();
   if(!choices || !choices.some(c=>c.key===key)) return; // only a currently-offered choice is valid
-  tx('sys','pick',{mod:key}); // changes the day's active modifier — replay needs it
+  tx('sys','pick',{mod:key}); // changes the day's active modifier: replay needs it
   mutate(s => {
     s.pcPick=key;
     _enterFirstSlot();
@@ -162,7 +162,7 @@ function screenResults(){
   const high = parseInt(_ls.getItem('gambdle_highscore') || '0');
   const {emoji,label}=getTier(S.chips);const tier=`${emoji} ${label}`;
   // Daily streak (today counts even though saveState hasn't persisted it yet). Only shown
-  // for the live day — a backlog/archive run shouldn't claim a current streak.
+  // for the live day: a backlog/archive run shouldn't claim a current streak.
   const streak = _backlogSeed ? 0 : computeStreak(getDailySeed(), true).current;
   const streakHtml = streak >= 1 ? `<div class="results-streak">🔥 ${streak}-Day Streak</div>` : '';
 
@@ -195,16 +195,14 @@ function screenResults(){
   </div>`;
 }
 
-/**
- * ─── RESULTS METRICS (fetch → cache → paint) ─────────────────────────────
- * The results screen carries two async metrics (leaderboard ranking, score distribution): each
- * resolves once per seed and re-paints on every results draw thereafter. resultsMetric() is the
- * shared lifecycle: fetch(seed) does the I/O and returns the cache payload (or null/undefined on
- * failure, leaving the cache empty so a later re-render retries); paint(cache) is pure DOM, called
- * only when elId is present on screen (so navigating away mid-fetch can't paint into a stale node).
- * ensure() is the render()-facing entry (fetch-if-stale-then-paint); repaint() is the cache-hit-only
- * path, exposed for symmetry but currently unused outside ensure().
- */
+// ─── RESULTS METRICS (fetch → cache → paint) ─────────────────────────────
+// The results screen carries two async metrics (leaderboard ranking, score distribution): each
+// resolves once per seed and re-paints on every results draw thereafter. resultsMetric() is the
+// shared lifecycle: fetch(seed) does the I/O and returns the cache payload (or null/undefined on
+// failure, leaving the cache empty so a later re-render retries); paint(cache) is pure DOM, called
+// only when elId is present on screen (so navigating away mid-fetch can't paint into a stale node).
+// ensure() is the render()-facing entry (fetch-if-stale-then-paint); repaint() is the cache-hit-only
+// path, exposed for symmetry but currently unused outside ensure().
 function resultsMetric({ fetch, paint, elId }) {
   let cache = null;
   function repaint() {
@@ -227,7 +225,7 @@ function resultsMetric({ fetch, paint, elId }) {
 // Submits the score to Supabase once per day per device (side-effecting; not itself a metric),
 // then resolves the leaderboard metric for the day. render() calls submitAndFetchLeaderboard() on
 // every results draw: the submit is guarded to run at most once, and the ranking fetch runs once
-// per seed via _lbMetric — a re-render is a cache hit that just repaints (so a redraw keeps the
+// per seed via _lbMetric: a re-render is a cache hit that just repaints (so a redraw keeps the
 // rank instead of dropping back to "Loading…").
 async function submitAndFetchLeaderboard() {
   if (!sbConfigured()) return;
@@ -237,7 +235,7 @@ async function submitAndFetchLeaderboard() {
   if (!_backlogSeed && !_ls.getItem(subKey) && !DEV_OVERRIDE && !_testActive()) {
     // The transcript (S.tx) is stored server-side for auditing and, in integrity Phase 2, replayed
     // to recompute the score. unverifiedSpin marks a run whose spin fell back to a local draw.
-    // 409 = this device already has a row for today (DB-level dedup) — treat as submitted.
+    // 409 = this device already has a row for today (DB-level dedup): treat as submitted.
     const res = await sbFetch('/functions/v1/submit-score', {
       method: 'POST',
       body: {
@@ -254,7 +252,7 @@ async function submitAndFetchLeaderboard() {
   await _lbMetric.ensure();
 }
 
-// { status:'row'|'norow', row } — only a resolved response is cached (null/undefined on fetch
+// { status:'row'|'norow', row }: only a resolved response is cached (null/undefined on fetch
 // failure), so a failed fetch leaves "Loading…" and the next re-render retries.
 const _lbMetric = resultsMetric({
   elId: 'lb-stat',
@@ -370,8 +368,8 @@ function _renderScoreDist(el, counts) {
   const youPct = (playerBucket + posWithin) / 7 * 100;
   // Label side: by default keep it inside the chart (left half → right of line, right half → left).
   // For any interior bucket (not the 0 or 5k+ ends) put the label over the SHORTER of the two
-  // neighbouring bars instead, so it never crowds the count atop the taller bar — no longer gated
-  // on the You line being near a bucket border. (left:4px = label right of line; right:4px = left of line.)
+  // neighbouring bars instead, so it never crowds the count atop the taller bar. (left:4px = label
+  // right of line; right:4px = left of line.)
   let youLblStyle = youPct > 50 ? 'right:4px' : 'left:4px';
   if (playerBucket >= 1 && playerBucket <= 5) {
     const leftCnt = counts[playerBucket - 1], rightCnt = counts[playerBucket + 1];

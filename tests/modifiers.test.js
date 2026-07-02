@@ -1,8 +1,3 @@
-// PRESET_MODIFIERS shape tests removed — the validation guard at the bottom of
-// src/modifiers.js already throws on unrecognized keys, and the data-driven
-// "getMod — known modifier keys read correctly" describe at the bottom of this
-// file catches any value drift.
-
 // ─── CYCLE_ORDER integrity ────────────────────────────────────────────────────
 
 describe('CYCLE_ORDER', () => {
@@ -53,7 +48,7 @@ describe('DAILY_MODIFIERS', () => {
   });
 });
 
-// ─── CYCLE_ORDER alternation (v1.51 reshuffle) ────────────────────────────────
+// ─── CYCLE_ORDER alternation ───────────────────────────────────────────────────
 
 describe('CYCLE_ORDER alternation', () => {
   const isR = k => PRESET_MODIFIERS[k].type === 'roulette';
@@ -76,13 +71,12 @@ describe('CYCLE_ORDER alternation', () => {
       }
     }
     // With no two roulette days adjacent (prior test) and R < N, every roulette day is separated
-    // by >=1 non-roulette day, so non-roulette adjacencies are exactly N - R. The Player's Choice
-    // family raised N well past R, so this derived bound replaces the old fixed cap of 2.
+    // by at least one non-roulette day, so non-roulette adjacencies are exactly N - R.
     assert(pairs === N - R, `expected exactly ${N - R} non-roulette adjacencies, got ${pairs}`);
   });
 });
 
-// ─── Pocket Change — modifier config ──────────────────────────────────────────
+// ─── Pocket Change: modifier config ───────────────────────────────────────────
 
 describe('Pocket Change — modifier config', () => {
   it('preset fields', () => {
@@ -103,10 +97,11 @@ describe('Pocket Change — modifier config', () => {
   });
 });
 
-// ─── New single-game mods + retirements — config ──────────────────────────────
-// Sixth Sense / Suited Up (UTH) + Double Vision / Soft Landing (BJ) are appended (cycle 37→38);
-// Raise the Roof, Loose Blind, and Comeback are RETIRED (removed from CYCLE_ORDER, presets kept for
-// Archive replay + dev menu). The Jun 17-24 showcase pins all 8 single-game mods to consecutive days.
+// ─── New single-game mods + retirements: config ───────────────────────────────
+// Sixth Sense / Suited Up (UTH) and Double Vision / Soft Landing (BJ) are in the cycle.
+// Raise the Roof, Loose Blind, and Comeback are retired: removed from CYCLE_ORDER, but their
+// presets stay so Archive replay and the dev menu can still show them. The Jun 17-24 showcase
+// pins all 8 single-game mods to consecutive days.
 
 describe('new single-game mods + retirements — config', () => {
   const NEW = [
@@ -150,10 +145,10 @@ describe('new single-game mods + retirements — config', () => {
   });
 });
 
-// ─── Parity/color force-group mods — config ───────────────────────────────────
-// Even Money / Odd One Out / Seeing Red / In the Black give every outside group button (besides the
-// 2:1 columns) a force-group day. Appended to the rotation (33 → 37); the alternation tests above
-// already prove the reshuffle keeps roulette days non-adjacent.
+// ─── Parity/color force-group mods: config ────────────────────────────────────
+// Even Money, Odd One Out, Seeing Red, and In the Black give every outside group button (besides
+// the 2:1 columns) a force-group day. The alternation tests above already prove the reshuffle
+// keeps roulette days non-adjacent.
 
 describe('parity/color force-group mods — config', () => {
   const CASES = [
@@ -177,7 +172,7 @@ describe('parity/color force-group mods — config', () => {
   }
 });
 
-// ─── Player's Choice variants — modifier config ───────────────────────────────
+// ─── Player's Choice variants: modifier config ────────────────────────────────
 
 describe("Player's Choice variants", () => {
   const VARIANTS = ['players_choice', 'players_choice_payout', 'players_choice_wild',
@@ -226,10 +221,8 @@ describe("Player's Choice variants", () => {
 
 // ─── Modifier behavior: gameplay effects of active modifiers ────────────────
 
-// Helper: run fn with S.forcedMod set, then restore original values.
-// Thin adapter over the shared tests/game-harness.js withGame(): the old version only saved
-// forcedMod/chips, but withGame's full-S snapshot is a strict superset (see game-harness.js
-// for the contract), so nothing that used to be restored here is lost.
+// Runs fn with S.forcedMod set, then restores the full state. Thin wrapper over
+// tests/game-harness.js withGame(), which snapshots and restores all of S.
 registerGameBuilder('mod', ({ mod, chipOverride }) => {
   S.forcedMod = mod;
   if (chipOverride !== undefined) S.chips = chipOverride;
@@ -364,9 +357,7 @@ describe('uthBlindDelta — boost + extended combined', () => {
 
 // ─── bj_wild_split ───────────────────────────────────────────────────────────
 
-// Thin adapter over the shared tests/game-harness.js withGame(): full-S snapshot/restore
-// per call (see game-harness.js for the contract) replaces the old describe-load-time
-// _wsSnap/_wsRestore pair, which is now unused elsewhere in this file.
+// Built on the shared tests/game-harness.js withGame(): a full-S snapshot/restore per call.
 registerGameBuilder('splitMod', ({ mod, overrides }) => {
   S.forcedMod = mod;
   Object.assign(S, overrides);
@@ -453,7 +444,7 @@ describe('getMod — known modifier keys read correctly', () => {
 // ─── Modifier behavioral tests ────────────────────────────────────────────────
 // These exercise the gameplay effect, not just getMod() lookup.
 
-// uth_pocket_aces — uthDeal must produce a hole hand of two Aces.
+// uth_pocket_aces: uthDeal must produce a hole hand of two Aces.
 describe('uth_pocket_aces — hole cards are Aces', () => {
   const _paSnap = JSON.stringify({...S, pkHeld:[...S.pkHeld]});
   const _paRestore = () => { const r=JSON.parse(_paSnap); r.pkHeld=new Set(r.pkHeld); Object.assign(S,r); };
@@ -475,14 +466,14 @@ describe('uth_pocket_aces — hole cards are Aces', () => {
     try {
       uthDeal();
       assertEqual(S.uthHole.length, 2);
-      // We can't assert NOT Aces (could happen by chance) — just assert we used the daily deck path.
+      // Can't assert NOT Aces (could happen by chance), so just check the daily deck path was used.
       assert(S.uthHole[0] === DEAL.uthDeck[0], 'should use DEAL.uthDeck[0] as first hole card');
       assert(S.uthHole[1] === DEAL.uthDeck[1], 'should use DEAL.uthDeck[1] as second hole card');
     } finally { _paRestore(); }
   });
 });
 
-// uth_three_hole — Triple Threat: a third hole card from the deck's unused tail (27 + hand).
+// uth_three_hole: Triple Threat deals a third hole card from the deck's unused tail (27 + hand).
 describe('uth_three_hole — Triple Threat third hole card', () => {
   const _thSnap = JSON.stringify({...S, pkHeld:[...S.pkHeld]});
   const _thRestore = () => { const r=JSON.parse(_thSnap); r.pkHeld=new Set(r.pkHeld); Object.assign(S,r); };
@@ -540,7 +531,7 @@ describe('uth_three_hole — Triple Threat third hole card', () => {
   });
 });
 
-// uth_hard_qualify — dealer needs Two Pair (cat ≥ 2) instead of Pair (cat ≥ 1) to qualify.
+// uth_hard_qualify: dealer needs Two Pair (cat >= 2) instead of Pair (cat >= 1) to qualify.
 describe('uth_hard_qualify — dealer qualification threshold', () => {
   const _hqSnap = JSON.stringify({...S, pkHeld:[...S.pkHeld]});
   const _hqRestore = () => { const r=JSON.parse(_hqSnap); r.pkHeld=new Set(r.pkHeld); Object.assign(S,r); };
@@ -577,7 +568,7 @@ describe('uth_hard_qualify — dealer qualification threshold', () => {
   });
 });
 
-// peek — doPeek lifecycle: S.peeksUsed counts up to the daily limit (the peek modifier's value).
+// peek: doPeek lifecycle. S.peeksUsed counts up to the daily limit (the peek modifier's value).
 describe('peek — doPeek lifecycle', () => {
   const _pkSnap = JSON.stringify({...S, pkHeld:[...S.pkHeld]});
   const _pkRestore = () => { const r=JSON.parse(_pkSnap); r.pkHeld=new Set(r.pkHeld); Object.assign(S,r); };
@@ -619,7 +610,7 @@ describe('peek — doPeek lifecycle', () => {
   });
 });
 
-// peek — reveal scoping. Up to 3 peeks per day, but each revealed hole card
+// peek: reveal scoping. Up to 3 peeks per day, but each revealed hole card
 // must only show on the exact game + hand where it was used. Regression tests for:
 //   (a) peeking reveals the dealer on every later hand of every game,
 //   (b) peeking on BJ hand 2 also reveals the hole card on BJ hand 3,
@@ -760,7 +751,7 @@ describe('peek — reveal is scoped to the exact game + hand', () => {
     Object.assign(S, { screen: 'bj', bjHand: 2, peeksUsed: 3, peekAt: { game: 'bj', hand: 0 },
       bjDealer: [card('7', 'd'), card('K', 'c')] });
     try {
-      doPeek(); // over the limit — must be a no-op
+      doPeek(); // over the limit: must be a no-op
       assertEqual(S.peeksUsed, 3, 'count does not exceed the limit');
       assert(S.peekAt.hand === 0, 'peekAt not relocated once exhausted');
     } finally { _restore(); }
@@ -792,7 +783,7 @@ describe('peek — reveal is scoped to the exact game + hand', () => {
   });
 });
 
-// r_multi_bet — max concurrent roulette bets is raised from default (5) to r_max_bets (10).
+// r_multi_bet: max concurrent roulette bets is raised from default (5) to r_max_bets (10).
 describe('r_multi_bet — concurrent bet cap', () => {
   it('without modifier, default max is 5', () => {
     S.forcedMod = {};
@@ -804,7 +795,7 @@ describe('r_multi_bet — concurrent bet cap', () => {
   });
 });
 
-// r_force_group — R_GROUP_INFO membership and boundary integrity.
+// r_force_group: R_GROUP_INFO membership and boundary integrity.
 // Each group must contain its boundary numbers and the union of all dozens/halves must cover 1..36.
 describe('r_force_group — group boundary integrity', () => {
   it('1_12 contains 1 and 12 (both boundaries)', () => {
@@ -869,7 +860,7 @@ describe('r_force_group — group boundary integrity', () => {
 });
 
 // rBetBlocked: a bet is blocked under a force-group mod when it can never win (no overlap) or always
-// wins (covers the whole group — the exact tile OR a superset). Indices: 40=1-12, 42=25-36, 45=Red, 48=19-36.
+// wins (covers the whole group: the exact tile OR a superset). Indices: 40=1-12, 42=25-36, 45=Red, 48=19-36.
 describe('rBetBlocked — force-group bet blocking', () => {
   const withGroup = (mod, fn) => { const p = S.forcedMod; S.forcedMod = mod; try { fn(); } finally { S.forcedMod = p; } };
   it('non-group mod: nothing is blocked', () => {
@@ -891,7 +882,7 @@ describe('rBetBlocked — force-group bet blocking', () => {
   });
 });
 
-// ─── Pocket Change — chip display scaling (chip_div) ──────────────────────────
+// ─── Pocket Change: chip display scaling (chip_div) ───────────────────────────
 
 describe('Pocket Change — chip scaling behavior', () => {
   // Temporarily set S.screen (chipDispDiv gates the divisor by screen), restoring after.
@@ -902,14 +893,14 @@ describe('Pocket Change — chip scaling behavior', () => {
       assertEqual(chipScale(), 100, 'chipScale');
       assertEqual(chipDispDiv(), 100, 'chipDispDiv on bj');
       assertEqual(cfmt(1000), '10', 'cfmt(1000)');
-      assertEqual(cfmt(150), '1.5', 'cfmt(150) — a blackjack on a 1-chip bet');
+      assertEqual(cfmt(150), '1.5', 'cfmt(150): a blackjack on a 1-chip bet');
       assertEqual(csign(150), '+1.5', 'csign(150)');
       assertEqual(csign(-100), '-1', 'csign(-100)');
-      assertEqual(cfmt(50), '0.5', 'cfmt(50) — half a chip');
+      assertEqual(cfmt(50), '0.5', 'cfmt(50): half a chip');
     }));
   });
 
-  it('full-scale on the Daily Results screen — that transition IS the ×100 reveal', () => {
+  it('full-scale on the Daily Results screen: that transition IS the x100 reveal', () => {
     withMod('pocket_change', undefined, () => withScreen('results', () => {
       assertEqual(chipDispDiv(), 1, 'results must not divide');
       assertEqual(cfmt(1050), '1,050', 'big-chips shows the recorded score');
@@ -943,20 +934,20 @@ describe('Pocket Change — chip scaling behavior', () => {
     }));
   });
 
-  it('display scale never touches the score — recalcChips ignores chip_div', () => {
+  it('display scale never touches the score: recalcChips ignores chip_div', () => {
     const base = recalcChips();
     withMod('pocket_change', undefined, () => assertEqual(recalcChips(), base, 'recalcChips unchanged by the mod'));
   });
 });
 
-// ─── GAMES[g].rulesFor ↔ MODIFIER_SCHEMA attribution ──────────────────────────
-// FINDING #16: bjRulesFor/uthRulesFor are registered on the Game registry (GAMES.bj.rulesFor,
-// GAMES.uth.rulesFor — see the contract comment on GAMES in core.js). This guards the other half of
-// that contract: every MODIFIER_SCHEMA key attributed to 'bj' or 'uth' should actually be read
-// somewhere in that game's rules path, so a key can't get mis-attributed (or a rulesFor bundle drift
-// away from what MODIFIER_SCHEMA claims it owns) without a test catching it. A handful of keys are
-// legitimately read straight off getMod elsewhere in the game's file instead of through the rulesFor
-// bundle (card-forcing swaps, display-only gates) — those are the allowlist below, each with why.
+// ─── GAMES[g].rulesFor and MODIFIER_SCHEMA attribution ────────────────────────
+// bjRulesFor/uthRulesFor are registered on the Game registry (GAMES.bj.rulesFor,
+// GAMES.uth.rulesFor; see the comment on GAMES in core.js). This checks that every
+// MODIFIER_SCHEMA key attributed to 'bj' or 'uth' is actually read somewhere in that
+// game's rules path, so a key can't get mis-attributed without a test catching it.
+// A handful of keys are legitimately read straight off getMod elsewhere in the game's
+// file instead of through rulesFor (card-forcing swaps, display-only gates); those are
+// the allowlist below, each with why.
 describe('GAMES[g].rulesFor ↔ MODIFIER_SCHEMA game attribution', () => {
   // Keys attributed to 'bj'/'uth' in MODIFIER_SCHEMA that rulesFor deliberately does NOT read.
   const ALLOW = {
@@ -966,9 +957,8 @@ describe('GAMES[g].rulesFor ↔ MODIFIER_SCHEMA game attribution', () => {
     uth_time_travel:   'once-daily-eligibility gate read directly via getMod in uth.js (uthTTButtonHTML + the raise handler)',
   };
 
-  // Calls rulesFor with a mod() that records every key it was asked for, so the test discovers the
-  // REAL read set instead of re-encoding bjRulesFor/uthRulesFor's field list by hand (which would
-  // just be a second copy that could itself drift).
+  // Calls rulesFor with a mod() that records every key it was asked for, so the test discovers
+  // the real read set instead of hand-copying bjRulesFor/uthRulesFor's field list.
   function keysReadBy(rulesFor) {
     const seen = new Set();
     const spy = k => { seen.add(k); return null; };

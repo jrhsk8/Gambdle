@@ -1,33 +1,32 @@
 // ─── REPLAY ENGINE (pure, dual-mode) ──────────────────────────────────────────
-// Integrity Phase 2's deep module: the ONE place that answers "what should this Run
-// score?". It rebuilds the daily Deal from the seed, replays the recorded Transcript
-// through the v1.43 pure resolvers (resolveBJHand/Split, resolveUTH, resolveRoulette,
-// resolveLadder) + spinFromRandom, re-derives every chip delta under the real rules, and
-// validates the legality of each event. The browser calls it and so does the submit-score
-// Edge Function, so client and server agree byte-for-byte (see .claude/LEADERBOARD-INTEGRITY.md
-// and PRD-integrity-phase-2.md).
+// The one place that answers "what should this Run score?". It rebuilds the daily Deal from the
+// seed, replays the recorded Transcript through the v1.43 pure resolvers (resolveBJHand/Split,
+// resolveUTH, resolveRoulette, resolveLadder) plus spinFromRandom, re-derives every chip delta
+// under the real rules, and validates the legality of each event. The browser calls it and so does
+// the submit-score Edge Function, so client and server agree byte-for-byte (see
+// .claude/LEADERBOARD-INTEGRITY.md and PRD-integrity-phase-2.md).
 //
 // PURE: no DOM, no S, no sound, no credit/debit side effects on game state. Inputs in,
 // authoritative totals out. The file loads as a plain browser global (script tag, current
-// load order) AND as a Deno ESM import via the guarded shim at the bottom — no build step.
+// load order) AND as a Deno ESM import via the guarded shim at the bottom. No build step.
 //
 // replayRun(seed, modifiers, transcript, opts) → { chips, g1Net, g2Net, rNet, ladNet }
-//   seed       — the RNG seed (what mkRng/buildDeal consume; the server resolves overrides first)
-//   modifiers  — the day's RESOLVED modifier preset object (Player's Choice already applied), or
-//                null/{} for a vanilla day. Read via a key→value accessor, exactly like getMod.
-//   transcript — S.tx: the flat append-only event log (see txLog / LEADERBOARD-INTEGRITY.md §2)
-//   opts.deal       — a pre-built Deal (defaults to buildDeal(seed)); tests pass a clean clone of
+//   seed       : the RNG seed (what mkRng/buildDeal consume; the server resolves overrides first)
+//   modifiers  : the day's resolved modifier preset object (Player's Choice already applied), or
+//                null/{} for a vanilla day. Read via a key-to-value accessor, exactly like getMod.
+//   transcript : S.tx: the flat append-only event log (see txLog / LEADERBOARD-INTEGRITY.md §2)
+//   opts.deal       : a pre-built Deal (defaults to buildDeal(seed)); tests pass a clean clone of
 //                     DEAL so the test-seed overrides line up.
-//   opts.spinWords  — { 0:[w,w,w,w], 1:[…] }: the crypto words the `spin` Edge Function stored,
+//   opts.spinWords  : { 0:[w,w,w,w], 1:[…] }: the crypto words the `spin` Edge Function stored,
 //                     keyed by idx (0 = main spin, 1 = re-spin). Required for roulette spins.
 //
 // Determinism gotchas pinned here (any drift = a replay mismatch): identical RNG draw order
 // (buildDeal is frozen), same Math.round in credit/debit, same modifier-application order, the
-// bj_first_ace shoe swap, a player blackjack STILL draws the dealer to 17+ (consumes the shoe),
+// bj_first_ace shoe swap, a player blackjack still draws the dealer to 17+ (consumes the shoe),
 // the deck-tail consumers (Time Travel via the recorded street, Triple Threat's 3rd hole card,
 // uth_three_hole), and the Ladder run (free crash = +0, cash-out keeps the full pot, ties lose).
 
-// An illegal or forged event aborts the whole Run — the server rejects it. `.replayReason` carries
+// An illegal or forged event aborts the whole Run and the server rejects it. `.replayReason` carries
 // a short machine code (e.g. 'bj_overbet') for logging; the message is human-readable.
 function _replayFail(reason){
   const e = new Error('replay rejected: ' + reason);
@@ -35,28 +34,28 @@ function _replayFail(reason){
   throw e;
 }
 
-// Modifier accessor over a resolved preset object, mirroring getMod's "missing key → null".
+// Modifier accessor over a resolved preset object, mirroring getMod's "missing key returns null".
 function _engMod(modifiers){
   return key => (modifiers && modifiers[key] !== undefined ? modifiers[key] : null);
 }
 
 // The running-balance win multiplier (winMultFor) and every per-game credit-from-result mapping
-// (bjAward/bjAwardSplit, uthAward, rouletteAward, ladderAward) are shared with the live games — they
+// (bjAward/bjAwardSplit, uthAward, rouletteAward, ladderAward) are shared with the live games. They
 // live in the game files, return a pure settlement Ledger, and are applied here over the headless
 // accountant via applyLedger (core.js). Pinning them in one place is the whole point: live and replay
 // build the identical ledger, so they can no longer drift.
 //
-// bjRulesFor/uthRulesFor below are ALSO registered as GAMES.bj.rulesFor / GAMES.uth.rulesFor (see the
-// contract comment on GAMES in core.js) — every call site here calls the named function directly
-// rather than through the registry, because each is already inside a function that statically knows
-// its own game (a replay handler, or an audit branch keyed on `record.slot`); there's no generic
+// bjRulesFor/uthRulesFor below are also registered as GAMES.bj.rulesFor / GAMES.uth.rulesFor (see the
+// comment on GAMES in core.js), but every call site here calls the named function directly rather
+// than through the registry, because each is already inside a function that statically knows its
+// own game (a replay handler, or an audit branch keyed on `record.slot`), so there's no generic
 // per-game loop here for the indirection to simplify. The registration exists so the registry is a
 // complete, checkable map of "which games have a rules bundle", not to change these call sites.
 
 // Headless Accountant adapter mirroring credit()/debit(): Math.round on every delta, debit floors at
 // 0. Tracks the LIVE balance (used only for winMult + legality); the returned score is recomputed
 // from the per-slot net sums, matching recalcChips() exactly.
-/** @returns {Accountant} */
+// @returns {Accountant}
 function _engAcct(){
   return {
     chips: START_CHIPS,
@@ -76,7 +75,7 @@ function _replaySafeHitSwap(shoe, idx, hand, mod, segEnd){
   if(si !== -1){ const t = shoe[idx]; shoe[idx] = shoe[si]; shoe[si] = t; }
 }
 
-// Shared: the bj_first_ace deal swap — if the next shoe card isn't an Ace, swap the nearest later
+// Shared: the bj_first_ace deal swap : if the next shoe card isn't an Ace, swap the nearest later
 // Ace into its slot (mutates the Deal copy in place, exactly like bjDeal mutates DEAL.bjShoe). Pure
 // given (shoe, idx, mod); the dev-only future-seed checker (seedcheck.js) calls the same helper so
 // the two can never deal a hand differently.
@@ -98,7 +97,7 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   acct.debit(bet0);
 
   // Card source + cursor: the shared shoe at st.idx by default, or a fresh isolated deck under Double
-  // Vision (bj_two_hands) — which never touches deal.bjShoe / st.idx, mirroring bjDeal's per-hand deck.
+  // Vision (bj_two_hands), which never touches deal.bjShoe / st.idx, mirroring bjDeal's per-hand deck.
   // draw() is the single sequential accessor both paths use (twin of bj.js _bjDraw).
   const Rbj = bjRulesFor(mod); // shared BJ rule bundle (same builder the live game calls via bjRules())
   const twoHands = Rbj.twoHands;
@@ -140,7 +139,7 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   }
 
   // Gather this hand's action events (consecutive bj events that aren't a new deal/skip). A 'pick'
-  // here is illegal — it's only valid as the single consumed event above (mod on, no natural).
+  // here is illegal : it's only valid as the single consumed event above (mod on, no natural).
   const actions = [];
   while(j < tx.length && tx[j].g === 'bj' && tx[j].a !== 'deal' && tx[j].a !== 'skip'){
     if(tx[j].a === 'pick') _replayFail('bj_bad_pick');
@@ -151,16 +150,16 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   const bjMult = Rbj.payout;
   const pBJ = isBJ(player), dBJ0 = isBJ(dealer);
 
-  // Naturals end the hand before the player can act. Stray recorded actions are SKIPPED, not
-  // rejected — same leniency as the ended-hand path below and for the same reason: the client can
+  // Naturals end the hand before the player can act. Stray recorded actions are skipped, not
+  // rejected: same leniency as the ended-hand path below and for the same reason. The client can
   // log a tap landing the same beat the natural auto-settles (12 honest players hit this on
-  // 2026-06-26), the events draw no cards and move no chips here, and the outcome is already fixed
-  // as the natural settle. If a client ever ACTED on a natural for real, its submitted chips would
-  // diverge from this settle and surface as a replay mismatch — so skipping can't hide an inflated
+  // 2026-06-26); the events draw no cards and move no chips here, and the outcome is already fixed
+  // as the natural settle. If a client ever acted on a natural for real, its submitted chips would
+  // diverge from this settle and surface as a replay mismatch, so skipping can't hide an inflated
   // score. (The gather loop above already consumed the events; there is nothing to do with them.)
   if(dBJ0 || pBJ){
     // Dealer blackjack settles on the two up-cards (no draw). A player blackjack with a non-BJ
-    // dealer STILL draws the dealer to 17+ (bjResolve does), consuming the shoe — pin that here.
+    // dealer still draws the dealer to 17+ (bjResolve does), consuming the shoe: pin that here.
     if(!dBJ0){ let dv = hVal(dealer); while(dv < stand17){ dealer.push(draw()); dv = hVal(dealer); } }
     const wm = winMultFor(mod, acct.chips);
     const res = resolveBJHand({ pv: hVal(player), pBJ, dv: hVal(dealer), dBJ: isBJ(dealer), bet: bet0, wm, bjMult, ddm: 1 });
@@ -179,7 +178,7 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   // clients log an action the same frame an auto-advancing hand ends (e.g. a stand recorded just as a
   // hit busts the hand), and rejecting those would punish a legitimate result. Skipping (not touching
   // `shoe`/`st.idx`) keeps the deck aligned for later games, and a trailing event can't inflate a
-  // score, so this never weakens the check. (The split path stays strict · no honest run has hit it.)
+  // score, so this never weakens the check. (The split path stays strict: no honest run has hit it.)
   let bet = bet0, doubled = false, ended = false;
   for(const ev of actions){
     if(ended) continue;
@@ -198,26 +197,26 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   return j;
 }
 
-// Replays a split hand. `j` is the cursor at the first action; init carries the dealt cards + the
+// Replays a split hand. `j` is the cursor at the first action; init carries the dealt cards and the
 // already-collected action list (which begins with the first 'split'). Mirrors the bjSplit /
 // bjAdvanceSplit / bjCheckSplitHand deck-consumption state machine, driven by the recorded actions.
-// `shoe` + `draw` are threaded from _replayBJHand so a Double Vision split draws from the same fresh
-// per-hand deck (twoHands ⇒ draw() advances a local cursor, not st.idx). _replaySafeHitSwap still reads
-// st.idx, which is correct: safe_hit and two_hands never co-occur, so under two_hands it's a no-op.
-// Shared headless split stepper — an adapter over bj.js's split state machine (splitInit/splitResplit/
-// splitAdvance/splitCanAct/splitIsActionable), used by BOTH the replay engine (decisions read from the
-// transcript) and the dev-only future-seed checker (decisions from a basic-strategy table), so their
-// split draw order can never diverge FROM EACH OTHER OR FROM LIVE PLAY — bj.js's bjSplit/bjAdvanceSplit/
-// bjCheckSplitHand call the exact same machine functions. This function only adds: the deck draw/acct
-// plumbing the machine doesn't own, and turning "what should happen" into "ask nextAction, then do it".
-//   pair       — the opening matched pair [c0, c1]
-//   dealer     — the dealer's 2 up-cards (mutated: drawn to stand17)
-//   draw       — sequential card accessor (advances the caller's shoe/segment cursor)
-//   acct       — chip ledger {chips, debit}; the checker passes an unbounded stub (no real staking)
-//   beforeHit  — called with the active hand before each hit (Soft Landing swap); default no-op
-//   nextAction — (activeHand, {canResplit, canDouble, active}) → 'hit'|'stand'|'double'|'split', or null
+// `shoe` and `draw` are threaded from _replayBJHand so a Double Vision split draws from the same fresh
+// per-hand deck (under twoHands, draw() advances a local cursor, not st.idx). _replaySafeHitSwap still
+// reads st.idx, which is correct: safe_hit and two_hands never co-occur, so under two_hands it's a no-op.
+// This is an adapter over bj.js's split state machine (splitInit/splitResplit/splitAdvance/
+// splitCanAct/splitIsActionable), used by both the replay engine (decisions read from the transcript)
+// and the dev-only future-seed checker (decisions from a basic-strategy table), so their split draw
+// order can never diverge from each other or from live play: bj.js's bjSplit/bjAdvanceSplit/
+// bjCheckSplitHand call the exact same machine functions. This function only adds the deck draw/acct
+// plumbing the machine doesn't own, and turns "what should happen" into "ask nextAction, then do it".
+//   pair       : the opening matched pair [c0, c1]
+//   dealer     : the dealer's 2 up-cards (mutated: drawn to stand17)
+//   draw       : sequential card accessor (advances the caller's shoe/segment cursor)
+//   acct       : chip ledger {chips, debit}; the checker passes an unbounded stub (no real staking)
+//   beforeHit  : called with the active hand before each hit (Soft Landing swap); default no-op
+//   nextAction : (activeHand, {canResplit, canDouble, active}) → 'hit'|'stand'|'double'|'split', or null
 //                to stop (transcript exhausted; resolve the hands as they stand)
-//   fail       — illegal-state reporter (engine: _replayFail; default throws)
+//   fail       : illegal-state reporter (engine: _replayFail; default throws)
 // Returns { hands, bets, doubled, dealer } for the caller to settle (award vs count).
 function bjSplitStep({ pair, dealer, bet0, mod, stand17, draw, acct, nextAction, beforeHit, fail }){
   const _fail = fail || _replayFail;
@@ -229,7 +228,7 @@ function bjSplitStep({ pair, dealer, bet0, mod, stand17, draw, acct, nextAction,
 
   // Advance to the next sub-hand that needs a player action, dealing a waiting sub-hand its 2nd card
   // (splitAdvance doesn't draw — that's this caller's job, same division as bjAdvanceSplit) and
-  // auto-resolving any sub-hand already at 21+ (splitIsActionable — mirrors bjCheckSplitHand).
+  // auto-resolving any sub-hand already at 21+ (splitIsActionable · mirrors bjCheckSplitHand).
   const settleToActionable = () => {
     while(true){
       if(hands[active].length === 1) hands[active].push(draw());
@@ -251,7 +250,7 @@ function bjSplitStep({ pair, dealer, bet0, mod, stand17, draw, acct, nextAction,
     const hand = hands[active];
     const ctx = { ...splitCanAct(hands, bets, active, acct.chips, mod('bj_wild_split')), active };
     const a = nextAction(hand, ctx);
-    if(a == null) break;                            // transcript exhausted — resolve the hands as they stand
+    if(a == null) break;                            // transcript exhausted · resolve the hands as they stand
     if(a === 'split'){
       if(hands.length >= 4) _fail('bj_resplit_max');
       const bet = bets[active];
@@ -281,11 +280,10 @@ function bjSplitStep({ pair, dealer, bet0, mod, stand17, draw, acct, nextAction,
 
 // Replays a split hand from the transcript. `init.actions` is the pre-collected consecutive bj action
 // list, beginning with the initial 'split'. Drives the shared bjSplitStep with a transcript-reading
-// callback (still strict — forged/extra actions abort the Run), then settles each sub-hand.
-// `seed` is needed by beforeHit's segment bound (bjSegStart) — a split hit's Soft Landing swap must
-// stay inside this hand's shoe segment. It reached here as a free variable before the v1.83 split-
-// machine extraction; forgetting to thread it made every split+hit replay throw (2026-07-01 prod
-// replay_err:error spike). The regression test drives exactly that shape.
+// callback (still strict: forged/extra actions abort the Run), then settles each sub-hand.
+// `seed` is needed by beforeHit's segment bound (bjSegStart): a split hit's Soft Landing swap must
+// stay inside this hand's shoe segment. Forgetting to thread it made every split+hit replay throw
+// (2026-07-01 prod replay_err:error spike); the regression test drives exactly that shape.
 function _replayBJSplit(tx, j, deal, mod, acct, addNet, st, init, shoe, draw, seed){
   const { player, dealer, bet0, actions, stand17 } = init;
   const Rbj = bjRulesFor(mod); // shared BJ rule bundle (same builder bjResolve's split path uses)
@@ -330,7 +328,7 @@ function uthHandCards(deal, mod, hand, seed){
     return { hole: aces, dealer: [rest[0], rest[1]], comm: rest.slice(2, 7), priv: [] };
   }
   if(R.suitedConn){
-    // Suited Up: shared deal twin of uthDeal — same per-hand seed feeds suitedConnectorDeal (core.js).
+    // Suited Up: shared deal twin of uthDeal · same per-hand seed feeds suitedConnectorDeal (core.js).
     const { hole, dealer, comm } = suitedConnectorDeal(mkRng(seed + (hand + 1) * 97));
     return { hole, dealer, comm, priv: [] };
   }
@@ -353,8 +351,8 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
   if(dealEv.a !== 'deal') _replayFail('uth_no_deal');
   const ante = dealEv.ante | 0;
   if(ante <= 0) _replayFail('uth_bad_ante');
-  // Enforce the SAME cap the live bet UI applies — maxFor('uth') = ⌊chips·2/3⌋ — not merely "fits the
-  // stack". Without this, a forged ante between ⌊2/3⌋ and the full stack would replay as legal.
+  // Enforce the same cap the live bet UI applies: maxFor('uth') = floor(chips*2/3), not merely "fits
+  // the stack". Without this, a forged ante between that cap and the full stack would replay as legal.
   if(ante > maxFor('uth', acct.chips)) _replayFail('uth_overbet');
   acct.debit(ante);
 
@@ -364,9 +362,9 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
   const antePortion = Math.ceil(ante / 2), blindPortion = Math.floor(ante / 2);
 
   let play = 0, raised = false;
-  // The engine's OWN street cursor: 'preflop' until the first check, 'flop' after one, 'turn' after
+  // The engine's own street cursor: 'preflop' until the first check, 'flop' after one, 'turn' after
   // two. Derived from the event walk (not read off the transcript) so the per-street raise-mult
-  // check below can't be gamed by a forged `st` field — and so older transcripts whose raise events
+  // check below can't be gamed by a forged `st` field, and so older transcripts whose raise events
   // carry no `st` still replay.
   let street = 'preflop';
   let j = i + 1;
@@ -378,7 +376,7 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
       return j + 1;
     } else if(ev.a === 'timetravel'){
       // Re-deal the recorded street's community cards from the deck tail (uthRedealPtr). The street
-      // comes from ev.st — robust regardless of whether the player had already raised.
+      // comes from ev.st, so this is robust regardless of whether the player had already raised.
       if(st.ttUsed) _replayFail('uth_tt_twice');
       if(ev.st !== 'flop' && ev.st !== 'turn') _replayFail('uth_tt_phase');
       st.ttUsed = true;
@@ -389,11 +387,11 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
     } else if(ev.a === 'raise'){
       if(raised) _replayFail('uth_double_raise');
       const mult = ev.mult | 0;
-      // Enforce the SAME per-street legal multipliers the live buttons offer (preflop 4x/3x, flop 2x,
-      // turn 1x — UTH_STREET_GRAPH in uth.js, shared here via uthRaiseMultsFor so the check can't
+      // Enforce the same per-street legal multipliers the live buttons offer (preflop 4x/3x, flop 2x,
+      // turn 1x: UTH_STREET_GRAPH in uth.js, shared here via uthRaiseMultsFor so the check can't
       // drift from the live gate uthPlaceRaise already applies). Validated against the engine's own
       // derived `street`, never the transcript's `st` claim: without this check a forged transcript
-      // could claim a mult the UI can never produce for that street (e.g. a 1x flop raise) — a
+      // could claim a mult the UI can never produce for that street (e.g. a 1x flop raise), a
       // variance-reducing cheat vector once replay enforcement is live.
       if(!uthRaiseMultsFor(street).includes(mult)) _replayFail('uth_bad_mult');
       const bet = antePortion * mult;
@@ -401,8 +399,8 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
       acct.debit(bet); play = bet; raised = true;
       // A raise commits to showdown; the street advances are auto (uthNextStreet, unlogged).
     } else if(ev.a === 'check'){
-      // No chip or deck effect — the community reveal is the only consequence. It does advance the
-      // street cursor: live play only logs 'check' where checking was legal, so preflop→flop→turn.
+      // No chip or deck effect, the community reveal is the only consequence. It does advance the
+      // street cursor: live play only logs 'check' where checking was legal, so preflop to flop to turn.
       street = street === 'preflop' ? 'flop' : 'turn';
     } else _replayFail('uth_bad_action');
     j++;
@@ -422,7 +420,7 @@ function _replayUTHHand(tx, i, deal, mod, acct, addNet, st, seed){
   return j;
 }
 
-// ─── 5 CARD POKER (out of scope — stub) ─────────────────────────────────────────
+// ─── 5 CARD POKER (out of scope · stub) ─────────────────────────────────────────
 // Poker isn't live, so it has no replay path yet (PRD: stubbed slot only). Consume its events so a
 // dev-only transcript doesn't derail the walk; it contributes 0 to the score.
 function _replayPokerHand(tx, i, addNet, st){
@@ -442,7 +440,7 @@ function _replayRoulette(tx, i, deal, mod, acct, addNet, spinWords){
     const ev = tx[j];
     if(ev.a === 'skip') skipped = true;
     else if(ev.a === 'spin') spins.push(ev);
-    // 'keep' just commits to the main spin — the last spin in the list is already idx 0.
+    // 'keep' just commits to the main spin · the last spin in the list is already idx 0.
     j++;
   }
   if(skipped){ addNet('r', 0); return j; }
@@ -468,7 +466,7 @@ function _replayRoulette(tx, i, deal, mod, acct, addNet, spinWords){
 }
 
 // ─── THE LADDER ─────────────────────────────────────────────────────────────────
-// Replays the ladder run (consumes all leading 'lad' events). No stake debit — _ladSettle applies
+// Replays the ladder run (consumes all leading 'lad' events). No stake debit · _ladSettle applies
 // the net delta at the end (free crash = +0, cash-out keeps the full pot, ties lose).
 function _replayLadder(tx, i, deal, mod, acct, addNet){
   let j = i;
@@ -495,7 +493,7 @@ function _replayLadder(tx, i, deal, mod, acct, addNet){
     } else _replayFail('lad_bad_action');
     j++;
   }
-  if(!outcome){ return j; } // abandoned run (never reached in a submitted Run) — nothing to settle
+  if(!outcome){ return j; } // abandoned run (never reached in a submitted Run) · nothing to settle
   const { delta } = resolveLadder(outcome, bet, ladRung, ladFree);
   applyLedger(acct, ladderAward(delta));
   addNet('lad', delta);
@@ -503,21 +501,21 @@ function _replayLadder(tx, i, deal, mod, acct, addNet){
 }
 
 // ─── COMPOSE ──────────────────────────────────────────────────────────────────
-// Replay dispatch reads the SAME Game registry the live Run uses: each game's entry carries its
+// Replay dispatch reads the same Game registry the live Run uses: each game's entry carries its
 // per-hand replay handler, adapted here to the bespoke argument list each one needs. Adding a game
 // is then one registry entry instead of an extra branch in the loop below, so live and replay can't
 // drift on which handler a game maps to. `_byTxKey` reverses txKey (the Transcript tag) back to the
-// registry key — the Transcript stores 'pk'/'r'/'lad' but the registry keys are 'poker'/'roulette'/
+// registry key: the Transcript stores 'pk'/'r'/'lad' but the registry keys are 'poker'/'roulette'/
 // 'ladder'.
 //
-// FINDING #31: each handler used to hand-pick its own fields off the per-Run context inline
-// (`(i,c) => _replayBJHand(c.tx, i, c.deal, c.mod, ...)`), so adding a context field meant editing
-// every one of these lines, and a typo/missing field only surfaced as an undefined mid-replay. Now
-// each game DECLARES its deps as data (`replayDeps`, ordered the same as its handler's params) and
-// the wiring loop below builds the adapter from that declaration via `_pickFields`. An unknown dep
-// name (typo, or a field that was renamed) throws at WIRING time — module load — not mid-replay.
-// `replayDeps` lives on the registry entry (not a separate map) so a game's replay contract sits
-// next to its other behaviour hooks, same place a reader would look for `.replay` itself.
+// Each handler declares its dependencies as data (`replayDeps`, ordered the same as its handler's
+// params); the wiring loop below builds the adapter from that declaration via `_pickFields`. This
+// replaced hand-picking fields off the per-Run context inline at each call site
+// (`(i,c) => _replayBJHand(c.tx, i, c.deal, c.mod, ...)`), where adding a context field meant editing
+// every one of these lines, and a typo or missing field only surfaced as an undefined mid-replay. Now
+// an unknown dep name (typo, or a field that was renamed) throws at wiring time (module load), not
+// mid-replay. `replayDeps` lives on the registry entry (not a separate map) so a game's replay
+// dependencies sit next to its other behaviour hooks, same place a reader would look for `.replay` itself.
 GAMES.bj.replayDeps       = ['tx', 'deal', 'mod', 'acct', 'addNet', 'bjSt', 'seed'];
 GAMES.uth.replayDeps      = ['tx', 'deal', 'mod', 'acct', 'addNet', 'uthSt', 'seed'];
 GAMES.poker.replayDeps    = ['tx', 'addNet', 'pkSt'];
@@ -529,11 +527,11 @@ const _REPLAY_HANDLER = {
   roulette: _replayRoulette, ladder: _replayLadder,
 };
 
-// Builds `(i, ctx) => handler(...deps.map(k => ctx[k]), i, ...)` — every handler's signature is
+// Builds `(i, ctx) => handler(...deps.map(k => ctx[k]), i, ...)`. Every handler's signature is
 // `(tx, i, ...therest)`, so `i` (the transcript cursor, not part of the per-Run context) is spliced
 // in as the 2nd argument once `tx` is picked off `deps[0]`. Throws immediately if `deps` names a key
-// `ctx` won't have — a load-time guard against exactly the "missing field, fails mid-replay" bug
-// FINDING #31 flagged, since `ctx`'s shape (built once in `replayRun`) is fixed and known here.
+// `ctx` won't have, catching a missing/renamed field at load time instead of mid-replay, since
+// `ctx`'s shape (built once in `replayRun`) is fixed and known here.
 function _pickFields(handler, deps, ctxShape){
   for(const k of deps) if(!(k in ctxShape)) throw new Error('replay dep unknown: ' + k);
   return (i, ctx) => {
@@ -543,8 +541,8 @@ function _pickFields(handler, deps, ctxShape){
   };
 }
 
-// The per-Run context SHAPE (keys only, values irrelevant) `_pickFields` validates `replayDeps`
-// against at wiring time — same keys `replayRun` populates on the real `_ctx` below.
+// The per-Run context shape (keys only, values irrelevant) `_pickFields` validates `replayDeps`
+// against at wiring time: same keys `replayRun` populates on the real `_ctx` below.
 const _CTX_SHAPE = { tx: 1, deal: 1, mod: 1, acct: 1, addNet: 1, seed: 1, spinWords: 1, bjSt: 1, uthSt: 1, pkSt: 1 };
 
 for(const _gk in GAMES){
@@ -589,7 +587,7 @@ function replayRun(seed, modifiers, transcript, opts = {}){
     }
     const entry = GAMES[_byTxKey[g]];
     if(entry && entry.replay) i = entry.replay(i, _ctx);
-    else i++; // unknown event — skip
+    else i++; // unknown event · skip
   }
 
   // Authoritative score, recomputed exactly like recalcChips(): START + borrow + every round's net.
@@ -600,8 +598,8 @@ function replayRun(seed, modifiers, transcript, opts = {}){
 }
 
 // ─── AUDIT ONE ROUND ────────────────────────────────────────────────────────────
-// Recomputes a single settled round's delta from its OWN recorded shape + the day's mods, so a
-// stored record is a verified contract: a tampered delta no longer matches its cards/bets. Covers
+// Recomputes a single settled round's delta from its own recorded shape and the day's mods, so a
+// tampered delta no longer matches its cards/bets and can be caught. Covers
 // the slots whose record carries enough to recompute (bj non-split, uth, r); split bj and ladder
 // don't record per-sub-hand bets / the stake, so full re-derivation there is replayRun's job.
 // `mods` is the resolved preset; pass mods.wm to override the win multiplier (e.g. under comeback).
@@ -609,7 +607,7 @@ function auditOutcome(record, deal, mods = {}){
   const mod = _engMod(mods);
   const wm = (mods.wm != null) ? mods.wm : winMultFor(mod, Infinity);
   if(record.slot === 'bj'){
-    if(record.result === 'split') return record.delta; // per-sub-hand bets not recorded — see note above
+    if(record.result === 'split') return record.delta; // per-sub-hand bets not recorded · see note above
     const player = record.player || [], dealer = record.dealer || [];
     const Rbj = bjRulesFor(mod);
     const res = resolveBJHand({
@@ -635,18 +633,17 @@ function auditOutcome(record, deal, mods = {}){
     if(wm > 1 && delta > 0) delta *= wm;
     return delta;
   }
-  return record.delta; // pk / lad — no independent re-derivation; trust the recorded delta
+  return record.delta; // pk / lad · no independent re-derivation; trust the recorded delta
 }
 
 // ─── DAY RESOLUTION (server replay) ───────────────────────────────────────────────
-// The third consumer of the resolveDayMod/applyPlayersChoice chain — see the "MODIFIER RESOLUTION"
-// banner above core.js's normalizeModRef for the full precedence chain and why it's split in two.
-// Live play resolves "today's modifier" from S + today's date (_activeMod/getMod); the server
-// replays an explicit PAST seed with no live S, so this is just an adapter that supplies the same
-// two calls with the submitted seed + the recorded Player's Choice pick instead: forcedMod is
-// always null here (dev-only, never set server-side). Returns the resolved preset object (the
-// shape replayRun's `modifiers` expects), or null on a vanilla day. Kept as its own named export
-// (rather than inlining the two calls at each call site) since the server bundle imports it directly.
+// Resolves the day's modifier the same way live play does (resolveDayMod + applyPlayersChoice,
+// see the "MODIFIER RESOLUTION" banner above core.js's normalizeModRef for the full precedence
+// chain). Live play reads "today's modifier" off S and today's date (_activeMod/getMod); the
+// server instead replays an explicit past seed with no live S, so this supplies the same two
+// calls with the submitted seed and the recorded Player's Choice pick. forcedMod is always null
+// here since it's dev-only and never set server-side. Returns the resolved preset object (the
+// shape replayRun's `modifiers` expects), or null on a vanilla day.
 function replayDayMods(calSeed, pcPick){
   const y = Math.floor(calSeed / 10000), m = Math.floor((calSeed % 10000) / 100) - 1, d = calSeed % 100;
   const dayNum = Math.floor((Date.UTC(y, m, d) - START_DATE_UTC) / 86400000) + 1;
@@ -660,16 +657,16 @@ function replayRngSeed(calSeed){
   return DAILY_SEED_OVERRIDES[calSeed] || calSeed;
 }
 
-// The furthest calendar-seed (YYYYMMDD) the deployed day-config actually covers · the max key across
-// DAILY_MODIFIERS and DAILY_SEED_OVERRIDES. Both tables are BAKED into the engine bundle at build
-// time, so a day whose modifier or seed-override was added/edited AFTER the last deploy is NOT
-// represented here, and the server would replay it against stale config (the 2026-06-16 seed-override
-// incident · every honest run that day looked like an overbet). submit-score uses this as a hard
-// ENFORCE horizon: it only treats the replay as authoritative for seed <= horizon, leaving any day
-// beyond the deployed config in shadow (flag-only). So a forgotten redeploy degrades to "that day
-// isn't enforced yet", never "that day rejects everyone". DAILY_MODIFIERS already carries one entry
-// per day, so the horizon tracks the last day the operator configured · keep it populated ahead of
-// today and redeploy after editing daily config (see .claude/NEW-MODIFIER.md).
+// The furthest calendar-seed (YYYYMMDD) the deployed day-config actually covers: the max key
+// across DAILY_MODIFIERS and DAILY_SEED_OVERRIDES. Both tables are baked into the engine bundle
+// at build time, so a day whose modifier or seed-override was added or edited after the last
+// deploy is not represented here, and the server would replay it against stale config (the
+// 2026-06-16 seed-override incident: every honest run that day looked like an overbet).
+// submit-score uses this as a hard enforce horizon: it only treats the replay as authoritative
+// for seed <= horizon, leaving any day beyond the deployed config in shadow (flag-only). So a
+// forgotten redeploy degrades to "that day isn't enforced yet", never "that day rejects
+// everyone". Keep this populated ahead of today and redeploy after editing daily config
+// (see .claude/NEW-MODIFIER.md).
 function replayConfigHorizon(){
   let h = 0;
   for(const k in DAILY_MODIFIERS){ const s = +k; if(s > h) h = s; }

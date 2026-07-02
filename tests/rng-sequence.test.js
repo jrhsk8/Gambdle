@@ -149,8 +149,8 @@ describe('RNG sequence — deck integrity', () => {
 
 describe('DEAL (genDeal at boot) — RNG phase separation', () => {
   it('DEAL.bjShoe and DEAL.uthDeck differ position-for-position (drawn at different RNG phases)', () => {
-    // They can share individual cards (since both are built from the same 52-card universe)
-    // but as a sequence they should differ — checking first 10 positions
+    // They can share individual cards (since both are built from the same 52-card universe),
+    // but as a sequence they should differ. Checking the first 10 positions.
     const bj10  = DEAL.bjShoe.slice(0, 10).map(c => c.r + c.s).join(',');
     const uth10 = DEAL.uthDeck.slice(0, 10).map(c => c.r + c.s).join(',');
     assert(bj10 !== uth10, 'BJ shoe and UTH deck differ in first 10 positions');

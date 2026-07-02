@@ -1,8 +1,8 @@
 // ─── Devices / client-profile tests ───────────────────────────────────────────
-// Three surfaces of the Devices feature:
-//   1. _parseUA  — userAgent → coarse browser/os tokens (pure, order-sensitive)
-//   2. _vpBucket — viewport width → ordered distribution bucket (pure)
-//   3. _submitClient — load beacon: dedup/skip guards + fetch payload (mirrors start-tracking.test.js)
+// Covers three parts of the Devices feature:
+//   1. _parseUA: userAgent string to coarse browser/os tokens (pure, order-sensitive)
+//   2. _vpBucket: viewport width to ordered distribution bucket (pure)
+//   3. _submitClient: load beacon, dedup/skip guards + fetch payload (mirrors start-tracking.test.js)
 // _withBacklogSeed is a shared global from dev.test.js (loaded earlier in test.html).
 
 // ─── _parseUA: browser ─────────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ describe('_submitClient — fetch payload when all guards pass', () => {
         _submitClient();
         const prefer = calls[0].opts.headers['Prefer'];
         assert(prefer?.includes('return=minimal'), `Prefer should request return=minimal, got: ${prefer}`);
-        // Upsert is intentionally NOT used — it would require anon SELECT, exposing the raw ua.
+        // Upsert is intentionally not used: it would require anon SELECT, exposing the raw ua.
         assert(!prefer?.includes('merge-duplicates'), `Prefer must not request an upsert, got: ${prefer}`);
       });
     });

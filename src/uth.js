@@ -1,14 +1,21 @@
+// Ultimate Texas Hold'em: dealing, player actions (raise/check/fold), blind and ante pay tables,
+// dealer qualify, and showdown settlement, plus this game's screen rendering.
+// The street flow (preflop, flop, turn) is driven by one table, UTH_STREET_GRAPH below, so the
+// buttons shown and the handlers that enforce legality can't disagree.
+// See .claude/ARCHITECTURE.md for the module map and the S/render() rules.
+
 // ─── CONTENTS (grep the banner/function name; line numbers drift) ──────────
 //   UTH STATE: resetUTHHand · per-hand deck slices
 //   ULTIMATE TEXAS HOLD'EM LOGIC: deal · raise/check/fold · blind + ante
 //     pay tables · dealer qualify · showdown settlement
 //   SCREEN RENDERING: screenUTH · uthPayTableHTML
-//   (The poker hand evaluator — rankPoker/cardNum/handScore/bestOf7 — lives in its own file,
+//   (The poker hand evaluator, rankPoker/cardNum/handScore/bestOf7, lives in its own file,
 //    poker-eval.js, loaded just before this one; both this file and poker.js share it.)
 // ───────────────────────────────────────────────────────────────────────────
 
-// Blind bonus payout: cat is the hand category (9=Royal Flush … 0=High Card).
-// Base amounts match the standard UTH blind paytable; boost/extended come from modifiers.
+// Blind bonus payout for a hand category (9 = Royal Flush down to 0 = High Card).
+// Base amounts are the standard UTH blind paytable. A modifier can extend the paytable to also
+// pay Three of a Kind / Two Pair, and/or boost every payout by a multiplier.
 function uthBlindDelta(cat,blind,mods={extended:getMod('uth_blind_extended'),boost:getMod('uth_blind_boost')||1}){
   const extended=mods.extended;
   const boost=mods.boost||1;
@@ -24,8 +31,8 @@ function uthBlindDelta(cat,blind,mods={extended:getMod('uth_blind_extended'),boo
   return Math.ceil(base*boost);
 }
 
-// Blind pay-table rows: [name, hand-category (null = the "below" push row), fallback ratio].
-// Shared by the bet-screen render and the surgical chip-insert patch so both stay in sync.
+// Blind pay-table rows: [name, hand category (null = the "below" push row), fallback ratio].
+// Used by both the bet-screen render and the live chip-total patch, so the two stay in sync.
 function _uthPayRows(){
   const ext=getMod('uth_blind_extended');
   // cat=9 Royal, 8 SF, 7 Quads, 6 Full, 5 Flush, 4 Straight; ext also 3 ToK, 2 TwoPair
@@ -50,8 +57,8 @@ const UTH_CARD_INTERVAL_MS = 400;  // stagger between each community card
 const UTH_REVEAL_TOTAL_MS  = UTH_CARD_START_MS + 5 * UTH_CARD_INTERVAL_MS;
 
 
-// `reason` — see the reset(reason) contract in core.js ('hand-advance' | 'borrow-prep' today; both
-// clear the same fields, so it's accepted but unbranched).
+// Clears per-hand UTH state. `reason` is 'hand-advance' or 'borrow-prep' (see reset(reason) in
+// core.js); both clear the same fields here, so the value isn't branched on.
 function resetUTHHand(reason){
   S.uthAnte=0; S.uthPhase='bet'; S.uthRaise=0; S.uthRaiseMult=0;
   S.uthRaised=false; S.uthFolded=false;
@@ -59,13 +66,13 @@ function resetUTHHand(reason){
   S.uthPrivate=null;
   S.uthRevealComm=0; S.uthPrevRevealComm=0;
 }
-GAMES.uth.reset = resetUTHHand; GAMES.uth.screen = screenUTH; GAMES.uth.nextHand = () => _nextHand(resetUTHHand); GAMES.uth.rulesFor = uthRulesFor; // register this game's fns into the Game registry (defined in this file; core.js loads first)
-// Game-specific bet-UI patch (dispatched by patchBetUI): keep the stake summary + blind pay table in
-// step with the staked Ante · Blind split as the bet changes.
+GAMES.uth.reset = resetUTHHand; GAMES.uth.screen = screenUTH; GAMES.uth.nextHand = () => _nextHand(resetUTHHand); GAMES.uth.rulesFor = uthRulesFor; // registers this game's functions into the Game registry defined in core.js
+// Dispatched by patchBetUI when the bet changes: keeps the stake summary and blind pay table in
+// step with the staked Ante / Blind split.
 GAMES.uth.patchBet = function(bet){
   const us=document.getElementById(DOM.uthSummary);
   if(!us) return;
-  // Match the render's split: ante rounds up, blind rounds down (see _uthAntePortion/_uthBlindPortion).
+  // Matches the render's split: ante rounds up, blind rounds down (see _uthAntePortion/_uthBlindPortion).
   const ante=Math.ceil(bet/2), blind=Math.floor(bet/2);
   us.innerHTML = `Ante <b style="color:var(--gold)">${cfmtK(ante)}</b> + Blind <b style="color:var(--gold)">${cfmtK(blind)}</b> = <b style="color:var(--ink)">${cfmtK(bet)}</b> chips total`;
   const pt=document.getElementById(DOM.uthPtable);
@@ -73,10 +80,9 @@ GAMES.uth.patchBet = function(bet){
   const pth=document.getElementById(DOM.uthPtHead);
   if(pth) pth.innerHTML = uthPayTableHead(blind);
 };
-// Refresh landed mid-reveal: settle to the result panel after a beat, mirroring the live reveal timer.
-// Doesn't consult UTH_STREET_GRAPH (below): a refresh during an active street (preflop/flop/turn) just
-// re-renders that street's screen as-is via the normal render path — there's no "what's next" to derive,
-// only 'reveal' needs special resume handling (settling the in-flight animation to 'result').
+// Runs when the page is refreshed mid-hand. Only the 'reveal' phase needs special handling: it
+// settles to the result panel after a beat, mirroring the live reveal timer. A refresh during an
+// active street (preflop/flop/turn) just re-renders that street as-is via the normal render path.
 GAMES.uth.resume = function(){
   if(S.uthPhase!=='reveal') return;
   runReveal({steps:[],finishAt:300,signal:()=>S.uthPhase==='reveal',onFinish:()=>{
@@ -86,16 +92,15 @@ GAMES.uth.resume = function(){
   }});
 };
 
-/** Skip the current UTH hand (all_in_or_skip modifier). Records delta 0 and advances. */
+// Skip the current UTH hand (all_in_or_skip modifier). Records delta 0 and advances.
 function uthSkip(){ tx('uth','skip'); _skipHand('uth',{ante:0,blind:0,play:0,playMult:0,result:'skip',delta:0}); }
 
 // ─── ULTIMATE TEXAS HOLD'EM LOGIC ────────────────────────────────────────
 
-/** Initial deal for UTH: Player cards, Dealer cards (hidden), and Community cards (hidden). */
-// The day's Hold'em rule bundle — a PURE function of the mod accessor, mirroring roulette's spinModsFor
-// and the BJ bundle. ONE place the UTH rule scalars + deal-shape flags are derived, shared by live and
-// replay (they used to mirror the same reads inline in uth.js and engine.js). blindExtended stays the
-// raw accessor value and blindBoost keeps its ||1 default, both lifted verbatim from the old sites.
+// Initial deal for UTH: Player cards, Dealer cards (hidden), and Community cards (hidden).
+// The day's Hold'em rule bundle: a pure function of the mod accessor, mirroring roulette's spinModsFor
+// and the BJ bundle. The one place the UTH rule scalars and deal-shape flags are derived, shared by
+// live play and replay. blindExtended stays the raw accessor value; blindBoost keeps its ||1 default.
 function uthRulesFor(mod){
   return {
     doublePlay:    !!mod('uth_double_play'),
@@ -108,7 +113,7 @@ function uthRulesFor(mod){
     sixthCard:     !!mod('uth_sixth_card'),    // Sixth Sense: a private 6th community card
   };
 }
-function uthRules(){ return uthRulesFor(getMod); } // live snapshot — the only getMod read for UTH rules
+function uthRules(){ return uthRulesFor(getMod); } // live snapshot: the only getMod read for UTH rules
 
 function uthDeal(){
   if(!S.uthAnte||S.uthPhase!=='bet')return;
@@ -182,7 +187,7 @@ function _uthDealTurn(){
   updateUthCommunityCards();
 }
 
-// Time Travel button — mirrors the dealer-peek button (same shape/position) but with a blue glow.
+// Time Travel button: mirrors the dealer-peek button (same shape/position) but with a blue glow.
 // Offered once per day, only during the flop or turn decision (a street must be on the board to re-deal).
 function timeTravelBtnHTML(){
   if(!getMod('uth_time_travel')||S.timeTravelUsed) return '';
@@ -202,7 +207,7 @@ function doTimeTravel(){
     if(s.uthPhase==='flop'){
       for(let i=0;i<3;i++) s.uthComm[i]=DEAL.uthDeck[ptr++];
       s.uthPrevRevealComm=0;s.uthRevealComm=3;
-    }else{ // turn — re-deal the turn + river cards (indices 3 and 4)
+    }else{ // turn: re-deal the turn + river cards (indices 3 and 4)
       s.uthComm[3]=DEAL.uthDeck[ptr++];s.uthComm[4]=DEAL.uthDeck[ptr++];
       s.uthPrevRevealComm=3;s.uthRevealComm=5;
     }
@@ -228,47 +233,43 @@ function uthBetSummary(){
 }
 
 // ─── STREET-PHASE GRAPH ──────────────────────────────────────────────────
-// UTH's phase machine ('preflop' → 'flop' → 'turn' → resolve/fold → 'reveal') used to be re-derived
-// inline in each handler (uthCheck deciding its own next deal, uthPlaceRaise branching on phase,
-// uthFold hardcoding its own path) — three places that had to agree on the same three streets.
-// This table is the ONE place that maps a phase to what's legal there and what "continue" does;
-// the handlers below become thin (legality + txLog + ask the graph). Shape:
-//   raiseMult:  the multiplier(s) offered as a fresh Raise at this phase (null once already raised —
-//               real UTH allows exactly one Raise per hand, so a later street just continues).
+// UTH's phase machine ('preflop' -> 'flop' -> 'turn' -> resolve/fold -> 'reveal').
+// This table is the one place that maps a phase to what's legal there and what "continue" does;
+// the handlers below stay thin (legality check + txLog + ask the graph). Shape:
+//   raiseMult:  the multiplier(s) offered as a fresh Raise at this phase (real UTH allows exactly
+//               one Raise per hand, so a later street just continues instead of offering a new one).
 //   checkable:  whether Check is a legal action at this phase (turn has no Check, only Raise/Fold).
-//   showsFold:  whether the Fold button is offered at this phase (real UTH: turn only — you must
+//   showsFold:  whether the Fold button is offered at this phase (real UTH: turn only, you must
 //               Raise or Check pre-turn, Raise or Fold on the turn). Distinct from _uthFoldable
 //               below, which is a broader defensive guard for uthFold's own early-return.
-//   advance():  what "this street's decision is resolved" does — deal the next street, or settle.
+//   advance():  what "this street's decision is resolved" does: deal the next street, or settle.
 //               Called by uthCheck, by uthPlaceRaise after staking, and by uthNextStreet (the
 //               continue button shown once uthRaised is already true from an earlier street).
-// FINDING #17: _uthActionsHTML (below) reads raiseMult/checkable/showsFold straight off this table
-// instead of re-deriving its own per-phase button literals, so the buttons shown can never drift
-// from the legality the handlers (uthPlaceRaise/uthCheck/uthFold) already enforce off this same table.
+// _uthActionsHTML (below) reads raiseMult/checkable/showsFold straight off this table instead of
+// keeping its own per-phase button list, so the buttons shown can never disagree with the legality
+// the handlers (uthPlaceRaise/uthCheck/uthFold) already enforce off this same table.
 const UTH_STREET_GRAPH = {
   preflop: { raiseMult:[4,3], checkable:true,  showsFold:false, advance:_uthDealFlop },
   flop:    { raiseMult:[2],   checkable:true,  showsFold:false, advance:_uthDealTurn },
   turn:    { raiseMult:[1],   checkable:false, showsFold:true,  advance:uthResolve  },
 };
-// The legal raise multiplier(s) for a street, straight off UTH_STREET_GRAPH — the ONE source the
-// live handler (uthPlaceRaise, above) and the replay Engine both gate a raise's mult on, so a
-// hand-crafted transcript can't claim a mult the street's UI could never have offered (e.g. a 1×
-// flop raise — flop only ever offers 2×). Returns [] for an unknown street rather than throwing:
-// engine.js's replay wants a plain "is this mult in the legal set", not a crash on a forged street
-// name (that's a separate, already-rejected failure mode there). uth.js is in the engine bundle
-// (see MANIFEST/ARCHITECTURE.md), so this export is bundle-safe — no new file needs loading server-side.
+// The legal raise multiplier(s) for a street, straight off UTH_STREET_GRAPH: the one source both the
+// live handler (uthPlaceRaise, above) and the replay Engine gate a raise's mult on, so a hand-crafted
+// transcript can't claim a mult the street's UI could never have offered (e.g. a 1x flop raise, when
+// flop only ever offers 2x). Returns [] for an unknown street rather than throwing: engine.js's replay
+// just needs a plain "is this mult in the legal set" check, not a crash on a forged street name.
 function uthRaiseMultsFor(street){
   const node = UTH_STREET_GRAPH[street];
   return node ? node.raiseMult : [];
 }
 // Fold is legal from any street with an active decision (every key above); reveal/result/bet/dealing
-// are not — Fold doesn't appear in the graph itself since it doesn't "advance" a street, it ends the hand.
+// are not. Fold doesn't appear in the graph itself since it doesn't "advance" a street, it ends the hand.
 // (Broader than showsFold above: this is uthFold's own defensive guard, not what the UI offers.)
 function _uthFoldable(phase){ return phase in UTH_STREET_GRAPH; }
 
 function uthPlaceRaise(mult){
   const node=UTH_STREET_GRAPH[S.uthPhase];
-  if(!node||!node.raiseMult.includes(mult))return; // illegal mult/phase for this street — no-op
+  if(!node||!node.raiseMult.includes(mult))return; // illegal mult/phase for this street: do nothing
   const bet=_uthAntePortion()*mult;
   if(S.chips<bet)return;
   tx('uth','raise',{mult,st:S.uthPhase});
@@ -285,7 +286,7 @@ function uthCheck(){
   node.advance();
 }
 // The "continue" button shown once uthRaised is already true from an earlier street (real UTH allows
-// only one Raise per hand, so later streets have no fresh decision — just click through). Reads the
+// only one Raise per hand, so later streets have no fresh decision: just click through). Reads the
 // same graph node's advance() as uthCheck/uthPlaceRaise so all three paths agree on what's next.
 function uthNextStreet(){
   const node=UTH_STREET_GRAPH[S.uthPhase];
@@ -307,10 +308,10 @@ function uthFold(){
 }
 // Settles the UTH hand: three independent payouts (play, ante, blind) each have their own rules.
 // Play: 1:1 if player wins. Ante: 1:1 only if dealer qualifies. Blind: paytable if Straight+.
-// Pure UTH Resolver: the three-way ante/blind/play settlement. PURE — bestOf7 results (`pb`/`db`,
-// each {cat, score}), the three stakes, and the resolved mods in; the per-leg deltas + net + result
-// out. No S, no DOM, no credit. The caller credits each leg (the stake was debited at deal/raise) and
-// records. mods: { wm, doublePlay, hardQualify, blindExtended, blindBoost }.
+// The UTH settlement math: the three-way ante/blind/play settlement.
+// PURE: takes bestOf7 results (`pb`/`db`, each {cat, score}), the three stakes, and the resolved mods
+// in; returns the per-leg deltas plus net and result. No S, no DOM, no credit. The caller credits each
+// leg (the stake was debited at deal/raise) and records. mods: { wm, doublePlay, hardQualify, blindExtended, blindBoost }.
 function resolveUTH(pb, db, ante, blind, play, mods){
   const dealerQualifies = db.cat >= (mods.hardQualify ? 2 : 1);
   const cmp = pb.score - db.score;
@@ -330,13 +331,13 @@ function resolveUTH(pb, db, ante, blind, play, mods){
   return { anteDelta, blindDelta, playDelta, delta, dealerQualifies, result: cmp>0?'win':cmp===0?'push':'lose' };
 }
 
-// Settlement Ledger for a settled UTH hand — the ONE credit mapping shared by the live settle
+// The settlement ledger for a settled UTH hand: the one credit mapping shared by the live settle
 // (uthResolve) and the replay Engine. PURE: returns the ordered {op,n,reason} list (applied via
 // applyLedger). `res` is the resolveUTH outcome. Each leg's stake was debited at deal/raise, so a win
-// returns each stake + its profit (the ante pushes its stake back when the dealer doesn't qualify), a
-// tie returns all three stakes as one credit, a loss keeps nothing. Order (play, ante, blind) is
-// load-bearing: each entry rounds independently. Entries are built via mkCredit (core.js) — a
-// validated {op,n,reason} factory — so a typo'd reason throws in strict mode.
+// returns each stake plus its profit (the ante pushes its stake back when the dealer doesn't qualify),
+// a tie returns all three stakes as one credit, a loss keeps nothing. The order (play, ante, blind)
+// matters: each entry rounds independently. Entries are built via mkCredit (core.js), a validated
+// {op,n,reason} factory, so a typo'd reason throws in strict mode.
 function uthAward(res, ante, blind, play){
   if(res.result==='win') return [
     mkCredit(play+res.playDelta, 'uth-play'),
@@ -380,7 +381,7 @@ function updateUthCommunityCards() {
   const [commHand, dealerHand] = t;
 
   // The bet inlay box persists across streets (no full render mid-hand), so refresh its stake
-  // breakdown here — this is when a just-locked Raise should join the Ante · Blind line.
+  // breakdown here: this is when a just-locked Raise should join the Ante · Blind line.
   const betInlayEl = document.getElementById(DOM.uthBetInlay);
   if (betInlayEl) betInlayEl.innerHTML = uthBetSummary();
 
@@ -481,14 +482,14 @@ function handDetail(cards, cat) {
 // old per-phase branches hardcoded (flop → "See Turn & River", turn → "Showdown").
 const _UTH_CONTINUE_LABEL = { flop:'See Turn &amp; River →', turn:'→ Showdown' };
 
-// The per-street action-button cluster — the inner HTML of #uth-actions-ui — for the current phase.
-// ONE source for these buttons: screenUTH seeds them on a full render, and updateUthCommunityCards
-// repaints the IDENTICAL markup on a street change, so the two can no longer drift. (They did before:
-// the flop "Raise 2×" label read S.uthAnte in the screen but the correct _uthAntePortion()*2 on the
-// street change — they disagree on odd antes. The raise cost mirrors uthPlaceRaise, the source of
-// truth.) FINDING #17: the button SET (which raises, Check vs Fold) is asked off UTH_STREET_GRAPH —
-// the same table uthPlaceRaise/uthCheck/uthFold already gate on — instead of separate per-phase
-// literals, so render and handler legality can't drift apart. Whitespace preserved from the originals.
+// The per-street action-button cluster: the inner HTML of #uth-actions-ui for the current phase.
+// The one source for these buttons: screenUTH seeds them on a full render, and updateUthCommunityCards
+// repaints the identical markup on a street change, so the two can't disagree (a stale copy would
+// otherwise let the flop "Raise 2x" label read S.uthAnte in one place and the correct
+// _uthAntePortion()*2 in the other, which would disagree on odd antes). The raise cost mirrors
+// uthPlaceRaise, the source of truth. The button set (which raises, Check vs Fold) is read off
+// UTH_STREET_GRAPH, the same table uthPlaceRaise/uthCheck/uthFold already gate on, instead of a
+// separate per-phase list, so render and handler legality can't drift apart.
 function _uthActionsHTML(){
   const ph=S.uthPhase;
   const node=UTH_STREET_GRAPH[ph];
@@ -516,7 +517,7 @@ function screenUTH(){
   if(ph==='bet'){
     // Cap the ante at the 2/3 stake limit (maxBet → maxFor) so the chip buttons + All In match the
     // handlers, and the player always keeps enough for the mandatory 1× play raise (else they'd be
-    // stuck folding on the turn). Was S.chips (full stack) — stale, predates the 2/3 cap.
+    // stuck folding on the turn).
     const maxAnte=maxBet();
     const aios=getMod('all_in_or_skip');
     // Pay table box with its caption hugging right below it (the .uth-pt-wrap group), inside a flex:1
@@ -583,7 +584,7 @@ function screenUTH(){
     `<div id="${DOM.uthActionsUi}">${actionsInner}</div>`);
 
   // preflop / flop / turn share ONE skeleton (dealer · community · your hand · controls); only the
-  // action buttons differ, and those live in _uthActionsHTML() — the same source the street-change
+  // action buttons differ, and those live in _uthActionsHTML(), the same source the street-change
   // repaint (updateUthCommunityCards) uses. Preflop animates the freshly dealt hole cards.
   if(ph==='preflop'||ph==='flop'||ph==='turn'){
     return `${hdr("Ultimate Texas Hold'em · Hand "+(S.uthHand+1)+' of 3')}

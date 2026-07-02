@@ -192,11 +192,11 @@ describe('Test Tutorial dev mode — always re-show', () => {
   });
 });
 
-// ─── _popupOutsideClick — clicking back into an unfocused window keeps the tip up ───────────────
-// Regression: the tip balloon is dismissed by any outside pointerdown, but the click that brings an
+// ─── _popupOutsideClick: clicking back into an unfocused window keeps the tip up ──────
+// The tip balloon is dismissed by any outside pointerdown, but the click that brings an
 // unfocused window back into focus shouldn't count. The refocus click can land either before focus
 // is restored (document not focused yet) or just after the focus event, so both are guarded.
-describe('_popupOutsideClick — refocus click does not dismiss the tip', () => {
+describe('_popupOutsideClick: refocus click does not dismiss the tip', () => {
   // Show the balloon, stub the focus state, fire an outside pointerdown; returns whether it dismissed.
   function clickOutside({ hasFocus, refocusAgoMs }) {
     let dismissed;
@@ -227,7 +227,7 @@ describe('_popupOutsideClick — refocus click does not dismiss the tip', () => 
   });
 });
 
-// ─── "What's New" announcement — src/gametext.js WHATS_NEW + _maybeWhatsNew ──────────────────────
+// ─── "What's New" announcement: src/gametext.js WHATS_NEW + _maybeWhatsNew ────
 // A one-off balloon shown on the intro screen to returning players (tips on) to flag game changes.
 // Brand-new players are silently opted out of the current note so they only see future ones.
 describe("WHATS_NEW content — src/gametext.js", () => {

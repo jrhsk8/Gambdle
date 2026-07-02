@@ -43,12 +43,11 @@ describe('Ladder — pot math', () => {
 });
 
 // ─── State-machine harness ───────────────────────────────────────────────────
-// Thin adapter over the shared tests/game-harness.js withGame(): same call signature as
-// before (Object.assign the Ladder slice + chips/tx/forcedMod/screen, run fn(), restore).
-// The old hand-rolled version snapshotted only a fixed KEYS list; withGame snapshots the
-// FULL S instead, which is a strict superset (see game-harness.js for the contract), so
-// nothing that used to be restored here is lost. It also always resets S.tx to [] before
-// applying overrides, matching the old behavior (each Ladder test starts with a clean tx).
+// Wraps the shared tests/game-harness.js withGame(): applies the Ladder slice plus
+// chips/tx/forcedMod/screen overrides to S, runs fn(), then restores S. withGame
+// snapshots the full S before applying overrides, so nothing set here is lost after
+// the test runs. S.tx is always reset to [] first, so each Ladder test starts with
+// a clean transcript.
 registerGameBuilder('ladder', overrides => {
   S.tx = [];
   Object.assign(S, overrides);
@@ -253,8 +252,8 @@ describe('Ladder — roulette advance prompt', () => {
   });
 });
 
-// ─── Pure Ladder resolver (PRD integrity Phase 2 · Candidate 02) ──────────────
-// The settled-run chip outcome tested through its interface — (outcome, bet, rung, free) → {delta,
+// ─── Pure Ladder resolver ──────────────────────────────────────────────────────
+// The settled-run chip outcome, called directly as (outcome, bet, rung, free) → {delta,
 // result}. No S, no DOM, no credit. Expected pots come from the pure ladPotAt so the test tracks the
 // real multiplier table.
 describe('resolveLadder — settled-run chip outcome (pure)', () => {
@@ -277,7 +276,7 @@ describe('resolveLadder — settled-run chip outcome (pure)', () => {
   });
 });
 
-// The credit mapping as pure data (Candidate 5): ladderAward is the only ledger that can carry a
+// The credit mapping as pure data: ladderAward is the only ledger builder that can produce a
 // debit (a staked crash). Zero is a no-op (a free-entry crash).
 describe('ladderAward — settlement ledger (pure)', () => {
   it('positive delta credits, negative delta debits, zero is a no-op', () => {

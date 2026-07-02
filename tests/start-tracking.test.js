@@ -143,13 +143,13 @@ describe('_submitStart — fetch payload when all guards pass', () => {
   it('does not call fetch a second time when called again (key set on first ok response)', () => {
     // After a successful submit the key is set asynchronously.
     // But if we manually set the key (simulating the async completion), a second
-    // call must be a no-op — this verifies the dedup contract end-to-end.
+    // call must be a no-op: this verifies the dedup behavior end-to-end.
     withLiveMode(() => {
       withFetchSpy(calls => {
         _submitStart();
         // Simulate the async setItem that runs after fetch resolves
         _ls.setItem(_startKey(), '1');
-        _submitStart(); // second call — key is now set
+        _submitStart(); // second call: key is now set
         assertEqual(calls.length, 1, 'second call should be skipped by dedup key');
       });
       _ls.removeItem(_startKey()); // cleanup

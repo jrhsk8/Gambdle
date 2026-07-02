@@ -1,8 +1,8 @@
 // ─── SUPABASE ADAPTER ─────────────────────────────────────────────────────────
-// The single seam to the backend. Every Supabase call — Edge Functions, RPCs, REST tables — goes
-// through here, so URL building, the default headers, the optional request timeout, and the
-// try/catch live in ONE place instead of being re-derived at every call site. PURE I/O: it never
-// reads or writes S, touches the DOM, or makes policy decisions. Per-site POLICY (the dev/test/
+// The single place that talks to the backend. Every Supabase call (Edge Functions, RPCs, REST
+// tables) goes through here, so URL building, the default headers, the optional request timeout,
+// and the try/catch live in ONE place instead of being re-derived at every call site. Pure I/O: it
+// never reads or writes S, touches the DOM, or makes policy decisions. Per-site policy (the dev/test/
 // backlog skips, the localStorage dedup, the local-draw fallbacks, which failure means what) stays
 // at the call site; this only answers "is the backend configured?" and "here's the Response, or
 // null if the request never completed."

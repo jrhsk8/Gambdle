@@ -1,12 +1,12 @@
-// ─── Layout DSL — codified intent + meta-tests ────────────────────────────────
+// ─── Layout DSL: codified intent + meta-tests ──────────────────────────────────
 // Two things live here:
-//  1. Real expectLayout() intent assertions, each self-gated to a binding Viewport. These lock
-//     in spacing/alignment beyond the bare "it fits" guarantee (e.g. the Deal button shares the
-//     bet box's left edge). They run inside the existing layout harness under `npm test`.
-//  2. Meta-tests proving every matcher is correct in BOTH directions — it passes on a layout that
-//     honours the intent and THROWS on one that violates it. The DSL is test infrastructure, so
-//     its own correctness is load-bearing. (makeBareL gives matchers that throw directly, so a
-//     meta-test can try/catch them; expectLayout wraps the same logic in it()s.)
+//  1. Real expectLayout() checks, each only running at one binding viewport. These lock in
+//     spacing/alignment beyond the bare "it fits" guarantee (e.g. the Deal button shares the bet
+//     box's left edge). They run inside the existing layout harness under `npm test`.
+//  2. Tests proving every matcher is correct in BOTH directions: it passes on a layout that
+//     honours the intent and THROWS on one that violates it. This file's own correctness matters
+//     a lot, since every layout check in the suite depends on it. (makeBareL gives matchers that
+//     throw directly, so a test here can try/catch them; expectLayout wraps the same logic in it()s.)
 // See tests/layout-dsl.js and PRD-ui-tweak-pipeline.md.
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ expectLayout('uth-showdown', '375x812', L => {
   L.fits();
 });
 
-// ─── Meta-tests: each matcher in both directions ──────────────────────────────
+// ─── Tests: each matcher in both directions ────────────────────────────────────
 describe('Layout DSL — matchers fire in both directions', () => {
   const $ = s => document.querySelector(s);
   const throws = fn => { try { fn(); return false; } catch (e) { return true; } };
@@ -95,7 +95,7 @@ describe('Layout DSL — matchers fire in both directions', () => {
   it('el().centered passes at container center, throws off-center', () => {
     fresh();
     const L = makeBareL('meta-center');
-    // A container is trivially centered within itself → the matcher must accept it.
+    // A container is trivially centered within itself, so the matcher must accept it.
     assert(!throws(() => L.el('.panel').centered('.panel')), 'centered should pass on a centered element');
     const chip = $('.chbtn');
     const oc = Math.abs(LayoutMeasure.centerDeltaWithin(chip, $('.panel')));
@@ -108,8 +108,8 @@ describe('Layout DSL — matchers fire in both directions', () => {
     const L = makeBareL('meta-fits');
     assert(!throws(() => L.fits()), 'fits() should pass on the rendered bet screen');
     // The real overflow detector (measureFit) is itself proven by the 8-viewport suite using this
-    // same code; here we feed fits() a deterministic over-tolerance measurement to prove its
-    // threshold logic fires.
+    // same code. Here we feed fits() a fake over-tolerance measurement to prove its threshold
+    // logic fires.
     const real = LayoutMeasure.measureFit;
     LayoutMeasure.measureFit = () => ({ ...real(), horizOver: 999 });
     try {
@@ -130,10 +130,10 @@ describe('Layout DSL — matchers fire in both directions', () => {
     fresh();
     const L = makeBareL('meta-overhang');
     // #db over .bet-amt is the real "Deal button overhangs the bet box" shape this matcher exists
-    // to name, so it must pass with no extra args (defaults: centered within .panel, widerThan by ≥1px).
+    // to name, so it must pass with no extra args (defaults: centered within .panel, widerThan by >=1px).
     assert(!throws(() => L.centeredOverhang('#db', '.bet-amt')), 'centeredOverhang should pass on the real Deal-button/bet-box pair');
     // Break just the "centered" half: an off-center element that IS wider than the baseline should
-    // still throw — proving the matcher isn't just re-checking widerThan alone.
+    // still throw. This proves the matcher isn't just re-checking widerThan alone.
     const chip = $('.chbtn');
     assert(throws(() => L.centeredOverhang('.chbtn', '.bet-amt')), 'centeredOverhang should throw when the element is not centered');
     // Break just the "wider" half: sameWidth-or-narrower should throw even though #db is centered.
@@ -141,10 +141,10 @@ describe('Layout DSL — matchers fire in both directions', () => {
   });
 });
 
-// ─── Meta-tests: the shared viewport gate ─────────────────────────────────────
+// ─── Tests: the shared viewport gate ───────────────────────────────────────────
 describe('Layout DSL — gateFor/matchesViewport', () => {
-  // These read the CURRENT page's real viewport rather than faking window.innerWidth/Height, so the
-  // meta-test stays honest about what size it actually runs at under any binding size in the suite.
+  // These read the CURRENT page's real viewport rather than faking window.innerWidth/Height, so
+  // this test stays honest about what size it actually runs at under any binding size in the suite.
   const here = `${window.innerWidth}x${window.innerHeight}`;
   const elsewhere = window.innerWidth === 1 && window.innerHeight === 1 ? '2x2' : '1x1';
 
@@ -166,8 +166,8 @@ describe('Layout DSL — gateFor/matchesViewport', () => {
   });
 
   it('expectLayout itself is a gateFor consumer: a call for a non-matching size registers no describe/it', () => {
-    // Regression guard for the extraction: expectLayout must route through the SAME gate rather than
-    // re-deriving its own innerWidth/Height check, so this proves the public entry point still skips.
+    // expectLayout must route through the SAME gate rather than doing its own innerWidth/Height
+    // check, so this proves the public entry point still skips correctly.
     let calledBack = false;
     expectLayout('bj-bet', elsewhere, () => { calledBack = true; });
     assert(calledBack === false, 'expectLayout callback should not run for a non-matching size');

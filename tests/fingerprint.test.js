@@ -1,4 +1,4 @@
-// Tests for getDeviceId() — the persistent anonymous device fingerprint.
+// Tests for getDeviceId(): the persistent anonymous device fingerprint.
 //
 // Each describe block saves and restores 'gambdle_device_id' so tests are isolated
 // from each other and from whatever ID the browser already has stored.
