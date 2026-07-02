@@ -177,6 +177,19 @@ describe('engine — BJ equivalence', () => {
     assertEqual(out.chips, expected, 'split+hit replay chips');
   });
 
+  it('skips a stray action recorded the beat a natural settles (regression: 2026-06-26 race)', () => {
+    // Old clients could log a tap landing as the natural auto-settled; the engine used to hard-reject
+    // (bj_act_after_natural). Skipping mirrors the ended-hand convention: the natural's settle is the
+    // outcome either way, and a run where the action really did something still surfaces as a chip
+    // mismatch. Player A,K = natural; dealer 9,7 draws the 5 to 21 — natural still wins 3:2.
+    const deal = { bjShoe: [{r:'A',s:'♠'},{r:'K',s:'♥'},{r:'9',s:'♦'},{r:'7',s:'♣'},{r:'5',s:'♥'}],
+                   pokerDecks: [], uthDeck: [], ladderCards: [], rSpinOverride: null };
+    const out = replayRun(1, {}, [
+      {g:'bj',a:'deal',h:0,bet:100}, {g:'bj',a:'stand',h:0,s:0},
+    ], { deal });
+    assertEqual(out.chips, 1150, 'natural pays 3:2 despite the stray stand');
+  });
+
   it('bj_two_hands (Double Vision) fresh-deck deal + pick replays identically', () => {
     _resetRun(); const mods=_modsFor('bj_two_hands');
     // Each hand deals two candidate hands from a fresh per-hand deck (the shared shoe is untouched);
@@ -331,10 +344,14 @@ describe('engine — legality rejection', () => {
   it('rejects betting more than the stack holds', () => {
     rejects('bj_overbet', () => replayRun(1, {}, [{g:'bj',a:'deal',h:0,bet:5000}], { deal: emptyDeal() }));
   });
-  it('rejects acting after a natural', () => {
+  it('skips (not rejects) an action recorded after a natural — the settle stands', () => {
+    // Was a hard bj_act_after_natural rejection; relaxed 2026-07-01 to the ended-hand skip
+    // convention (see _replayBJHand) after 12 honest celebration-race flags on 2026-06-26.
+    // The stray hit draws nothing and moves nothing: the natural still pays 3:2.
     const deal = { bjShoe:[{r:'A',s:'♠'},{r:'K',s:'♦'},{r:'2',s:'♥'},{r:'7',s:'♣'},{r:'9',s:'♠'}],
                    pokerDecks:[], uthDeck:[], ladderCards:[], rSpinOverride:null };
-    rejects('bj_act_after_natural', () => replayRun(1, {}, [{g:'bj',a:'deal',h:0,bet:100},{g:'bj',a:'hit',h:0,s:0}], { deal }));
+    const out = replayRun(1, {}, [{g:'bj',a:'deal',h:0,bet:100},{g:'bj',a:'hit',h:0,s:0}], { deal });
+    assertEqual(out.chips, 1150, 'natural settle unchanged by the stray hit');
   });
   it('rejects a second borrow', () => {
     rejects('double_borrow', () => replayRun(1, {}, [{g:'sys',a:'borrow',amt:50},{g:'sys',a:'borrow',amt:50}], {}));

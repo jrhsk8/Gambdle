@@ -151,9 +151,14 @@ function _replayBJHand(tx, i, deal, mod, acct, addNet, st, seed){
   const bjMult = Rbj.payout;
   const pBJ = isBJ(player), dBJ0 = isBJ(dealer);
 
-  // Naturals end the hand before the player can act.
+  // Naturals end the hand before the player can act. Stray recorded actions are SKIPPED, not
+  // rejected — same leniency as the ended-hand path below and for the same reason: the client can
+  // log a tap landing the same beat the natural auto-settles (12 honest players hit this on
+  // 2026-06-26), the events draw no cards and move no chips here, and the outcome is already fixed
+  // as the natural settle. If a client ever ACTED on a natural for real, its submitted chips would
+  // diverge from this settle and surface as a replay mismatch — so skipping can't hide an inflated
+  // score. (The gather loop above already consumed the events; there is nothing to do with them.)
   if(dBJ0 || pBJ){
-    if(actions.length) _replayFail('bj_act_after_natural');
     // Dealer blackjack settles on the two up-cards (no draw). A player blackjack with a non-BJ
     // dealer STILL draws the dealer to 17+ (bjResolve does), consuming the shoe — pin that here.
     if(!dBJ0){ let dv = hVal(dealer); while(dv < stand17){ dealer.push(draw()); dv = hVal(dealer); } }
