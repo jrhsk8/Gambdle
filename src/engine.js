@@ -561,7 +561,7 @@ function replayRun(seed, modifiers, transcript, opts = {}){
   const acct = _engAcct();
   const net = { bj: 0, uth: 0, pk: 0, r: 0, lad: 0 };
   const addNet = (slot, delta) => { net[slot] += delta; };
-  let borrowed = false, borrowAmount = 0, picked = false;
+  let borrowed = false, borrowAmount = 0, picked = false, debtApplied = 0;
 
   const bjSt = { idx: 0, hand: 0 };
   const uthSt = { hand: 0, redealPtr: 27, ttUsed: false };
@@ -579,6 +579,13 @@ function replayRun(seed, modifiers, transcript, opts = {}){
         if(borrowed) _replayFail('double_borrow');
         borrowed = true; borrowAmount = e.amt | 0;
         acct.chips = borrowAmount; // borrowChips() does S.chips = amt (the busted stack was ~0)
+      } else if(e.a === 'debt'){
+        // Prior-day borrow debt, logged by loadState when it deducts the loan from the day's
+        // starting stack. Mirror the deduction on the live balance (bet-cap legality) and in the
+        // final score below, or the replay would restore the 50 the player never had.
+        if(debtApplied) _replayFail('double_debt');
+        debtApplied = e.amt | 0;
+        acct.chips = Math.max(0, acct.chips - debtApplied);
       } else if(e.a === 'pick'){
         if(picked) _replayFail('double_pick');
         picked = true; // `modifiers` is already pick-resolved by the caller; nothing to apply
@@ -590,8 +597,8 @@ function replayRun(seed, modifiers, transcript, opts = {}){
     else i++; // unknown event · skip
   }
 
-  // Authoritative score, recomputed exactly like recalcChips(): START + borrow + every round's net.
-  const chips = START_CHIPS + (borrowed ? (borrowAmount || BORROW_AMOUNT) : 0)
+  // Authoritative score, recomputed exactly like recalcChips(): START − debt + borrow + every round's net.
+  const chips = START_CHIPS - debtApplied + (borrowed ? (borrowAmount || BORROW_AMOUNT) : 0)
     + net.bj + net.uth + net.pk + net.r + net.lad;
   const slotNet = k => net[GAMES[k]?.txKey] ?? 0;
   return { chips, g1Net: slotNet(GAME1), g2Net: slotNet(GAME2), rNet: net.r, ladNet: net.lad };

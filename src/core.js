@@ -18,7 +18,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.88';
+const GAME_VERSION = 'v1.89';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -487,6 +487,7 @@ let S={
   borrowUsed: false,        // true once the daily borrow option has been taken or declined
   borrowAmount: 0,          // actual chips borrowed (may exceed BORROW_AMOUNT under min_chips modifier)
   borrowReturnScreen: null, // screen to navigate to after borrowing chips
+  debtApplied: 0,           // prior-day borrow debt deducted from today's starting stack at load; recalcChips subtracts it so the results recompute can't hand the loan back
   pcPick: null,             // Player's Choice: the chosen modifier key once committed (null until picked)
 };
 
@@ -672,10 +673,11 @@ function loadState() {
 
     // Migrate: old saves used 'poker' as a generic game-2 screen key; now it means 5-card poker specifically.
     if (S.screen === 'poker' && GAME2 !== 'poker') S.screen = GAME2;
-    // Guard: if no game has been started at all, chips must equal START_CHIPS regardless of saved value.
+    // Guard: if no game has been started at all, chips must equal the day's starting stack
+    // (START_CHIPS minus any applied borrow debt) regardless of saved value.
     const _noProg = !S.bjHistory.length && !S.uthHistory.length && !S.pkHistory.length
                  && S.rResult === null && S.bjBet === 0 && S.uthAnte === 0 && S.pkBet === 0 && !S.rBets.length;
-    if (_noProg) S.chips = START_CHIPS;
+    if (_noProg) S.chips = Math.max(0, START_CHIPS - (S.debtApplied || 0));
     // Guard: for completed runs, recompute chips from recorded history so stale saves can't inflate scores.
     // Fall back to the saved value if the calculation is non-finite (corrupted history entries).
     // Borrowed chips count as part of the effective starting stack for this calculation.
@@ -702,11 +704,19 @@ function loadState() {
             if (debt.targetSeed === getDailySeed()) {
               // Clamp at 0 so a corrupted/oversized debt can't seed the day with a negative balance.
               S.chips = Math.max(0, START_CHIPS - debt.amount);
+              // Remember the deduction in the run state and the Transcript: recalcChips and the
+              // server replay both rebuild the score from START_CHIPS, so without these the results
+              // recompute would quietly hand the loan back (busted players ended on 50, not 0).
+              S.debtApplied = debt.amount;
+              tx('sys', 'debt', { amt: debt.amount });
             }
             // Clear once the target day has arrived or passed (expired or consumed).
             if (getDailySeed() >= debt.targetSeed) {
               _ls.removeItem('gambdle_borrow_debt');
             }
+            // The debt key is consumed above; persist immediately, or a reload before the first
+            // in-game save would restart the day at the full START_CHIPS with the debt gone.
+            if (S.debtApplied) saveState();
           }
         }
       } catch {

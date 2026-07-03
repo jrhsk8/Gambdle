@@ -249,13 +249,66 @@ describe('loadState — applies borrow debt only on the exact target day', () =>
     _ls.removeItem('gambdle_use_test_seed');
     _ls.removeItem(getStateKey());
     S.chips = START_CHIPS;
+    S.debtApplied = 0;
+    S.tx = [];
     try {
       loadState();
       assertEqual(S.chips, START_CHIPS - BORROW_AMOUNT, 'debt targeting today should deduct chips');
       assert(!_ls.getItem('gambdle_borrow_debt'), 'consumed debt should be cleared');
+      assertEqual(S.debtApplied, BORROW_AMOUNT, 'applied debt should be remembered in S');
+      const e = S.tx[S.tx.length - 1] || {};
+      assert(e.g === 'sys' && e.a === 'debt' && e.amt === BORROW_AMOUNT, 'debt should be logged in the Transcript');
+      assert(!!_ls.getItem(getStateKey()), 'debt application should be saved immediately (a reload must not restart at full START_CHIPS)');
     } finally {
+      _ls.removeItem(getStateKey()); // remove the immediate save while the real (non-test) key is still active
       _ls.setItem('gambdle_use_test_seed', '1');
       _ls.removeItem('gambdle_borrow_debt');
+      _brwRestore();
+    }
+  });
+
+  it('recalcChips keeps the debt deducted: a busted debt-day run recomputes to 0, not 50', () => {
+    // The reported bug: loadState deducted the debt from S.chips only, so the results-screen
+    // recompute (recalcChips) handed the loan back and busted players scored 50 instead of 0.
+    withBrwState({
+      debtApplied: BORROW_AMOUNT, borrowUsed: false, borrowAmount: 0,
+      bjHistory: [{ slot: 'bj', bet: 950, result: 'lose', delta: -(START_CHIPS - BORROW_AMOUNT), player: [], dealer: [] }],
+      uthHistory: [], pkHistory: [], rResult: null, ladResult: null,
+    }, () => {
+      assertEqual(recalcChips(), 0, 'recompute must not hand the debt back');
+    });
+  });
+
+  it('loadState results-screen recompute keeps the debt', () => {
+    const base = JSON.parse(_brwSnap);
+    Object.assign(base, {
+      screen: 'results', chips: 0, debtApplied: BORROW_AMOUNT, borrowUsed: false, borrowAmount: 0,
+      bjHistory: [{ slot: 'bj', bet: 950, result: 'lose', delta: -(START_CHIPS - BORROW_AMOUNT), player: [], dealer: [] }],
+      uthHistory: [], pkHistory: [], rResult: null, ladResult: null,
+    });
+    _ls.setItem(getStateKey(), JSON.stringify(base));
+    try {
+      loadState();
+      assertEqual(S.chips, 0, 'a saved busted debt-day run must reload as 0, not 50');
+    } finally {
+      _ls.removeItem(getStateKey());
+      _brwRestore();
+    }
+  });
+
+  it('no-progress reload keeps the debt-adjusted starting stack', () => {
+    const base = JSON.parse(_brwSnap);
+    Object.assign(base, {
+      screen: 'intro', chips: START_CHIPS - BORROW_AMOUNT, debtApplied: BORROW_AMOUNT,
+      bjHistory: [], uthHistory: [], pkHistory: [], rResult: null, ladResult: null,
+      bjBet: 0, uthAnte: 0, pkBet: 0, rBets: [],
+    });
+    _ls.setItem(getStateKey(), JSON.stringify(base));
+    try {
+      loadState();
+      assertEqual(S.chips, START_CHIPS - BORROW_AMOUNT, 'the fresh-save guard must not reset a debtor to full START_CHIPS');
+    } finally {
+      _ls.removeItem(getStateKey());
       _brwRestore();
     }
   });

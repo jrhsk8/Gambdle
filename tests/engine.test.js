@@ -358,6 +358,13 @@ describe('engine: legality rejection', () => {
   it('rejects a second borrow', () => {
     rejects('double_borrow', () => replayRun(1, {}, [{g:'sys',a:'borrow',amt:50},{g:'sys',a:'borrow',amt:50}], {}));
   });
+  it('rejects a second prior-day debt event', () => {
+    rejects('double_debt', () => replayRun(1, {}, [{g:'sys',a:'debt',amt:50},{g:'sys',a:'debt',amt:50}], {}));
+  });
+  it('prior-day debt deducts from the replayed score, matching recalcChips', () => {
+    const out = replayRun(1, {}, [{g:'sys',a:'debt',amt:50}], {});
+    assertEqual(out.chips, START_CHIPS - 50, 'a debt-day run starts (and here ends) 50 short');
+  });
   it('rejects a forged Double-Vision pick on a non-mod day', () => {
     // A 'pick' event is only legal under bj_two_hands; on an ordinary hand it's an illegal action.
     rejects('bj_bad_pick', () => replayRun(1, {}, [{g:'bj',a:'deal',h:0,bet:100},{g:'bj',a:'pick',h:0,s:0}], { deal: emptyDeal() }));

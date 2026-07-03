@@ -57,14 +57,16 @@ function gameNet(g){ return gameHistory(g).reduce((a,h)=>a+(Number.isFinite(h.de
 // future server replay iterate, with no per-game special-casing.
 function settledOutcomes(){ return [...gameHistory(GAME1), ...gameHistory(GAME2), ...(S.rResult ? [S.rResult] : []), ...(S.ladResult ? [S.ladResult] : [])]; }
 // Recomputes the run's chip total from recorded history, so a stale or edited save can't inflate a
-// score. Borrowed chips count as part of the effective starting stack. Returns NaN if history is
-// corrupt; callers fall back to the saved value. The single place loadState and advanceTo get this from.
+// score. Borrowed chips count as part of the effective starting stack; a prior-day borrow debt
+// (S.debtApplied, set by loadState) shrinks it, or a player who busted to 0 after a debt day would
+// get the loan handed back here and score 50 instead of 0. Returns NaN if history is corrupt;
+// callers fall back to the saved value. The single place loadState and advanceTo get this from.
 // Credit only the borrow actually taken: borrowChips() sets S.borrowAmount (>= BORROW_AMOUNT);
 // declineBorrow() also sets borrowUsed (to gate the re-prompt and the ladder detour) but takes no
 // loan, leaving borrowAmount 0. So a declined "Accept defeat" must add 0, not fall back to
 // BORROW_AMOUNT: otherwise giving up hands out a free 50 that the Transcript never records, and the
 // server replay (which only sees logged borrows) would disagree with the client.
-function recalcChips(){ return START_CHIPS + (S.borrowUsed ? S.borrowAmount : 0) + settledOutcomes().reduce((a,r)=>a+(Number.isFinite(r.delta)?r.delta:0),0); }
+function recalcChips(){ return START_CHIPS - (S.debtApplied || 0) + (S.borrowUsed ? S.borrowAmount : 0) + settledOutcomes().reduce((a,r)=>a+(Number.isFinite(r.delta)?r.delta:0),0); }
 // Upgrades pre-v1.42 settled records to the canonical {slot,result,...} shape on load. Score is
 // unaffected (delta was always present and is what recalcChips reads); this keeps the result-screen
 // readers, which now use the unified `result` field (ladder's old `outcome`), working for a run
@@ -101,7 +103,7 @@ const TX_SHAPE = {
   pk:  { skip:[], deal:['bet'], draw:['held'] },
   lad: { stake:['v'], hi:[], lo:[], cash:[] },
   r:   { skip:[], spin:['bets'], keep:[] },
-  sys: { borrow:['amt'], pick:['mod'] },
+  sys: { borrow:['amt'], pick:['mod'], debt:['amt'] },
 };
 function _validateTx(e){
   if(!e || typeof e !== 'object') throw new Error(`txLog: event must be an object, got ${e}`);

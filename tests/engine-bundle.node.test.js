@@ -90,6 +90,11 @@ async function run() {
   // ── LEGALITY: illegal events abort with the expected machine reason ──
   await throws('bj_overbet', () => replayRun(rngSeed, null, [{ g: 'bj', a: 'deal', h: 0, bet: 999999 }], {}), 'bj_overbet');
   await throws('double_borrow', () => replayRun(rngSeed, null, [{ g: 'sys', a: 'borrow', amt: 50 }, { g: 'sys', a: 'borrow', amt: 50 }], {}), 'double_borrow');
+  await throws('double_debt', () => replayRun(rngSeed, null, [{ g: 'sys', a: 'debt', amt: 50 }, { g: 'sys', a: 'debt', amt: 50 }], {}), 'double_debt');
+  {
+    const r = replayRun(rngSeed, null, [{ g: 'sys', a: 'debt', amt: 50 }], {});
+    ok('prior-day debt → START − 50', r.chips === 950, JSON.stringify(r));
+  }
   await throws('r_no_words', () => replayRun(rngSeed, null, [{ g: 'r', a: 'spin', bets: [[0, 10]] }], {}), 'r_no_words');
   await throws('lad_cash_norung', () => replayRun(rngSeed, null, [{ g: 'lad', a: 'stake', v: 100 }, { g: 'lad', a: 'cash' }], {}), 'lad_cash_norung');
 
