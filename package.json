@@ -6,7 +6,8 @@
     "screenshots": "node tests/harness/screenshots.js",
     "screenshots:windows": "node tests/harness/window-screenshots.js",
     "lab": "node lab/lab-serve.js",
-    "lab:smoke": "node tests/harness/lab-smoke.js"
+    "lab:smoke": "node tests/harness/lab-smoke.js",
+    "audit:balance": "node tests/harness/balance-audit.js"
   },
   "devDependencies": {
     "playwright": "^1.60.0"

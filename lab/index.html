@@ -44,6 +44,7 @@
     .cell { }
     .cell .cap { font-size: 11px; color: #9a9; margin: 0 0 4px; }
     .cell .frame-box { margin: 0; }
+    .bal-badge { position: absolute; top: 2px; right: 2px; font: bold 11px monospace; padding: 1px 5px; background: #000c; border-radius: 3px; }
   </style>
 </head>
 <body>
@@ -58,6 +59,7 @@
     <label>Modifier <select id="sel-mod"></select></label>
     <label title="Every Screen at the chosen size"><input type="checkbox" id="cb-gallery"> Gallery</label>
     <label title="This Screen at every binding size"><input type="checkbox" id="cb-sizes"> All sizes</label>
+    <label title="Overlay dead-space bands + a 0-100 balance score on each frame (higher = worse)"><input type="checkbox" id="cb-balance"> Balance</label>
     <span class="spacer"></span>
     <span class="hint">live-reloads on styles.css / src/ edits</span>
   </div>
@@ -73,7 +75,7 @@
     const SIZES = ['360x780', '375x812', '393x852', '1024x1080', '1280x800', '1440x900', '1920x1080', '2560x1440', '3840x2160'];
     const $ = id => document.getElementById(id);
     const screenSel = $('sel-screen'), sizeSel = $('sel-size'), modSel = $('sel-mod'),
-          galleryCb = $('cb-gallery'), sizesCb = $('cb-sizes'),
+          galleryCb = $('cb-gallery'), sizesCb = $('cb-sizes'), balanceCb = $('cb-balance'),
           custom = $('custom'), cw = $('cw'), ch = $('ch'), stage = $('stage');
 
     // If the registry / preset scripts didn't load, say so clearly instead of showing an empty UI.
@@ -113,12 +115,14 @@
         mod: q.get('mod') ?? '',
         gallery: q.get('gallery') === '1',
         sizes: q.get('sizes') === '1',
+        balance: q.get('balance') === '1',
       };
     }
     function writeState(st) {
       const q = new URLSearchParams();
       q.set('fixture', st.fixture); q.set('size', st.size); if (st.mod) q.set('mod', st.mod);
       if (st.gallery) q.set('gallery', '1'); if (st.sizes) q.set('sizes', '1');
+      if (st.balance) q.set('balance', '1');
       history.replaceState(null, '', '?' + q.toString());
     }
 
@@ -129,6 +133,7 @@
     function frameURL(fixture, size, mod) {
       const q = new URLSearchParams({ fixture, size });
       if (mod) q.set('mod', mod);
+      if (balanceCb.checked) q.set('balance', '1');
       return 'frame.html?' + q.toString(); // relative to this page (/lab/) — works served or via file://
     }
 
@@ -148,6 +153,26 @@
       ifr.style.transform = `scale(${scale})`;
       box.appendChild(ifr);
       if (showTag) { const t = document.createElement('div'); t.className = 'size-tag'; t.textContent = `${size}${scale < 1 ? ` · ${Math.round(scale * 100)}%` : ''}`; box.appendChild(t); }
+      // Balance badge: poll the frame for its published score and pin it on the thumbnail so
+      // Gallery / All-sizes read as a heatmap. Same-origin only (served lab); silently absent
+      // when the iframe is unreadable (file:// origin rules) — the in-frame overlay still shows.
+      if (balanceCb.checked) {
+        ifr.addEventListener('load', () => {
+          let tries = 0;
+          const poll = setInterval(() => {
+            let r = null;
+            try { r = ifr.contentWindow.__BALANCE__; } catch (e) { clearInterval(poll); return; }
+            if (r) {
+              clearInterval(poll);
+              const b = document.createElement('div');
+              b.className = 'bal-badge';
+              b.style.color = r.score >= 50 ? '#ff5c8a' : r.score >= 25 ? '#e8c35a' : '#7c6';
+              b.textContent = r.score + (r.flags.length ? ' ' + r.flags.join(',') : '');
+              box.appendChild(b);
+            } else if (++tries > 40) clearInterval(poll);
+          }, 300);
+        });
+      }
       return box;
     }
 
@@ -167,7 +192,7 @@
     }
 
     function render() {
-      const st = { fixture: screenSel.value, size: currentSize(), mod: modSel.value, gallery: galleryCb.checked, sizes: sizesCb.checked };
+      const st = { fixture: screenSel.value, size: currentSize(), mod: modSel.value, gallery: galleryCb.checked, sizes: sizesCb.checked, balance: balanceCb.checked };
       writeState(st);
       custom.classList.toggle('hidden', sizeSel.value !== 'custom');
       stage.innerHTML = '';
@@ -212,12 +237,13 @@
     modSel.value = st0.mod;
     galleryCb.checked = st0.gallery && !st0.sizes;
     sizesCb.checked = st0.sizes;
+    balanceCb.checked = st0.balance;
 
     // The two gallery modes are mutually exclusive — ticking one unticks the other.
     galleryCb.addEventListener('change', () => { if (galleryCb.checked) sizesCb.checked = false; });
     sizesCb.addEventListener('change', () => { if (sizesCb.checked) galleryCb.checked = false; });
 
-    [screenSel, sizeSel, modSel, galleryCb, sizesCb, cw, ch].forEach(el => el.addEventListener('change', render));
+    [screenSel, sizeSel, modSel, galleryCb, sizesCb, balanceCb, cw, ch].forEach(el => el.addEventListener('change', render));
     [cw, ch].forEach(el => el.addEventListener('input', () => { if (sizeSel.value === 'custom') render(); }));
     // The single-frame view and the All-sizes fit-grid both scale to the window; the Gallery uses
     // fixed thumbnails (no re-fit). All-sizes is debounced since re-rendering reloads its iframes.

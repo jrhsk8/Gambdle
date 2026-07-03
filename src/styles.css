@@ -442,6 +442,9 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
 .pc-head { font-family: var(--btn-f); font-size: 2rem; letter-spacing: 0.12em; color: var(--gold-hi); margin: 12px 0 4px; line-height: 1.05; }
 .pc-sub  { font-size: 1.2rem; color: var(--cream); opacity: 0.72; margin-bottom: 16px; }
 .pc-grid { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+/* Center the (short) picker vertically at every size; the screen never carries a
+   modifier banner (the pick IS the modifier), so nothing needs to stay pinned on top. */
+.pc-panel { justify-content: center; }
 .pc-option {
   display: flex; flex-direction: row; align-items: center; gap: 16px;
   padding: 18px 20px; cursor: pointer; text-align: left;
@@ -462,10 +465,9 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
   .pc-icon { font-size: 2.1rem; }
   .pc-title { font-size: 1.55rem; }
 }
-/* Desktop: lots of room, center the (short) picker vertically and go big on the header
-   and bars so they fill the window like substantial buttons. */
+/* Desktop: lots of room, go big on the header and bars so they fill the window like
+   substantial buttons. */
 @media (min-width: 1024px) {
-  .pc-panel { justify-content: center; }
   .pc-head { font-size: 3.4rem; letter-spacing: 0.18em; margin-bottom: 10px; }
   .pc-sub { font-size: 1.5rem; margin-bottom: 28px; }
   .pc-grid { gap: 18px; }
@@ -473,6 +475,28 @@ body.theme-green  { --title-grad: linear-gradient(180deg, #2ba868 0%, #1d8050 36
   .pc-icon { font-size: 3.4rem; }
   .pc-title { font-size: 2.3rem; }
   .pc-desc { font-size: 1.45rem; }
+}
+
+/* ── Balance anchors: borrow dialog + roulette result ─────────────────────────
+   Auto margins on a flex-column .panel distribute leftover felt at the marked seams
+   (the modifier banner, always the panel's first child, stays pinned to the top).
+   Borrow: center the whole dialog block. Roulette result: number + headline stay up
+   top, the payout rows center in the slack, and the advance button ends
+   bottom-anchored, mirroring the card games' result screens. The !importants beat
+   the elements' inline margins, which would otherwise silently win. */
+.borrow-panel > .borrow-ico { margin-top: auto !important; }
+.borrow-panel > .ch-clear:last-child { margin-bottom: auto; }
+.r-result-panel > .game-manifest { margin-top: auto !important; margin-bottom: auto !important; }
+
+/* Desktop: the borrow dialog is sparse on a tall panel; scale its type and spacing up
+   so the centered block reads as a substantial dialog rather than a lost strip. */
+@media (min-width: 1024px) {
+  .borrow-panel > .borrow-ico { font-size: 3.6rem !important; }
+  .borrow-panel .result-hl { font-size: 3.2rem; }
+  .borrow-panel .result-sub { font-size: 1.6rem; }
+  .borrow-panel > div[style*="line-height"] { font-size: 1.5rem !important; padding-bottom: 20px !important; }
+  .borrow-panel > .btn-gold { padding-top: 16px; padding-bottom: 16px; }
+  .borrow-panel > .ch-clear:last-child { margin-top: 18px !important; }
 }
 
 /* ── Cards: Balatro-readable ──────────────────────────── */
@@ -694,7 +718,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   display: flex; flex-direction: column; align-items: center;
   gap: 4px; width: 100%;
 }
-.uth-pt-wrap #uth-pt-head { margin: 0; }            /* caption sits right under the box */
+.uth-pt-wrap #uth-pt-head { margin: 0; text-align: center; } /* caption sits right under the box, centered */
 /* Compact + inlaid (recessed): a small, sunken pay table keeps the centre of the UTH bet screen open
    to breathe. Per-breakpoint font/padding are shrunk in the desktop @media blocks below. */
 .panel:has(#uth-summary) .ptable { width: 100%; max-width: 320px;
@@ -1497,17 +1521,23 @@ body.cardback-whale .card.back::before { content: '🐋'; }
              box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--highlight);
              padding: 4px 10px; box-sizing: border-box; line-height: 1.15; text-align: center;
              display: flex; align-items: center; justify-content: center; }
-.lad-cards { min-height: 124px; display: flex; justify-content: center; gap: 16px;
+/* flex:1 makes the card pair the slack absorber (cards stay vertically centered in
+   whatever height is spare), so leftover panel height never pools below the buttons. */
+.lad-cards { min-height: 124px; flex: 1 0 auto; display: flex; justify-content: center; gap: 16px;
              align-items: center; }
-.lad-cards .card { width: 88px; height: 124px; }
-.lad-cards .card .csuit { font-size: 3.2rem; }
-.lad-cards .card .ct-r  { font-size: 1.25rem; }
-.lad-cards .card .ct-s  { font-size: 1rem; }
+.lad-cards .card.md { width: 88px; height: 124px; }
+.lad-cards .card.md .csuit { font-size: 3.2rem; }
+.lad-cards .card.md .ct-r  { font-size: 1.25rem; }
+.lad-cards .card.md .ct-s  { font-size: 1rem; }
 .lad-msg   { min-height: 32px; font-size: 1.05rem; color: var(--cream); opacity: .9; }
 /* Action zone: fixed height, contents bottom-anchored so the primary button
    (Free Entry / Cash Out / See Results) sits at the SAME Y in every phase and
-   never jumps; Higher/Lower then lines up with the bet row above it. */
-.lad-act   { min-height: 190px; display: flex; flex-direction: column; }
+   never jumps; Higher/Lower then lines up with the bet row above it. margin-top:auto
+   pins the zone to the panel bottom (same control-position anchor as the other games)
+   whenever .lad-cards is already at its minimum. */
+/* gap matches the .panel column gap, so the chips → bet row → button spacing inside the
+   zone lines up with the other games' bet screens, where those are direct panel children. */
+.lad-act   { min-height: 190px; margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
 .lad-act > *:first-child { margin-top: auto; }
 .lad-hl { font-family: var(--btn-f); font-size: 1.7rem; letter-spacing: .06em; color: var(--gold-hi); }
 .lad-hl-bad  { color: #ff8a80; }
@@ -1544,14 +1574,35 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .lad-read  { height: 72px; margin: 14px auto 16px; gap: 12px; }
   .lad-read-box { font-size: 1.6rem; padding: 6px 14px; }
   .lad-cards { min-height: 184px; gap: 32px; }
-  .lad-cards .card { width: 124px; height: 174px; }
-  .lad-cards .card .csuit { font-size: 4.4rem; }
-  .lad-cards .card .ct-r  { font-size: 1.55rem; }
-  .lad-cards .card .ct-s  { font-size: 1.2rem; }
+  .lad-cards .card.md { width: 124px; height: 174px; }
+  .lad-cards .card.md .csuit { font-size: 4.4rem; }
+  .lad-cards .card.md .ct-r  { font-size: 1.55rem; }
+  .lad-cards .card.md .ct-s  { font-size: 1.2rem; }
   .lad-msg   { min-height: 44px; font-size: 1.4rem; }
   .lad-act   { min-height: 210px; }
   .lad-call-row { gap: 18px; margin-bottom: 16px; }
   .lad-call, .lad-btn-big { font-size: 1.6rem; padding: 18px 0; }
+}
+
+/* Short desktop (1280×800 / 1440×900): the full desktop sizes above overflow the fixed
+   window and push the Deal/Cash Out button below the fold, so step every zone partway
+   back toward the mobile scale. */
+@media (min-width: 1024px) and (max-height: 959px) {
+  .lad-head  { min-height: 40px; }
+  .lad-hl    { font-size: 1.9rem; }
+  .lad-strip { gap: 5px; margin: 8px 0; }
+  .lad-rung  { flex-basis: 52px; font-size: 1.05rem; padding: 7px 0 6px; }
+  .lad-read  { height: 60px; margin: 8px auto 10px; }
+  .lad-read-box { font-size: 1.35rem; }
+  .lad-cards { min-height: 148px; gap: 24px; }
+  .lad-cards .card.md { width: 106px; height: 148px; }
+  .lad-cards .card.md .csuit { font-size: 3.8rem; }
+  .lad-cards .card.md .ct-r  { font-size: 1.3rem; }
+  .lad-cards .card.md .ct-s  { font-size: 1rem; }
+  .lad-msg   { min-height: 36px; font-size: 1.15rem; }
+  .lad-act   { min-height: 170px; }
+  .lad-call-row { gap: 12px; margin-bottom: 10px; }
+  .lad-call, .lad-btn-big { font-size: 1.25rem; padding: 10px 0; }
 }
 
 /* ── Mobile / small screen ──────────────────────────────── */
@@ -1825,6 +1876,17 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      via npm run test:webkit. */
   /* BJ result (non-split): tighten the inline dealer/player stack + shrink result cards. */
   .panel > div[style*="gap:16px"] { gap: 6px !important; margin-bottom: 4px !important; }
+  /* Result screens (BJ result, UTH fold/showdown): distribute leftover felt evenly between
+     the headline, the hands stack, and the bottom cluster, instead of pooling it all in one
+     band above the Total box. Desktop gets the same treatment in its ≥880-height tier. */
+  .uth-result-panel > .result-head,
+  .panel:has(> div[style*="gap:16px"]) > .result-head { margin-top: auto; }
+  .uth-result-panel > .uth-cards-col { margin-top: auto; margin-bottom: auto; }
+  .panel > div[style*="gap:16px"] { margin-top: auto !important; margin-bottom: auto !important; }
+  /* …and drop the control cluster's own auto margin here, so the gap above the Total box
+     gets ONE share of the slack like every other gap, not two. */
+  .uth-result-panel > .game-controls:last-child,
+  .panel:has(> div[style*="gap:16px"]) > .game-controls:last-child { margin-top: 0; }
   .panel > div[style*="gap:16px"] .card.sm { width: 48px; height: 68px; }
   .panel > div[style*="gap:16px"] .hand-val { font-size: 1.4rem !important; }
   /* Tiny result/summary cards (UTH showdown, BJ split & multi-hand results, non-split
@@ -1849,6 +1911,10 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .uth-bet-chip { padding: 4px 14px !important; }
   /* Roulette placed bets: compact list and spin button */
   #db { margin: 3px 0 !important; }
+  /* Center the selection box + bets zone inside the bet screen's slack spacer, so the
+     leftover felt splits above and below instead of pooling in one band over the chips.
+     Mobile only: the desktop pixel-parity assertions pin the spacer's top layout. */
+  .r-bet-center { justify-content: center; }
   /* Hide the "Roulette · " / etc. prefix on mobile: title bar already shows the game */
   .sec-game-prefix { display: none; }
   .r-bets-zone .rbz-title { font-size: 1.3rem; padding-bottom: 4px; }

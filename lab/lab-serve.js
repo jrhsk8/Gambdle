@@ -81,6 +81,9 @@ try { fs.watch(path.join(ROOT, 'src', 'styles.css'), onChange); } catch (e) {}
 watch(path.join(ROOT, 'src'));
 watch(path.join(ROOT, 'lab'));
 watch(path.join(ROOT, 'tests', 'harness', 'screen-fixtures.js'));
+watch(path.join(ROOT, 'tests', 'harness', 'balance-roles.js'));
+watch(path.join(ROOT, 'tests', 'harness', 'balance-metrics.js'));
+watch(path.join(ROOT, 'tests', 'harness', 'layout-measure.js'));
 
 server.listen(PORT, () => {
   console.log(`\n  ♣  Gambdle UI Lab  →  http://localhost:${PORT}/\n`);

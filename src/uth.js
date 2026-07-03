@@ -603,10 +603,10 @@ function screenUTH(){
 
   if(ph==='reveal'){
     return `${hdr("Ultimate Texas Hold'em · Dealer Reveals")}
-    <div class="panel">
+    <div class="panel" style="text-align:center">
       <div id="${DOM.uthDotsContainer}">${gameDots(S.uthHistory.slice(0,-1),S.uthHand-1,'reveal')}</div>
       <div class="divider"></div>
-      <div style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-bottom:12px">
+      <div style="display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;flex:1;margin-bottom:12px">
         <div>
           <div class="sec sec-sm">Dealer</div>
           <div class="hand" style="justify-content:center">${renderCards(S.uthDealer,'md',0,0.9,0.1)}</div>
@@ -618,7 +618,10 @@ function screenUTH(){
           <div class="hand" style="justify-content:center">${renderCards(S.uthHole,'md')}</div>
         </div>
       </div>
-      ${gameControls(betInlaySum(uthBetSummary(),DOM.uthBetInlay), '')}
+      ${gameControls(betInlaySum(uthBetSummary(),DOM.uthBetInlay),
+        // Invisible stand-in for the street action row: keeps the inlay box at the exact
+        // same Y as preflop/flop/turn so nothing jumps during the 2.3s reveal animation.
+        `<div class="act-btns"><button class="act-btn" style="visibility:hidden" tabindex="-1" aria-hidden="true">·</button></div>`)}
     </div>`;
   }
 

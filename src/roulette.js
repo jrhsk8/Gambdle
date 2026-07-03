@@ -380,7 +380,7 @@ function _betDisplay(b){
 // Winning-number tile(s) + name line for the result/respin screens. Double Ball shows both balls.
 function rResultNumsHTML(){
   const nums=S.rSpin2!=null?[S.rSpin,S.rSpin2]:[S.rSpin];
-  return `<div style="display:flex;justify-content:center;gap:10px;margin-bottom:4px">
+  return `<div class="r-res-nums" style="display:flex;justify-content:center;gap:10px;margin-bottom:4px">
       ${nums.map(n=>`<div class="r-res-num ${rCls(n)}">${n}</div>`).join('')}
     </div>
     <div style="font-size:.88rem;color:var(--shadow);margin-bottom:6px">${nums.map(rName).join(' & ')}</div>`;
@@ -519,8 +519,8 @@ function screenRouletteResult(){
   const res=S.rResult,n=S.rSpin;
   if(res.skipped){
     return `${hdr('Roulette · Skipped')}
-    <div class="panel" style="text-align:center">
-      <div style="font-size:1.75rem;font-weight:700;color:var(--shadow);margin-bottom:12px">Spin Skipped</div>
+    <div class="panel r-result-panel" style="text-align:center">
+      <div class="r-skip-hl" style="font-size:1.75rem;font-weight:700;color:var(--shadow);margin-bottom:12px">Spin Skipped</div>
       <div class="game-manifest" style="text-align:left;margin-bottom:6px">
         <div class="irow"><span class="ik">Final chip total</span><span class="iv">${cfmt(S.chips)}</span></div>
       </div>
@@ -534,7 +534,7 @@ function screenRouletteResult(){
       <span style="font-family:var(--btn-f);font-size:1.35rem;color:${b.color}">${b.signedDelta}</span>
     </div>`).join('');
   return `${hdr('Roulette · Result')}
-  <div class="panel" style="text-align:center">
+  <div class="panel r-result-panel" style="text-align:center">
     ${rResultNumsHTML()}
     <div class="result-head">
       <div class="result-hl" style="color:${col(res.delta)}">${res.delta>0?'You Win!':res.delta===0?'Push':'You Lose!'}</div>

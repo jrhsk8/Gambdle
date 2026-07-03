@@ -76,8 +76,8 @@ function screenBorrow(){
   const minNote=minC>BORROW_AMOUNT
     ?`<span style="font-size:.95rem;opacity:0.55"> (min bet: ${cfmt(minC)})</span>`:'';
   return`${hdr('Busted!')}
-  <div class="panel" style="text-align:center">
-    <div style="font-size:2.5rem;margin:10px 0 4px;color:var(--gold-hi)">${icon('coins',{fill:true})}</div>
+  <div class="panel borrow-panel" style="text-align:center">
+    <div class="borrow-ico" style="font-size:2.5rem;margin:10px 0 4px;color:var(--gold-hi)">${icon('coins',{fill:true})}</div>
     <div class="result-hl" style="color:var(--lose)">You're broke!</div>
     <div class="result-sub borrow-rem" style="color:var(--lose)">0 chips remaining</div>
     <div class="divider" style="margin:10px 0"></div>

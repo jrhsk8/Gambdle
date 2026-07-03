@@ -50,6 +50,7 @@
   <script src="../src/bet.js"></script>
   <script src="../src/gametext.js"></script>
   <script src="../src/audio.js"></script>
+  <script src="../src/reveal.js"></script>
   <script src="../src/ui.js"></script>
   <script src="../src/windows.js"></script>
   <script src="../src/menus.js"></script>
@@ -57,6 +58,7 @@
   <script src="../src/screens.js"></script>
   <script src="../src/flow.js"></script>
   <script src="../src/bj.js"></script>
+  <script src="../src/poker-eval.js"></script>
   <script src="../src/uth.js"></script>
   <script src="../src/poker.js"></script>
   <script src="../src/roulette.js"></script>
@@ -67,6 +69,12 @@
 
   <!-- Shared Fixture registry — drives the preview by name. -->
   <script src="../tests/harness/screen-fixtures.js"></script>
+
+  <!-- Balance audit (?balance=1 overlays dead-space bands + a score; balance-audit.js reads
+       __computeBalance headlessly). Loaded always so the hook exists; computes only on demand. -->
+  <script src="../tests/harness/layout-measure.js"></script>
+  <script src="../tests/harness/balance-roles.js"></script>
+  <script src="../tests/harness/balance-metrics.js"></script>
 
   <script>
     // Don't let the boot reload the page or animate; we drive the Screen ourselves.
@@ -85,6 +93,16 @@
         document.getElementById('app').innerHTML =
           '<pre style="color:#fff;padding:20px;font:14px monospace">Lab frame error rendering "' +
           fixture + '":\n' + (e && e.message) + '</pre>';
+      }
+      // Balance hook: the headless audit calls this after driving renderFixture itself; the
+      // lab's Balance checkbox (?balance=1) self-runs it once the fixture's settle time passes.
+      window.__computeBalance = (o) => window.BalanceMetrics
+        ? BalanceMetrics.run(Object.assign({ fixture }, o || {})) : null;
+      if (q.get('balance') === '1') {
+        const settle = (SCREEN_FIXTURES[fixture] && SCREEN_FIXTURES[fixture].settle) || 1500;
+        setTimeout(() => {
+          document.fonts.ready.then(() => window.__computeBalance({ overlay: true }));
+        }, settle);
       }
     });
   </script>
