@@ -1,0 +1,5 @@
+/* Compatibility shim · the stylesheet lives at src/styles.css since the v1.87 project reorg.
+   Browsers holding a cached pre-reorg index.html still request /styles.css; without this file
+   they boot the game fully unstyled (JS paths never moved, only the CSS did). Keep this shim:
+   deleting it re-breaks any client with a stale cached document. */
+@import url("src/styles.css");
