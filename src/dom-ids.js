@@ -27,6 +27,7 @@ const DOM = Object.freeze({
   bjActiveHand:     'bj-active-hand',
   bjActiveVal:      'bj-active-val',
   bjDealerSection:  'bj-dealer-section',
+  bjActBtns:        'bj-act-btns',
   peekBtnWrap:      'peek-btn-wrap',
 
   // Ultimate Texas Hold'em

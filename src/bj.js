@@ -220,6 +220,7 @@ function bjHit(){
     patchOrRender([isSplit?DOM.bjActiveHand:DOM.bjPlayerHand, isSplit?DOM.bjActiveVal:DOM.bjPlayerVal], (handEl, valEl) => {
       handEl.insertAdjacentHTML('beforeend', cardHTML(hand[hand.length-1], 'lg', '', 0.1, true));
       valEl.textContent = hValDisplay(hand);
+      _bjSyncActBtns(); // legality changed (Double/Split die after a hit) but the buttons stay in the DOM
       saveState(); // boundary-ok: save must follow the DOM patch (see comment above)
     });
   }
@@ -584,12 +585,23 @@ function bjActionBtns(){
   // narrower "not mid-reveal" condition than the full `locked` (which also covers the brief
   // _bjResolving window), matching the pre-convergence behavior.
   const splitLit=wildSplit&&split&&!done21&&!S.bjDealerReveal;
-  return`<div class="act-btns">
+  return`<div id="${DOM.bjActBtns}" class="act-btns">
     <button class="act-btn" onclick="bjHit()" ${hit?'':'disabled'}>Hit</button>
     <button class="act-btn" onclick="bjStand()" ${stand?'':'disabled'}>Stand</button>
     <button class="act-btn" onclick="bjDouble()" ${double?'':'disabled'}>Double</button>
     <button class="act-btn${splitLit?' btn-peek-glow':''}" onclick="bjSplit()" ${split?'':'disabled'}>${wildSplit?'Split 2×':'Split'}</button>
   </div>`;
+}
+
+// Re-syncs the action buttons' disabled attrs to bjCanAct() after a surgical (non-render) card
+// change: a hit ends Double/Split eligibility mid-hand, but the button row stays in the DOM, so
+// without this the buttons keep their deal-time enabled look while their handlers no-op.
+// Button order must match bjActionBtns(): Hit, Stand, Double, Split.
+function _bjSyncActBtns(){
+  const row=document.getElementById(DOM.bjActBtns);
+  if(!row)return;
+  const{hit,stand,double,split}=bjCanAct();
+  [hit,stand,double,split].forEach((ok,i)=>{ if(row.children[i]) row.children[i].disabled=!ok; });
 }
 
 function peekBtnHTML(){
