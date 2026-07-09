@@ -557,9 +557,15 @@ function _handValDiv(val, style='', cls='') {
   return `<div class="hand-val ${val>21?'bust':cls}"${style?` style="${style}"`:''}>${val}${val>21?' BUST':cls==='bj'?' BJ!':''}</div>`;
 }
 function bjDealerHTML(){
-  const dv=hVal(S.bjDealer);
+  // During the staggered reveal the total counts up in lock-step with the cards: score only the cards
+  // dealt so far (through S.bjDealerAnimFrom, the one animating in on this step) instead of jumping to
+  // the full total while later hit cards are still sliding in. clamp guards a stale/ANIM_NONE animFrom.
+  const shown = S.bjDealerReveal
+    ? S.bjDealer.slice(0, Math.min(S.bjDealerAnimFrom, S.bjDealer.length - 1) + 1)
+    : S.bjDealer;
+  const dv=hVal(shown);
   const valHTML = S.bjDealerReveal
-    ? `<div class="hand-val ${dv>21?'bust':''}">${hValDisplay(S.bjDealer)}${dv>21?' BUST':''}</div>`
+    ? `<div class="hand-val ${dv>21?'bust':''}">${hValDisplay(shown)}${dv>21?' BUST':''}</div>`
     : `<div class="hand-val hand-val-ghost" style="visibility:hidden">&nbsp;</div>`;
   return S.bjDealerReveal
     ?`<div class="sec">Dealer${dv>21?' · BUST':''}</div>
