@@ -189,6 +189,7 @@ async function fetchDevStats() {
             ['Average',    fmt(T.avg)],
             ['Median',     fmt(T.median)],
             ['High score', fmt(T.high)],
+            ['Std dev',    T.stddev != null ? fmt(T.stddev) : warn('needs RPC')],
             ['Net chips',  net(T.net)],
           ]],
           ['Outcomes', [
@@ -307,6 +308,10 @@ async function fetchDevStats() {
       : sorted.length % 2 === 0 ? Math.round((sorted[sorted.length/2-1] + sorted[sorted.length/2]) / 2)
       : sorted[Math.floor(sorted.length/2)];
     const max    = valScores.length ? valScores[0] : 0;
+    // Sample stddev (n-1), matching the RPC's stddev_samp.
+    const stddev = valScores.length > 1
+      ? Math.round(Math.sqrt(valScores.reduce((a, s) => a + (s - avg) ** 2, 0) / (valScores.length - 1)))
+      : 0;
     // Today's net chips — each finish's deviation from the 1,000-chip start (outliers excluded).
     const todayNet = valScores.reduce((a, s) => a + (s - START_CHIPS), 0);
 
@@ -345,6 +350,7 @@ async function fetchDevStats() {
         ['Average',          fmt(avg)],
         ['Median',           fmt(med)],
         ['High score',       fmt(max)],
+        ['Std dev',          fmt(stddev)],
         ['Net chips',        net(todayNet)],
       ]],
       ['Outcomes', [
