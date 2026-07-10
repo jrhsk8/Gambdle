@@ -71,12 +71,28 @@ function toggleTestSeed() {
 
 // ─── DEV STATS SCREEN ────────────────────────────────────────────────────
 
+// Value stats (avg/median/high/net) normally ignore scores above 100,000 as tampered/corrupt.
+// The checkbox on the page flips this off to see the raw numbers; session-only, defaults on.
+let _statsCapOn = true;
+const _STATS_CAP = 100000;
+
+function toggleStatsCap() {
+  _statsCapOn = !_statsCapOn;
+  const el = document.getElementById('devstats-body');
+  if (el) el.innerHTML = `<div style="color:var(--shadow);padding:18px 0">Fetching…</div>`;
+  fetchDevStats();
+}
+
 function screenDevStats() {
   const seed = getActiveSeed();
   return `${hdr('Dev Stats · Day #' + S.day)}
   <div class="panel" style="text-align:center">
     <div style="font-family:var(--btn-f);font-size:1.6rem;color:var(--gold-hi);margin-bottom:2px">Day #${S.day} Stats</div>
     <div style="font-size:0.72rem;color:var(--shadow);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Seed ${seed}</div>
+    <label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:0.72rem;color:var(--shadow);letter-spacing:.05em;margin-bottom:8px;cursor:pointer">
+      <input type="checkbox" ${_statsCapOn ? 'checked' : ''} onclick="toggleStatsCap()" style="width:14px;height:14px;accent-color:var(--gold)">
+      Ignore scores over 100k
+    </label>
     <div class="divider"></div>
     <div id="devstats-body">
       <div style="color:var(--shadow);padding:18px 0">Fetching…</div>
@@ -130,9 +146,10 @@ async function fetchDevStats() {
   // ── Fast path: one RPC returns the entire payload (see supabase/dev_stats.sql). Falls through to
   // the multi-query path below if get_dev_stats isn't deployed yet. ─────────────────────────────
   try {
+    // p_cap: int4 max when the checkbox is off = effectively uncapped.
     const r = await sbFetch('/rest/v1/rpc/get_dev_stats', {
       method: 'POST',
-      body: { p_seed: seed },
+      body: { p_seed: seed, p_cap: _statsCapOn ? _STATS_CAP : 2147483647 },
     });
     if (r && r.ok) {
       const d = await r.json();
@@ -280,9 +297,10 @@ async function fetchDevStats() {
     const fingerprintedCount = rows.filter(r => r.fingerprint).length;
     const bozos  = scores.filter(s => s === 0).length;
     const inProfit = scores.filter(s => s > START_CHIPS).length;
-    // Value stats (avg/median/high/net) ignore scores above 100,000: almost always tampered or
-    // corrupted saves: so they don't skew. Counts above (and completions) still include every row.
-    const valScores = scores.filter(s => s <= 100000); // rows are ordered chips.desc, so [0] is the max
+    // Value stats (avg/median/high/net) ignore scores above the cap (when the checkbox is on):
+    // almost always tampered or corrupted saves: so they don't skew. Counts above (and
+    // completions) still include every row.
+    const valScores = _statsCapOn ? scores.filter(s => s <= _STATS_CAP) : scores; // rows are ordered chips.desc, so [0] is the max
     const avg    = valScores.length ? Math.round(valScores.reduce((a, b) => a + b, 0) / valScores.length) : 0;
     const sorted = [...valScores].sort((a, b) => a - b);
     const med    = sorted.length === 0 ? 0
