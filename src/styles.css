@@ -1798,19 +1798,31 @@ body.cardback-whale .card.back::before { content: '🐋'; }
   .bj-sr-dealer .card.sm { width: 40px; height: 56px; }
   .bj-sr-hands { margin-bottom: 0 !important; gap: 6px !important; }
   /* Split hands */
-  .bj-split-lbl { font-size: 0.86rem; white-space: nowrap; }
-  .bj-split-val { font-size: 2rem; }
-  .bj-active-lbl { font-size: 1.5rem; }
+  .bj-split-lbl { font-size: 0.86rem; white-space: nowrap; margin-bottom: 2px; }
+  .bj-split-val { font-size: 1.4rem; }
+  .bj-active-lbl { font-size: 1.3rem; }
   .bj-split-active .card.lg { width: 76px; height: 106px; }
   .bj-split-active .card.lg .csuit { font-size: 2rem; }
   .bj-split-active .card.lg .ct-r { font-size: 1.35rem; }
   .bj-split-active .card.lg .ct-s { font-size: 1.12rem; }
   .bj-split-active .card.lg .ct-r[data-r="10"] { font-size: 1.1rem !important; }
-  .bj-split-active .hand-val { font-size: 2rem; }
+  .bj-split-active .hand-val { font-size: 2rem; margin-top: 6px; }
+  /* The split screen stacks the waiting-hands aside on top of everything the plain play screen shows;
+     under Safari's chrome that budget only closes with a smaller dealer band. Split screens only. */
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg { width: 62px; height: 87px; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .csuit { font-size: 2.4rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-r { font-size: 1.1rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg .ct-s { font-size: 0.92rem; }
+  .panel:has(.bj-split-active) #bj-dealer-section .card.lg.back::before { font-size: 2.3rem; }
   /* Control-position parity: the active-hand section absorbs the spare height (flex:1) and the control
      cluster sits flush at the panel bottom, so the box + buttons land at the same Y as every other screen
      (the enlarged active cards fill the freed felt). */
-  .panel:has(.bj-split-active) .bj-split-active { flex: 1 1 auto !important; min-height: 0; }
+  .panel:has(.bj-split-active) .bj-split-active { flex: 1 1 auto !important; }
+  /* The split vband must use flex-basis auto, not the .vband default of 0: with basis 0 it contributes
+     no height to the panel's min-content, so under Safari's chrome the panel never grew, the vband got
+     squeezed, and its fixed-size cards painted over the bet inlay + buttons. Basis auto makes a too-tall
+     panel grow the window and the page scroll vertically instead: the designed short-phone fallback. */
+  .panel:has(.bj-split-active) .vband:has(.bj-split-active) { flex: 1 1 auto; min-height: auto; }
   .panel:has(.bj-split-active) > div:last-child { margin-top: 0 !important; }
   /* Tighten the dividers on the dense split-play screen so the bet inlay box + buttons fit under a full
      mod banner. The control-cluster gap stays at the standard 10px (the flex:1 active hand absorbs the
@@ -1841,7 +1853,7 @@ body.cardback-whale .card.back::before { content: '🐋'; }
      re-renders to its own visible-value layout, so nothing is clipped there. */
   #bj-dealer-section .hand-val-ghost { height: 0 !important; min-height: 0 !important; margin: 0 !important; line-height: 0 !important; }
   .bj-split-aside { margin-bottom: 2px; }
-  .bj-split-aside .card.sm { width: 43px; height: 60px; }
+  .bj-split-aside .card.sm { width: 40px; height: 56px; }
   .bj-split-aside .card.sm .csuit { font-size: 1.1rem; }
   /* BJ 4-way split result: compact result hand cards */
   .bj-sr-hands .card.sm { width: 39px; height: 55px; }

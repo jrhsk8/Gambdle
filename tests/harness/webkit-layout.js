@@ -134,6 +134,23 @@ function runChecks(opts) {
     const oy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
     if (ox > OVL && oy > OVL) v.push(`OVERLAP  ${desc(a)}  ∩  ${desc(b)}  = ${R(ox)}×${R(oy)}px`);
   }
+
+  // Cards and hand values must never paint over the control cluster (bet inlay + action
+  // buttons). Neither is a tap target, so the loop above is blind to it: the split-play
+  // screen shrank below its fixed-size cards under Safari chrome and dealt them straight
+  // over the inlay without tripping any scroll or tap-target rule (the v1.94 bug).
+  const cluster = [...panel.querySelectorAll('.bet-amt, .act-btns button')];
+  const contentEls = [...panel.querySelectorAll('.card, .hand-val')].filter(el => {
+    const r = el.getBoundingClientRect();
+    return r.width > 1 && r.height > 1 && getComputedStyle(el).visibility !== 'hidden';
+  });
+  for (const c of contentEls) for (const k of cluster) {
+    if (c.contains(k) || k.contains(c)) continue;
+    const rc = c.getBoundingClientRect(), rk = k.getBoundingClientRect();
+    const ox = Math.min(rc.right, rk.right) - Math.max(rc.left, rk.left);
+    const oy = Math.min(rc.bottom, rk.bottom) - Math.max(rc.top, rk.top);
+    if (ox > OVL && oy > OVL) v.push(`CONTENT OVER CONTROLS  ${desc(c)}  ∩  ${desc(k)}  = ${R(ox)}×${R(oy)}px`);
+  }
   return v;
 }
 
