@@ -23,11 +23,16 @@
     </style>
     <!--
       This folder used to serve the Lunchboxd app at gambdle.net/lunchboxd/.
-      The app now lives at its own domain; this stub forwards old links,
-      carrying the hash so deep links (#/c/<name>, #/u/<handle>) survive.
+      The app now lives at its own domain; this stub forwards old links.
+
+      Carry BOTH the query string and the hash. The hash holds deep links
+      (#/c/<name>, #/u/<handle>); the query string holds the ?code=... of a
+      Supabase PKCE auth link, which lands here whenever GoTrue falls back to
+      the project's Site URL. Forwarding the hash alone drops that code and
+      the user arrives signed out.
     -->
     <script>
-      location.replace('https://lunchboxd.live/' + location.hash);
+      location.replace('https://lunchboxd.live/' + location.search + location.hash);
     </script>
     <meta http-equiv="refresh" content="0;url=https://lunchboxd.live/" />
   </head>
