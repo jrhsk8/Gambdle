@@ -5,7 +5,7 @@ Final mark: direction **2a** — outline lunchbox with orange star.
 ## Files
 - `lunchboxd-mark-on-dark.svg` — white outline, for dark backgrounds (primary; the brand ground is #1a1815)
 - `lunchboxd-mark-on-light.svg` — near-black outline (#1a1815), for light backgrounds
-- `lunchboxd-favicon.svg` — clay tile (#d98b6a), white lunchbox + white star; use for favicon / app icon / avatar
+- `lunchboxd-favicon.svg` — dark tile (#1a1815, the brand ground), white lunchbox + orange star, matching the header lockup; use for favicon / app icon / avatar. (Original direction was a clay tile with white star; owner-overruled 2026-07-23 — the tab icon should look like the main logo.)
 
 ## Colors
 - Outline on dark: #fcfcfc · Outline on light: #1a1815
@@ -29,7 +29,7 @@ All lowercase, the final "d" in accent clay. On light grounds use #1a1815 for th
 - Navbar: 24px mark + 17px/800 wordmark.
 
 ## Don'ts
-- Don't recolor the star to match the outline (except inside the favicon tile).
+- Don't recolor the star to match the outline.
 - Don't add a lid seam, latch, or other detail — the mark is deliberately plain.
 - Don't stretch; the box is wider than tall by design.
 - Don't place the white-outline version on light grounds (and vice versa).
