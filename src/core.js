@@ -18,7 +18,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.95';
+const GAME_VERSION = 'v1.96';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -318,13 +318,19 @@ const urlParams = new URLSearchParams(window.location.search);
 let DEV_OVERRIDE = urlParams.get('dev') === 'true' ? {} : null;
 if(DEV_OVERRIDE) {
   document.body.classList.add('dev-mode');
-  // Dev mode is a SANDBOX, never the live day. Force the test seed on (unless replaying a past
-  // backlog day, which has no live-leaderboard stakes) so dev plays a fixed practice deck on a
-  // separate save key — it can't scout today's real hands, and dev chips/mods/spins can't leak
-  // into the real save, highscore, or history. Everything downstream already keys off _testActive()
-  // (getRngSeed, getStateKey, the saveState/loadState guards), so this one flag flips all of them.
-  // The flag is inert once ?dev=true is dropped (_testActive requires DEV_OVERRIDE|__GAMBDLE_TEST__).
-  if (!_backlogSeed) _ls.setItem('gambdle_use_test_seed', '1');
+  // Dev mode is a SANDBOX for the live day and any FUTURE (Preview) day: force the test seed so it
+  // plays a fixed practice deck on a separate save key. That means dev can't scout the real cards of
+  // today or an upcoming day, and dev chips/mods/spins can't leak into the real save/highscore/history.
+  // Only a STRICTLY-PAST (Archive) backlog day is exempt — its board is already closed, so replaying
+  // its real hands has no live-leaderboard stakes. We set/clear the flag explicitly every load (not
+  // just set-once) so it always matches the current day, regardless of a flag left over from a prior
+  // day. Everything downstream keys off _testActive() (getRngSeed, getStateKey, the save/load guards),
+  // so this one flag flips all of them. The flag is inert once ?dev=true is dropped (_testActive
+  // requires DEV_OVERRIDE|__GAMBDLE_TEST__). Note: getActiveSeed() still honours the backlog seed, so
+  // Dev Stats / the modifier preview reflect the chosen day — only the CARDS are sandboxed.
+  const _pastArchiveDay = _backlogSeed && _backlogSeed < getDailySeed();
+  if (_pastArchiveDay) _ls.removeItem('gambdle_use_test_seed');
+  else _ls.setItem('gambdle_use_test_seed', '1');
 }
 
 // ─── MODIFIER RESOLUTION ────────────────────────────────────────────────
