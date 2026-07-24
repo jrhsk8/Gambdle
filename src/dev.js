@@ -129,7 +129,6 @@ async function fetchDevStats() {
   const el = document.getElementById('devstats-body');
   if (!el) return;
   const seed = getActiveSeed();
-  const headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` };
   // Each category is one inlaid (recessed) box: gold label as a header, its stats listed one per
   // line inside. The boxes flow into two columns (.dvs-groups) so the screen still fits on desktop.
   const renderGroups = (groups) =>
@@ -143,8 +142,10 @@ async function fetchDevStats() {
   const pct  = (n, d) => d > 0 ? ` <span style="color:var(--shadow);font-size:.75rem">(${Math.round(n/d*100)}%)</span>` : '';
   const net  = (n) => `<span style="color:${col(n)}">${sign(n)}</span>`;
 
-  // ── Fast path: one RPC returns the entire payload (see supabase/dev_stats.sql). Falls through to
-  // the multi-query path below if get_dev_stats isn't deployed yet. ─────────────────────────────
+  // One RPC returns the entire payload (see supabase/dev_stats.sql). It aggregates fingerprint
+  // counts server-side (SECURITY DEFINER) so the client never reads the raw device fingerprint —
+  // that column is no longer anon-selectable (see supabase/fingerprint-lockdown.sql). There is no
+  // REST fallback: a device fingerprint must never be enumerable from the browser.
   try {
     // p_cap: int4 max when the checkbox is off = effectively uncapped.
     const r = await sbFetch('/rest/v1/rpc/get_dev_stats', {
@@ -203,164 +204,8 @@ async function fetchDevStats() {
         return;
       }
     }
-  } catch (e) {}
-
-  try {
-    // Everything fires in one parallel batch: today's scores, the per-day counts, the lifetime count,
-    // the rolling 7-day metrics, the per-seed new-player counts, and the score distribution.
-    const countHeaders = { ...headers, 'Prefer': 'count=exact', 'Range': '0-0', 'Range-Unit': 'items' };
-    const jsonHeaders = { 'Content-Type': 'application/json', ...headers };
-    // Last 7 daily seeds (today first, then prior 6), Phoenix time: for the rolling 7-day metrics.
-    const last7Seeds = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(Date.now() - _PHOENIX_OFFSET_MS); d.setUTCDate(d.getUTCDate() - i);
-      return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
-    });
-    const [res, startsRes, borrowsRes, lifeScoresRes, plays7Res, newPlayerCounts, distRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/scores?seed=eq.${seed}&select=chips,created_at,fingerprint&order=chips.desc`, { headers }),
-      fetch(`${SUPABASE_URL}/rest/v1/starts?seed=eq.${seed}&select=id`, { headers: countHeaders }).catch(() => null),
-      fetch(`${SUPABASE_URL}/rest/v1/borrows?seed=eq.${seed}&select=id`, { headers: countHeaders }).catch(() => null),
-      // Lifetime completion count (header only). Unique players and net chips need a server-side
-      // aggregate (count-distinct / sum over the whole table); a REST row fetch is capped by
-      // Supabase's row limit, so those two are accurate only via the get_dev_stats path (run supabase/dev_stats.sql).
-      fetch(`${SUPABASE_URL}/rest/v1/scores?select=id`, { headers: countHeaders }).catch(() => null),
-      // Plays across the last 7 days (one submission per device per day, so this is player-days).
-      fetch(`${SUPABASE_URL}/rest/v1/scores?seed=in.(${last7Seeds.join(',')})&select=id`, { headers: countHeaders }).catch(() => null),
-      // New-player count per seed (index 0 = today, reused for "New today"; finite entries sum to the
-      // 7-day total). One call per seed; a null entry means the RPC errored/was absent.
-      Promise.all(last7Seeds.map(s =>
-        fetch(`${SUPABASE_URL}/rest/v1/rpc/get_new_player_count`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ p_seed: s }) })
-          .then(r => r.ok ? r.json() : null).catch(() => null)
-      )),
-      fetch(`${SUPABASE_URL}/rest/v1/rpc/get_score_distribution`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ p_seed: seed }) }).catch(() => null),
-    ]);
-    // Parse an exact count from a response's Content-Range header ("0-0/47" or "*/0"); null if absent.
-    const countOf = (r) => {
-      const n = parseInt(r?.headers?.get('Content-Range')?.split('/')[1]);
-      return Number.isFinite(n) ? n : null;
-    };
-    const startsCount = countOf(startsRes);
-    const borrowsCount = countOf(borrowsRes);
-
-    // New players: index 0 of the per-seed counts is today; finite entries sum to the 7-day total.
-    const newPlayers = Number.isFinite(newPlayerCounts[0]) ? newPlayerCounts[0] : null;
-    const newPlayers7 = newPlayerCounts.every(v => Number.isFinite(v)) ? newPlayerCounts.reduce((a, b) => a + b, 0) : null;
-
-    // Lifetime (all seeds, all days). Completion count is a cheap count header. Unique players and net
-    // chips need a server-side aggregate (count-distinct / sum over the whole table): a REST row fetch
-    // is capped by Supabase's row limit and would badly undercount (a fingerprint that played thousands
-    // of times still counts once, but this would only see the first page of rows), so they aren't
-    // computed here. They show real values via the get_dev_stats path above (run supabase/dev_stats.sql).
-    const lifeCompletions = countOf(lifeScoresRes);
-    const plays7 = countOf(plays7Res);
-    const lifetimeGroup = ['Lifetime · All Days', [
-      ['Unique players',   warn('needs RPC')],
-      ['Completions',      lifeCompletions !== null ? fmt(lifeCompletions) : warn('n/a')],
-      ['Net chips',        warn('needs RPC')],
-      ['Avg plays/day',    lifeCompletions !== null ? fmt(Math.round(lifeCompletions / Math.max(S.day, 1))) : warn('n/a')],
-      ['Players/day (7d)', plays7 !== null ? fmt(Math.round(plays7 / 7)) : warn('n/a')],
-      ['New players (7d)', newPlayers7 !== null ? fmt(newPlayers7) : warn('needs RPC')],
-    ]];
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const rows = await res.json();
-    const total = rows.length;
-
-    // Engagement values: computable even with zero completions.
-    const startedVal = startsCount !== null ? fmt(startsCount) : warn('needs table');
-    const dnfCount = startsCount !== null ? Math.max(startsCount - total, 0) : null;
-    const dnfVal = dnfCount !== null
-      ? `${fmt(dnfCount)}${pct(dnfCount, startsCount)}`
-      : warn('n/a');
-    const completionVal = startsCount !== null && startsCount > 0
-      ? `${Math.round(total / startsCount * 100)}%`
-      : startsCount === 0 ? warn('no starts yet') : warn('n/a');
-    // Borrowed = devices that actually took the loan today (% of starts: the base for any
-    // in-run behaviour; shown in Outcomes below). Computed here so it's ready for that group.
-    const borrowedVal = borrowsCount !== null
-      ? `${fmt(borrowsCount)}${pct(borrowsCount, startsCount)}`
-      : warn('needs table');
-
-    const engagementGroup = ['Engagement', [
-      ['Started today',    startedVal],
-      ['Completed',        fmt(total)],
-      ['DNF',              dnfVal],
-      ['Completion rate',  completionVal],
-    ]];
-
-    // No completions yet → render engagement + lifetime (which spans all days) and bail.
-    if (total === 0) {
-      el.innerHTML = renderGroups([engagementGroup, lifetimeGroup]) +
-        `<div style="color:var(--shadow);padding:14px 0;text-align:center">No completed runs yet for seed ${seed}.</div>`;
-      return;
-    }
-
-    const scores = rows.map(r => r.chips);
-    const fingerprintedCount = rows.filter(r => r.fingerprint).length;
-    const bozos  = scores.filter(s => s === 0).length;
-    const inProfit = scores.filter(s => s > START_CHIPS).length;
-    // Value stats (avg/median/high/net) ignore scores above the cap (when the checkbox is on):
-    // almost always tampered or corrupted saves: so they don't skew. Counts above (and
-    // completions) still include every row.
-    const valScores = _statsCapOn ? scores.filter(s => s <= _STATS_CAP) : scores; // rows are ordered chips.desc, so [0] is the max
-    const avg    = valScores.length ? Math.round(valScores.reduce((a, b) => a + b, 0) / valScores.length) : 0;
-    const sorted = [...valScores].sort((a, b) => a - b);
-    const med    = sorted.length === 0 ? 0
-      : sorted.length % 2 === 0 ? Math.round((sorted[sorted.length/2-1] + sorted[sorted.length/2]) / 2)
-      : sorted[Math.floor(sorted.length/2)];
-    const max    = valScores.length ? valScores[0] : 0;
-    // Sample stddev (n-1), matching the RPC's stddev_samp.
-    const stddev = valScores.length > 1
-      ? Math.round(Math.sqrt(valScores.reduce((a, s) => a + (s - avg) ** 2, 0) / (valScores.length - 1)))
-      : 0;
-    // Today's net chips — each finish's deviation from the 1,000-chip start (outliers excluded).
-    const todayNet = valScores.reduce((a, s) => a + (s - START_CHIPS), 0);
-
-    // Hourly submission breakdown from created_at
-    const hourBuckets = Array(24).fill(0);
-    for (const r of rows) {
-      const h = new Date(r.created_at);
-      hourBuckets[(h.getUTCHours() + 17) % 24]++; // shift to Phoenix time (UTC-7)
-    }
-    const peakHour = hourBuckets.indexOf(Math.max(...hourBuckets));
-    const peakAMPM = peakHour === 0 ? '12am' : peakHour < 12 ? peakHour + 'am' : peakHour === 12 ? '12pm' : (peakHour - 12) + 'pm';
-
-    // New today / Returning: reuse the today entry from the per-seed counts fetched above.
-    const newPlayersVal = newPlayers !== null ? fmt(newPlayers) : warn('needs RPC');
-    const returningPlayers = newPlayers !== null ? fingerprintedCount - newPlayers : null;
-    const returningVal = returningPlayers !== null
-      ? `${fmt(returningPlayers)}${pct(returningPlayers, fingerprintedCount)}`
-      : warn('needs RPC');
-
-    // Score distribution: same RPC as results screen (fetched in the parallel batch above), no "you" line.
-    let distHTML = '';
-    try {
-      if (distRes && distRes.ok) {
-        const dist = await distRes.json();
-        if (Array.isArray(dist) && dist.length) distHTML = _distChartHTML(dist.map(b => parseInt(b.count)));
-      }
-    } catch(e) {}
-
-    el.innerHTML = renderGroups([
-      engagementGroup,
-      ['Audience', [
-        ['New today',        newPlayersVal],
-        ['Returning',        returningVal],
-      ]],
-      ['Scores', [
-        ['Average',          fmt(avg)],
-        ['Median',           fmt(med)],
-        ['High score',       fmt(max)],
-        ['Std dev',          fmt(stddev)],
-        ['Net chips',        net(todayNet)],
-      ]],
-      ['Outcomes', [
-        ['In profit',        `${fmt(inProfit)}${pct(inProfit, total)}`],
-        ['Went bust',        `<span style="color:${bozos>0?'var(--lose)':'inherit'}">${fmt(bozos)}</span>${pct(bozos, total)}`],
-        ['Peak hour',        peakAMPM],
-        ['Borrowed',         borrowedVal],
-      ]],
-      lifetimeGroup,
-    ]) + distHTML;
+    // RPC reachable but returned an unusable shape (not deployed / older definition).
+    el.innerHTML = `<div style="color:var(--shadow);padding:14px 0;text-align:center">${warn('get_dev_stats returned no data · run supabase/dev_stats.sql')}</div>`;
   } catch (err) {
     if (el) el.innerHTML = `<div style="color:var(--lose);padding:10px 0">Error: ${err.message}</div>`;
   }

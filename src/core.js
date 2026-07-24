@@ -18,7 +18,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.94';
+const GAME_VERSION = 'v1.95';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -70,7 +70,9 @@ const getActiveSeed = () => _backlogSeed || getDailySeed();
 function _setBacklogSeedForTest(v) { _backlogSeed = v; }
 // The test seed only takes effect in dev mode (?dev=true) or under the unit-test harness
 // (which sets window.__GAMBDLE_TEST__), never in normal play, even if the flag lingers in
-// localStorage from a past dev session. DEV_OVERRIDE is read lazily (defined later in this file).
+// localStorage from a past dev session. Dev mode force-sets the flag on load (see DEV_OVERRIDE
+// init below), so a dev session is ALWAYS sandboxed onto the practice deck + test save key — it
+// never touches the live day. DEV_OVERRIDE is read lazily (defined later in this file).
 const _testActive = () => (!!DEV_OVERRIDE || !!(typeof window!=='undefined'&&window.__GAMBDLE_TEST__)) && !!_ls.getItem('gambdle_use_test_seed');
 function getRngSeed() { return _testActive()?1:(DAILY_SEED_OVERRIDES[getActiveSeed()]||getActiveSeed()); }
 function getStateKey() { return _testActive()?'gambdle_test_state':STORAGE_KEY+getActiveSeed(); }
@@ -314,7 +316,16 @@ const SUPABASE_HEADERS = { 'Content-Type': 'application/json', 'apikey': SUPABAS
 // DEV_OVERRIDE turns on via ?dev=true in the URL.
 const urlParams = new URLSearchParams(window.location.search);
 let DEV_OVERRIDE = urlParams.get('dev') === 'true' ? {} : null;
-if(DEV_OVERRIDE) document.body.classList.add('dev-mode');
+if(DEV_OVERRIDE) {
+  document.body.classList.add('dev-mode');
+  // Dev mode is a SANDBOX, never the live day. Force the test seed on (unless replaying a past
+  // backlog day, which has no live-leaderboard stakes) so dev plays a fixed practice deck on a
+  // separate save key — it can't scout today's real hands, and dev chips/mods/spins can't leak
+  // into the real save, highscore, or history. Everything downstream already keys off _testActive()
+  // (getRngSeed, getStateKey, the saveState/loadState guards), so this one flag flips all of them.
+  // The flag is inert once ?dev=true is dropped (_testActive requires DEV_OVERRIDE|__GAMBDLE_TEST__).
+  if (!_backlogSeed) _ls.setItem('gambdle_use_test_seed', '1');
+}
 
 // ─── MODIFIER RESOLUTION ────────────────────────────────────────────────
 // The full chain is: forcedMod (dev-only) > DAILY_MODIFIERS/DAILY_SEED_OVERRIDES date override >

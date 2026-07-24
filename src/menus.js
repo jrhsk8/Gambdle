@@ -204,7 +204,8 @@ function showGameSetupSubmenu(trigger){
   const rows = [
     { html: cfg },
     { sep: true },
-    { label: 'Test Seed (reset to apply)', toggle: 'toggleTestSeed()', checked: _testActive(), id: 'dev-test-seed-cb' },
+    // Dev mode is always sandboxed onto the practice deck (see DEV_OVERRIDE init in core.js), so there
+    // is no live-seed toggle to expose here any more — a dev session can never deal the real day's hands.
     { label: 'All Unlocks', toggle: 'devToggleUnlocks()', checked: getPref('golden_back_unlocked'), id: 'dev-unlocks-cb' },
   ];
   _openSub1(_renderDDItems(rows), trigger);
