@@ -4,28 +4,37 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#1a1815" />
-    <title>Lunchboxd: Food, Ranked</title>
-    <meta
-      name="description"
-      content="Invent arbitrary food categories, rank everything you eat, and watch each category's running average shift with every bite."
-    />
-    <!-- First paint is dark before any stylesheet arrives — no white flash. -->
+    <title>Lunchboxd has moved</title>
     <style>
       html {
         background: #1a1815;
+        color: #f4efe6;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+        margin: 0;
+      }
+      a {
+        color: #f4efe6;
       }
     </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="icon" type="image/svg+xml" href="/lunchboxd/brand/lunchboxd-favicon.svg" />
-    <script type="module" crossorigin src="/lunchboxd/assets/index-BdEKajHl.js"></script>
-    <link rel="stylesheet" crossorigin href="/lunchboxd/assets/index-D5FWDW2H.css">
+    <!--
+      This folder used to serve the Lunchboxd app at gambdle.net/lunchboxd/.
+      The app now lives at its own domain; this stub forwards old links,
+      carrying the hash so deep links (#/c/<name>, #/u/<handle>) survive.
+    -->
+    <script>
+      location.replace('https://lunchboxd.live/' + location.hash);
+    </script>
+    <meta http-equiv="refresh" content="0;url=https://lunchboxd.live/" />
   </head>
   <body>
-    <div id="root"></div>
+    <p>
+      Lunchboxd has moved to
+      <a href="https://lunchboxd.live/">lunchboxd.live</a>.
+    </p>
   </body>
 </html>
