@@ -349,13 +349,16 @@ describe('_effectiveBorrowAmount — min_chips floor', () => {
     } finally { _setBacklogSeedForTest(null); }
   });
 
-  it('returns min_chips when min_chips > BORROW_AMOUNT', () => {
+  it("covers Hold'em's 2/3 ante cap on a min_chips day, not just the floor itself", () => {
     _setBacklogSeedForTest(20260522); // Day 18: high_stakes, min_chips: 100
     try {
       withBrwState({ forcedMod: null, pcPick: null }, () => {
         const minC = getMod('min_chips') || 0;
         assert(minC > BORROW_AMOUNT, 'fixture day should carry a min_chips floor above BORROW_AMOUNT');
-        assertEqual(_effectiveBorrowAmount(), minC, 'should equal min_chips when modifier is active and higher');
+        const amt = _effectiveBorrowAmount();
+        assertEqual(amt, minStakeFor('uth', minC), 'loans the strictest slot requirement');
+        assertEqual(amt, 150, 'a 100 floor needs 150 so the UTH ante can reach it');
+        assert(betGuard('uth', amt, { minChips: minC }).canBet, 'the loan lands on a bettable Hold\'em screen');
       });
     } finally { _setBacklogSeedForTest(null); }
   });
@@ -363,6 +366,64 @@ describe('_effectiveBorrowAmount — min_chips floor', () => {
   it('never returns less than BORROW_AMOUNT', () => {
     withBrwState({}, () => {
       assert(_effectiveBorrowAmount() >= BORROW_AMOUNT, 'effective amount should never be below BORROW_AMOUNT');
+    });
+  });
+});
+
+// ─── Unbettable-slot routing · the min_chips softlock ────────────────────────
+// A stack can clear the day-level bust check and still be unable to bet in a slot whose own cap
+// sits under the day's min_chips floor (UTH antes at most 2/3 of the stack). That combination is
+// what stranded Pocket Change borrowers on a dead Deal button with nothing to click.
+// Day 18 (high_stakes) is the min_chips fixture: pinned in DAILY_MODIFIERS, so no CYCLE_ORDER edit
+// can reassign it.
+describe('unbettable-slot routing — min_chips vs a slot cap', () => {
+  function withStakesDay(overrides, fn) {
+    _setBacklogSeedForTest(20260522); // Day 18: high_stakes, min_chips: 100
+    try { withBrwState({ forcedMod: null, pcPick: null, ...overrides }, fn); }
+    finally { _setBacklogSeedForTest(null); }
+  }
+
+  it('_noLegalBet: true for UTH between the floor and 1.5x it, false either side', () => {
+    withStakesDay({ chips: 100 }, () => {
+      assert(!isChipBusted(), '100 clears the day-level bust check');
+      assert(_noLegalBet('uth'), 'but the 2/3 ante cap leaves no legal Hold\'em bet');
+      assert(!_noLegalBet('bj'), 'blackjack can stake the whole stack');
+      assert(!_noLegalBet('results'), 'a non-game screen is never unbettable');
+    });
+    withStakesDay({ chips: 150 }, () => {
+      assert(!_noLegalBet('uth'), '150 reaches the ante cap');
+    });
+  });
+
+  it('advanceTo walks past the unbettable slot instead of landing on it', () => {
+    withStakesDay({ screen: 'bj', chips: 120, borrowUsed: true, rResult: null, bjHand: 3, bjPhase: 'result' }, () => {
+      advanceTo('uth');
+      assertEqual(S.screen, 'roulette', "Hold'em is skipped, roulette is still playable");
+    });
+  });
+
+  it('a busted stack keeps the normal bust routing (borrow first, not a skip)', () => {
+    withStakesDay({ screen: 'bj', chips: 0, borrowUsed: false, rResult: null, bjHand: 3, bjPhase: 'result' }, () => {
+      advanceTo('uth');
+      assertEqual(S.screen, 'borrow', 'bust still offers the loan');
+    });
+  });
+
+  it('_unstickBetPhase repairs a save stranded on an unbettable bet phase', () => {
+    withStakesDay({ screen: 'uth', uthPhase: 'bet', uthAnte: 0, chips: 100, borrowUsed: true }, () => {
+      _unstickBetPhase();
+      assertEqual(S.screen, 'roulette', 'boot moves the stranded run on');
+    });
+  });
+
+  it('_unstickBetPhase leaves a mid-hand save (and a bettable one) alone', () => {
+    withStakesDay({ screen: 'uth', uthPhase: 'flop', uthAnte: 100, chips: 100 }, () => {
+      _unstickBetPhase();
+      assertEqual(S.screen, 'uth', 'a hand in progress is never skipped out from under the player');
+    });
+    withStakesDay({ screen: 'uth', uthPhase: 'bet', chips: 1000 }, () => {
+      _unstickBetPhase();
+      assertEqual(S.screen, 'uth', 'a stack that can bet stays put');
     });
   });
 });

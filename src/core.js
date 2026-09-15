@@ -18,7 +18,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.96';
+const GAME_VERSION = 'v1.97';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -513,9 +513,15 @@ function _canShowBorrow() {
   return !S.borrowUsed && S.rResult === null;
 }
 
-// Chips to loan: always at least BORROW_AMOUNT, bumped up to meet min_chips modifier floor.
+// Chips to loan: always at least BORROW_AMOUNT, bumped up so the returning player can actually bet
+// in every slot still ahead of them. The min_chips floor alone is not enough: UTH caps the ante at
+// 2/3 of the stack (keeping a 1× raise in hand), so a loan of exactly the floor lands on a Hold'em
+// bet screen with no legal bet. minStakeFor (bet.js) inverts each slot's cap; the loan takes the
+// strictest of them, so a 100-floor day loans 150 rather than 100.
 function _effectiveBorrowAmount() {
-  return Math.max(BORROW_AMOUNT, getMod('min_chips') || 0);
+  const minC = getMod('min_chips') || 0;
+  const perSlot = [GAME1, GAME2, 'roulette'].map(g => minStakeFor(g, minC));
+  return Math.max(BORROW_AMOUNT, ...perSlot);
 }
 
 // True when the player can no longer place a valid bet (< 10 chips, or below the min_chips modifier floor).

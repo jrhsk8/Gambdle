@@ -21,7 +21,7 @@ const SRC = path.join(__dirname, '..', '..', 'src');
 // module split (v1.28) and maintained by hand since.
 const MANIFEST = {
   'audio.js': ['_safePlay', 'playMp3', 'sndBigWin', 'sndCard', 'sndChip', 'sndShuffle'],
-  'bet.js': ['addToBet', 'allInAmount', 'betGuard', 'clearedBet', 'ladderMaxStake', 'maxFor'],
+  'bet.js': ['addToBet', 'allInAmount', 'betGuard', 'clearedBet', 'ladderMaxStake', 'maxFor', 'minStakeFor'],
   'bj.js': ['_bjResumeAfterRefresh', 'bjAward', 'bjAwardSplit', 'bjRulesFor', 'bjSplit', 'peekBtnHTML', 'peekRevealed', 'resetBJHand', 'resolveBJHand', 'resolveBJSplitHand', 'screenBJ', 'splitAdvance', 'splitCanAct', 'splitInit', 'splitIsActionable', 'splitResplit'],
   'core.js': [
     'ANIM_NONE', 'BORROW_AMOUNT', 'DEV_OVERRIDE', 'GAME1', 'GAME1_OPTIONS', 'GAME2',
@@ -46,9 +46,9 @@ const MANIFEST = {
     'screenDevStats', 'screenDevices', 'screenRetention', 'toggleTestSeed',
   ],
   'flow.js': [
-    '_enterFirstSlot', '_nextHand', '_noAnim', '_resultPanel', '_skipHand', '_submitBorrow',
-    '_submitClient', 'advanceTo', 'goTo', 'navRender', 'render', 'resultAdvanceBtn', 'startGame',
-    'updateChipDisplay',
+    '_enterFirstSlot', '_nextHand', '_noAnim', '_noLegalBet', '_resultPanel', '_skipHand',
+    '_skipUnbettable', '_submitBorrow', '_submitClient', '_unstickBetPhase', 'advanceTo', 'goTo',
+    'navRender', 'render', 'resultAdvanceBtn', 'startGame', 'updateChipDisplay',
   ],
   'game.js': [],
   'gametext.js': [
@@ -72,7 +72,7 @@ const MANIFEST = {
     'submitAndFetchLeaderboard',
   ],
   'ui.js': [
-    '_refreshShareBox', 'aiosRow', 'allIn', 'betInlay', 'betInlaySum', 'cardHTML', 'cfmt', 'cfmtK',
+    '_refreshShareBox', 'aiosRow', 'allIn', 'betInlay', 'betInlaySum', 'canBetOn', 'cardHTML', 'cfmt', 'cfmtK',
     'chipDispDiv', 'chipScale', 'chipSel', 'col', 'csign', 'doShare', 'fmt', 'fmtK', 'gameControls',
     'gameDots', 'hdr', 'maxBet', 'modBannerHTML', 'nextBtn', 'patchBetUI', 'patchEl', 'patchGroup',
     'patchOrRender', 'patchZones', 'renderCards', 'sign', 'toast',

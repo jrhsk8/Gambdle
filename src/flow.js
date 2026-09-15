@@ -126,6 +126,33 @@ function _skipHand(screen, entry) {
   navRender();
 }
 
+// A game slot the player cannot legally bet in, even though the day-level bust check says they're
+// still alive: their stack clears the min_chips floor but not the slot's own cap on top of it (UTH
+// stakes at most 2/3 of the stack). Landing there means a bet screen with every button dead and no
+// route onward, so every path into a slot asks this first and moves past the slot instead.
+// Screen-level question only: the caller decides whether the slot is at its bet phase.
+function _noLegalBet(screen) { return !!GAMES[screen] && !canBetOn(screen); }
+
+// The next screen a player who can't bet here should land on: the run-order successor, walked until
+// it reaches a slot they can bet in (or falls off the end into results). A busted stack can't bet
+// anywhere, so it's left alone here and keeps the normal bust → borrow → results routing.
+function _skipUnbettable(s) {
+  if (isChipBusted()) return s;
+  while (_noLegalBet(s)) s = NEXT_SCREEN[s] || 'results';
+  return s;
+}
+
+// Repairs a save left sitting on a bet phase the stack can't legally bet in. Only reachable from
+// runs saved before the borrow loan covered each slot's cap (a Pocket Change borrow handed back
+// exactly the 100-chip floor and returned the player to Hold'em, whose ante caps at 2/3 of that).
+// Runs once at boot, before first paint, so those runs resume on a playable screen. Bet phase only:
+// a mid-hand refresh has chips committed and must never be skipped out from under the player.
+function _unstickBetPhase() {
+  const g = GAMES[S.screen];
+  if (!g || S[g.phaseKey] !== 'bet') return;
+  S.screen = _skipUnbettable(S.screen);
+}
+
 // Shared "next hand" flow: sound → reset → re-render (or go to results/borrow if busted).
 function _nextHand(resetFn) {
   sndAdvance();
@@ -137,7 +164,12 @@ function _nextHand(resetFn) {
     } else {
       S.screen = 'results';
     }
+    navRender();
+    return;
   }
+  // Not busted, but this slot's cap leaves no legal bet for the hands it has left: hand the run on
+  // to the next screen rather than re-rendering a dead bet phase.
+  if (_noLegalBet(S.screen)) { advanceTo(NEXT_SCREEN[S.screen] || 'results'); return; }
   navRender();
 }
 
@@ -173,7 +205,9 @@ function _resultPanel(dotsHTML, delta, headlineHTML, detailHTML, btnAction, btnT
 // NEXT_SCREEN[game].
 function resultAdvanceBtn(isLast, nextScreen) {
   if (isChipBusted()) return { text: `Game Over ${icon('skull',{fill:true})}`, action: "advanceTo('results')" };
-  if (!isLast)        return { text: 'Next Hand →',  action: 'advanceHand()' };
+  // Hands left, but nothing legal to bet on them (see _noLegalBet): label the button for where the
+  // run actually goes next instead of promising a hand the player can't play.
+  if (!isLast && !_noLegalBet(S.screen)) return { text: 'Next Hand →',  action: 'advanceHand()' };
   // Use the SHORT game name ("Hold'em", not "Ultimate Texas Hold'em") so the label fits the
   // box-width advance button on one line at every breakpoint, especially the narrow 1024 panel.
   const text = nextScreen === 'roulette' ? 'Final Round: Roulette →' : `Round 2: ${GAME_META[nextScreen].short} →`;
@@ -185,6 +219,10 @@ function sndAdvance(){if(S.chips>=2000)sndBigWin();else if(S.chips>=700)playMp3(
 // Navigates between games; redirects to results early if the player is busted (<10 chips).
 // If the borrow option is still available when a bust is detected, shows the borrow screen first.
 function advanceTo(s){
+  // Walk past any slot whose cap leaves the player no legal bet (see _noLegalBet) before the
+  // routing below reads `s`, so a skipped slot still gets the ladder detour / results recalc it
+  // would have got from its own successor.
+  s = _skipUnbettable(s);
   // The Ladder mod day: a completed run to 'results' detours once through the free bonus round, but
   // only after roulette has resolved (rResult set) and the ladder hasn't been played yet. The two
   // states that DON'T earn it both move straight to results (so the chip recalc below runs): a player

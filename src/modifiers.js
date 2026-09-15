@@ -74,6 +74,9 @@ const PRESET_MODIFIERS = {
   comeback:        { type: 'cross',   title: "Comeback",             desc: "Wins pay 2x if you are below 1000 chips",         comeback: true,                              devNote: '' },
   all_in_or_skip:  { type: 'cross',   title: "Martingale",           desc: "All wins are doubled. You can only go all in.",   all_in_or_skip: true,                        devNote: '' },
   ladder_day:      { type: 'cross',   title: "The Ladder",           desc: "Bonus game after roulette with a free entry", ladder_free: 250, devNote: 'Hi-lo streak climb, shared sequence for everyone. Crash costs nothing, cash out keeps the full pot.' },
+  // RETIRED from CYCLE_ORDER (its 10-chip stack sat right on the min_chips floor, so a busted
+  // player's loan couldn't cover Hold'em's 2/3 ante cap). Preset kept, and its two played days
+  // pinned below, so Archive replay and the dev menu still resolve it.
   pocket_change:   { type: 'cross',   title: "Pocket Change",        desc: "Play with just 10 chips. Your final score is multiplied by 100.", chip_div: 100, min_chips: 100, devNote: 'Your chips wear the grey 10-chip look but each is worth 1. Internal balance/score/integrity all stay full-scale, so only the readouts shrink.' },
   // Player's Choice — before the run, the player picks ONE of the three `choices` to be the day's
   // modifier. Each variant below is just a different trio (any 3 non-choice preset keys); the
@@ -140,7 +143,7 @@ const CYCLE_ORDER = [
   'uth_sixth_card',        // 17: uth (Sixth Sense)                              ┐ non-roulette pair (uth→bj)
   'bj_two_hands',          // 18: bj  (Double Vision)                            ┘
   'r_group_even',          // 19: roulette (Even Money)
-  'pocket_change',         // 20: cross (Pocket Change)
+  'double_pay',            // 20: bj (Blackjack Bonus · took Pocket Change's slot when it was retired)
   'r_double_all',          // 21: roulette
   'uth_time_travel',       // 22: uth
   'r_group_19_36',         // 23: roulette
@@ -223,6 +226,10 @@ const DAILY_MODIFIERS = {
   20260623: 'bj_two_hands',        // Day 49: Double Vision (BJ: pick one of two hands)
   20260624: 'r_group_black',       // Day 50: In the Black (roulette force-group)
   20260701: 'r_respin',            // Day 58: Second Chance (swapped in for the cycled Pocket Change)
+  // ── Pocket Change's only two played days, pinned when it was retired from CYCLE_ORDER so their
+  //    archives (and the server replay of their scores) still resolve the mod they were played under.
+  20260808: 'pocket_change',       // Day 96
+  20260915: 'pocket_change',       // Day 134 (live when the retirement shipped)
 };
 
 // 

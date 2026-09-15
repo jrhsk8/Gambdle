@@ -183,6 +183,11 @@ function _liveBetMods(){
 // Adapter over the pure bet-guard (bet.js): resolve the live chips + active modifiers, hand them to
 // betGuard, return just the cap. The per-game cap rules (UTH 2/3, Ladder 25% / free-entry) live there.
 function maxBet(){ return betGuard(S.screen, S.chips, _liveBetMods()).max; }
+// Same guard asked about a screen the player is heading TO rather than the one being rendered:
+// can this stack place any legal bet there at all? A game's own cap can sit below the day's
+// min_chips floor (UTH stakes at most 2/3 of the stack), which would strand the player on a bet
+// screen with every button dead, so flow.js checks this before routing into a slot.
+function canBetOn(screen){ return betGuard(screen, S.chips, _liveBetMods()).canBet; }
 
 // ─── SURGICAL PATCH HELPERS ───────────────────────────────────
 // The single place that decides "patch in place, else rebuild from S", so the never-render()-

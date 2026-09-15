@@ -22,6 +22,7 @@ function _maybeShowWelcomePopup() {
 }
 
 loadState();
+_unstickBetPhase(); // repairs a save stranded on a bet phase its stack can't legally bet in (flow.js)
 applyPrefs();
 render();
 initWindowDrag();

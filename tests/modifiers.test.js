@@ -88,9 +88,13 @@ describe('Pocket Change — modifier config', () => {
     assertEqual(m.min_chips, 100, 'min_chips (drives borrow=1 + bust-below-1)');
     assert(!/—/.test(m.title + m.desc + m.devNote), 'no em dashes in player-facing copy');
   });
-  it('stays in the cycle but is unpinned from Jun 17 (showcase bumped it to a cycle debut)', () => {
-    assert(CYCLE_ORDER.includes('pocket_change'), 'pocket_change still in CYCLE_ORDER for its cycle debut');
-    assertEqual(DAILY_MODIFIERS[20260617], 'uth_sixth_card', 'Jun 17 now launches Sixth Sense, not Pocket Change');
+  it('retired from the cycle, with its two played days pinned so archives still resolve it', () => {
+    assert(!CYCLE_ORDER.includes('pocket_change'), 'pocket_change removed from CYCLE_ORDER');
+    assert(PRESET_MODIFIERS.pocket_change, 'preset retained for Archive replay + dev menu');
+    assertEqual(DAILY_MODIFIERS[20260808], 'pocket_change', 'Day 96 pinned');
+    assertEqual(DAILY_MODIFIERS[20260915], 'pocket_change', 'Day 134 pinned');
+    assertEqual(CYCLE_ORDER[19], 'double_pay', 'slot 20 now runs Blackjack Bonus');
+    assertEqual(DAILY_MODIFIERS[20260617], 'uth_sixth_card', 'Jun 17 launches Sixth Sense, not Pocket Change');
   });
   it('Jun 15 (Day 42) frozen at its pre-reorder cycle value before the reshuffle', () => {
     assertEqual(DAILY_MODIFIERS[20260615], 'r_group_25_36', 'Day 42 freeze pin');
@@ -916,8 +920,10 @@ describe('Pocket Change — chip scaling behavior', () => {
     });
   });
 
-  it('borrow loans 1 chip (100 internal); bust floor is 1 chip', () => {
-    withMod('pocket_change', undefined, () => assertEqual(_effectiveBorrowAmount(), 100, 'borrow = 1 chip'));
+  it('borrow loans 1.5 chips (150 internal, enough for the UTH ante cap); bust floor is 1 chip', () => {
+    // 100 internal (1 chip) clears the min_chips floor but not Hold'em's 2/3 ante cap on top of it,
+    // which is what stranded borrowers on a dead Deal button. See minStakeFor (bet.js).
+    withMod('pocket_change', undefined, () => assertEqual(_effectiveBorrowAmount(), 150, 'borrow = 1.5 chips'));
     withMod('pocket_change', 99,  () => assert(isChipBusted() === true,  'below 1 chip → busted'));
     withMod('pocket_change', 100, () => assert(isChipBusted() === false, 'exactly 1 chip → not busted'));
   });

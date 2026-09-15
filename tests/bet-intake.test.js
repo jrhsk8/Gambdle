@@ -36,6 +36,36 @@ describe('maxFor — per-game stake cap', () => {
   });
 });
 
+// ─── minStakeFor · the inverse of the cap ──────────────────────────────────────
+describe('minStakeFor — smallest stack that can still bet', () => {
+  it('is zero on a day with no min_chips floor', () => {
+    assertEqual(minStakeFor('uth', 0), 0, 'uth');
+    assertEqual(minStakeFor('bj', 0), 0, 'bj');
+  });
+
+  it('is the floor itself for the whole-stack games', () => {
+    assertEqual(minStakeFor('bj', 100), 100, 'bj');
+    assertEqual(minStakeFor('roulette', 100), 100, 'roulette');
+    assertEqual(minStakeFor('poker', 100), 100, 'poker');
+  });
+
+  it('is ceil(floor * 3/2) for UTH, whose ante caps at 2/3 of the stack', () => {
+    assertEqual(minStakeFor('uth', 100), 150, '100 floor → 150');
+    assertEqual(minStakeFor('uth', 50), 75, '50 floor → 75');
+    assertEqual(minStakeFor('uth', 25), 38, '25 floor → 38 (rounds up)');
+  });
+
+  it('agrees with betGuard: its answer is the first stack that can bet', () => {
+    for (const minChips of [25, 50, 100]) {
+      for (const game of ['bj', 'uth', 'roulette']) {
+        const need = minStakeFor(game, minChips);
+        assert(betGuard(game, need, { minChips }).canBet, `${game} @ ${need} can bet`);
+        assert(!betGuard(game, need - 1, { minChips }).canBet, `${game} @ ${need - 1} cannot`);
+      }
+    }
+  });
+});
+
 // ─── ladderMaxStake · the raw 25% cap shared with ladder.js ────────────────────
 describe('ladderMaxStake — 25% of stack, floored at 25, never above the stack', () => {
   it('returns 25% of the stack above the floor', () => {

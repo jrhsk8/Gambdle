@@ -8,6 +8,7 @@
 //
 //   ladderMaxStake(chips)            → the Ladder's raw 25%-of-stack cap
 //   maxFor(game, chips, mods)        → the most a player may stake on `game`
+//   minStakeFor(game, minChips)      → the smallest stack that can still bet on `game`
 //   addToBet(current, delta, max)    → current + a chip's value, clamped into [0, max]
 //   clearedBet()                     → 0
 //   allInAmount(game, chips, mods)   → the all-in stake (the cap, today)
@@ -30,6 +31,19 @@ function maxFor(game, chips, mods = {}){
   if (game === 'ladder') return mods.ladderFree || ladderMaxStake(chips);
   if (game === 'uth')    return Math.floor(chips * 2 / 3);
   return chips;
+}
+
+// The smallest stack that can still place a legal bet on `game` under a `minChips` floor: the
+// inverse of maxFor's cap. UTH only lets the player stake ⌊chips·2/3⌋, so meeting a floor of 100
+// there needs 150 in the stack, not 100. A stack between the two clears the day-level bust check
+// (core.js isChipBusted) while every button on the Hold'em bet screen is dead, which is exactly the
+// Pocket Change softlock: the borrow loan handed back 100 and dropped the player on it. The borrow
+// amount (core.js _effectiveBorrowAmount) is sized through here so a loan always lands playable.
+// The Ladder is not covered: its 25% cap is never paired with a min_chips day.
+function minStakeFor(game, minChips){
+  if (!minChips) return 0;
+  if (game === 'uth') return Math.ceil(minChips * 3 / 2);
+  return minChips;
 }
 
 // Add a chip's value to the current stake, clamped into [0, max] so a bet can never
