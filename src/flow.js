@@ -320,6 +320,53 @@ async function _submitProgress(stage) {
   if (res && res.ok) _ls.setItem(key, '1');
 }
 
+// ─── History restore ──────────────────────────────────────────────────────────
+// The daily streak is computed only from localStorage (gambdle_history), so a wiped or reset copy
+// on the phone drops a long streak to 0 even though the server still has every submitted day. At
+// load, restoreHistory() fetches this device's submitted (seed, chips) rows and fills in any day the
+// local copy is missing, and raises gambdle_highscore (plus its cosmetic unlocks) if the server's
+// best is higher. Runs once per device per day; skipped in dev/test/backlog. Requires the
+// get_device_history RPC (supabase/device-history.sql).
+
+// PURE: no S, no DOM, no storage. Adds only seeds `local` lacks (a local entry always wins) and
+// ignores rows after `today` or with non-numeric chips. Returns { hist, added, best } where best is
+// the highest chips across the merged history.
+function _mergeHistory(local, rows, today) {
+  const hist = { ...local };
+  let added = 0;
+  for (const r of rows || []) {
+    if (!r || r.seed == null || r.chips == null) continue;
+    const seed = Number(r.seed), chips = Number(r.chips);
+    if (!Number.isInteger(seed) || seed < 20000101 || seed > today || !Number.isFinite(chips)) continue;
+    if (hist[seed] === undefined) { hist[seed] = chips; added++; }
+  }
+  const best = Math.max(0, ...Object.values(hist).map(Number).filter(Number.isFinite));
+  return { hist, added, best };
+}
+
+async function restoreHistory() {
+  if (DEV_OVERRIDE || _testActive() || _backlogSeed) return;
+  const today = getDailySeed();
+  const key = 'gambdle_history_synced';
+  if (_ls.getItem(key) === String(today)) return;
+  const rows = await sbJson('/rest/v1/rpc/get_device_history', {
+    method: 'POST', body: { p_fingerprint: getDeviceId() }, timeout: 8000,
+  });
+  if (!Array.isArray(rows)) return;
+  let local = {};
+  try { local = JSON.parse(_ls.getItem('gambdle_history') || '{}') || {}; } catch (_e) {}
+  const { hist, added, best } = _mergeHistory(local, rows, today);
+  if (added) _ls.setItem('gambdle_history', JSON.stringify(hist));
+  const high = parseInt(_ls.getItem('gambdle_highscore') || '0') || 0;
+  if (best > high) {
+    _ls.setItem('gambdle_highscore', String(best));
+    for (const u of UNLOCKS) if (best >= u.threshold && !getPref(u.prefKey)) setPref(u.prefKey, true);
+  }
+  _ls.setItem(key, String(today));
+  // Mid-hand screens update surgically, never via render(); the restored streak shows on the next screen.
+  if ((added || best > high) && !GAMES[S.screen]) render();
+}
+
 // The game stages a progress beacon fires on (entry to game 2, the roulette finale, and the Ladder
 // bonus round on ladder_day). Game 1 is already covered by the `starts` row, and reaching 'results'
 // is covered by the score submission. 'ladder' only occurs on ladder_day; it's a no-op otherwise.

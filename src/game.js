@@ -32,3 +32,5 @@ _maybeShowWelcomePopup();
 // live network writes at boot; the rest of its skip logic (dev/test/backlog/dedup) lives
 // in _submitClient, which every caller shares.
 if (!(typeof window !== 'undefined' && window.__GAMBDLE_TEST__)) _submitClient();
+// Refills a wiped local streak history from this device's submitted scores (flow.js). Same test gate.
+if (!(typeof window !== 'undefined' && window.__GAMBDLE_TEST__)) restoreHistory();

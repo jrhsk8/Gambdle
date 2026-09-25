@@ -18,7 +18,7 @@
 // Set browser tab title
 document.title = "♠️ Gambdle";
 
-const GAME_VERSION = 'v1.98';
+const GAME_VERSION = 'v1.99';
 
 // Storage wrapper: tries localStorage, falls back to sessionStorage (private browsing).
 // State survives tab refreshes in either case; sessionStorage clears when the tab closes.
@@ -666,16 +666,13 @@ function saveState() {
       ]) if (S.chips >= min && !getPref(key)) { setPref(key, true); unlockMsg = txt; }
       if (unlockMsg) setTimeout(()=>toast(unlockMsg), 1200);
     }
-    // Wrap in try/catch: a long-running player's gambdle_history can become corrupted JSON;
-    // if so, reset it to just today's entry rather than throwing and killing render().
-    try {
-      const history = JSON.parse(_ls.getItem('gambdle_history') || '{}');
-      history[getDailySeed()] = S.chips;
-      _ls.setItem('gambdle_history', JSON.stringify(history));
-    } catch (_e) {
-      const fresh = {}; fresh[getDailySeed()] = S.chips;
-      _ls.setItem('gambdle_history', JSON.stringify(fresh));
-    }
+    // Only unreadable JSON starts a fresh history (restoreHistory in flow.js refills it from the
+    // server on the next load). A failed write, e.g. storage full, leaves the existing history
+    // alone: overwriting it with a one-day copy is what silently reset long streaks.
+    let history;
+    try { history = JSON.parse(_ls.getItem('gambdle_history') || '{}') || {}; } catch (_e) { history = {}; }
+    history[getDailySeed()] = S.chips;
+    try { _ls.setItem('gambdle_history', JSON.stringify(history)); } catch (_e) {}
   }
 }
 

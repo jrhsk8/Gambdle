@@ -48,7 +48,7 @@ const MANIFEST = {
   'flow.js': [
     '_enterFirstSlot', '_nextHand', '_noAnim', '_noLegalBet', '_resultPanel', '_skipHand',
     '_skipUnbettable', '_submitBorrow', '_submitClient', '_unstickBetPhase', 'advanceTo', 'goTo',
-    'navRender', 'render', 'resultAdvanceBtn', 'startGame', 'updateChipDisplay',
+    'navRender', 'render', 'restoreHistory', 'resultAdvanceBtn', 'startGame', 'updateChipDisplay',
   ],
   'game.js': [],
   'gametext.js': [
