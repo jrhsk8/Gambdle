@@ -126,3 +126,19 @@ describe('Seed Checker — scanSeedDays', () => {
     assert(typeof r.modTitle === 'string', 'mod title string');
   });
 });
+
+// The reroll script (npm run reroll:seeds) remaps every future day that scores 4+/6 combined losses.
+// Adding or reordering modifiers changes which mod lands on a future day, which can bring a brutal
+// deck back, so this re-checks every day from tomorrow through the last override on each test run.
+describe('Seed Checker — rerolled future days stay under 4/6', () => {
+  it('no day from tomorrow through the last seed override scores 4+', () => {
+    const last = Math.max(...Object.keys(DAILY_SEED_OVERRIDES).map(Number));
+    const start = _nextDailySeed();
+    const bad = [];
+    for (let seed = start; seed <= last; seed = _scAddDays(seed, 1)) {
+      const r = scanSeedDays(seed, 1)[0];
+      if (r.uth.hi + r.bj.hi >= 4) bad.push(`${seed} ${r.modTitle} ${r.uth.hi + r.bj.hi}/6`);
+    }
+    assert(bad.length === 0, `brutal future days, run npm run reroll:seeds: ${bad.join(', ')}`);
+  });
+});

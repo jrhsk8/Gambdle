@@ -7,7 +7,8 @@
     "screenshots:windows": "node tests/harness/window-screenshots.js",
     "lab": "node lab/lab-serve.js",
     "lab:smoke": "node tests/harness/lab-smoke.js",
-    "audit:balance": "node tests/harness/balance-audit.js"
+    "audit:balance": "node tests/harness/balance-audit.js",
+    "reroll:seeds": "node tests/harness/reroll-seeds.js"
   },
   "devDependencies": {
     "playwright": "^1.60.0"
